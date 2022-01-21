@@ -1,0 +1,388 @@
+
+
+data
+list(years = 6, periods = c(136, 135, 164, 178, 179, 151),observers = 41 , T=90, nknots=14, knot=c(-1.46,-1.26,-1.02,-0.78,-0.58,-0.34,-0.10,0.10,0.34,0.57,0.78,1.02,1.26,1.46), degree1=1, degree2=2)
+
+load matrices for "begin", "end","n", "n1", "n2", "u", "vs", "bf", "obs"
+
+
+inits
+list(
+b0.pi1=0.5, b1.pi1=0, b2.pi1=0, sigma.obs1=1,
+g1.1=1, g2.1=1, g3.1=1,
+g1.2=1, g2.2=1, g3.2=1,
+g1=1, g2=1, g3=1,
+b0.pi2=0.5, b1.pi2=0, b2.pi2=0, sigma.obs2=1,
+b0.pi=0.5, b1.pi=0, b2.pi=0, sigma.obs=1,
+sd.b1=c(1,1,1,1,1,1), ub2 = c(0,0,0), sd.bb2=c(1,1,1), beta1 = structure(
+.Data = c(
+0,0,0,0,0,0,
+0,0,0,0,0,0),
+.Dim=c(2,6)),))))
+
+load matrix with N inits with zeros at end
+("", "1" and "2")
+#load z units (only with time varying z)
+))
+
+model{
+
+	for(y in 1:years){
+
+		#calculate effort
+		E[periods[y]+1,y]<-1
+		E[periods[y]+2,y]<-1
+		t[periods[y]+1,y]<-1
+		t[periods[y]+2,y]<-90
+		day[periods[y]+1,y]<-round(t[periods[y]+1,y])
+		day[periods[y]+2,y]<-round(t[periods[y]+2,y])
+
+		for(j in 1:periods[y]){
+
+			t[j,y]<-(begin[j,y]+end[j,y])/2
+			E[j,y]<-end[j,y]-begin[j,y]
+			day[j,y]<-round(t[j,y])
+		}
+
+		#model 1
+
+		N1[periods[y]+1,y]<-0
+		N1[periods[y]+2,y]<-0
+
+		for(j in 1:periods[y]){
+			for(i in 1:2){
+				n1[j,i,y]~dbin(p1[j,i,y], N1[j,y])
+				p1[j,i,y]<-u[j,i,y]*pi1[j,i,y] #will develop models for p
+				e1[j,i,y]<-E[j,y]*u[j,i,y]
+				#a kind of zero-inflated binomial, with an offset for effort duration
+
+				logit(pi1[j,i,y])<-logit(b0.pi1) + (g1.1*b1.pi1*bf[j,y]) + (g2.1*b2.pi1*vs[j,y])  +(g3.1*b3.pi1[obs[j,i,y]]) 
+
+				#specify obs as zero when no observations actually conducted
+			}
+
+			for(i in 1:2){
+
+				#generate replicate data and compute fit
+				n1.new[j,i,y]~dbin(p1[j,i,y], N1[j,y])
+			}
+		}
+
+		fit1[y]<-sum(n1[1:periods[y],1:2,y])
+		fit1.new[y]<-sum(n1.new[1:periods[y],1:2,y])
+
+		pvalue1[y]<-step(fit1.new[y]-fit1[y])
+
+		for(j in 1:periods[y]+2){
+
+			N1[j,y]~dpois(mu.N1[j,y])
+			log(mu.N1[j,y])<-log(E[j,y])+ f1[day[j,y],y]
+		}
+
+		for(k in 1:T){
+			f1[k,y]<-inprod(beta1[,y],X1[k,,y])+ inprod(b1[,y],Z1[k,,y])
+			time1[k,y]<-k
+			covariate1[k,y]<-(time1[k,y]-mt1[y])/sdt1[y]
+			for (l in 1:degree1+1){
+				X1[k,l,y] <- pow(covariate1[k,y],l-1)
+			}
+		}
+
+		mt1[y]<-mean(time1[1:T,y])
+		sdt1[y]<-sd(time1[1:T,y])
+
+		for(j in 1:nknots){
+			b1[j,y]~dnorm(0,tau.b1[y])
+		}
+
+		for(l in 1:degree1+1){
+			beta1[l,y]~dnorm(0,0.01)
+		}
+
+		for(k in 1:T){
+			for(j in 1:nknots){
+
+				Z1[k,j,y]<-pow(uZ1[k,j,y], degree1)
+				uZ1[k,j,y]<-(covariate1[k,y]-knot[j])*step(covariate1[k,y]-knot[j])
+			}
+
+			log(model1[k,y])<- f1[k,y]
+			temp1[k,y]<-f1[k,y]
+			specific[k,y]<-cut(temp1[k,y])
+
+		}
+
+		tau.b1[y]<-1/(sd.b1[y]*sd.b1[y])
+		sd.b1[y]~dunif(0,10)
+
+		nn1[y]<-sum(model1[1:T,y])
+		NN1[y]<-round(nn1[y])
+		AA1[y]<-NN1[y]*f.n1
+
+	}
+
+	f.n1~dnorm(m.fn1,tau.fn1)
+	m.fn1<-1.0875
+	sd.fn1<-0.03625
+	tau.fn1<-1/(sd.fn1*sd.fn1)
+
+	g1.1~dbern(0.5)
+	g2.1~dbern(0.5)
+	g3.1~dbern(0.5)
+	b0.pi1~dunif(0,1)
+	b1.pi1~dnorm(0,0.01)
+
+	b2.pi1~dnorm(0, 0.01)
+
+	for(i in 1:observers){
+
+		b3.pi1[i]~dnorm(0,tau.obs1)
+	}
+
+	tau.obs1<-1/(sigma.obs1*sigma.obs1)
+	sigma.obs1~dunif(0,2)
+
+	for(y in 1:years){
+
+		N2[periods[y]+1,y]<-0
+		N2[periods[y]+2,y]<-0
+
+		for(j in 1:periods[y]){
+
+			for(i in 1:2){
+				n2[j,i,y]~dbin(p2[j,i,y], N2[j,y])
+				p2[j,i,y]<-u[j,i,y]*pi2[j,i,y] #will develop models for p
+				e2[j,i,y]<-E[j,y]*u[j,i,y]
+				#a kind of zero-inflated binomial, with an offset for effort duration
+
+				logit(pi2[j,i,y])<-logit(b0.pi2) + (g1.2*b1.pi2*bf[j,y]) + (g2.2*b2.pi2*vs[j,y]) + (g3.2*b3.pi2[obs[j,i,y]])
+				#specify obs as zero when no observations actually conducted
+
+			}
+
+			for(i in 1:2){
+
+				#generate replicate data and compute fit
+				n2.new[j,i,y]~dbin(p2[j,i,y], N2[j,y])
+			}
+		}
+
+		fit2[y]<-sum(n2[1:periods[y],1:2,y])
+		fit2.new[y]<-sum(n2.new[1:periods[y],1:2,y])
+
+		pvalue2[y]<-step(fit2.new[y]-fit2[y])
+
+		for(j in 1:periods[y]+2){
+
+			N2[j,y]~dpois(mu.N2[j,y])
+
+			#mu.N2[j,y]~dgamma(a.mu.N2[j,y],lambda2[y])
+			#a.mu.N2[j,y]<-u.N2[j,y]*lambda2[y]
+
+			log(mu.N2[j,y])<-log(E[j,y])+f2[day[j,y],y] 
+
+		}
+
+		for(k in 1:T){
+			f2[k,y]<-inprod(beta2[,y],X2[k,,y])
+			log(model2[k,y])<- f2[k,y]
+			temp2[k,y]<-f2[k,y]
+			common[k,y]<-cut(temp2[k,y])
+
+			time2[k,y]<-k
+			covariate2[k,y]<-(time2[k,y]-mt2[y])/sdt2[y]
+
+			for (l in 1:degree2+1){
+				X2[k,l,y] <- pow(covariate2[k,y],l-1)
+			}
+		}
+
+		mt2[y]<-mean(time2[1:T,y])
+		sdt2[y]<-sd(time2[1:T,y])
+
+		for (l in 1:degree2+1){
+			beta2[l,y] ~dnorm(ub2[l],tau.bb2[l])
+		}
+
+		meantime2[y]<-((-beta2[2,y]/(2*beta2[3,y]))*sdt2[y])+ mt2[y]
+
+		nn2[y]<-sum(model2[1:T,y])
+		NN2[y]<-round(nn2[y])
+		AA2[y]<-NN2[y]*f.n2
+
+	}
+
+	f.n2~dnorm(m.fn2,tau.fn2)
+
+	m.fn2<-1.0875
+	sd.fn2<-0.03625
+	tau.fn2<-1/(sd.fn2*sd.fn2)
+
+	g1.2~dbern(0.5)
+	g2.2~dbern(0.5)
+	g3.2~dbern(0.5)
+
+	b0.pi2~dunif(0,1)
+	b1.pi2~dnorm(0,0.01)
+
+	b2.pi2~dnorm(0, 0.01)
+
+	for(i in 1:observers){
+
+		b3.pi2[i]~dnorm(0,tau.obs2)
+	}
+
+	tau.obs2<-1/(sigma.obs2*sigma.obs2)
+	sigma.obs2~dunif(0,2)
+
+	for (l in 1:degree2+1){
+		ub2[l] ~dnorm(0,0.01)
+		tau.bb2[l]<-1/(sd.bb2[l]*sd.bb2[l])
+		sd.bb2[l]~dunif(0,10)
+	}
+
+	for(i in 1:T){
+
+		log(average2[i])<-ub2[1]+ub2[2]*cov2[i] + ub2[3]*pow(cov2[i],2)
+		ta2[i]<-i
+		cov2[i]<-(ta2[i]-mta2)/sdta2
+	}
+	mta2<-mean(ta2[1:T])
+	sdta2<-sd(ta2[1:T])
+
+	for(y in 1:years){
+
+		N[periods[y]+1,y]<-0
+		N[periods[y]+2,y]<-0
+
+		for(j in 1:periods[y]){
+
+			for(i in 1:2){
+				n[j,i,y]~dbin(p[j,i,y], N[j,y])
+				p[j,i,y]<-u[j,i,y]*pi[j,i,y]
+				e[j,i,y]<-E[j,y]*u[j,i,y]
+				#a kind of zero-inflated binomial, with an offset for effort duration
+				logit(pi[j,i,y])<- logit(b0.pi) + (g1*b1.pi*bf[j,y]) + (g2*b2.pi*vs[j,y]) + (g3*b3.pi[obs[j,i,y]])
+				#specify obs as zero when no observations actually conducted
+
+			}
+
+
+			for(i in 1:2){
+
+				#generate replicate data and compute fit
+				n.new[j,i,y]~dbin(p[j,i,y], N[j,y])
+			}
+		}
+
+		fit[y]<-sum(n[1:periods[y],1:2,y])
+		fit.new[y]<-sum(n.new[1:periods[y],1:2,y])
+
+		pvalue[y]<-step(fit.new[y]-fit[y])
+
+		for(j in 1:periods[y]+2){
+			N[j,y]~dpois(mu.N[j,y])
+
+			#mu.N[j,y]~dgamma(a.mu.N[j,y],lambda[y])
+			#a.mu.N[j,y]<-u.N[j,y]*lambda[y]
+
+			log(mu.N[j,y])<-log(E[j,y])+ log.m[j,y]
+
+			log.m[j,y]<-z[day[j,y],y]*common[day[j,y],y] +(1-z[day[j,y],y])*specific[day[j,y],y] 
+		}
+
+		for(k in 1:T){
+
+			z[k,y]~dbern(0.5)
+			probz[k,y]<-equals(z[k,y],1)
+
+			log(model[k,y])<- z[k,y]*common[k,y] +(1-z[k,y])*specific[k,y] 
+		}
+
+
+		nn[y]<-sum(model[1:T,y])
+		NN[y]<-round(nn[y])
+		AA[y]<-NN[y]*f.n
+
+		tau.pi[y]<-1/(sd.pi[y]*sd.pi[y])
+		sd.pi[y]~dunif(0,1)
+
+	}
+
+	f.n~dnorm(m.fn,tau.fn)
+
+	m.fn<-1.0875
+	sd.fn<-0.03625
+	tau.fn<-1/(sd.fn*sd.fn)
+
+	g1~dbern(0.5)
+	g2~dbern(0.5)
+	g3~dbern(0.5)
+
+	b0.pi~dunif(0,1)
+	#meanpi<-exp(b0.pi)/(1+exp(b0.pi))
+	b1.pi~dnorm(0, 0.01)
+	b2.pi~dnorm(0, 0.01)
+
+	for(i in 1:observers){
+
+		b3.pi[i]~dnorm(0,tau.obs)
+	}
+
+	tau.obs<-1/(sigma.obs*sigma.obs)
+	sigma.obs~dunif(0,2)
+
+	#Derived Quantities
+	for(y in 1:years){
+		for(j in 1:periods[y]){
+			for(k in 1:T){
+				effort.to.day[j,k,y]<-equals(day[j,y],k)*E[j,y]
+				whales.to.day[j,k,y]<-equals(day[j,y],k)*N[j,y]
+			}
+
+			for(i in 1:2){
+
+				for(k in 1:T){
+
+					effort.to.day.per.station[j,k,i,y]<-equals(day[j,y],k)*e[j,i,y]
+					count.to.day.per.station[j,k,i,y]<-equals(day[j,y],k)*n[j,i,y]
+				}
+			}
+		}
+
+		for(i in 1:2){
+			for(k in 2:T-1){
+				count.station[k,i,y]<-sum(count.to.day.per.station[1:periods[y],k,i,y])
+				count.station.pred[k,i,y] ~ dnorm(count.station[k,i,y],1000000000)
+				count.station.round[k,i,y]<-round(count.station.pred[k,i,y])
+
+				effort.station[k,i,y]<-sum(effort.to.day.per.station[1:periods[y],k,i,y])
+				effort.station.pred[k,i,y]~dnorm(effort.station[k,i,y],1000000000)
+				effort.station.round[k,i,y]<-effort.station.pred[k,i,y]*step(effort.station.pred[k,i,y]-0.05)
+				effort.station.day[k,i,y]<-step(effort.station.round[k,i,y]-0.05)
+
+				#count.per.day[k,i,y]<-count.station.round[k,i,y]/effort.station.round[k,i,y]
+			}
+
+			totalcount[i,y]<-sum(count.station.round[2:T-1,i,y])
+			totaleffort[i,y]<-sum(effort.station.round[2:T-1,i,y])
+			totaldays[i,y]<-sum(effort.station.day[2:T-1,i,y])
+
+		}
+
+		for(k in 1:T){
+			whales[k,y]<-sum(whales.to.day[1:periods[y],k,y])
+			whales.pred[k,y]~dnorm(whales[k,y],1000000000)
+			whales.pred2[k,y]<-whales.pred[k,y]*step(whales.pred[k,y]-0.05)
+			whales.round[k,y]<-round(whales.pred2[k,y])
+			effort[k,y]<-sum(effort.to.day[1:periods[y],k,y])
+			effort.pred[k,y]~dnorm(effort[k,y],1000000000)
+			effort.round[k,y]<-effort.pred[k,y]*step(effort.pred[k,y]-0.05)
+
+			#whales.per.day[k,y]<-whales[k,y]/effort[k,y]
+		}
+
+		whales.on.watch[y]<-sum(whales[1:T,y])
+
+	}
+}
