@@ -362,8 +362,9 @@ chain3 <- paste(folder1, "/CODAchain3.txt", sep="")
  
 # and, finally, getting the results
 res <- read.bugs(c(chain1, chain2, chain3))
+sfStop()
 
-save.image("GW BUGS 7yr 100k.RData")
+save.image("GW BUGS 7yr 100k parallel.RData")
 
 ```
 
