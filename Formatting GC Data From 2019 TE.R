@@ -9,14 +9,14 @@ library(lubridate)
 ##################################
 
 YEAR <- 2019 #Enter the year of the data files
-FILES <- list.files(paste0("Data/", YEAR, "2019/"))
+FILES <- list.files(paste0("Data/", YEAR, "/"))
 
 
 for(ff in 1:length(FILES)){ 
   
   #Comment lines create formatting problems because each word is interpreted as a column
   #So, first read in individual lines from each file and skip the comment lines when creating a data frame with read.table
-  dataLines <- readLines(paste0("Data/2019/",FILES[ff]))
+  dataLines <- readLines(paste0("Data/", YEAR, "/",FILES[ff]))
   COMMENTS <- which(substr(dataLines,5,5)=="C") #Comment lines, which are problematic for input / formatting
   
   if(length(COMMENTS)>0){
@@ -62,7 +62,7 @@ for(ff in 1:length(FILES)){
   
   for(i in 1:(length(Shifts)-1)){
     Observer <- data[Shifts[i],5] #Only use the first observer for model random effect
-    BeginDay <- mdy(data[Shifts[i],3]) - mdy(paste0("11/30/",YEAR)) # Days since Nov 30th
+    BeginDay <- mdy(data[Shifts[i],3]) - mdy(paste0("11/30/",(YEAR-1))) # Days since Nov 30th of the previous year
     BeginHr <- (hour(hms(data[Shifts[i],4])) + (minute(hms(data[Shifts[i],4]))/60)) # Decimal hour of shift start time
     NextBeginHr <- (hour(hms(data[Shifts[i+1],4])) + (minute(hms(data[Shifts[i+1],4]))/60)) # Decimal hour of next shift start time
     EndHr <- NextBeginHr - 0.00001 # End time is just before next start time (replicating J Durban's calculations)

@@ -1,17 +1,20 @@
 
+rm(list = ls())
 #library(dplyr)
 library(tidyverse)
 library(lubridate)
-
 
 
 ##################################
 #This works for years up to 2016
 ##################################
 
-FILES <- list.files(paste0(getwd(),"/2016 Edited for JWD"))
+YEAR <- 2016
+FILES <- list.files(paste0("Data/", YEAR, "/"))
+#FILES <- list.files(paste0(getwd(),"/2016 Edited for JWD"))
 #FILES <- list.files(paste0(getwd(),"/GRANITE CANYON 2019_2020_RAW AND EDITED DATA FILES (for Josh Stewart)/Granite Canyon 2020 Visual Data-EDITED"))
 
+ff <- 1
 for(ff in 1:length(FILES)){ 
   
   # Read in the file, fill blanks with NA, skip the first line (ONLY SKIP IF FILES HAVE 'EDITED FOR' LINE TO BEGIN)
@@ -21,9 +24,12 @@ for(ff in 1:length(FILES)){
   #                           FILES[ff]), fill=T, 
   #                    na.strings = "", stringsAsFactors = F)
   
+  # TE: the first line to read in starts with "001". So, skip lines until it sees "001"
+  
+  
   # It does not like to separate the first two fields: line number and event code,
   # which are separated by a space, not tab.
-  data <- read.table(paste0("2016 Edited for JWD/", FILES[ff]), 
+  data <- read.table(paste0("Data/", YEAR, "/", FILES[ff]), 
                      #sep = " ", 
                      fill=T, 
                      skip = 1,  # eliminates "EIDTED for JWD"
@@ -37,11 +43,13 @@ for(ff in 1:length(FILES)){
   for(i in 1:(length(Shifts)-1)){
     #Only use the first observer for model random effect
     Observer <- data[Shifts[i],5] 
-    # Days since Nov 30th (TE: why 2015?)
-    BeginDay <- mdy(data[Shifts[i],3]) - mdy("11/30/2015") 
+    # Days since Nov 30th (TE: why 2015? - because the study period starts in the previous year)
+    BeginDay <- mdy(data[Shifts[i],3]) - mdy(paste0("11/30/", (YEAR-1)))
+    
     # Decimal hour of shift start time
     BeginHr <- (hour(hms(data[Shifts[i],4])) + 
                   (minute(hms(data[Shifts[i],4]))/60)) 
+    
     # Decimal hour of next shift start time
     NextBeginHr <- (hour(hms(data[Shifts[i+1],4])) + 
                       (minute(hms(data[Shifts[i+1],4]))/60)) 
