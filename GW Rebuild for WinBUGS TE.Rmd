@@ -91,7 +91,7 @@ dim(obs) <- c(179,2,6) #convert this back to a 3D array
 #  obs[(periods[i]+1):(periods[i]+2),,i] <- 36 #this will force it to the mean observation probability with no observer effect
 #}
 
-N_inits <- as.matrix(read.table(paste0(dir.name, "Initial Values/N_inits.txt"),
+N_inits <- as.matrix(read.table("Data/Initial Values/N_inits.txt",
                                 header=T))
 
 for(i in 1:length(periods)){
