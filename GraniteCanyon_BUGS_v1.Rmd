@@ -5,6 +5,8 @@ output: html_notebook
 
 This notebook contains the analysis of gray whale count data from Granite Canyon,  CA. It was first developed by John Durban, which was later rewritten by Josh Stewart. I'm just translating Josh's code into a notebook file so that I can annotate better. Furthermore, I will use OpenBUGS rather than WinBUGS in order to make this run on my Linux computer. 
 
+Updated 2022-02-07: Parallel computing did not improve the speed, at least on the linux laptop. I should try it on my Windows computer to see if it speeds up... 
+
 Load libraries:
 
 ```{r}
@@ -24,27 +26,39 @@ Get necessary data and initial values files:
 periods <-c(136, 135, 164, 178, 179, 151)
 
 #Watch start times, as fraction of a day
-begin <- as.matrix(read.table("Formatted Data Files for 2019 Analysis/Data/begin.txt", 
-                              header=T))
+begin <- as.matrix(read.table("Data/begin.txt", 
+                              header=T, 
+                              nrows = max(periods)))
 
 #watch end times
-end <- as.matrix(read.table("Formatted Data Files for 2019 Analysis/Data/end.txt", header=T))
+end <- as.matrix(read.table("Data/end.txt", 
+                            header=T,
+                            nrows = max(periods)))
 
 #whale counts
-n <- as.matrix(read.table("Formatted Data Files for 2019 Analysis/Data/n.txt",header=T))
+n <- as.matrix(read.table("Data/n.txt",
+                          header=T,
+                          nrows = max(periods)))
+
 dim(n) <- c(179,2,6) #convert this back to a 3D array
 #n <- abind(n,array(0,dim=c(2,2,6)), along=1) #add two trailing 0s to the end of the sightings array (this is for the day 1 and day 90 zero-whale anchor points)
 
 
-n1 <- as.matrix(read.table("Formatted Data Files for 2019 Analysis/Data/n1.txt",header=T))      #These aren't needed; used in the WinBUGS GUI version previously. Here we can just re-use n
+n1 <- as.matrix(read.table("Data/n1.txt",
+                           header=T,
+                          nrows = max(periods)))      #These aren't needed; used in the WinBUGS GUI version previously. Here we can just re-use n
 dim(n1) <- c(179,2,6) #convert this back to a 3D array
 
 
-n2 <- as.matrix(read.table("Formatted Data Files for 2019 Analysis/Data/n2.txt",header=T))      #These aren't needed
+n2 <- as.matrix(read.table("Data/n2.txt",
+                           header=T,
+                          nrows = max(periods)))      #These aren't needed
 dim(n2) <- c(179,2,6) #convert this back to a 3D array
 
 
-u <- as.matrix(read.table("Formatted Data Files for 2019 Analysis/Data/u.txt",header=T))
+u <- as.matrix(read.table("Data/u.txt",
+                          header=T,
+                          nrows = max(periods)))
 dim(u) <- c(179,2,6) #convert this back to a 3D array
 #u <- abind(u,array(0,dim=c(2,2,6)), along=1) #add two trailing 0s to the end of the effort on/off array
 #for(i in 1:length(periods)){ #Place 1's for 'effort on' for the two periods following the end of true watches (this is for the day 1 and day 90 zero-whale anchor points)
@@ -53,22 +67,28 @@ dim(u) <- c(179,2,6) #convert this back to a 3D array
 
 
 #visibility
-vs <- as.matrix(read.table("Formatted Data Files for 2019 Analysis/Data/vs.txt",header=T))
+vs <- as.matrix(read.table("Data/vs.txt",
+                           header=T,
+                          nrows = max(periods)))
 #vs <- rbind(vs,matrix(NA,nrow=2,ncol=6)) #Add two trailing NAs (this is for the day 1 and day 90 zero-whale anchor points)
 
 #beaufort
-bf <- as.matrix(read.table("Formatted Data Files for 2019 Analysis/Data/bf.txt",header=T))
+bf <- as.matrix(read.table("Data/bf.txt",
+                           header=T,
+                          nrows = max(periods)))
 #bf <- rbind(bf,matrix(NA,nrow=2,ncol=6)) #Add two trailing NAs (this is for the day 1 and day 90 zero-whale anchor points)
 
 #observer numbers
-obs <- as.matrix(read.table("Formatted Data Files for 2019 Analysis/Data/obs.txt",header=T))
+obs <- as.matrix(read.table("Data/obs.txt",
+                            header=T,
+                          nrows = max(periods)))
 dim(obs) <- c(179,2,6) #convert this back to a 3D array
 #obs <- abind(obs,array(0,dim=c(2,2,6)), along=1) #add two trailing 0s to the end of the effort on/off array
 #for(i in 1:length(periods)){ #Place 36s for 'no observer' for the two periods following the end of true watches (this is for the day 1 and day 90 zero-whale anchor points)
 #  obs[(periods[i]+1):(periods[i]+2),,i] <- 36 #this will force it to the mean observation probability with no observer effect
 #}
 
-N_inits <- as.matrix(read.table("Formatted Data Files for 2019 Analysis/Initial values/N_inits.txt",header=T))
+N_inits <- as.matrix(read.table("Data/Initial values/N_inits.txt",header=T))
 
 for(i in 1:length(periods)){
   N_inits[(periods[i]+1):(periods[i]+2),i] <- NA #we're going to make N a partially observed data object with anchor points at day 1 and 90
@@ -125,59 +145,59 @@ for(i in 1:length(periods)){ #Place 36s for 'no observer' for the two periods fo
 }
 Watch.Length.short <- Watch.Length[,1:4]
 
-jags.data.short <- list(n=n.short,
-                        n.com=n.short,
-                        n.sp=n.short,
-                        n.station = dim(n.short)[2],
-                        n.year = dim(n.short)[3],
-                        n.obs = max(obs.short),
-                        periods = periods.short,
-                        obs=obs.short,
-                        #Watch.Length = 0.0625,
-                        u=u.short,
-                        vs=vs.short,
-                        bf=bf.short,
-                        day=t.short,
-                        #day=day.short,
-                        N=N.short,
-                        N.com=N.short,
-                        N.sp=N.short,
-                        knot=c(-1.46,-1.26,-1.02,-0.78,
-                               -0.58,-0.34,-0.10,0.10,
-                               0.34,0.57,0.78,1.02,1.26,1.46),
-                        n.knots=14,
-                        Watch.Length=Watch.Length.short)
-
-jags.inits.short <- function() list(mean.prob = 0.5,
-                                    BF.Fixed = 0,
-                                    VS.Fixed = 0,
-                                    mean.prob.sp = 0.5,
-                                    BF.Fixed.sp = 0,
-                                    VS.Fixed.sp = 0,
-                                    mean.prob.com = 0.5,
-                                    BF.Fixed.com = 0,
-                                    VS.Fixed.com = 0,
-                                    mean.beta = c(0,0,0), #mean.beta = c(5,0.14,-3.5),
-                                    beta.sigma = c(0.5,0.5,0.5),#beta.sigma = c(7,7,7),
-                                    BF.Switch = 1,
-                                    VS.Switch = 1,
-                                    OBS.Switch = 1,
-                                    sigma.Obs = 1,
-                                    BF.Switch.sp = 1,
-                                    VS.Switch.sp = 1,
-                                    OBS.Switch.sp = 1,
-                                    sigma.Obs.sp = 1,
-                                    BF.Switch.com = 1,
-                                    VS.Switch.com = 1,
-                                    OBS.Switch.com = 1,
-                                    sigma.Obs.com = 1,
-                                    N = N_inits.short,
-                                    N.com = N_inits.short,
-                                    N.sp = N_inits.short,
-                                    #z = matrix(1,nrow=90,ncol=6),
-                                    beta.sp = array(data=0,dim=c(2,4)),
-                                    sd.b.sp = c(1,1,1,1),
-                                    z=matrix(1,nrow=90,ncol=4))
+# jags.data.short <- list(n=n.short,
+#                         n.com=n.short,
+#                         n.sp=n.short,
+#                         n.station = dim(n.short)[2],
+#                         n.year = dim(n.short)[3],
+#                         n.obs = max(obs.short),
+#                         periods = periods.short,
+#                         obs=obs.short,
+#                         #Watch.Length = 0.0625,
+#                         u=u.short,
+#                         vs=vs.short,
+#                         bf=bf.short,
+#                         day=t.short,
+#                         #day=day.short,
+#                         N=N.short,
+#                         N.com=N.short,
+#                         N.sp=N.short,
+#                         knot=c(-1.46,-1.26,-1.02,-0.78,
+#                                -0.58,-0.34,-0.10,0.10,
+#                                0.34,0.57,0.78,1.02,1.26,1.46),
+#                         n.knots=14,
+#                         Watch.Length=Watch.Length.short)
+# 
+# jags.inits.short <- function() list(mean.prob = 0.5,
+#                                     BF.Fixed = 0,
+#                                     VS.Fixed = 0,
+#                                     mean.prob.sp = 0.5,
+#                                     BF.Fixed.sp = 0,
+#                                     VS.Fixed.sp = 0,
+#                                     mean.prob.com = 0.5,
+#                                     BF.Fixed.com = 0,
+#                                     VS.Fixed.com = 0,
+#                                     mean.beta = c(0,0,0), #mean.beta = c(5,0.14,-3.5),
+#                                     beta.sigma = c(0.5,0.5,0.5),#beta.sigma = c(7,7,7),
+#                                     BF.Switch = 1,
+#                                     VS.Switch = 1,
+#                                     OBS.Switch = 1,
+#                                     sigma.Obs = 1,
+#                                     BF.Switch.sp = 1,
+#                                     VS.Switch.sp = 1,
+#                                     OBS.Switch.sp = 1,
+#                                     sigma.Obs.sp = 1,
+#                                     BF.Switch.com = 1,
+#                                     VS.Switch.com = 1,
+#                                     OBS.Switch.com = 1,
+#                                     sigma.Obs.com = 1,
+#                                     N = N_inits.short,
+#                                     N.com = N_inits.short,
+#                                     N.sp = N_inits.short,
+#                                     #z = matrix(1,nrow=90,ncol=6),
+#                                     beta.sp = array(data=0,dim=c(2,4)),
+#                                     sd.b.sp = c(1,1,1,1),
+#                                     z=matrix(1,nrow=90,ncol=4))
 
 jags.data <- list(n=n,
                   n.com=n,
@@ -264,9 +284,9 @@ parameters <- c("lambda","OBS.RF","OBS.Switch",
 # nb <- 60000
 # nc <- 3
 
-n.iter <- 100000 #500
-n.thin <- 80 #2
-n.burn <- 60000 #200
+n.iter <- 100000 #500 #
+n.thin <- 80 #2 #
+n.burn <- 60000 #200 #
 n.chain <- 3
 
 MCMC.params <- list(n.iter = n.iter,
@@ -356,15 +376,15 @@ sfLapply(1:n.chain,
 Run_Time <- Sys.time() - Start_Time
 
 # locating position of each CODA chain - each folder has all chains.
-chain1 <- paste(folder1, "/CODAchain1.txt", sep="")
-chain2 <- paste(folder1, "/CODAchain2.txt", sep="")
-chain3 <- paste(folder1, "/CODAchain3.txt", sep="")
+chain1 <- paste(folders[[1]], "/CODAchain1.txt", sep="")
+chain2 <- paste(folders[[1]], "/CODAchain2.txt", sep="")
+chain3 <- paste(folders[[1]], "/CODAchain3.txt", sep="")
  
 # and, finally, getting the results
-res <- read.bugs(c(chain1, chain2, chain3))
+res <- read.bugs(c(chain1, chain2, chain3), quiet = T)
 sfStop()
 
-save.image("GW BUGS 7yr 100k parallel.RData")
+save.image("RData/GW BUGS 7yr 100k parallel.RData")
 
 ```
 
