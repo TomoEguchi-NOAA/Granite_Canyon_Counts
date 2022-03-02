@@ -1,6 +1,5 @@
 
-rm(list = ls())
-#library(dplyr)
+rm(list=ls())
 library(tidyverse)
 library(lubridate)
 
@@ -9,12 +8,12 @@ library(lubridate)
 #This works for years up to 2016
 ##################################
 
-YEAR <- 2016
+YEAR <- 2016 #Enter the year of the data files
 FILES <- list.files(paste0("Data/", YEAR, "/"))
+
 #FILES <- list.files(paste0(getwd(),"/2016 Edited for JWD"))
 #FILES <- list.files(paste0(getwd(),"/GRANITE CANYON 2019_2020_RAW AND EDITED DATA FILES (for Josh Stewart)/Granite Canyon 2020 Visual Data-EDITED"))
 
-ff <- 1
 for(ff in 1:length(FILES)){ 
   
   # Read in the file, fill blanks with NA, skip the first line (ONLY SKIP IF FILES HAVE 'EDITED FOR' LINE TO BEGIN)
@@ -33,7 +32,7 @@ for(ff in 1:length(FILES)){
   data <- read.table(paste0("Data/", YEAR, "/", FILES[ff]), 
                      #sep = " ", 
                      fill=T, 
-                     skip = (idx.line1 - 1),  # eliminates lines before "001"
+                     skip = (idx.line1-1),  # eliminates lines up to "001"
                      na.strings = "", 
                      stringsAsFactors = F)
   
@@ -44,8 +43,9 @@ for(ff in 1:length(FILES)){
   for(i in 1:(length(Shifts)-1)){
     #Only use the first observer for model random effect
     Observer <- data[Shifts[i],5] 
-    # Days since Nov 30th (TE: why 2015? - because the study period starts in the previous year)
-    BeginDay <- mdy(data[Shifts[i],3]) - mdy(paste0("11/30/", (YEAR-1)))
+    
+    # Days since Nov 30th (TE: why 2015?) - each season starts in the previous year
+    BeginDay <- mdy(data[Shifts[i],3]) - mdy(paste0("11/30/", (YEAR-1))) 
     
     # Decimal hour of shift start time
     BeginHr <- (hour(hms(data[Shifts[i],4])) + 
@@ -54,19 +54,25 @@ for(ff in 1:length(FILES)){
     # Decimal hour of next shift start time
     NextBeginHr <- (hour(hms(data[Shifts[i+1],4])) + 
                       (minute(hms(data[Shifts[i+1],4]))/60)) 
+    
     # End time is just before next start time (replicating J Durban's calculations)
     EndHr <- NextBeginHr - 0.00001 
+    
     # Beginning time as a decimal day
     Begin <- BeginDay + BeginHr/24 
+    
     #End time as a decimal day
     End <- BeginDay + (EndHr/24)
+    
     #Beaufort (maximum from watch period)
     BF <- max(data[Shifts[i]:(Shifts[i+1]-1),12],na.rm=T) 
+    
     #Visibility (maximum from watch period)
     VS <- max(data[Shifts[i]:(Shifts[i+1]-1),13],na.rm=T) 
     
     if(BF ==-Inf){BF <- data[Shifts[i]+1,5]}
     if(VS ==-Inf){VS <- data[Shifts[i]+1,6]}
+    
     #First set of code only works for shifts prior to the final shift
     if(i < (length(Shifts)-1)){ 
       # Group numbers from this watch period
@@ -144,5 +150,3 @@ Data_Out[which(Data_Out$end-Data_Out$begin < 0.059),]
 
 dplyr::filter(data, V2=='P')
 is.na(as.numeric(data$V5))
-
-
