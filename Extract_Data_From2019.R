@@ -10,14 +10,14 @@ library(lubridate)
 #Modifications for 2019 onwards
 ##################################
 
-YEAR <- 2019 #Enter the year of the data files
+YEAR <- 2022 #Enter the year of the data files
 FILES <- list.files(paste0("Data/", YEAR, "/"))
 
 # FILES <- list.files(paste0(getwd(),
 #                            "/GRANITE CANYON 2019_2020_RAW AND EDITED DATA FILES (for Josh Stewart)/Granite Canyon 2020 Visual Data-EDITED"))
 # YEAR <- 2019 #Enter the year of the data files
 
-ff <- 1
+ff <- 2
 for(ff in 1:length(FILES)){ 
   
   #Comment lines create formatting problems because each word is interpreted as a column
@@ -46,11 +46,7 @@ for(ff in 1:length(FILES)){
                        col.names = paste0("V",1:16))
   }
   
-  # Read in the file, fill blanks with NA, skip the first line (ONLY SKIP IF FILES HAVE 'EDITED FOR' LINE TO BEGIN)
-  #data <- read.table(paste0(getwd(),"/2016 Edited for JWD/",FILES[ff]), fill=T, skip=1, na.strings = "", stringsAsFactors = F)
-  #data <- read.table(paste0(getwd(),"/GRANITE CANYON 2019_2020_RAW AND EDITED DATA FILES (for Josh Stewart)/Granite Canyon 2020 Visual Data-EDITED/",FILES[ff]), fill=T, na.strings = "", stringsAsFactors = F)
-  
-  
+
   #In some cases, an observer accidentally ends a watch and quickly restarts it after recognizing their error
   #To this formatting code, it would look like multiple short shifts, which would get thrown out
   #So we want to identify shift stops and starts within some threshold of each other 
@@ -64,9 +60,12 @@ for(ff in 1:length(FILES)){
     #Make an array to hold the time differences of starts and ends
     Diffs <- matrix(NA, ncol=length(Ends), nrow=length(Starts)) 
 
+    t <- 1
     for(t in 1:length(Starts)){
-      #Subtract all end times from each start time (if an end time is less than 90 seconds before a start time, that's probably an error)
-      Diffs[t,] <- seconds(hms(data[Starts[t],4])) - seconds(hms(data[Ends,4])) 
+      #Subtract all end times from each start time (if an end time is less than 90 seconds 
+      # before a start time, that's probably an error)
+      # TE: I added [t] to Ends in the following line. I think it's needed.
+      Diffs[t,] <- seconds(hms(data[Starts[t],4])) - seconds(hms(data[Ends[t],4])) 
     }
     
     #Select the differences that are likely errors (End, <90 seconds, Start. Oops!)
@@ -83,13 +82,13 @@ for(ff in 1:length(FILES)){
   
   for(i in 1:(length(Shifts)-1)){
     #Only use the first observer for model random effect
-    Observer <- data[Shifts[i],5] 
+    Observer <- data[Shifts[i], 5] 
     # Days since Nov 30th of the previous year
-    BeginDay <- mdy(data[Shifts[i],3]) - mdy(paste0("11/30/", (YEAR - 1)))
+    BeginDay <- mdy(data[Shifts[i], 3]) - mdy(paste0("11/30/", (YEAR - 1)))
     # Decimal hour of shift start time
-    BeginHr <- (hour(hms(data[Shifts[i],4])) + (minute(hms(data[Shifts[i],4]))/60)) 
+    BeginHr <- (hour(hms(data[Shifts[i], 4])) + (minute(hms(data[Shifts[i], 4]))/60)) 
     # Decimal hour of next shift start time
-    NextBeginHr <- (hour(hms(data[Shifts[i+1],4])) + (minute(hms(data[Shifts[i+1],4]))/60)) 
+    NextBeginHr <- (hour(hms(data[Shifts[i+1], 4])) + (minute(hms(data[Shifts[i+1], 4]))/60)) 
     # End time is just before next start time (replicating J Durban's calculations)
     EndHr <- NextBeginHr - 0.00001 
     # Beginning time as a decimal day
@@ -97,39 +96,40 @@ for(ff in 1:length(FILES)){
     #End time as a decimal day
     End <- BeginDay + (EndHr/24)
     #Beaufort (maximum from watch period)
-    BF <- max(data[Shifts[i]:(Shifts[i+1]-1),12],na.rm=T) 
+    BF <- max(data[Shifts[i]:(Shifts[i+1]-1), 12], na.rm=T) 
     #Visibility (maximum from watch period)
-    VS <- max(data[Shifts[i]:(Shifts[i+1]-1),13],na.rm=T) 
+    VS <- max(data[Shifts[i]:(Shifts[i+1]-1), 13], na.rm=T) 
     
     #If there are no sightings, then columns 12/13 won't have BF/VS. So instead, take the VS 
     #record at the start of the shift:
     try(
-      {if(!is.numeric(BF)){BF <- data[Shifts[i]+1,5]}
-        if(is.na(BF)){BF <- data[Shifts[i]+1,5]}
-        if(BF ==-Inf){BF <- data[Shifts[i]+1,5]}
-        if(!is.numeric(VS)){VS <- data[Shifts[i]+1,5]}
-        if(is.na(VS)){VS <- data[Shifts[i]+1,6]}
-        if(VS ==-Inf){VS <- data[Shifts[i]+1,6]}},
+      {if(!is.numeric(BF)){BF <- data[Shifts[i]+1, 5]}
+        if(is.na(BF)){BF <- data[Shifts[i]+1, 5]}
+        if(BF == -Inf){BF <- data[Shifts[i]+1, 5]}
+        if(!is.numeric(VS)){VS <- data[Shifts[i]+1, 5]}
+        if(is.na(VS)){VS <- data[Shifts[i]+1, 6]}
+        if(VS == -Inf){VS <- data[Shifts[i]+1, 6]}},
       silent=T)
     
     
     if(i < (length(Shifts)-1)){ #First set of code only works for shifts prior to the final shift
+      # Groups = Observers. Only the first (primary) observer is considered (V5)
       GroupsThisWatch <- data[Shifts[i]:(Shifts[i+1]-1),] %>% # Group numbers from this watch period
-        filter(V2=="S") %>%
+        filter(V2 == "S") %>%
         distinct(V5) %>%
         pull()
       
       GroupsNextWatch <- data[Shifts[i+1]:(Shifts[i+2]-1),] %>% # Group numbers from next watch period
-        filter(V2=="S") %>%
+        filter(V2 == "S") %>%
         distinct(V5) %>%
         pull()
+      # Which groups from watch i were also observed in watch i+1? They should be excluded from i and counted in i+1
+      Spillover <- GroupsThisWatch[GroupsThisWatch %in% GroupsNextWatch] 
       
-      Spillover <- GroupsThisWatch[GroupsThisWatch %in% GroupsNextWatch] # Which groups from watch i were also observed in watch i+1? They should be excluded from i and counted in i+1
-      
-      if(length(Spillover>0)){ #if there are groups that spill over into following watch, 
+      if(length(Spillover > 0)){ #if there are groups that spill over into following watch, 
         try(
           {N <- data[(Shifts[i]):(Shifts[i+1]-1),] %>% # Calculate the number of whales in the watch period
-            filter(V2=="S", !(V5 %in% Spillover), V14!="North") %>% #select sightings only (code S)
+            filter(V2 == "S", !(V5 %in% Spillover), V14 != "North") %>% #select sightings only (code S)
             group_by(V5) %>% #group by the whale group number
             summarize(Count = last(V9)) %>% #take the last count of the group (repeated counts tend to increase with more observations)
             summarize(N = sum(as.numeric(Count)))}, #sum all final group counts
@@ -137,7 +137,7 @@ for(ff in 1:length(FILES)){
       }else{ #if there aren't groups that spill over into following watch, the spillover argument is removed from filter() to avoid errors
         try(
           {N <- data[(Shifts[i]):(Shifts[i+1]-1),] %>% # Calculate the number of whales in the watch period
-            filter(V2=="S", V14!="North") %>% #select sightings only (code S)
+            filter(V2 == "S", V14 != "North") %>% #select sightings only (code S)
             group_by(V5) %>% #group by the whale group number
             summarize(Count = last(V9)) %>% #take the last count of the group (repeated counts tend to increase with more observations)
             summarize(N = sum(as.numeric(Count)))}, #sum all max group counts
@@ -153,7 +153,8 @@ for(ff in 1:length(FILES)){
         silent = T)
     }#ifelse2
     
-    if(exists("N")==F){N <- 0} #If there were no sightings, the above code will not assign an N. If N doesn't exist, set it to 0
+    #If there were no sightings, the above code will not assign an N. If N doesn't exist, set it to 0
+    if(exists("N") == F){N <- 0} 
     
     if(i == 1){
       Output <- data.frame(begin=as.numeric(Begin),
@@ -184,7 +185,7 @@ for(ff in 1:length(FILES)){
     
   }#i
   
-  if(ff==1){
+  if(ff == 1){
     Data_Out <- Output
   }else{
     Data_Out <- rbind(Data_Out,Output)  
@@ -193,7 +194,7 @@ for(ff in 1:length(FILES)){
 }#ff (files loop)         
 
 
-View(Data_Out[which(Data_Out$end-Data_Out$begin < 0.059),]) #Entries that are less than 1.5hrs (5 minute grace period)
+View(Data_Out[which(Data_Out$end - Data_Out$begin < 0.059),]) #Entries that are less than 1.5hrs (5 minute grace period)
 
 View(Data_Out[which(Data_Out$end-Data_Out$begin > 0.059),]) #Entries more than 1.5hrs (5 minute grace period)
 #0.0625 is the exact watch period, but I've given some leeway. If it's less than 5 minutes short, I'm counting it
