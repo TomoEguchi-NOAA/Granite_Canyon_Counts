@@ -95,7 +95,9 @@ for(ff in 1:length(FILES)){
     Begin <- BeginDay + BeginHr/24 
     #End time as a decimal day
     End <- BeginDay + (EndHr/24)
-    #Beaufort (maximum from watch period)
+    #Beaufort (maximum from watch period) - THIS RESULTS IN WARNINGS THAT RETURNS -INF. 
+    # I NEED TO FIX THE FOLLOWING TWO LINES TO REMOVE THE ERROR MESSAGES. FIX IT SO THAT
+    # IT RETURNS NA RATHER THAN RESULTING IN -INF  2022-03-02
     BF <- max(data[Shifts[i]:(Shifts[i+1]-1), 12], na.rm=T) 
     #Visibility (maximum from watch period)
     VS <- max(data[Shifts[i]:(Shifts[i+1]-1), 13], na.rm=T) 
