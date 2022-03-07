@@ -160,17 +160,19 @@ is.na(as.numeric(data$V5))
 ##################################
 #Modifications for 2019 onwards
 ##################################
-
-FILES <- list.files(paste0(getwd(),
-                           "/GRANITE CANYON 2019_2020_RAW AND EDITED DATA FILES (for Josh Stewart)/Granite Canyon 2020 Visual Data-EDITED"))
-YEAR <- 2019 #Enter the year of the data files
+rm(list = ls())
+# FILES <- list.files(paste0(getwd(),
+#                            "/GRANITE CANYON 2019_2020_RAW AND EDITED DATA FILES (for Josh Stewart)/Granite Canyon 2020 Visual Data-EDITED"))
+YEAR <- 2020 #Enter the year of the data files
+FILES <- list.files(paste0("Data/", YEAR, "/"))
 
 for(ff in 1:length(FILES)){ 
   
   #Comment lines create formatting problems because each word is interpreted as a column
   #So, first read in individual lines from each file and skip the comment lines when creating a data frame with read.table
-  dataLines <- readLines(paste0(getwd(),
-                                "/GRANITE CANYON 2019_2020_RAW AND EDITED DATA FILES (for Josh Stewart)/Granite Canyon 2020 Visual Data-EDITED/",FILES[ff]))
+  # dataLines <- readLines(paste0(getwd(),
+  #                               "/GRANITE CANYON 2019_2020_RAW AND EDITED DATA FILES (for Josh Stewart)/Granite Canyon 2020 Visual Data-EDITED/",FILES[ff]))
+  dataLines <- readLines(paste0("Data/", YEAR, "/", FILES[ff]))
   COMMENTS <- which(substr(dataLines,5,5)=="C") #Comment lines, which are problematic for input / formatting
   
   if(length(COMMENTS)>0){
@@ -216,7 +218,7 @@ for(ff in 1:length(FILES)){
   
   for(i in 1:(length(Shifts)-1)){
     Observer <- data[Shifts[i],5] #Only use the first observer for model random effect
-    BeginDay <- mdy(data[Shifts[i],3]) - mdy(paste0("11/30/",YEAR)) # Days since Nov 30th
+    BeginDay <- mdy(data[Shifts[i],3]) - mdy(paste0("11/30/",(YEAR-1))) # Days since Nov 30th
     BeginHr <- (hour(hms(data[Shifts[i],4])) + (minute(hms(data[Shifts[i],4]))/60)) # Decimal hour of shift start time
     NextBeginHr <- (hour(hms(data[Shifts[i+1],4])) + (minute(hms(data[Shifts[i+1],4]))/60)) # Decimal hour of next shift start time
     EndHr <- NextBeginHr - 0.00001 # End time is just before next start time (replicating J Durban's calculations)
@@ -374,4 +376,11 @@ TotalWhales <- sum(Complete_Data$n)
 WPH <- Complete_Data %>%
   group_by(floor(Complete_Data$begin)) %>%
   summarize(TotalWhales = sum(n), TotalEffort = sum(Eff), WPH = sum(n)/(sum(Eff)*24)) 
+
+out.obj <- list(WPH = WPH,
+                FinalData = FinalData,
+                Data_Out = Data_Out,
+                WhalesDays = WhalesDays,
+                Complete_Data = Complete_Data)
+saveRDS(out.obj, file = paste0("RData/out_", YEAR, "_Joshs.rds"))
 

@@ -10,14 +10,14 @@ library(lubridate)
 #Modifications for 2019 onwards
 ##################################
 
-YEAR <- 2022 #Enter the year of the data files
+YEAR <- 2020 #2022 #Enter the year of the data files
 FILES <- list.files(paste0("Data/", YEAR, "/"))
 
 # FILES <- list.files(paste0(getwd(),
 #                            "/GRANITE CANYON 2019_2020_RAW AND EDITED DATA FILES (for Josh Stewart)/Granite Canyon 2020 Visual Data-EDITED"))
 # YEAR <- 2019 #Enter the year of the data files
 
-ff <- 2
+ff <- 10
 for(ff in 1:length(FILES)){ 
   
   #Comment lines create formatting problems because each word is interpreted as a column
@@ -64,8 +64,9 @@ for(ff in 1:length(FILES)){
     for(t in 1:length(Starts)){
       #Subtract all end times from each start time (if an end time is less than 90 seconds 
       # before a start time, that's probably an error)
-      # TE: I added [t] to Ends in the following line. I think it's needed.
-      Diffs[t,] <- seconds(hms(data[Starts[t],4])) - seconds(hms(data[Ends[t],4])) 
+      # TE: I added [t] to Ends in the following line. I think it's needed. NO... 
+      # Ends does not need the subscript. 
+      Diffs[t,] <- seconds(hms(data[Starts[t],4])) - seconds(hms(data[Ends,4])) 
     }
     
     #Select the differences that are likely errors (End, <90 seconds, Start. Oops!)
@@ -98,12 +99,30 @@ for(ff in 1:length(FILES)){
     #Beaufort (maximum from watch period) - THIS RESULTS IN WARNINGS THAT RETURNS -INF. 
     # I NEED TO FIX THE FOLLOWING TWO LINES TO REMOVE THE ERROR MESSAGES. FIX IT SO THAT
     # IT RETURNS NA RATHER THAN RESULTING IN -INF  2022-03-02
-    BF <- max(data[Shifts[i]:(Shifts[i+1]-1), 12], na.rm=T) 
+    # Fixed it to sum !is.na(), if it returns 0, i.e., all NAs, then give NA 2022-03-03
+    BFs <- sum(!is.na(data[Shifts[i]:(Shifts[i+1]-1), 12]))
+    if (BFs == 0){
+      BF <- NA
+    } else {
+      BF <- max(data[Shifts[i]:(Shifts[i+1]-1), 12], na.rm=T) 
+    }
+    #BF <- max(data[Shifts[i]:(Shifts[i+1]-1), 12], na.rm=T) 
+
+        
     #Visibility (maximum from watch period)
-    VS <- max(data[Shifts[i]:(Shifts[i+1]-1), 13], na.rm=T) 
+    VSs <- sum(!is.na(data[Shifts[i]:(Shifts[i+1]-1), 13]))
+    if (VSs == 0){
+      VS <- NA 
+    } else {
+      VS <- max(data[Shifts[i]:(Shifts[i+1]-1), 13], na.rm=T) 
+    }
+    #VS <- max(data[Shifts[i]:(Shifts[i+1]-1), 13], na.rm=T)
     
     #If there are no sightings, then columns 12/13 won't have BF/VS. So instead, take the VS 
-    #record at the start of the shift:
+    #record at the start of the shift:  (-Inf should not happen any more but leave it 2022-03-03)
+    # why are these lines using 5th and 5th columns? -> Because they contain the BF and VS
+    # at the beginning of the watch period. 
+    
     try(
       {if(!is.numeric(BF)){BF <- data[Shifts[i]+1, 5]}
         if(is.na(BF)){BF <- data[Shifts[i]+1, 5]}
@@ -158,6 +177,8 @@ for(ff in 1:length(FILES)){
     #If there were no sightings, the above code will not assign an N. If N doesn't exist, set it to 0
     if(exists("N") == F){N <- 0} 
     
+    #if (sum(is.na(as.numeric(BF))) > 0) stop(" NA in BF")
+    
     if(i == 1){
       Output <- data.frame(begin=as.numeric(Begin),
                            end=as.numeric(End),
@@ -196,23 +217,31 @@ for(ff in 1:length(FILES)){
 }#ff (files loop)         
 
 
-View(Data_Out[which(Data_Out$end - Data_Out$begin < 0.059),]) #Entries that are less than 1.5hrs (5 minute grace period)
+# Check results:
 
-View(Data_Out[which(Data_Out$end-Data_Out$begin > 0.059),]) #Entries more than 1.5hrs (5 minute grace period)
-#0.0625 is the exact watch period, but I've given some leeway. If it's less than 5 minutes short, I'm counting it
+#Josh: 0.0625 is the exact watch period, but I've given some leeway. If it's less than 5 minutes short, I'm counting it
 #If it's less than 10 minutes over the 1.5hrs, I'm also counting it (guessing that they forgot to log off or something)
 
-View(Data_Out[which(Data_Out$end-Data_Out$begin > 0.0695),]) #Entries more than 1.5 hrs + 10 min
+#Entries that are less than 1.5hrs (5 minute grace period)
+shift_dur_min <- 90   # 90 minutes - 5 minutes
+grace_min <- 5
+Data_Out[which(Data_Out$end - Data_Out$begin < (shift_dur_min - grace_min)/(24*60)),]
 
-View(Data_Out[which(Data_Out$end-Data_Out$begin > 0.066),])#Entries more than 1.5hrs + 5 min
-View(Data_Out[which(Data_Out$end-Data_Out$begin > 0.0625),])#Entries more than 1.5hrs
+#Entries more than 1.5hrs (5 minute grace period)
+Data_Out[which(Data_Out$end-Data_Out$begin > (shift_dur_min + grace_min)/(24*60)),] 
 
+#Entries more than 1.5 hrs +/- 10 min
+grace_min <- 10
+Data_Out[which(Data_Out$end - Data_Out$begin < (shift_dur_min - grace_min)/(24*60)),]
+Data_Out[which(Data_Out$end-Data_Out$begin > (shift_dur_min + grace_min)/(24*60)),] 
 
 # Final data
 # Remove watches that were less than 85 minutes or greater than 95 minutes:
+grace_min <- 5
+CorrectLength <- Data_Out[which(Data_Out$end-Data_Out$begin > (shift_dur_min - grace_min)/(24*60) & 
+                                  Data_Out$end-Data_Out$begin < (shift_dur_min + grace_min)/(24*60)),]
 
-CorrectLength <- Data_Out[which(Data_Out$end-Data_Out$begin > 0.059 & Data_Out$end-Data_Out$begin < 0.066),]
-Chaff <- Data_Out[which(Data_Out$end-Data_Out$begin < 0.059),]
+Chaff <- Data_Out[which(Data_Out$end-Data_Out$begin < (shift_dur_min - grace_min)/(24*60)),]
 
 
 FinalData <- CorrectLength %>%
@@ -223,7 +252,9 @@ WhalesDays <- FinalData %>%
   mutate(PropDay = end-begin) %>%
   summarize(TotalWatch = sum(PropDay), TotalWhales=sum(n))
 
-plot(x=WhalesDays$BeginDay,y=WhalesDays$TotalWhales/WhalesDays$TotalWatch)
+ggplot(data = WhalesDays) + 
+  geom_point(aes(x = BeginDay, y = TotalWhales/TotalWatch))
+#plot(x=WhalesDays$BeginDay,y=WhalesDays$TotalWhales/WhalesDays$TotalWatch)
 
 ShiftsPerDay <- FinalData %>%
   group_by(BeginDay) %>%
@@ -234,11 +265,11 @@ ShiftsPerDay <- FinalData %>%
 
 #Check shifts that passed muster to confirm the compiled data is correct
 set.seed(1199)
-View(FinalData[sample(1:196,20,replace=F),])
+FinalData[sample(1:196,20,replace=F),]
 
 #Check shifts that were thrown out to make sure they deserved it
 set.seed(1200)
-View(Chaff[sample(1:54,10,replace=F),])
+Chaff[sample(1:54,10,replace=F),]
 
 
 #Summary Stats for Report
@@ -255,3 +286,10 @@ WPH <- Complete_Data %>%
   group_by(floor(Complete_Data$begin)) %>%
   summarize(TotalWhales = sum(n), TotalEffort = sum(Eff), WPH = sum(n)/(sum(Eff)*24)) 
 
+out.obj <- list(WPH = WPH,
+                FinalData = FinalData,
+                Data_Out = Data_Out,
+                WhalesDays = WhalesDays,
+                Complete_Data = Complete_Data)
+
+#saveRDS(out.obj, file = paste0("RData/out_", YEAR, "_Tomos.rds"))
