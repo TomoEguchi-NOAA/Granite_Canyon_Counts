@@ -1,8 +1,16 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
 
-# This has been converted to a notebook file. See the .Rmd version
+```{r}
 
 rm(list=ls())
+library(tidyverse)
+library(readr)
+library(lubridate)
 
+# define some functions
 get.data <- function(dir, YEAR, ff){
   FILES <- list.files(paste0(dir, "/", YEAR))
   all.lines <- read_lines(file = paste0(dir, "/", YEAR, "/", FILES[ff]))
@@ -28,7 +36,6 @@ get.data <- function(dir, YEAR, ff){
   # We need to pull out lines that contain only numeric V1 (when they are converted into numeric)
   
   data <- data[!is.na(as.numeric(data$V1)),]
-  
   
   Starts <- which(data$V2=="B") #Find all start times
   Ends <- which(data$V2=="E") #Find all end times
@@ -62,11 +69,11 @@ get.data <- function(dir, YEAR, ff){
 }
 
 get.shift <- function(YEAR, data, i){
-  Shifts.begin <- which(data$V2 %in% "P") 
-  Shifts.end <- c((Shifts.begin[2:length(Shifts.begin)] - 1), which(data$V2 %in% "E"))
+  # if no matching Es, creat them:
+  Shifts.begin <- which(data$V2 %in% c("P", "E"))
   #Shifts.end <- which(data$V2 %in% "E")
 
-  max.shifts <- length(Shifts.begin)
+  max.shifts <- length(Shifts.begin) - 1
   #Only use the first observer for model random effect
   Observer <- data[Shifts.begin[i], 5] 
   # Days since Nov 30th of the previous year
@@ -77,7 +84,8 @@ get.shift <- function(YEAR, data, i){
   if (i < max.shifts){
     NextBeginHr <- (hour(hms(data[Shifts.begin[i+1], 4])) + (minute(hms(data[Shifts.begin[i+1], 4]))/60)) 
   } else {
-    NextBeginHr <- (hour(hms(data[which(data$V2 %in% "E"), 4])) + (minute(hms(data[which(data$V2 %in% "E"), 4]))/60)) + 0.00001
+    NextBeginHr <- (hour(hms(data[which(data$V2 %in% "E"), 4])) + 
+                      (minute(hms(data[which(data$V2 %in% "E"), 4]))/60)) + 0.00001
   }
   # End time is just before next start time (replicating J Durban's calculations)
   EndHr <- NextBeginHr - 0.00001 
@@ -85,7 +93,7 @@ get.shift <- function(YEAR, data, i){
   Begin <- as.numeric(BeginDay) + (BeginHr/24) 
   #End time as a decimal day
   End <- as.numeric(BeginDay) + (EndHr/24)
-  BFs <- as.numeric(data[Shifts.begin[i]:Shifts.end[i], 12])
+  BFs <- as.numeric(data[Shifts.begin[i]:(Shifts.begin[i+1]-1), 12])
   if (sum(!is.na(BFs)) == 0){
     BF <- NA
   } else {
@@ -93,7 +101,7 @@ get.shift <- function(YEAR, data, i){
   }
   
   #Visibility (maximum from watch period)
-  VSs <- as.numeric(data[Shifts.begin[i]:Shifts.end[i], 13])
+  VSs <- as.numeric(data[Shifts.begin[i]:(Shifts.begin[i+1]-1), 13])
   if (sum(!is.na(VSs)) == 0){
     VS <- NA 
   } else {
@@ -107,12 +115,12 @@ get.shift <- function(YEAR, data, i){
   Spillover <- vector(length = 0)
   if (i < max.shifts){
     # Groups = Observers. Only the first (primary) observer is considered (V5)
-    GroupsThisWatch <- data[Shifts.begin[i]:Shifts.end[i],] %>% # Group numbers from this watch period
+    GroupsThisWatch <- data[Shifts.begin[i]:(Shifts.begin[i+1]-1),] %>% # Group numbers from this watch period
       filter(V2 == "S") %>%
       distinct(V5) %>%
       pull()
     
-    GroupsNextWatch <- data[Shifts.begin[i+1]:Shifts.end[i+1],] %>% # Group numbers from next watch period
+    GroupsNextWatch <- data[Shifts.begin[i+1]:(Shifts.begin[i+2]-1),] %>% # Group numbers from next watch period
       filter(V2 == "S") %>%
       distinct(V5) %>%
       pull()
@@ -125,7 +133,7 @@ get.shift <- function(YEAR, data, i){
     
   if(length(Spillover > 0)){ #if there are groups that spill over into following watch, 
     # figure out if there were any sightings that need to be considered:
-    sub.data <- data[(Shifts.begin[i]):(Shifts.end[i]),] %>% 
+    sub.data <- data[(Shifts.begin[i]):(Shifts.begin[i+1]-1),] %>% 
       filter(V2 == "S", !(V5 %in% Spillover), V14 != "North")
     
     if (nrow(sub.data) > 0){
@@ -139,7 +147,7 @@ get.shift <- function(YEAR, data, i){
     }
     
   } else {   # if there were no spillover
-    sub.data <- data[Shifts.begin[i]:Shifts.end[i],]  %>%  
+    sub.data <- data[Shifts.begin[i]:(Shifts.begin[i+1]-1),]  %>%  
       filter(V2 == "S", V14 != "North")
       
     if (nrow(sub.data) > 0){
@@ -167,8 +175,11 @@ get.shift <- function(YEAR, data, i){
                    data = sub.data)
   return( out.list )
 }
+```
 
+Get data and start looking at them:
 
+```{r}
 Tomo.out <- readRDS("RData/out_2020_Tomos.rds")
 Josh.out <- readRDS("RData/out_2020_Joshs.rds")
 FinalData.Josh <- Josh.out$FinalData %>% mutate(v = "J")
@@ -206,6 +217,12 @@ for (f in 1:length(Fs)){
 
 }
 
+```
+
+
+```{r}
+
+
 # The following discrepancies for 2020 survey need to be examined
 
 ###########################################################################
@@ -238,7 +255,10 @@ data.23 %>% filter(V2 == "S") %>%
   filter(V5 == "25")
 
 # Group 25 changed the number from 2, to 7, to 5. This explains the discrepancy of 2.
+```
 
+
+```{r}
 #########################################################################
 FinalData.Both %>% filter(ff == 29) %>% filter(v == "J")
 FinalData.Both %>% filter(ff == 29) %>% filter(v == "T")
@@ -273,7 +293,10 @@ data.29 %>% filter(V2 == "S") %>%
   filter(V5 == "26")
 
 # Group 26 changed the number from 3, to 1, to 2. This explains the discrepancy of 1.
+```
 
+
+```{r}
 ###########################################################################
 FinalData.Both %>% filter(ff == 34) 
 # Josh's missed these two sightings (i = 1 and 2)
@@ -283,60 +306,102 @@ FinalData.Both %>% filter(ff == 34)
 Josh.out$CorrectLength %>% filter(ff == 34)
 
 # How did that happen?
-
-
-
 data.34 <- get.data("Data/", 2020, ff = 34)
+data.34 %>% filter(begin > 55.3 & begin < 55.376)
+# B, P, and V are on the wrong order in this case? V, P, then B are entered
+# in that order. 
+# So, taking vs from the line after P returns NA. 
+# vs started at 3 at 7:30:00, changed to 4 at 8:16:00. So, it should be 4.
 
-output.34.1 <- get.shift(2020, data.34, i = 1)
-output.34.2 <- get.shift(2020, data.34, i = 2)
-output.34.3 <- get.shift(2020, data.34, i = 3)
+data.34 %>% filter(begin > 55.374 & begin < 55.439)
+# vs = 8 happens because of the same reason as above (wrong order of data input) AND
+# there was a typo in Josh's code where wrong column was selected (5 instead of 6)
+# within the try section when the returned VS was non-numeric (not sure why this happened). 
 
-ID.in <- output.34.1$data %>% distinct(V5)
+# These two were eliminated when filtering bf and vs. 
 
-ID.all <- data.34 %>% 
-  filter(V2 == "S") %>% 
-  filter(begin > 55.3 & begin < 55.38) %>%
-  distinct(V5)
+# My code fixed that problem
 
-# this was moved to i = 2
-ID.spillover <- ID.all$V5[!(ID.all$V5 %in% ID.in$V5)]
+```
 
-output.34.1$data %>% 
+
+```{r}
+FinalData.Both %>% filter(ff == 39) 
+# Josh's missed i = 5 (n = 8)
+
+Josh.out$CorrectLength %>% filter(ff == 39)
+# in CorrectLength, bf = NA, which was eliminated during filtering. Why did this
+# happen?
+
+data.39 <- get.data("Data/", 2020, ff = 39)
+data.39 %>% filter(begin > 62.438 & begin < 62.51)
+# Wrong information was entered in V12 ("South") so they became non-numeric. Then
+# the V line after the P line was entered with all NAs. 
+
+# This has been fixed
+
+# Also... there were 2 files that needed to be merged for this day 2020-01-31.
+
+```
+
+
+```{r}
+FinalData.Both %>% filter(ff == 42) %>% filter(v == "J")
+FinalData.Both %>% filter(ff == 42) %>% filter(v == "T")
+# i = 1 contains 2 more whales (11) in Tomos than in Josh's (9)
+
+Josh.out$CorrectLength %>% filter(ff == 42)
+
+data.42 <- get.data("Data/", 2020, ff = 42)
+data.42.1 <- get.shift(2020, data.42, 1)
+data.42.1$data %>% 
   filter(V2 == "S") %>%
-  filter(begin > 55.3 & begin < 55.38) %>%
+  filter(begin > 67.3 & begin < 67.375) %>%
   group_by(V5) %>%
   summarise(max.n = max(V9),
             last.n = last(V9),
             d.max.last = max(V9) - last(V9))
 
-data.34 %>% filter(V2 == "S") %>%
-  filter(begin > 55.3 & begin < 55.38) %>% 
-  group_by(V5) %>%
-  filter(V5 == "4")
 
-# Group 26 changed the number from 3, to 1, to 2. This explains the discrepancy of 1.
+# Again, the last n is 2 less than max n for group 3, which is the cause of the discrepancy
+```
 
 
-FinalData.Both %>% filter(ff == 39) 
-# Josh's missed i = 5 (n = 8)
-
+```{r}
 FinalData.Both %>% filter(ff == 43) %>% filter(v == "J")
 FinalData.Both %>% filter(ff == 43) %>% filter(v == "T")
-# i = 1 contains 2 more whales (11) in Tomos than in Josh's (9)
-
-
-FinalData.Both %>% filter(ff == 44) %>% filter(v == "J")
-FinalData.Both %>% filter(ff == 44) %>% filter(v == "T")
 # i = 4 contains 1 more whales (12) in Tomos than in Josh's (11)
 
+Josh.out$CorrectLength %>% filter(ff == 43)
 
-FinalData.Both %>% filter(ff == 47) %>% filter(v == "J")
-FinalData.Both %>% filter(ff == 47) %>% filter(v == "T")
+data.43 <- get.data("Data/", 2020, ff = 43)
+data.43.4 <- get.shift(2020, data.43, 4)
+data.43.4$data %>% 
+  filter(V2 == "S") %>%
+  filter(begin > 68.5 & begin < 68.56) %>% 
+  group_by(V5) -> tmp
+
+! SOMEHOW V9 IS CHARACTER IN THIS ONE... IT HAS NOT HAPPENED BEFORE AND I DO NOT KNOW
+WHAT IS GOING ON HERE. NEED TO LOOK INTO WHY THIS ONE IS DIFFERENT FROM THE OTHERS. 2022-03-09
+  summarise(max.n = max(V9),
+            last.n = last(V9),
+            d.max.last = max(V9) - last(V9))
+
+
+```
+
+
+```{r}
+FinalData.Both %>% filter(ff == 46) %>% filter(v == "J")
+FinalData.Both %>% filter(ff == 46) %>% filter(v == "T")
 # i = 1 contains 1 more whales (18) in Tomos than in Josh's (17)
 # i = 6 contains 1 more whales (27) in Tomos than in Josh's (26)
 
 
+```
+
+
+```{r}
 ggplot(data = FinalData.Both) +
   geom_point(aes(x = begin, y = end, color = v))
 
@@ -353,7 +418,9 @@ sum(abs(FinalData.Josh$end - FinalData.Tomo$end))
 sum(abs(FinalData.Josh$bf - FinalData.Tomo$bf))
 FinalData.Josh[abs(FinalData.Josh$bf - FinalData.Tomo$bf) > 0,]
 
-
 sum(abs(FinalData.Josh$vs - FinalData.Tomo$vs))
 
+
+
+```
 
