@@ -1,9 +1,20 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
 
 
 rm(list=ls())
 library(tidyverse)
 library(lubridate)
 
+```
+
+
+
+```{r}
 # I think this was originally written by Josh Stewart (or John Durban)
 
 ##################################
@@ -17,7 +28,16 @@ FILES <- list.files(paste0("Data/", YEAR, "/"))
 #                            "/GRANITE CANYON 2019_2020_RAW AND EDITED DATA FILES (for Josh Stewart)/Granite Canyon 2020 Visual Data-EDITED"))
 # YEAR <- 2019 #Enter the year of the data files
 
-ff <- 10
+#ff <- 11 #11 12 13 14 15 16 17 18 19 20 21 22 23 25 26 27 28 29 30 31 32 33
+# ff <- 39 #Josh got one record (n = 23), I got two records (n = 8, 23)
+#ff <- 34 #NOthing came out of Josh's, whereas mine got two (to be continued... ). When running
+# Josh's code (Formatting GC Data TE.R), vs for the two periods that come back from my code
+# results in NA and 8! So, they were eliminated when filtering the high Bft and visibility. In
+# my output, they were 4 and 4. 
+ 
+Data_Out.list <- list()
+
+ff <- 4
 for(ff in 1:length(FILES)){ 
   
   #Comment lines create formatting problems because each word is interpreted as a column
@@ -46,7 +66,11 @@ for(ff in 1:length(FILES)){
                        col.names = paste0("V",1:16))
   }
   
-
+  # Files with extensive comments in sightings are problematic because they get split into multiple lines. 
+  # We need to pull out lines that contain only numeric V1 (when they are converted into numeric)
+  
+  data <- data[!is.na(as.numeric(data$V1)),]
+  
   #In some cases, an observer accidentally ends a watch and quickly restarts it after recognizing their error
   #To this formatting code, it would look like multiple short shifts, which would get thrown out
   #So we want to identify shift stops and starts within some threshold of each other 
@@ -59,7 +83,7 @@ for(ff in 1:length(FILES)){
   if(length(Starts)>0 & length(Ends)>0){
     #Make an array to hold the time differences of starts and ends
     Diffs <- matrix(NA, ncol=length(Ends), nrow=length(Starts)) 
-
+    
     t <- 1
     for(t in 1:length(Starts)){
       #Subtract all end times from each start time (if an end time is less than 90 seconds 
@@ -80,7 +104,8 @@ for(ff in 1:length(FILES)){
   #Then carry on as normal:
   
   Shifts <- which(data$V2 %in% c('P','E')) #start/end of all shifts
-  
+  Output.list <- list()
+  i <- 1
   for(i in 1:(length(Shifts)-1)){
     #Only use the first observer for model random effect
     Observer <- data[Shifts[i], 5] 
@@ -93,28 +118,29 @@ for(ff in 1:length(FILES)){
     # End time is just before next start time (replicating J Durban's calculations)
     EndHr <- NextBeginHr - 0.00001 
     # Beginning time as a decimal day
-    Begin <- BeginDay + BeginHr/24 
+    Begin <- as.numeric(BeginDay) + (BeginHr/24) 
     #End time as a decimal day
-    End <- BeginDay + (EndHr/24)
+    End <- as.numeric(BeginDay) + (EndHr/24)
     #Beaufort (maximum from watch period) - THIS RESULTS IN WARNINGS THAT RETURNS -INF. 
     # I NEED TO FIX THE FOLLOWING TWO LINES TO REMOVE THE ERROR MESSAGES. FIX IT SO THAT
     # IT RETURNS NA RATHER THAN RESULTING IN -INF  2022-03-02
     # Fixed it to sum !is.na(), if it returns 0, i.e., all NAs, then give NA 2022-03-03
-    BFs <- sum(!is.na(data[Shifts[i]:(Shifts[i+1]-1), 12]))
-    if (BFs == 0){
+    # Some rows have characters (not NA but words...) in V12. So, they turn into problems.
+    # 
+    BFs <- as.numeric(data[Shifts[i]:(Shifts[i+1]-1), 12])
+    if (sum(!is.na(BFs)) == 0){
       BF <- NA
     } else {
-      BF <- max(data[Shifts[i]:(Shifts[i+1]-1), 12], na.rm=T) 
+      BF <- max(BFs, na.rm=T)
     }
     #BF <- max(data[Shifts[i]:(Shifts[i+1]-1), 12], na.rm=T) 
-
         
     #Visibility (maximum from watch period)
-    VSs <- sum(!is.na(data[Shifts[i]:(Shifts[i+1]-1), 13]))
-    if (VSs == 0){
+    VSs <- as.numeric(data[Shifts[i]:(Shifts[i+1]-1), 13])
+    if (sum(!is.na(VSs)) == 0){
       VS <- NA 
     } else {
-      VS <- max(data[Shifts[i]:(Shifts[i+1]-1), 13], na.rm=T) 
+      VS <- max(VSs, na.rm=T) 
     }
     #VS <- max(data[Shifts[i]:(Shifts[i+1]-1), 13], na.rm=T)
     
@@ -122,16 +148,12 @@ for(ff in 1:length(FILES)){
     #record at the start of the shift:  (-Inf should not happen any more but leave it 2022-03-03)
     # why are these lines using 5th and 5th columns? -> Because they contain the BF and VS
     # at the beginning of the watch period. 
-    
-    try(
-      {if(!is.numeric(BF)){BF <- data[Shifts[i]+1, 5]}
-        if(is.na(BF)){BF <- data[Shifts[i]+1, 5]}
-        if(BF == -Inf){BF <- data[Shifts[i]+1, 5]}
-        if(!is.numeric(VS)){VS <- data[Shifts[i]+1, 5]}
-        if(is.na(VS)){VS <- data[Shifts[i]+1, 6]}
-        if(VS == -Inf){VS <- data[Shifts[i]+1, 6]}},
-      silent=T)
-    
+
+    # With my modification above, it should be either NA or a numeric variable. 
+    # is.numeric(NA) returns FALSE
+
+    if (is.na(BF)) {BF <- data[Shifts[i]+1, 5]}
+    if (is.na(VS)) {VS <- data[Shifts[i]+1, 6]}
     
     if(i < (length(Shifts)-1)){ #First set of code only works for shifts prior to the final shift
       # Groups = Observers. Only the first (primary) observer is considered (V5)
@@ -144,80 +166,89 @@ for(ff in 1:length(FILES)){
         filter(V2 == "S") %>%
         distinct(V5) %>%
         pull()
+      
       # Which groups from watch i were also observed in watch i+1? They should be excluded from i and counted in i+1
       Spillover <- GroupsThisWatch[GroupsThisWatch %in% GroupsNextWatch] 
       
       if(length(Spillover > 0)){ #if there are groups that spill over into following watch, 
-        try(
-          {N <- data[(Shifts[i]):(Shifts[i+1]-1),] %>% # Calculate the number of whales in the watch period
-            filter(V2 == "S", !(V5 %in% Spillover), V14 != "North") %>% #select sightings only (code S)
+        # figure out if there were any sightings that need to be considered:
+        sub.data <- data[(Shifts[i]):(Shifts[i+1]-1),] %>% 
+          filter(V2 == "S", !(V5 %in% Spillover), V14 != "North")
+        
+        if (nrow(sub.data) > 0){
+          N <- sub.data %>%
             group_by(V5) %>% #group by the whale group number
-            summarize(Count = last(V9)) %>% #take the last count of the group (repeated counts tend to increase with more observations)
-            summarize(N = sum(as.numeric(Count)))}, #sum all final group counts
-          silent = T)
-      }else{ #if there aren't groups that spill over into following watch, the spillover argument is removed from filter() to avoid errors
-        try(
-          {N <- data[(Shifts[i]):(Shifts[i+1]-1),] %>% # Calculate the number of whales in the watch period
-            filter(V2 == "S", V14 != "North") %>% #select sightings only (code S)
+            select(V5, V9) %>%
+            summarize(N = max(as.numeric(V9), na.rm = T)) %>% 
+            select(N)  %>% sum()
+        } else {
+          N <- 0
+        }
+        
+        #summarize(Count = last(V9)) %>% #take the last count of the group (repeated counts tend to increase with more
+        # observations) 
+        # TE: But not always. Sometimes the number can decrease, so should use the max (e.g., 1/24/20, 7:30 - 9:00)
+        #summarize(N = sum(as.numeric(Count)))}, #sum all final group counts
+        #  silent = T)
+      } else { #if there aren't groups that spill over into following watch, the spillover argument is removed from filter() to avoid errors
+        sub.data <- data[(Shifts[i]):(Shifts[i+1]-1),]  %>%  
+          filter(V2 == "S", V14 != "North")
+        
+        if (nrow(sub.data) > 0){
+          N <- sub.data %>%
             group_by(V5) %>% #group by the whale group number
-            summarize(Count = last(V9)) %>% #take the last count of the group (repeated counts tend to increase with more observations)
-            summarize(N = sum(as.numeric(Count)))}, #sum all max group counts
-          silent = T)
+            select(V5, V9) %>%
+            summarize(N = max(as.numeric(V9), na.rm = T)) %>% 
+            select(N)  %>% sum()
+        } else {
+          N <- 0
+        }
+        
+        #  summarize(Count = last(V9)) %>% #take the last count of the group (repeated counts tend to increase with 
+        # more observations) 
+        # TE: But not always. Sometimes the number can decrease, so should use the max (e.g., 1/24/20, 7:30 - 9:00)
+        #     #summarize(N = sum(as.numeric(Count)))}, #sum all max group counts
+        #   silent = T)
       }#ifelse
-    }else{#if i > length(Shifts)-1 (In the last shift, there's obviously no spillover to the next shift. And the code creates errors if you try to do that. So this is a separate snippet for just the last shift)
-      try( #If there were no sightings, this code won't work. So wrap it in try() to avoid an error stoppage
-        {N <- data[(Shifts[i]):(Shifts[i+1]-1),] %>% # Calculate the number of whales in the watch period
-          filter(V2=="S", V14!="North") %>% #select sightings only (code S)
-          group_by(V5) %>% #group by the whale group number
-          summarize(Count = last(V9)) %>% #take the last count of the group (repeated counts tend to increase with more observations)
-          summarize(N = sum(as.numeric(Count)))}, #sum all max group counts
-        silent = T)
-    }#ifelse2
-    
-    #If there were no sightings, the above code will not assign an N. If N doesn't exist, set it to 0
-    if(exists("N") == F){N <- 0} 
-    
-    #if (sum(is.na(as.numeric(BF))) > 0) stop(" NA in BF")
-    
-    if(i == 1){
-      Output <- data.frame(begin=as.numeric(Begin),
-                           end=as.numeric(End),
-                           bf=as.numeric(BF),
-                           vs=as.numeric(VS),
-                           n=as.numeric(N),
-                           obs=as.character(Observer),
-                           ff=ff, #ff and i for easy file reference
-                           i=i,
-                           BeginHr = BeginHr,
-                           BeginDay = BeginDay)
-    }else{
-      Output <- rbind(Output,
-                      data.frame(begin=as.numeric(Begin),
-                                 end=as.numeric(End),
-                                 bf=as.numeric(BF),
-                                 vs=as.numeric(VS),
-                                 n=as.numeric(N),
-                                 obs=as.character(Observer),
-                                 ff=ff,
-                                 i=i,
-                                 BeginHr=BeginHr,
-                                 BeginDay = BeginDay))
+    } else {#if i > length(Shifts)-1 (In the last shift, there's obviously no spillover to the next shift. And the code creates errors if you try to do that. So this is a separate snippet for just the last shift)
+      sub.data <- data[(Shifts[i]):(Shifts[i+1]-1),] %>% # Calculate the number of whales in the watch period
+        filter(V2=="S", V14!="North")
       
-      #Output <- filter(Output, bf!=5, vs!=5) #Remove any watches where beaufort or vis was > 4
-    }#else output
+      if (nrow(sub.data) > 0){
+        N <- sub.data %>%
+          group_by(V5) %>% #group by the whale group number
+          select(V5, V9) %>%
+          summarize(N = max(as.numeric(V9), na.rm = T)) %>% 
+          select(N) %>% sum()
+      } else {
+        N <- 0
+      }
+    }
+    
+    Output.list[[i]] <- data.frame(begin=as.numeric(Begin),
+                                   end=as.numeric(End),
+                                   bf=as.numeric(BF),
+                                   vs=as.numeric(VS),
+                                   n = N,
+                                   obs=as.character(Observer),
+                                   ff=ff, #ff and i for easy file reference
+                                   i=i,
+                                   BeginHr = BeginHr,
+                                   BeginDay = BeginDay) 
     
   }#i
   
-  if(ff == 1){
-    Data_Out <- Output
-  }else{
-    Data_Out <- rbind(Data_Out,Output)  
-  }  
-  
+  Data_Out.list[[ff]] <- do.call("rbind", Output.list)
+
 }#ff (files loop)         
 
+Data_Out <- do.call("rbind", Data_Out.list)
 
-# Check results:
+```
+
+
+```{r}
+# Filter out short periods:
 
 #Josh: 0.0625 is the exact watch period, but I've given some leeway. If it's less than 5 minutes short, I'm counting it
 #If it's less than 10 minutes over the 1.5hrs, I'm also counting it (guessing that they forgot to log off or something)
@@ -253,14 +284,17 @@ WhalesDays <- FinalData %>%
   summarize(TotalWatch = sum(PropDay), TotalWhales=sum(n))
 
 ggplot(data = WhalesDays) + 
-  geom_point(aes(x = BeginDay, y = TotalWhales/TotalWatch))
+  geom_point(aes(x = as.numeric(BeginDay), y = TotalWhales/TotalWatch))
 #plot(x=WhalesDays$BeginDay,y=WhalesDays$TotalWhales/WhalesDays$TotalWatch)
 
 ShiftsPerDay <- FinalData %>%
   group_by(BeginDay) %>%
   summarize(Watches = n())
 
+```
 
+
+```{r}
 #Spot Checks:
 
 #Check shifts that passed muster to confirm the compiled data is correct
@@ -292,4 +326,7 @@ out.obj <- list(WPH = WPH,
                 WhalesDays = WhalesDays,
                 Complete_Data = Complete_Data)
 
-#saveRDS(out.obj, file = paste0("RData/out_", YEAR, "_Tomos.rds"))
+saveRDS(out.obj, file = paste0("RData/out_", YEAR, "_Tomos.rds"))
+
+```
+
