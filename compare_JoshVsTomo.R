@@ -276,7 +276,11 @@ data.29 %>% filter(V2 == "S") %>%
 FinalData.Both %>% filter(ff == 34) 
 # Josh's missed these two sightings (i = 1 and 2)
 # Need to figure out why these were dropped in Josh's analysis.
-# START HERE: 2022-03-08
+
+# Josh's CorrectLength contains two lines but vs is NA and 8!
+Josh.out$CorrectLength %>% filter(ff == 34)
+
+
 data.34 <- get.data("Data/", 2020, ff = 34)
 
 output.34.1 <- get.shift(2020, data.34, i = 1)

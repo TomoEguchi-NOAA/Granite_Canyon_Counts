@@ -318,16 +318,16 @@ for(ff in 1:length(FILES)){
 }#ff (files loop)         
 
 
-View(Data_Out[which(Data_Out$end-Data_Out$begin < 0.059),]) #Entries that are less than 1.5hrs (5 minute grace period)
-
-View(Data_Out[which(Data_Out$end-Data_Out$begin > 0.059),]) #Entries more than 1.5hrs (5 minute grace period)
-#0.0625 is the exact watch period, but I've given some leeway. If it's less than 5 minutes short, I'm counting it
-#If it's less than 10 minutes over the 1.5hrs, I'm also counting it (guessing that they forgot to log off or something)
-
-View(Data_Out[which(Data_Out$end-Data_Out$begin > 0.0695),]) #Entries more than 1.5 hrs + 10 min
-
-View(Data_Out[which(Data_Out$end-Data_Out$begin > 0.066),])#Entries more than 1.5hrs + 5 min
-View(Data_Out[which(Data_Out$end-Data_Out$begin > 0.0625),])#Entries more than 1.5hrs
+# View(Data_Out[which(Data_Out$end-Data_Out$begin < 0.059),]) #Entries that are less than 1.5hrs (5 minute grace period)
+# 
+# View(Data_Out[which(Data_Out$end-Data_Out$begin > 0.059),]) #Entries more than 1.5hrs (5 minute grace period)
+# #0.0625 is the exact watch period, but I've given some leeway. If it's less than 5 minutes short, I'm counting it
+# #If it's less than 10 minutes over the 1.5hrs, I'm also counting it (guessing that they forgot to log off or something)
+# 
+# View(Data_Out[which(Data_Out$end-Data_Out$begin > 0.0695),]) #Entries more than 1.5 hrs + 10 min
+# 
+# View(Data_Out[which(Data_Out$end-Data_Out$begin > 0.066),])#Entries more than 1.5hrs + 5 min
+# View(Data_Out[which(Data_Out$end-Data_Out$begin > 0.0625),])#Entries more than 1.5hrs
 
 
 # Final data
@@ -355,12 +355,12 @@ ShiftsPerDay <- FinalData %>%
 #Spot Checks:
 
 #Check shifts that passed muster to confirm the compiled data is correct
-set.seed(1199)
-View(FinalData[sample(1:196,20,replace=F),])
-
-#Check shifts that were thrown out to make sure they deserved it
-set.seed(1200)
-View(Chaff[sample(1:54,10,replace=F),])
+# set.seed(1199)
+# View(FinalData[sample(1:196,20,replace=F),])
+# 
+# #Check shifts that were thrown out to make sure they deserved it
+# set.seed(1200)
+# View(Chaff[sample(1:54,10,replace=F),])
 
 
 #Summary Stats for Report
@@ -381,6 +381,8 @@ out.obj <- list(WPH = WPH,
                 FinalData = FinalData,
                 Data_Out = Data_Out,
                 WhalesDays = WhalesDays,
-                Complete_Data = Complete_Data)
+                Complete_Data = Complete_Data,
+                CorrectLength = CorrectLength,
+                Chaff = Chaff)
 saveRDS(out.obj, file = paste0("RData/out_", YEAR, "_Joshs.rds"))
 
