@@ -163,7 +163,7 @@ is.na(as.numeric(data$V5))
 rm(list = ls())
 # FILES <- list.files(paste0(getwd(),
 #                            "/GRANITE CANYON 2019_2020_RAW AND EDITED DATA FILES (for Josh Stewart)/Granite Canyon 2020 Visual Data-EDITED"))
-YEAR <- 2020 #Enter the year of the data files
+YEAR <- 2022 #Enter the year of the data files
 FILES <- list.files(paste0("Data/", YEAR, "/"))
 ff <- 34
 for(ff in 1:length(FILES)){ 

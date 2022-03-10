@@ -180,8 +180,8 @@ get.shift <- function(YEAR, data, i){
 Get data and start looking at them:
 
 ```{r}
-Tomo.out <- readRDS("RData/out_2020_Tomos.rds")
-Josh.out <- readRDS("RData/out_2020_Joshs.rds")
+Tomo.out <- readRDS("RData/out_2022_Tomos.rds")
+Josh.out <- readRDS("RData/out_2022_Joshs.rds")
 FinalData.Josh <- Josh.out$FinalData %>% mutate(v = "J")
 FinalData.Tomo <- Tomo.out$FinalData %>% mutate(v = "T")
 FinalData.Both <- rbind(FinalData.Josh, FinalData.Tomo)
@@ -220,215 +220,7 @@ for (f in 1:length(Fs)){
 ```
 
 
-```{r}
-
-
-# The following discrepancies for 2020 survey need to be examined
-
-###########################################################################
-FinalData.Both %>% filter(ff == 23) %>% filter(v == "J")
-FinalData.Both %>% filter(ff == 23) %>% filter(v == "T")
-# i = 5 contains 2 more whales (16) in Tomo's than in Josh's (14)
-
-# pull out the data, examine the spillover groups
-data.23 <- get.data("Data/", 2020, ff = 23)
-output.23.5 <- get.shift(2020, data.23, i = 5)
-output.23.6 <- get.shift(2020, data.23, i = 6)
-
-output.23.5$data %>% distinct(V5)
-
-data.23 %>% filter(V2 == "S") %>%
-  filter(begin > 39.562 & begin < 39.625) %>% 
-  distinct(V5)
-# Group 30 has been moved to i = 6
-
-output.23.5$data %>% 
-  filter(begin > 39.562 & begin < 39.625) %>% 
-  group_by(V5) %>%
-  summarise(max.n = max(V9),
-            last.n = last(V9),
-            d.max.last = max(V9) - last(V9))
-  
-data.23 %>% filter(V2 == "S") %>%
-  filter(begin > 39.562 & begin < 39.625) %>% 
-  group_by(V5) %>%
-  filter(V5 == "25")
-
-# Group 25 changed the number from 2, to 7, to 5. This explains the discrepancy of 2.
-```
-
-
-```{r}
-#########################################################################
-FinalData.Both %>% filter(ff == 29) %>% filter(v == "J")
-FinalData.Both %>% filter(ff == 29) %>% filter(v == "T")
-# i = 3 contains 1 more whale (37) in Tomos than in Josh's (36)
-
-# pull out the data, examine the spillover groups
-data.29 <- get.data("Data/", 2020, ff = 29)
-
-output.29.3 <- get.shift(2020, data.29, i = 3)
-output.29.4 <- get.shift(2020, data.23, i = 4)
-
-ID.in <- output.29.3$data %>% distinct(V5)
-
-ID.all <- data.29 %>% filter(V2 == "S") %>%
-  filter(begin > 48.4 & begin < 48.5) %>%
-  distinct(V5)
-
-# These were moved to i = 4
-ID.spillover <- ID.all$V5[!(ID.all$V5 %in% ID.in$V5)]
-
-output.29.3$data %>% 
-  filter(V2 == "S") %>%
-  filter(begin > 48.4 & begin < 48.5) %>%
-  group_by(V5) %>%
-  summarise(max.n = max(V9),
-            last.n = last(V9),
-            d.max.last = max(V9) - last(V9))
-
-data.29 %>% filter(V2 == "S") %>%
-  filter(begin > 48.4 & begin < 48.5) %>% 
-  group_by(V5) %>%
-  filter(V5 == "26")
-
-# Group 26 changed the number from 3, to 1, to 2. This explains the discrepancy of 1.
-```
-
-
-```{r}
-###########################################################################
-FinalData.Both %>% filter(ff == 34) 
-# Josh's missed these two sightings (i = 1 and 2)
-# Need to figure out why these were dropped in Josh's analysis.
-
-# Josh's CorrectLength contains two lines but vs is NA and 8!
-Josh.out$CorrectLength %>% filter(ff == 34)
-
-# How did that happen?
-data.34 <- get.data("Data/", 2020, ff = 34)
-data.34 %>% filter(begin > 55.3 & begin < 55.376)
-# B, P, and V are on the wrong order in this case? V, P, then B are entered
-# in that order. 
-# So, taking vs from the line after P returns NA. 
-# vs started at 3 at 7:30:00, changed to 4 at 8:16:00. So, it should be 4.
-
-data.34 %>% filter(begin > 55.374 & begin < 55.439)
-# vs = 8 happens because of the same reason as above (wrong order of data input) AND
-# there was a typo in Josh's code where wrong column was selected (5 instead of 6)
-# within the try section when the returned VS was non-numeric (not sure why this happened). 
-
-# These two were eliminated when filtering bf and vs. 
-
-# My code fixed that problem
-
-```
-
-
-```{r}
-FinalData.Both %>% filter(ff == 39) 
-# Josh's missed i = 5 (n = 8)
-
-Josh.out$CorrectLength %>% filter(ff == 39)
-# in CorrectLength, bf = NA, which was eliminated during filtering. Why did this
-# happen?
-
-data.39 <- get.data("Data/", 2020, ff = 39)
-data.39 %>% filter(begin > 62.438 & begin < 62.51)
-# Wrong information was entered in V12 ("South") so they became non-numeric. Then
-# the V line after the P line was entered with all NAs. 
-
-# This has been fixed
-
-# Also... there were 2 files that needed to be merged for this day 2020-01-31.
-
-```
-
-
-```{r}
-FinalData.Both %>% filter(ff == 42) %>% filter(v == "J")
-FinalData.Both %>% filter(ff == 42) %>% filter(v == "T")
-# i = 1 contains 2 more whales (11) in Tomos than in Josh's (9)
-
-Josh.out$CorrectLength %>% filter(ff == 42)
-
-data.42 <- get.data("Data/", 2020, ff = 42)
-data.42.1 <- get.shift(2020, data.42, 1)
-data.42.1$data %>% 
-  filter(V2 == "S") %>%
-  filter(begin > 67.3 & begin < 67.375) %>%
-  group_by(V5) %>%
-  summarise(max.n = max(V9),
-            last.n = last(V9),
-            d.max.last = max(V9) - last(V9))
-
-
-# Again, the last n is 2 less than max n for group 3, which is the cause of the discrepancy
-```
-
-
-```{r}
-FinalData.Both %>% filter(ff == 43) %>% filter(v == "J")
-FinalData.Both %>% filter(ff == 43) %>% filter(v == "T")
-# i = 4 contains 1 more whales (12) in Tomos than in Josh's (11)
-
-Josh.out$CorrectLength %>% filter(ff == 43)
-
-data.43 <- get.data("Data/", 2020, ff = 43)
-data.43.4 <- get.shift(2020, data.43, 4)
-data.43.4$data %>% 
-  filter(V2 == "S") %>%
-  filter(begin > 68.5 & begin < 68.56) %>% 
-  group_by(V5) %>%
-  mutate(V9 = as.numeric(V9)) %>%
-    summarise(max.n = max(V9),
-            last.n = last(V9),
-            d.max.last = max(V9) - last(V9))
-
-
-#Extensive comments on rows 064 - 067 split into multiple lines, turning some columns
-# to be characters, rather than easily converted to integers... Consequently, V9 is
-# defined as character, which makes it impossible to summarize... 
-
-#The problem is between max n and last n.
-
-```
-
-
-```{r}
-FinalData.Both %>% filter(ff == 46) %>% filter(v == "J")
-FinalData.Both %>% filter(ff == 46) %>% filter(v == "T")
-# i = 1 contains 1 more whales (18) in Tomos than in Josh's (17)
-# i = 6 contains 1 more whales (27) in Tomos than in Josh's (26)
-
-
-data.46 <- get.data("Data/", 2020, ff = 46)
-data.46.1 <- get.shift(2020, data.46, 1)
-data.46.6 <- get.shift(2020, data.46, 6)
-
-data.46.1$data %>%
-  filter(V2 == "S") %>%
-  filter(begin > 73.3 & begin < 73.375) %>% 
-  group_by(V5) %>%
-  mutate(V9 = as.numeric(V9)) %>%
-    summarise(max.n = max(V9),
-            last.n = last(V9),
-            d.max.last = max(V9) - last(V9))
-#The problem is between max n and last n.
-
-data.46.6$out.df
-data.46.6$data %>%
-  filter(V2 == "S") %>%
-  filter(begin > 73.625 & begin < 73.6875) %>% 
-  group_by(V5) %>%
-  mutate(V9 = as.numeric(V9)) %>%
-    summarise(max.n = max(V9),
-            last.n = last(V9),
-            d.max.last = max(V9) - last(V9))
-
-#The problem is between max n and last n.
-
-```
+vs is different for files 6 and 39.  START HERE 2022-03-09
 
 
 ```{r}
@@ -437,20 +229,8 @@ ggplot(data = FinalData.Both) +
 
 delta.begin <- FinalData.Josh$begin - FinalData.Tomo$begin
 sum(abs(delta.begin))
-diff.begin.Josh <- FinalData.Josh[abs(delta.begin) > 0,]
-diff.begin.Tomo <- FinalData.Tomo[abs(delta.begin) > 0,]
-row.idx.diff.begin <- row.names(diff.begin)
-file.idx.diff.begin <- unique(diff.begin$ff)
-file.idx.diff.begin
 
-sum(abs(FinalData.Josh$end - FinalData.Tomo$end))
-
-sum(abs(FinalData.Josh$bf - FinalData.Tomo$bf))
-FinalData.Josh[abs(FinalData.Josh$bf - FinalData.Tomo$bf) > 0,]
-
-sum(abs(FinalData.Josh$vs - FinalData.Tomo$vs))
-
-
+#No difference between the two.
 
 ```
 

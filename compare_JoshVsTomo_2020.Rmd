@@ -180,8 +180,8 @@ get.shift <- function(YEAR, data, i){
 Get data and start looking at them:
 
 ```{r}
-Tomo.out <- readRDS("RData/out_2020_Tomos.rds")
-Josh.out <- readRDS("RData/out_2020_Joshs.rds")
+Tomo.out <- readRDS("RData/out_2022_Tomos.rds")
+Josh.out <- readRDS("RData/out_2022_Joshs.rds")
 FinalData.Josh <- Josh.out$FinalData %>% mutate(v = "J")
 FinalData.Tomo <- Tomo.out$FinalData %>% mutate(v = "T")
 FinalData.Both <- rbind(FinalData.Josh, FinalData.Tomo)
