@@ -1,16 +1,8 @@
----
-title: "R Notebook"
-output: html_notebook
----
 
-```{r}
 
-rm(list=ls())
-library(tidyverse)
-library(readr)
-library(lubridate)
 
 # define some functions
+# A function to get one data file from selected directory
 get.data <- function(dir, YEAR, ff){
   FILES <- list.files(paste0(dir, "/", YEAR))
   all.lines <- read_lines(file = paste0(dir, "/", YEAR, "/", FILES[ff]))
@@ -40,6 +32,24 @@ get.data <- function(dir, YEAR, ff){
   Starts <- which(data$V2=="B") #Find all start times
   Ends <- which(data$V2=="E") #Find all end times
   
+  # if there is no "E" at the end
+  if (length(Ends) == 0 | max(Ends) != nrow(data)){
+    row.num <- as.numeric(data[nrow(data), 1])
+    row.num.char <- ifelse(row.num < 100, 
+                           paste0("0", as.character(row.num+1)),
+                           as.character(row.num + 1))
+    tmp <- hour(hms(data[nrow(data),4])) + 
+      minute(hms(data[nrow(data),4]))/60 + 
+      (second(hms(data[nrow(data),4])) + 5)/3600 
+    
+    h <- trunc(tmp)
+    m <- trunc((tmp - h) * 60)
+    s <- (((tmp - h) * 60) - m) * 60
+    data <- rbind(data, c(row.num.char, "E", data[nrow(data), 3],
+                          paste(h,m,s, sep = ":"),
+                          rep(NA, times = 12)))
+  }
+  
   if(length(Starts)>0 & length(Ends)>0){
     #Make an array to hold the time differences of starts and ends
     Diffs <- matrix(NA, ncol=length(Ends), nrow=length(Starts)) 
@@ -68,11 +78,13 @@ get.data <- function(dir, YEAR, ff){
   return(data)
 }
 
-get.shift <- function(YEAR, data, i){
+
+# A function to extract one shift from a data file.
+get.shift <- function(YEAR, data, ff, i){
   # if no matching Es, creat them:
   Shifts.begin <- which(data$V2 %in% c("P", "E"))
   #Shifts.end <- which(data$V2 %in% "E")
-
+  
   max.shifts <- length(Shifts.begin) - 1
   #Only use the first observer for model random effect
   Observer <- data[Shifts.begin[i], 5] 
@@ -86,7 +98,22 @@ get.shift <- function(YEAR, data, i){
   } else {
     NextBeginHr <- (hour(hms(data[which(data$V2 %in% "E"), 4])) + 
                       (minute(hms(data[which(data$V2 %in% "E"), 4]))/60)) + 0.00001
+
+    # when there is no "E"
+    if (length(NextBeginHr) == 0){
+      NextBeginHr <- (hour(hms(data[nrow(data), 4])) + 
+                        (minute(hms(data[nrow(data), 4]))/60)) + 0.00001
+    }
+    
+    
   }
+  
+  # when there are multiple Es in one file: Take the first of positive values
+  if (length(NextBeginHr) > 1){
+    dif.BeginHr <- NextBeginHr - BeginHr
+    NextBeginHr <- NextBeginHr[dif.BeginHr>0] %>% first()
+  } 
+  
   # End time is just before next start time (replicating J Durban's calculations)
   EndHr <- NextBeginHr - 0.00001 
   # Beginning time as a decimal day
@@ -111,7 +138,7 @@ get.shift <- function(YEAR, data, i){
   # if still NA
   if (is.na(BF)) {BF <- data[Shifts.begin[i]+1, 5]}
   if (is.na(VS)) {VS <- data[Shifts.begin[i]+1, 6]}
-
+  
   Spillover <- vector(length = 0)
   if (i < max.shifts){
     # Groups = Observers. Only the first (primary) observer is considered (V5)
@@ -130,7 +157,7 @@ get.shift <- function(YEAR, data, i){
     
   }
   
-    
+  
   if(length(Spillover > 0)){ #if there are groups that spill over into following watch, 
     # figure out if there were any sightings that need to be considered:
     sub.data <- data[(Shifts.begin[i]):(Shifts.begin[i+1]-1),] %>% 
@@ -149,7 +176,7 @@ get.shift <- function(YEAR, data, i){
   } else {   # if there were no spillover
     sub.data <- data[Shifts.begin[i]:(Shifts.begin[i+1]-1),]  %>%  
       filter(V2 == "S", V14 != "North")
-      
+    
     if (nrow(sub.data) > 0){
       N <- sub.data %>%
         group_by(V5) %>% #group by the whale group number
@@ -162,115 +189,17 @@ get.shift <- function(YEAR, data, i){
     
   }
   
-  out.list <- list(out.df = data.frame(begin=as.numeric(Begin),
-                                       end=as.numeric(End),
+  out.list <- list(out.df = data.frame(begin = as.numeric(Begin),
+                                       end = as.numeric(End),
                                        dur = as.numeric(End) - as.numeric(Begin),
-                                       bf=as.numeric(BF),
-                                       vs=as.numeric(VS),
+                                       bf = as.numeric(BF),
+                                       vs = as.numeric(VS),
                                        n = N,
-                                       obs=as.character(Observer),
-                                       i=i,
+                                       obs = as.character(Observer),
+                                       ff = ff,
+                                       i = i,
                                        BeginHr = BeginHr,
                                        BeginDay = BeginDay),
                    data = sub.data)
   return( out.list )
 }
-```
-
-Get data and start looking at them:
-
-```{r}
-Tomo.out <- readRDS("RData/out_2022_Tomos.rds")
-Josh.out <- readRDS("RData/out_2022_Joshs.rds")
-FinalData.Josh <- Josh.out$FinalData %>% mutate(v = "J")
-FinalData.Tomo <- Tomo.out$FinalData %>% mutate(v = "T")
-FinalData.Both <- rbind(FinalData.Josh, FinalData.Tomo)
-
-dim(FinalData.Josh)
-dim(FinalData.Tomo)
-
-FinalData.Josh %>% 
-  group_by(ff) %>% 
-  summarize(nrow = n()) -> Josh.summary
-
-FinalData.Tomo %>% 
-  group_by(ff) %>% 
-  summarize(nrow = n()) -> Tomo.summary
-
-Tomo.summary %>% left_join(Josh.summary, by = "ff") %>%
-  mutate(dif = nrow.x - nrow.y) -> TomoVsJosh_n
-
-#%>% filter(abs(dif) > 0) 
-comp.df <- data.frame(nrow = nrow(Tomo.out$FinalData), ncol = 6) 
-#begin = NA, end = NA, max.bf = NA, max.vs = NA, total.n = NA)
-Fs <- unique(FinalData.Tomo$ff)
-for (f in 1:length(Fs)){
-  J1 <- Josh.out$FinalData %>% filter(ff == Fs[f])
-  T1 <- Tomo.out$FinalData %>% filter(ff == Fs[f])
-  
-  comp.df[f,1] <- J1$begin[1] - T1$begin[1]
-  comp.df[f,2] <- J1$end[1] - T1$end[1]
-  comp.df[f,3] <- max(J1$bf) - max(T1$bf)
-  comp.df[f,4] <- max(J1$vs) - max(T1$vs)
-  comp.df[f,5] <- sum(J1$n) - sum(T1$n)
-  comp.df[f,6] <- Fs[f]
-
-}
-
-```
-
-
-vs is different for files 6 and 39.  
-
-```{r}
-
-data.6 <- get.data("Data/", 2022, ff = 6)
-
-FinalData.Both %>% filter(ff == 6)
-# Josh's had vs = 2 for i = 1, Tomo's found vs = 4
-
-out.6.1 <- get.shift(2022, data.6, i = 1)
-
-data.6 %>% filter(begin > 35.34 & begin < 35.389)
-
-# vs changed from 4 to 3 in this shift. It was never 2... This was because... 
-# there was a typo in Josh's code where wrong column was selected (5 instead of 6)
-# within the try section  
-
-Josh.out$CorrectLength %>% filter(ff == 6)
-out.6.1$out.df
-```
-
-
-```{r}
-data.39 <- get.data("Data/", 2022, ff = 39)
-
-FinalData.Both %>% filter(ff == 39)
-
-# Josh's had vs = 2 for i = 1 and 2, Tomo's found vs = 3
-
-out.39.1 <- get.shift(2022, data.39, i = 1)
-out.39.2 <- get.shift(2022, data.39, i = 2)
-
-data.39 %>% filter(begin > 80.31 & begin < 80.4)
-
-# vs changed from 3 to 2 in this shift. This also comes from the 
-# typo in Josh's code where wrong column was selected (5 instead of 6)
-# within the try section  
-
-Josh.out$CorrectLength %>% filter(ff == 39)
-rbind(out.39.1$out.df, out.39.2$out.df)
-```
-
-
-```{r}
-ggplot(data = FinalData.Both) +
-  geom_point(aes(x = begin, y = end, color = v))
-
-delta.begin <- FinalData.Josh$begin - FinalData.Tomo$begin
-sum(abs(delta.begin))
-
-#No difference between the two.
-
-```
-
