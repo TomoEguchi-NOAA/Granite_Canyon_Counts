@@ -7,14 +7,18 @@ library(lubridate)
 #This works for years up to 2016
 ##################################
 
-FILES <- list.files(paste0(getwd(),"/2016 Edited for JWD"))
-FILES <- list.files(paste0(getwd(),"/GRANITE CANYON 2019_2020_RAW AND EDITED DATA FILES (for Josh Stewart)/Granite Canyon 2020 Visual Data-EDITED"))
+# FILES <- list.files(paste0(getwd(),"/2016 Edited for JWD"))
+# FILES <- list.files(paste0(getwd(),"/GRANITE CANYON 2019_2020_RAW AND EDITED DATA FILES (for Josh Stewart)/Granite Canyon 2020 Visual Data-EDITED"))
+
+# Modified by TE. 2022-03-11
+FILES <- list.files(paste0(getwd(),"/Original Files/2016 Edited for JWD"))
+#FILES <- list.files(paste0(getwd(),"Original Files/GRANITE CANYON 2019_2020_RAW AND EDITED DATA FILES (for Josh Stewart)/Granite Canyon 2020 Visual Data-EDITED"))
 
 for(ff in 1:length(FILES)){ 
   
     # Read in the file, fill blanks with NA, skip the first line (ONLY SKIP IF FILES HAVE 'EDITED FOR' LINE TO BEGIN)
-    #data <- read.table(paste0(getwd(),"/2016 Edited for JWD/",FILES[ff]), fill=T, skip=1, na.strings = "", stringsAsFactors = F)
-    data <- read.table(paste0(getwd(),"/GRANITE CANYON 2019_2020_RAW AND EDITED DATA FILES (for Josh Stewart)/Granite Canyon 2020 Visual Data-EDITED/",FILES[ff]), fill=T, na.strings = "", stringsAsFactors = F)
+    data <- read.table(paste0(getwd(),"/Original Files/2016 Edited for JWD/",FILES[ff]), fill=T, skip=1, na.strings = "", stringsAsFactors = F)
+    #data <- read.table(paste0(getwd(),"/GRANITE CANYON 2019_2020_RAW AND EDITED DATA FILES (for Josh Stewart)/Granite Canyon 2020 Visual Data-EDITED/",FILES[ff]), fill=T, na.strings = "", stringsAsFactors = F)
   
     Shifts <- which(data$V2 %in% c('P','E')) #start/end of all shifts
     
@@ -106,14 +110,16 @@ is.na(as.numeric(data$V5))
 #Modifications for 2019 onwards
 ##################################
 
-FILES <- list.files(paste0(getwd(),"/GRANITE CANYON 2019_2020_RAW AND EDITED DATA FILES (for Josh Stewart)/Granite Canyon 2020 Visual Data-EDITED"))
+#FILES <- list.files(paste0(getwd(),"/GRANITE CANYON 2019_2020_RAW AND EDITED DATA FILES (for Josh Stewart)/Granite Canyon 2020 Visual Data-EDITED"))
+#TE:
+FILES <- list.files(paste0(getwd(),"/Original Files/GRANITE CANYON 2019_2020_RAW AND EDITED DATA FILES (for Josh Stewart)/Granite Canyon 2020 Visual Data-EDITED"))
 YEAR <- 2019 #Enter the year of the data files
 
 for(ff in 1:length(FILES)){ 
   
   #Comment lines create formatting problems because each word is interpreted as a column
   #So, first read in individual lines from each file and skip the comment lines when creating a data frame with read.table
-  dataLines <- readLines(paste0(getwd(),"/GRANITE CANYON 2019_2020_RAW AND EDITED DATA FILES (for Josh Stewart)/Granite Canyon 2020 Visual Data-EDITED/",FILES[ff]))
+  dataLines <- readLines(paste0(getwd(),"/Original Files/GRANITE CANYON 2019_2020_RAW AND EDITED DATA FILES (for Josh Stewart)/Granite Canyon 2020 Visual Data-EDITED/",FILES[ff]))
   COMMENTS <- which(substr(dataLines,5,5)=="C") #Comment lines, which are problematic for input / formatting
   
   if(length(COMMENTS)>0){

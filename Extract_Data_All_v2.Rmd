@@ -23,11 +23,6 @@ YEAR <- 2016 #2022 #Enter the year of the data files
 
 ```{r}
 
-##################################
-#Modifications for 2019 onwards
-##################################
-
-
 FILES <- list.files(paste0("Data/", YEAR, "/"))
 
 Data_Out.list <- list()

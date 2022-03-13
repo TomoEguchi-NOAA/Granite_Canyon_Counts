@@ -1,0 +1,106 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+Surveys were conducted in 2006/2007 (2007 data), 2007/2008 (2008 data), 2009/2010 (2010 data), 2010/2011 (2011 data), 2014/2015 (2015 data), 2015/2016 (2016 data), and 2019/2020 (2020 data). So, this one (2016), it should be the 6th dataset. They should put Year in their dataset.
+
+Get data and start looking at them:
+
+```{r}
+rm(list = ls())
+library(tidyverse)
+library(lubridate)
+library(readr)
+source("Granite_Canyon_Counts_fcns.R")
+
+# this is for the 6th data set in the analysis
+idx.yr <- 6
+
+# this file contains all input data for WinBUGS.
+v1.out <- readRDS("RData/2006-2019_GC_Formatted_Data.RDS")
+
+periods.2016 <- v1.out$periods[idx.yr]
+n.2016 <- v1.out$n[1:periods.2016,,idx.yr]
+n.com.2016 <- v1.out$n.com[1:periods.2016,,idx.yr]
+n.sp.2016 <- v1.out$n.sp[1:periods.2016,,idx.yr]
+obs.2016 <- v1.out$obs[1:periods.2016,,idx.yr]
+
+vs.2016 <- v1.out$vs[1:periods.2016,idx.yr]
+bf.2016 <- v1.out$bf[1:periods.2016,idx.yr]
+day.2016 <- v1.out$day[1:periods.2016,idx.yr]
+
+v2.out <- readRDS("RData/out_2016_Tomo_v2.rds")
+FinalData.v2 <- v2.out$FinalData %>% mutate(v = "V2")%>% select(-dur)
+FinalData.v1 <- v1.out$FinalData %>% mutate(v = "V1") 
+FinalData.Both <- rbind(FinalData.v2, FinalData.v1)
+
+# dim(FinalData.v1)
+# dim(FinalData.v2)
+
+FinalData.v1 %>% 
+  group_by(ff) %>% 
+  summarize(nrow = n()) -> v1.summary
+
+
+FinalData.v2 %>% 
+  group_by(ff) %>% 
+  summarize(nrow = n()) -> v2.summary
+
+v1.summary %>% left_join(v2.summary, by = "ff") %>%
+  mutate(dif = nrow.x - nrow.y) -> v1Vsv2_n
+
+
+# #%>% filter(abs(dif) > 0) 
+# comp.df <- data.frame(nrow = nrow(Tomo.out$FinalData), ncol = 6) 
+# #begin = NA, end = NA, max.bf = NA, max.vs = NA, total.n = NA)
+# Fs <- unique(FinalData.Tomo$ff)
+# for (f in 1:length(Fs)){
+#   J1 <- Josh.out$FinalData %>% filter(ff == Fs[f])
+#   T1 <- Tomo.out$FinalData %>% filter(ff == Fs[f])
+#   
+#   comp.df[f,1] <- J1$begin[1] - T1$begin[1]
+#   comp.df[f,2] <- J1$end[1] - T1$end[1]
+#   comp.df[f,3] <- max(J1$bf) - max(T1$bf)
+#   comp.df[f,4] <- max(J1$vs) - max(T1$vs)
+#   comp.df[f,5] <- sum(J1$n) - sum(T1$n)
+#   comp.df[f,6] <- Fs[f]
+# 
+# }
+
+```
+
+
+```{r}
+
+FinalData.Both %>% filter(ff == 36) %>% filter(v == "V1")
+FinalData.Both %>% filter(ff == 36) %>% filter(v == "V2")
+# i = 6 is not in v1 output 
+
+data.36 <- get.data("Data/", 2020, ff = 36)
+
+# but this returns fine... where did it go? 
+output.36.6 <- get.shift(2020, data.36, ff = 36, i = 6)
+
+# Correct length
+v1.out$CorrectLength %>% filter(ff == 36)
+
+# first output
+v1.out$Data_Out %>% filter(ff == 36)
+#Still not in there
+
+#So, it was completely missed from the beginning
+
+# Turns out there was no "E" entry at the end of the file. So, the last shift
+# was completely missed using the previous version. My new code adds a line
+# with "E" as the event at 5 seconds after the final record in the data. So, the 
+# problem is solved. 
+
+data.36 %>% filter(begin > 59.56 & begin < 59.69)
+
+
+# Group 25 changed the number from 2, to 7, to 5. This explains the discrepancy of 2.
+```
+
+
