@@ -81,7 +81,7 @@ get.data <- function(dir, YEAR, ff){
 
 # A function to extract one shift from a data file.
 get.shift <- function(YEAR, data, ff, i){
-  # if no matching Es, creat them:
+  # if no matching Es, create them:
   Shifts.begin <- which(data$V2 %in% c("P", "E"))
   #Shifts.end <- which(data$V2 %in% "E")
   
@@ -157,10 +157,10 @@ get.shift <- function(YEAR, data, ff, i){
     
   }
   
-  
+  data.shift <- data[(Shifts.begin[i]):(Shifts.begin[i+1]-1),]
   if(length(Spillover > 0)){ #if there are groups that spill over into following watch, 
     # figure out if there were any sightings that need to be considered:
-    sub.data <- data[(Shifts.begin[i]):(Shifts.begin[i+1]-1),] %>% 
+    sub.data <- data.shift %>% #data[(Shifts.begin[i]):(Shifts.begin[i+1]-1),] %>% 
       filter(V2 == "S", !(V5 %in% Spillover), V14 != "North")
     
     if (nrow(sub.data) > 0){
@@ -174,7 +174,7 @@ get.shift <- function(YEAR, data, ff, i){
     }
     
   } else {   # if there were no spillover
-    sub.data <- data[Shifts.begin[i]:(Shifts.begin[i+1]-1),]  %>%  
+    sub.data <- data.shift %>% #data[Shifts.begin[i]:(Shifts.begin[i+1]-1),]  %>%  
       filter(V2 == "S", V14 != "North")
     
     if (nrow(sub.data) > 0){
@@ -200,6 +200,25 @@ get.shift <- function(YEAR, data, ff, i){
                                        i = i,
                                        BeginHr = BeginHr,
                                        BeginDay = BeginDay),
-                   data = sub.data)
+                   data = sub.data,
+                   data.shift = data.shift)
   return( out.list )
+}
+
+
+fractional_Day2YMDhms <- function(x, YEAR){
+  n.days <- floor(x)
+  dec.hr <- (x - n.days) * 24
+  hr <- floor(dec.hr)
+  dec.min <- (dec.hr - hr) * 60
+  m <- floor(dec.min)
+  s <- floor((dec.min - m) * 60)
+  
+
+  mdy <- n.days + as.Date(paste0((YEAR-1), "-11-30"))          
+
+  return(list(YMD = mdy,
+              hms = paste(ifelse(hr < 10, paste0("0", hr), hr), 
+                          ifelse(m < 10, paste0("0", m), m), 
+                          ifelse(s < 10, paste0("0", s), s), sep = ":")))  
 }
