@@ -158,9 +158,11 @@ v2.out$Data_Out %>%
 
 v2.out$CorrectLength %>%
   mutate(time.steps = floor(v2.out$CorrectLength$begin)) -> CorrectLength.v2 
+
+difs.1[1,]
 ```
 
-First one has one more period in Josh's than mine.
+First one has one more period in V1 than in V2.
 
 ```{r}
 idx <- 1
@@ -172,7 +174,7 @@ FinalData.Both %>%
   filter(time.steps == difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
 
-# The first shift is missing in V2.
+# The first and last shifts are missing in V2.
 Data_Out.v2 %>% 
   filter(time.steps == difs.1[idx, "time.step"]) 
 
@@ -192,9 +194,15 @@ CorrectLength.v2 %>%
 # Observers changed but the shift continued. Having different observers made it to not work in my
 # version... I may remove the line 013 (P) to combine the two shifts.
 
+
 ```
 
-The second one has one less whale in V1 than in V2.
+```{r}
+difs.1[2,]
+```
+
+
+The second one has 9 more whales in V2 than in V1
 
 ```{r}
 idx <- 2  
@@ -211,9 +219,14 @@ FinalData.Both %>%
 Data_Out.v2 %>% 
   filter(time.steps == difs.1[idx, "time.step"]) 
 
+# bf and vs are NAs... but all else looks good. 
+CorrectLength.v2 %>% filter(time.steps == difs.1[idx,"time.step"])
+
 data <- get.data("Data/", YEAR, ff = 3)
 
-out.shift <- get.shift(YEAR, data, ff=3, i=6)
+# there were only 4 shifts in the dataset.
+out.shift <- get.shift(YEAR, data, ff=3, i=5)
+
 
 out.shift$data %>%
   group_by(V5) %>%
@@ -223,9 +236,9 @@ out.shift$data %>%
 # It's not anything to do with max vs last... 
 
 # Get the raw data files
-data %>% filter(begin > tmp.V1[6,"begin"] & begin < tmp.V1[6, "end"]) -> data.3.6
+data %>% filter(begin > tmp.V1[5,"begin"] & begin < tmp.V1[5, "end"]) -> data.3.5
 
-data.3.6 %>% 
+data.3.5 %>% 
 group_by(V5) %>%
   summarise(max.n = max(V9),
             last.n = last(V9),
@@ -282,8 +295,6 @@ The fourth one has 2 more periods in V1 than V2
 
 
 ```{r}
-GET.SHIFT FUNCTION IS NOT WORKING FOR THIS DAY... PROBABLY BECAUSE THERE WAS A B-E PAIR WITH NO SIGHTINGS... NEED TO LOOK INTO THIS PROBLEM 2022-03-14
-
 idx <- 4  
 FinalData.Both %>% 
   filter(time.steps == difs.1[idx, "time.step"]) %>% 
@@ -307,6 +318,7 @@ CorrectLength.v2 %>%
 # 1st and second shifts
 data <- get.data("Data/", YEAR, ff = FF)
 
+#out.shift.5.1 <- get.shift.1(YEAR, data, ff=FF, i=1)
 out.shift.5.1 <- get.shift(YEAR, data, ff=FF, i=1)
 out.shift.5.2 <- get.shift(YEAR, data, ff=FF, i=2)
 out.shift.5.3 <- get.shift(YEAR, data, ff=FF, i=3)

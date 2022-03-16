@@ -33,8 +33,8 @@ for(ff in 1:length(FILES)){
   data <- get.data("Data/", YEAR, ff = ff)
 
   
-  Shifts <- which(data$V2 %in% c('P','E')) #start/end of all shifts
-  
+  #Shifts <- which(data$V2 %in% c('P','E')) #start/end of all shifts
+  Shifts <- which(data$V2 %in% "P") #start of all shifts
   # # if there is no "E"
   # if (length(which(data$V2 %in% "E")) == 0){
   #   i.max <- length(Shifts)
@@ -44,10 +44,10 @@ for(ff in 1:length(FILES)){
   # 
   Output.list <- list()
   #i <- 1
-  for(i in 1:(length(Shifts)-1)){
-    out.shift <- get.shift(YEAR, data, ff, i)
+  for(k in 1:length(Shifts)){
+    out.shift <- get.shift(YEAR, data, ff, k)
       
-    Output.list[[i]] <- out.shift$out.df
+    Output.list[[k]] <- out.shift$out.df
   }#i
   
   Data_Out.list[[ff]] <- do.call("rbind", Output.list)
@@ -110,17 +110,17 @@ ShiftsPerDay <- FinalData %>%
 #Spot Checks:
 
 #Check shifts that passed muster to confirm the compiled data is correct
-set.seed(1199)
-FinalData[sample(1:196,20,replace=F),]
-
-#Check shifts that were thrown out to make sure they deserved it
-set.seed(1200)
-Chaff[sample(1:54,10,replace=F),]
+# set.seed(1199)
+# FinalData[sample(1:196,20,replace=F),]
+# 
+# #Check shifts that were thrown out to make sure they deserved it
+# set.seed(1200)
+# Chaff[sample(1:54,10,replace=F),]
 
 
 #Summary Stats for Report
 Complete_Data <- Data_Out[complete.cases(Data_Out),]
-Complete_Data$Eff <- Complete_Data$end-Complete_Data$begin
+Complete_Data$Eff <- Complete_Data$end-C♣omplete_Data$begin
 
 TotalHrs <- sum(Complete_Data$Eff)*24
 TotalDays <- length(unique(floor(Complete_Data$begin)))

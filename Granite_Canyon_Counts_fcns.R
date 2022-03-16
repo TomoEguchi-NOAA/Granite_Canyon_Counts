@@ -78,27 +78,193 @@ get.data <- function(dir, YEAR, ff){
   return(data)
 }
 
+# 
+# # A function to extract one shift from a data file.
+# get.shift <- function(YEAR, data, ff, i){
+#   # Each shift always begins with "P"
+#   #Shifts.begin <- which(data$V2 %in% "P")
+#   
+#   # But each shift does not always have an explicit end. 
+#   # The end of data file does not always contain "E" either.
+#   # if no matching Es, create them:
+#   Shifts.begin <- which(data$V2 %in% c("P", "E"))
+#   #Shifts.end <- which(data$V2 %in% "E")
+#   
+#   max.shifts <- length(Shifts.begin) - 1
+#   #Only use the first observer for model random effect
+#   Observer <- data[Shifts.begin[i], 5] 
+#   # Days since Nov 30th of the previous year
+#   BeginDay <- mdy(data[Shifts.begin[i], 3]) - mdy(paste0("11/30/", (YEAR - 1)))
+#   # Decimal hour of shift start time
+#   BeginHr <- (hour(hms(data[Shifts.begin[i], 4])) + (minute(hms(data[Shifts.begin[i], 4]))/60)) 
+#   # Decimal hour of next shift start time
+#   if (i < max.shifts){
+#     NextBeginHr <- (hour(hms(data[Shifts.begin[i+1], 4])) + (minute(hms(data[Shifts.begin[i+1], 4]))/60)) 
+#   } else {
+#     NextBeginHr <- (hour(hms(data[which(data$V2 %in% "E"), 4])) + 
+#                       (minute(hms(data[which(data$V2 %in% "E"), 4]))/60)) + 0.00001
+# 
+#     # when there is no "E"
+#     if (length(NextBeginHr) == 0){
+#       NextBeginHr <- (hour(hms(data[nrow(data), 4])) + 
+#                         (minute(hms(data[nrow(data), 4]))/60)) + 0.00001
+#     }
+#     
+#     
+#   }
+#   
+#   # when there are multiple Es in one file: Take the first of positive values
+#   if (length(NextBeginHr) > 1){
+#     dif.BeginHr <- NextBeginHr - BeginHr
+#     NextBeginHr <- NextBeginHr[dif.BeginHr>0] %>% first()
+#   } 
+#   
+#   # End time is just before next start time (replicating J Durban's calculations)
+#   EndHr <- NextBeginHr - 0.00001 
+#   # Beginning time as a decimal day
+#   Begin <- as.numeric(BeginDay) + (BeginHr/24) 
+#   #End time as a decimal day
+#   End <- as.numeric(BeginDay) + (EndHr/24)
+#   BFs <- as.numeric(data[Shifts.begin[i]:(Shifts.begin[i+1]-1), 12])
+#   if (sum(!is.na(BFs)) == 0){
+#     BF <- NA
+#   } else {
+#     BF <- max(BFs, na.rm=T)
+#   }
+#   
+#   #Visibility (maximum from watch period)
+#   VSs <- as.numeric(data[Shifts.begin[i]:(Shifts.begin[i+1]-1), 13])
+#   if (sum(!is.na(VSs)) == 0){
+#     VS <- NA 
+#   } else {
+#     VS <- max(VSs, na.rm=T) 
+#   }
+#   
+#   # if still NA
+#   if (is.na(BF)) {BF <- data[Shifts.begin[i]+1, 5]}
+#   if (is.na(VS)) {VS <- data[Shifts.begin[i]+1, 6]}
+#   
+#   Spillover <- vector(length = 0)
+#   if (i < max.shifts){
+#     # Groups = Observers. Only the first (primary) observer is considered (V5)
+#     GroupsThisWatch <- data[Shifts.begin[i]:(Shifts.begin[i+1]-1),] %>% # Group numbers from this watch period
+#       filter(V2 == "S") %>%
+#       distinct(V5) %>%
+#       pull()
+#     
+#     GroupsNextWatch <- data[Shifts.begin[i+1]:(Shifts.begin[i+2]-1),] %>% # Group numbers from next watch period
+#       filter(V2 == "S") %>%
+#       distinct(V5) %>%
+#       pull()
+#     
+#     # Which groups from watch i were also observed in watch i+1? They should be excluded from i and counted in i+1
+#     Spillover <- GroupsThisWatch[GroupsThisWatch %in% GroupsNextWatch] 
+#     
+#   }
+#   
+#   data.shift <- data[(Shifts.begin[i]):(Shifts.begin[i+1]-1),]
+#   if(length(Spillover > 0)){ #if there are groups that spill over into following watch, 
+#     # figure out if there were any sightings that need to be considered:
+#     sub.data <- data.shift %>% #data[(Shifts.begin[i]):(Shifts.begin[i+1]-1),] %>% 
+#       filter(V2 == "S", !(V5 %in% Spillover), V14 != "North")
+#     
+#     if (nrow(sub.data) > 0){
+#       N <- sub.data %>%
+#         group_by(V5) %>% #group by the whale group number
+#         select(V5, V9) %>%
+#         summarize(N = max(as.numeric(V9), na.rm = T)) %>% 
+#         select(N)  %>% sum()
+#     } else {
+#       N <- 0
+#     }
+#     
+#   } else {   # if there were no spillover
+#     sub.data <- data.shift %>% #data[Shifts.begin[i]:(Shifts.begin[i+1]-1),]  %>%  
+#       filter(V2 == "S", V14 != "North")
+#     
+#     if (nrow(sub.data) > 0){
+#       N <- sub.data %>%
+#         group_by(V5) %>% #group by the whale group number
+#         select(V5, V9) %>%
+#         summarize(N = max(as.numeric(V9), na.rm = T)) %>% 
+#         select(N)  %>% sum()
+#     } else {
+#       N <- 0
+#     }
+#     
+#   }
+#   
+#   out.list <- list(out.df = data.frame(begin = as.numeric(Begin),
+#                                        end = as.numeric(End),
+#                                        dur = as.numeric(End) - as.numeric(Begin),
+#                                        bf = as.numeric(BF),
+#                                        vs = as.numeric(VS),
+#                                        n = N,
+#                                        obs = as.character(Observer),
+#                                        ff = ff,
+#                                        i = i,
+#                                        BeginHr = BeginHr,
+#                                        BeginDay = BeginDay),
+#                    data = sub.data,
+#                    data.shift = data.shift)
+#   return( out.list )
+# }
 
 # A function to extract one shift from a data file.
 get.shift <- function(YEAR, data, ff, i){
-  # if no matching Es, create them:
-  Shifts.begin <- which(data$V2 %in% c("P", "E"))
-  #Shifts.end <- which(data$V2 %in% "E")
+  # Each shift always begins with "P"
+  Shifts.begin <- which(data$V2 %in% "P")
+  Shifts.begin.df <- data.frame(event = "P",
+                                shift = 1:length(Shifts.begin),
+                                row = Shifts.begin)
+  # But each shift does not always have an explicit end. 
+  # The end of data file does not always contain "E" either.
+  Shifts.end <- which(data$V2 %in% "E")
+  Shifts.end.df <- data.frame(event = "E",
+                              shift = NA,
+                              row = Shifts.end)
   
-  max.shifts <- length(Shifts.begin) - 1
+  Shifts.df <- arrange(rbind(Shifts.begin.df, Shifts.end.df), row)
+  
+  max.shifts <- length(Shifts.begin)
   #Only use the first observer for model random effect
   Observer <- data[Shifts.begin[i], 5] 
   # Days since Nov 30th of the previous year
   BeginDay <- mdy(data[Shifts.begin[i], 3]) - mdy(paste0("11/30/", (YEAR - 1)))
   # Decimal hour of shift start time
   BeginHr <- (hour(hms(data[Shifts.begin[i], 4])) + (minute(hms(data[Shifts.begin[i], 4]))/60)) 
+  
+  
   # Decimal hour of next shift start time
   if (i < max.shifts){
-    NextBeginHr <- (hour(hms(data[Shifts.begin[i+1], 4])) + (minute(hms(data[Shifts.begin[i+1], 4]))/60)) 
+    event.idx <- which(Shifts.df$shift %in% i)
+    next.event <- Shifts.df[event.idx+1,]
+    if (next.event$event == "P"){
+      NextBeginHr <- (hour(hms(data[next.event$row, 4])) + (minute(hms(data[next.event$row, 4]))/60))       
+    } else {  # if the event is "E"
+      next.P <- Shifts.df[event.idx+2,]
+      NextBeginHr <- (hour(hms(data[next.P$row, 4])) + (minute(hms(data[next.P$row, 4]))/60))       
+    }
+
+    event.idx2 <- which(Shifts.df$shift %in% (i+1))
+    next.event2 <- Shifts.df[event.idx2+1,]
+    
+    if (is.na(next.event2$shift)){   # if this is the end of the file
+      NextBeginHr2 <- START HERE... NEED TO FIX PICKING UP THE NEXT BLOCK FOR FINDING SPILLOVERS
+      WHEN THE PERIOD IS SECOND TO LAST. NextBeginHr2 IS UNNECESSARY... 
+    }
+    if (next.event2$event == "P"){
+      NextBeginHr2 <- (hour(hms(data[next.event2$row, 4])) + (minute(hms(data[next.event2$row, 4]))/60))       
+    } else {  # if the event is "E"
+      next.P2 <- Shifts.df[event.idx2+2,]
+      NextBeginHr2 <- (hour(hms(data[next.P2$row, 4])) + (minute(hms(data[next.P2$row, 4]))/60))       
+    }
+    
+
   } else {
     NextBeginHr <- (hour(hms(data[which(data$V2 %in% "E"), 4])) + 
                       (minute(hms(data[which(data$V2 %in% "E"), 4]))/60)) + 0.00001
-
+    
     # when there is no "E"
     if (length(NextBeginHr) == 0){
       NextBeginHr <- (hour(hms(data[nrow(data), 4])) + 
@@ -112,7 +278,7 @@ get.shift <- function(YEAR, data, ff, i){
   if (length(NextBeginHr) > 1){
     dif.BeginHr <- NextBeginHr - BeginHr
     NextBeginHr <- NextBeginHr[dif.BeginHr>0] %>% first()
-  } 
+  }
   
   # End time is just before next start time (replicating J Durban's calculations)
   EndHr <- NextBeginHr - 0.00001 
@@ -120,7 +286,44 @@ get.shift <- function(YEAR, data, ff, i){
   Begin <- as.numeric(BeginDay) + (BeginHr/24) 
   #End time as a decimal day
   End <- as.numeric(BeginDay) + (EndHr/24)
-  BFs <- as.numeric(data[Shifts.begin[i]:(Shifts.begin[i+1]-1), 12])
+  
+  data.shift <- data %>% filter(begin >= data[Shifts.begin[i], "begin"] & 
+                                  begin <= End)
+  
+  if (i < max.shifts){
+    # End time is just before next start time (replicating J Durban's calculations)
+    EndHr2 <- NextBeginHr2 - 0.00001 
+    # Beginning time as a decimal day
+    Begin2 <- as.numeric(BeginDay) + (NextBeginHr/24) 
+    #End time as a decimal day
+    End2 <- as.numeric(BeginDay) + (EndHr2/24)
+    
+    # following shift for finding out spillovers.
+    data.shift2 <- data %>% filter(begin >= data[Shifts.begin[i+1], "begin"] & 
+                                     begin <= End2)
+    
+  }
+
+    # pull out the data for this shift
+  # if (i < max.shifts){
+  #   data.shift <- data[(Shifts.begin[i]):(Shifts.begin[i+1]-1),]    
+  # } else {
+  #   data.shift <- data %>% filter(begin >= data[Shifts.begin[i], "begin"] & 
+  #                                   begin <= End)
+  # }
+
+  
+  BFs <- data.shift %>% 
+    filter(V2 == "V" | V2 == "S") %>% 
+    select(V12) %>% 
+    pull()%>% as.numeric()
+  # if (i < max.shifts){
+  #   BFs <- as.numeric(data[Shifts.begin[i]:(Shifts.begin[i+1]-1), 12])    
+  # } else {
+  #   BFs <- data.shift %>% 
+  #     select(V12) %>% pull()
+  # }
+  
   if (sum(!is.na(BFs)) == 0){
     BF <- NA
   } else {
@@ -128,26 +331,39 @@ get.shift <- function(YEAR, data, ff, i){
   }
   
   #Visibility (maximum from watch period)
-  VSs <- as.numeric(data[Shifts.begin[i]:(Shifts.begin[i+1]-1), 13])
+  VSs <- data.shift %>% 
+    filter(V2 == "V" | V2 == "S") %>% 
+    select(V13) %>%
+    pull() %>% as.numeric()
+  # if (i < max.shifts){
+  #   VSs <- as.numeric(data[Shifts.begin[i]:(Shifts.begin[i+1]-1), 13])
+  # } else {
+  #   VSs <- data %>% filter(begin >= data[Shifts.begin[i], "begin"] & 
+  #                            begin <= as.numeric(BeginDay + NextBeginHr/24)) %>%
+  #     select(V13) %>% pull()
+  # }
+  
   if (sum(!is.na(VSs)) == 0){
     VS <- NA 
   } else {
     VS <- max(VSs, na.rm=T) 
   }
   
-  # if still NA
+  # if still NA, take the first "V" entry
   if (is.na(BF)) {BF <- data[Shifts.begin[i]+1, 5]}
   if (is.na(VS)) {VS <- data[Shifts.begin[i]+1, 6]}
   
   Spillover <- vector(length = 0)
+  # No spillover for the last shift
   if (i < max.shifts){
     # Groups = Observers. Only the first (primary) observer is considered (V5)
-    GroupsThisWatch <- data[Shifts.begin[i]:(Shifts.begin[i+1]-1),] %>% # Group numbers from this watch period
+    # Group numbers from this watch period
+    GroupsThisWatch <- data.shift %>% #[Shifts.begin[i]:(Shifts.begin[i+1]-1),] %>% 
       filter(V2 == "S") %>%
       distinct(V5) %>%
       pull()
-    
-    GroupsNextWatch <- data[Shifts.begin[i+1]:(Shifts.begin[i+2]-1),] %>% # Group numbers from next watch period
+    # Group numbers from next watch period
+    GroupsNextWatch <- data.shift2 %>% #[Shifts.begin[i+1]:(Shifts.begin[i+2]-1),] %>% 
       filter(V2 == "S") %>%
       distinct(V5) %>%
       pull()
@@ -157,7 +373,6 @@ get.shift <- function(YEAR, data, ff, i){
     
   }
   
-  data.shift <- data[(Shifts.begin[i]):(Shifts.begin[i+1]-1),]
   if(length(Spillover > 0)){ #if there are groups that spill over into following watch, 
     # figure out if there were any sightings that need to be considered:
     sub.data <- data.shift %>% #data[(Shifts.begin[i]):(Shifts.begin[i+1]-1),] %>% 
@@ -204,7 +419,6 @@ get.shift <- function(YEAR, data, ff, i){
                    data.shift = data.shift)
   return( out.list )
 }
-
 
 fractional_Day2YMDhms <- function(x, YEAR){
   n.days <- floor(x)
