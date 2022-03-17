@@ -232,56 +232,59 @@ get.shift <- function(YEAR, data, ff, i){
   # Days since Nov 30th of the previous year
   BeginDay <- mdy(data[Shifts.begin[i], 3]) - mdy(paste0("11/30/", (YEAR - 1)))
   # Decimal hour of shift start time
-  BeginHr <- (hour(hms(data[Shifts.begin[i], 4])) + (minute(hms(data[Shifts.begin[i], 4]))/60)) 
-  
+  BeginHr <- (hour(hms(data[Shifts.begin[i], 4])) + 
+                (minute(hms(data[Shifts.begin[i], 4]))/60)) 
+  #  + (second(hms(data[Shifts.begin[i], 4]))/3600)
   
   # Decimal hour of next shift start time
   if (i < max.shifts){
     event.idx <- which(Shifts.df$shift %in% i)
-    next.event <- Shifts.df[event.idx+1,]
+    next.event <- Shifts.df[event.idx + 1,]
     if (next.event$event == "P"){
-      NextBeginHr <- (hour(hms(data[next.event$row, 4])) + (minute(hms(data[next.event$row, 4]))/60))       
+      NextBeginHr <- (hour(hms(data[next.event$row, 4])) + 
+                        (minute(hms(data[next.event$row, 4]))/60))
+      #  + (second(hms(data[next.event$row, 4]))/3600)
+      EndHr <- NextBeginHr - 0.00001
     } else {  # if the event is "E"
       next.P <- Shifts.df[event.idx+2,]
-      NextBeginHr <- (hour(hms(data[next.P$row, 4])) + (minute(hms(data[next.P$row, 4]))/60))       
+      NextBeginHr <- (hour(hms(data[next.P$row, 4])) + 
+                        (minute(hms(data[next.P$row, 4]))/60) )
+      # + (second(hms(data[next.P$row, 4]))/3600)
+      EndHr <- (hour(hms(data[next.event$row, 4])) + 
+                  (minute(hms(data[next.event$row, 4]))/60))
     }
 
+    # Find next end hr to find the next shift to figure out spillovers
     event.idx2 <- which(Shifts.df$shift %in% (i+1))
     next.event2 <- Shifts.df[event.idx2+1,]
     
-    if (is.na(next.event2$shift)){   # if this is the end of the file
-      NextBeginHr2 <- START HERE... NEED TO FIX PICKING UP THE NEXT BLOCK FOR FINDING SPILLOVERS
-      WHEN THE PERIOD IS SECOND TO LAST. NextBeginHr2 IS UNNECESSARY... 
-    }
-    if (next.event2$event == "P"){
-      NextBeginHr2 <- (hour(hms(data[next.event2$row, 4])) + (minute(hms(data[next.event2$row, 4]))/60))       
+    if (next.event2$event == "P"){   # if this is the end of the file
+       NextEndHr <- (hour(hms(data[next.event2$row, 4])) + 
+                       (minute(hms(data[next.event2$row, 4]))/60) ) - 0.00001
+       # + (second(hms(data[next.event2$row, 4]))/3600)
     } else {  # if the event is "E"
-      next.P2 <- Shifts.df[event.idx2+2,]
-      NextBeginHr2 <- (hour(hms(data[next.P2$row, 4])) + (minute(hms(data[next.P2$row, 4]))/60))       
+       NextEndHr <- (hour(hms(data[next.event2$row, 4])) + 
+                       (minute(hms(data[next.event2$row, 4]))/60) )
+       # + (second(hms(data[next.event2$row, 4]))/3600)
     }
     
 
-  } else {
-    NextBeginHr <- (hour(hms(data[which(data$V2 %in% "E"), 4])) + 
-                      (minute(hms(data[which(data$V2 %in% "E"), 4]))/60)) + 0.00001
-    
-    # when there is no "E"
-    if (length(NextBeginHr) == 0){
-      NextBeginHr <- (hour(hms(data[nrow(data), 4])) + 
-                        (minute(hms(data[nrow(data), 4]))/60)) + 0.00001
+  } else {    # for the last shift
+    event.idx <- which(Shifts.df$shift %in% max.shifts)
+    next.event <- Shifts.df[event.idx + 1,]  # This has to be E
+    if (length(next.event) == 0){
+      end.row <- nrow(data)
+    } else {
+      end.row <- next.event$row
     }
-    
-    
+    EndHr <-  (hour(hms(data[end.row, 4])) + 
+                 (minute(hms(data[end.row, 4]))/60))
   }
   
-  # when there are multiple Es in one file: Take the first of positive values
-  if (length(NextBeginHr) > 1){
-    dif.BeginHr <- NextBeginHr - BeginHr
-    NextBeginHr <- NextBeginHr[dif.BeginHr>0] %>% first()
-  }
   
   # End time is just before next start time (replicating J Durban's calculations)
-  EndHr <- NextBeginHr - 0.00001 
+  # TE: This is incorrect. If there was "E", we should use it. 
+  #EndHr <- NextBeginHr - 0.00001 
   # Beginning time as a decimal day
   Begin <- as.numeric(BeginDay) + (BeginHr/24) 
   #End time as a decimal day
@@ -291,17 +294,18 @@ get.shift <- function(YEAR, data, ff, i){
                                   begin <= End)
   
   if (i < max.shifts){
-    # End time is just before next start time (replicating J Durban's calculations)
-    EndHr2 <- NextBeginHr2 - 0.00001 
-    # Beginning time as a decimal day
-    Begin2 <- as.numeric(BeginDay) + (NextBeginHr/24) 
-    #End time as a decimal day
-    End2 <- as.numeric(BeginDay) + (EndHr2/24)
+    # when there are multiple Es in one file: Take the first of positive values
+    if (length(NextBeginHr) > 1){
+      dif.BeginHr <- NextBeginHr - BeginHr
+      NextBeginHr <- NextBeginHr[dif.BeginHr>0] %>% first()
+    }
     
     # following shift for finding out spillovers.
-    data.shift2 <- data %>% filter(begin >= data[Shifts.begin[i+1], "begin"] & 
-                                     begin <= End2)
+    data.shift2 <- data %>% filter(begin >= as.numeric(BeginDay) + NextBeginHr/24 & 
+                                     begin <= as.numeric(BeginDay) + NextEndHr/24)
     
+  } else {
+    data.shift2 <- NA
   }
 
     # pull out the data for this shift
@@ -416,7 +420,8 @@ get.shift <- function(YEAR, data, ff, i){
                                        BeginHr = BeginHr,
                                        BeginDay = BeginDay),
                    data = sub.data,
-                   data.shift = data.shift)
+                   data.shift = data.shift,
+                   data.next.shift = data.shift2)
   return( out.list )
 }
 

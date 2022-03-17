@@ -120,7 +120,7 @@ ShiftsPerDay <- FinalData %>%
 
 #Summary Stats for Report
 Complete_Data <- Data_Out[complete.cases(Data_Out),]
-Complete_Data$Eff <- Complete_Data$end-C♣omplete_Data$begin
+Complete_Data$Eff <- Complete_Data$end-Complete_Data$begin
 
 TotalHrs <- sum(Complete_Data$Eff)*24
 TotalDays <- length(unique(floor(Complete_Data$begin)))
