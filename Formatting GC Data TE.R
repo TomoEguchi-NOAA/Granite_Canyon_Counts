@@ -34,13 +34,19 @@ for(ff in 1:length(FILES)){
   
   # It does not like to separate the first two fields: line number and event code,
   # which are separated by a space, not tab.
-  data <- read.table(paste0("2016 Edited for JWD/", FILES[ff]), 
+  # data <- read.table(paste0("2016 Edited for JWD/", FILES[ff]), 
+  #                    #sep = " ", 
+  #                    fill=T, 
+  #                    skip = (idx.lin1-1),  # eliminates lines up to "001"
+  #                    na.strings = "", 
+  #                    stringsAsFactors = F)
+  
+  data <- read.table(paste0("Data/", YEAR, "/", FILES[ff]), 
                      #sep = " ", 
                      fill=T, 
-                     skip = (idx.lin1-1),  # eliminates lines up to "001"
+                     skip = (idx.line1-1),  # eliminates lines up to "001"
                      na.strings = "", 
                      stringsAsFactors = F)
-  
   Shifts <- which(data$V2 %in% c('P','E')) #start/end of all shifts
   
   #Shifts <- grep("[PE]", data$V1) #start/end of all shifts
@@ -99,7 +105,8 @@ for(ff in 1:length(FILES)){
       if(length(Spillover>0)){ 
         # Calculate the number of whales in the watch period
         N <- data[(Shifts[i]):(Shifts[i+1]-1),] %>% 
-          filter(V2=="S", !(V5 %in% Spillover), V14!="North") %>% #select sightings only (code S)
+          #filter(V2=="S", !(V5 %in% Spillover), V14!="North") %>% #select sightings only (code S)
+          filter(V2=="S", !(V5 %in% Spillover), V12!="North") %>% #TE modification 2022-03-17
           group_by(V5) %>% #group by the whale group number
           summarize(Count = last(V9)) %>% #take the last count of the group (repeated counts tend to increase with more observations)
           summarize(N = sum(as.numeric(Count))) #sum all final group counts
@@ -108,14 +115,16 @@ for(ff in 1:length(FILES)){
       }else{ 
         # Calculate the number of whales in the watch period
         N <- data[(Shifts[i]):(Shifts[i+1]-1),] %>% 
-          filter(V2=="S", V14!="North") %>% #select sightings only (code S)
+          #filter(V2=="S", V14!="North") %>% #select sightings only (code S)
+          filter(V2=="S" , V12!="North") %>% #TE modification 2022-03-17
           group_by(V5) %>% #group by the whale group number
           summarize(Count = last(V9)) %>% #take the last count of the group (repeated counts tend to increase with more observations)
           summarize(N = sum(as.numeric(Count))) #sum all max group counts
       }#ifelse
     }else{#if i > length(Shifts)-1 (In the last shift, there's obviously no spillover to the next shift. And the code creates errors if you try to do that. So this is a separate snippet for just the last shift)
       N <- data[(Shifts[i]):(Shifts[i+1]-1),] %>% # Calculate the number of whales in the watch period
-        filter(V2=="S", V14!="North") %>% #select sightings only (code S)
+        #filter(V2=="S", V14!="North") %>% #select sightings only (code S)
+        filter(V2=="S", V12!="North") %>% #TE modification 2022-03-17
         group_by(V5) %>% #group by the whale group number
         summarize(Count = last(V9)) %>% #take the last count of the group (repeated counts tend to increase with more observations)
         summarize(N = sum(as.numeric(Count))) #sum all max group counts

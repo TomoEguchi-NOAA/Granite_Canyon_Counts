@@ -445,11 +445,305 @@ shift <-  6
 out.shift.6 <- get.shift(YEAR, data, ff=FF, i=shift)
 # I don't know why this shift was thrown out... 
 
+data %>% 
+  filter(begin >= tmp.V1$begin[shift] & begin <= tmp.V1$end[shift]) %>%
+  filter(V2 == "S") %>%
+  select(V5, V9) %>%
+  mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>%
+  group_by(V5) %>%
+  summarise(last.n = last(V9),
+            max.n = max(V9)) -> summary.11.6.V1
+  
+c(sum(summary.11.6.V1$last.n), sum(summary.11.6.V1$max.n))
 
-START HERE 2022-03-16. HAVEN'T FIGURE OUT THE PROBLEM... 
+# No difference in max vs last counts
+# There were 23 (length(unique(summary.11.6.V1$V5))) groups in raw data
+
+out.shift.6$data %>%
+  select(V5, V9) %>%
+  mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>%
+  group_by(V5) %>%
+  summarise(last.n = last(V9),
+            max.n = max(V9)) -> summary.11.6.V2
+
+c(sum(summary.11.6.V2$last.n), sum(summary.11.6.V2$max.n))
+# There were 23 (length(unique(summary.11.6.V2$V5))) groups from V2 extraction
+# I have no idea why V1 has 1 less whale...
+  
+```
+
+
+
+```{r}
+idx <- 7
+difs.1[idx,]
+```
+
+The seventh one has 2 more whale in V2 than V1.
+
+```{r}
+
+FinalData.Both %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+  filter(v == "V1") -> tmp.V1
+
+FinalData.Both %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+  filter(v == "V2") -> tmp.V2
+
+# The last shift (6) has 2 more whales in V2. Another last shift... something is off...
+# I can't reproduce their results because the old script does not run any longer.
+
+Data_Out.v2 %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) 
+
+FF <- 12
+
+# the last shift (6) has one more whale in V2 than in V1
+
+data <- get.data("Data/", YEAR, ff = FF)
+
+shift <-  6
+out.shift.6 <- get.shift(YEAR, data, ff=FF, i=shift)
+
+data %>% 
+  filter(begin >= tmp.V1$begin[shift] & begin <= tmp.V1$end[shift]) %>%
+  filter(V2 == "S") %>%
+  select(V5, V9) %>%
+  mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>%
+  group_by(V5) %>%
+  summarise(last.n = last(V9),
+            max.n = max(V9)) -> summary.12.6.V1
+  
+c(sum(summary.12.6.V1$last.n), sum(summary.12.6.V1$max.n))
+
+# No difference in max vs last counts (both are 32) - why did v1 ended up 
+# with 30 whales? 
+
+# There were 22 (length(unique(summary.12.6.V1$V5))) groups in raw data
+
+out.shift.6$data %>%
+  select(V5, V9) %>%
+  mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>%
+  group_by(V5) %>%
+  summarise(last.n = last(V9),
+            max.n = max(V9)) -> summary.12.6.V2
+
+c(sum(summary.12.6.V2$last.n), sum(summary.12.6.V2$max.n))
+# There were 22 (length(unique(summary.12.6.V2$V5))) groups from V2 extraction
+# I have no idea why V1 has 2 less whales...
+
+summary.12.6.V2 %>% 
+  left_join(summary.12.6.V1, by = "V5") %>%
+  mutate(d.max.n = max.n.x - max.n.y,
+         d.last.n = last.n.x - last.n.y) %>%
+  select(V5, d.max.n, d.last.n) -> summary.12.6
+
+# there is no difference here either... 
 ```
 
 
 
 
+```{r}
+idx <- 8
+difs.1[idx,]
+```
+
+The eighth one has 1 more shift and 27 more whales in V1 than V2. Nothing returns from V2!
+
+```{r}
+
+FinalData.Both %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+  filter(v == "V1") -> tmp.V1
+
+
+FinalData.Both %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+  filter(v == "V2") -> tmp.V2
+
+CorrectLength.v2 %>% 
+    filter(time.steps == difs.1[idx, "time.step"]) 
+# There were two shifts but one has short period and the other had vs = 5. So,
+# nothing should come back from this day. 
+
+Data_Out.v2 %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) 
+
+FF <- 14
+
+# the last shift (6) has one more whale in V2 than in V1
+
+data <- get.data("Data/", YEAR, ff = FF)
+
+shift <-  1
+out.shift.1 <- get.shift(YEAR, data, ff=FF, i=shift)
+
+shift <-  2
+out.shift.2 <- get.shift(YEAR, data, ff=FF, i=shift)
+
+# Raw data file has the starting time of 13:40:05, which has been changed to
+# 13:30:00 to include this shift in the analysis. 
+
+# Changing the "grace period" to 10 minutes would include this shift without
+# modifying the data.
+```
+
+
+
+
+```{r}
+idx <- 9
+difs.1[idx,]
+```
+
+The ninth one has 1 more shift and 18 more whales in V1 than V2. 
+
+```{r}
+
+FinalData.Both %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+  filter(v == "V1") -> tmp.V1
+
+
+FinalData.Both %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+  filter(v == "V2") -> tmp.V2
+
+Data_Out.v2 %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) 
+
+CorrectLength.v2 %>% 
+    filter(time.steps == difs.1[idx, "time.step"]) 
+
+# The begin time for the first shift was modified. 
+# Data file indicates the start time was 7:43:13 but in the data, it was changed
+# to 7:30:00 (fractional_Day2YMDhms(tmp.V1$begin[1],YEAR))
+
+# Observer code was different (40 in V1 vs 42 in V2)
+
+FF <- 17
+
+# the last shift (6) has one more whale in V2 than in V1
+
+data <- get.data("Data/", YEAR, ff = FF)
+
+shift <-  1
+out.shift.1 <- get.shift(YEAR, data, ff=FF, i=shift)
+
+
+```
+
+
+
+
+
+
+```{r}
+idx <- 10
+difs.1[idx,]
+```
+
+The tenth one has 12 more whales in V1 than V2. This has been fixed by modifying the data file. It seems that wrong information is recorded in V13, which is supposed to be  visibility (VS) but "South" is entered in many... that may be the problem
+
+I edited the data file to enter NA where no VS was entered. The file was renamed with _TE added to the end of the file name. It's possible that this may have been caused also by misalignment of entries, where reticle readings (V7) did not have sufficient digits in (e.g., 0.8 instead of 0.80). 
+
+Now V2 has one more whale than V1.
+
+```{r}
+
+FinalData.Both %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+  filter(v == "V1") -> tmp.V1
+
+
+FinalData.Both %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+  filter(v == "V2") -> tmp.V2
+
+# the last shift (6) has one more whale in V2. Again the last shift! 
+
+Data_Out.v2 %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) 
+
+FF <- 22
+
+data <- get.data("Data/", YEAR, ff = FF)
+
+shift <-  6
+out.shift.6 <- get.shift(YEAR, data, ff=FF, i=shift)
+
+data %>% 
+  filter(begin >= tmp.V1$begin[shift] & begin <= tmp.V1$end[shift]) %>%
+  filter(V2 == "S") %>%
+  select(V5, V9) %>%
+  mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>%
+  group_by(V5)
+  summarise(last.n = last(V9),
+            max.n = max(V9)) -> summary.22.6.V1
+  
+c(sum(summary.22.6.V1$last.n), sum(summary.22.6.V1$max.n))
+
+out.shift.6$data %>%
+  select(V5, V9) %>%
+  mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>%
+  group_by(V5) %>%
+  summarise(last.n = last(V9),
+            max.n = max(V9)) -> summary.22.6.V2
+
+c(sum(summary.22.6.V2$last.n), sum(summary.22.6.V2$max.n))
+
+summary.22.6.V2 %>% 
+  left_join(summary.22.6.V1, by = "V5") %>%
+  mutate(d.max.n = max.n.x - max.n.y,
+         d.last.n = last.n.x - last.n.y) %>%
+  select(V5, d.max.n, d.last.n) -> summary.22.6
+
+# group 59 was not included in V1, which was observed at 16:30:03, which was a tiny
+# bit (3 seconds) after the supposed end of the shift... 
+```
+
+
+
+
+```{r}
+idx <- 11
+difs.1[idx,]
+```
+
+The eleventh one has 1 more shift and 1 more whale in V1 than V2. 
+
+```{r}
+
+FinalData.Both %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+  filter(v == "V1") -> tmp.V1
+
+FinalData.Both %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+  filter(v == "V2") -> tmp.V2
+
+# V2 is missing the shift starting at 73.5 (i = 4) with one whale sighting
+
+Data_Out.v2 %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) 
+# the 4th shift did not have long enough period (0.0306 days = 0.73 hrs)
+# the 4th and 5th shifts were combined in V1. I'm going to fix the data file.
+# The new data file will have _TE at the end. 
+# 044 E	02/11/2016	12:44:54	
+# 046 B	02/11/2016	12:54:35
+# 047 P	02/11/2016	12:54:35	JWG	MSL	N
+# were deleted.
+
+FF <- 29
+data <- get.data("Data/", YEAR, ff = FF)
+
+shift <-  4
+out.shift.4 <- get.shift(YEAR, data, ff=FF, i=shift)
+
+shift <-  5
+out.shift.5 <- get.shift(YEAR, data, ff=FF, i=shift)
+
+```
 
