@@ -400,7 +400,7 @@ out.shift.6$data %>%
             last.n = last(V9),
             d.max.last = max(V9) - last(V9)) -> data.summary.6.v2
 
-data.summary.6.v1 %>% left_join(data.summary.6.v2, by = "V5") %>%
+data.summary.6.v1 %>% right_join(data.summary.6.v2, by = "V5") %>%
   mutate(d.max.n = max.n.x - max.n.y,
          d.last.n = last.n.x - last.n.y) %>%
   select(d.max.n, d.last.n) -> data.summary.6
@@ -408,6 +408,8 @@ data.summary.6.v1 %>% left_join(data.summary.6.v2, by = "V5") %>%
 # They have the same numbers of whales per group... then why are there one less
 # whale in V1? When I add max.n or last.n in the raw data file (data.summary.6.v1),
 # they add up to 38... 
+
+# Not sure what's going on here... 
 ```
 
 
@@ -679,7 +681,7 @@ data %>%
   filter(V2 == "S") %>%
   select(V5, V9) %>%
   mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>%
-  group_by(V5)
+  group_by(V5) %>%
   summarise(last.n = last(V9),
             max.n = max(V9)) -> summary.22.6.V1
   
@@ -705,7 +707,7 @@ summary.22.6.V2 %>%
 ```
 
 
-
+The following one has been fixed with modified data file.
 
 ```{r}
 idx <- 11
