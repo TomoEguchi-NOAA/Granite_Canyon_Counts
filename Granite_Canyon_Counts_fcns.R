@@ -79,137 +79,6 @@ get.data <- function(dir, YEAR, ff){
 }
 
 # 
-# # A function to extract one shift from a data file.
-# get.shift <- function(YEAR, data, ff, i){
-#   # Each shift always begins with "P"
-#   #Shifts.begin <- which(data$V2 %in% "P")
-#   
-#   # But each shift does not always have an explicit end. 
-#   # The end of data file does not always contain "E" either.
-#   # if no matching Es, create them:
-#   Shifts.begin <- which(data$V2 %in% c("P", "E"))
-#   #Shifts.end <- which(data$V2 %in% "E")
-#   
-#   max.shifts <- length(Shifts.begin) - 1
-#   #Only use the first observer for model random effect
-#   Observer <- data[Shifts.begin[i], 5] 
-#   # Days since Nov 30th of the previous year
-#   BeginDay <- mdy(data[Shifts.begin[i], 3]) - mdy(paste0("11/30/", (YEAR - 1)))
-#   # Decimal hour of shift start time
-#   BeginHr <- (hour(hms(data[Shifts.begin[i], 4])) + (minute(hms(data[Shifts.begin[i], 4]))/60)) 
-#   # Decimal hour of next shift start time
-#   if (i < max.shifts){
-#     NextBeginHr <- (hour(hms(data[Shifts.begin[i+1], 4])) + (minute(hms(data[Shifts.begin[i+1], 4]))/60)) 
-#   } else {
-#     NextBeginHr <- (hour(hms(data[which(data$V2 %in% "E"), 4])) + 
-#                       (minute(hms(data[which(data$V2 %in% "E"), 4]))/60)) + 0.00001
-# 
-#     # when there is no "E"
-#     if (length(NextBeginHr) == 0){
-#       NextBeginHr <- (hour(hms(data[nrow(data), 4])) + 
-#                         (minute(hms(data[nrow(data), 4]))/60)) + 0.00001
-#     }
-#     
-#     
-#   }
-#   
-#   # when there are multiple Es in one file: Take the first of positive values
-#   if (length(NextBeginHr) > 1){
-#     dif.BeginHr <- NextBeginHr - BeginHr
-#     NextBeginHr <- NextBeginHr[dif.BeginHr>0] %>% first()
-#   } 
-#   
-#   # End time is just before next start time (replicating J Durban's calculations)
-#   EndHr <- NextBeginHr - 0.00001 
-#   # Beginning time as a decimal day
-#   Begin <- as.numeric(BeginDay) + (BeginHr/24) 
-#   #End time as a decimal day
-#   End <- as.numeric(BeginDay) + (EndHr/24)
-#   BFs <- as.numeric(data[Shifts.begin[i]:(Shifts.begin[i+1]-1), 12])
-#   if (sum(!is.na(BFs)) == 0){
-#     BF <- NA
-#   } else {
-#     BF <- max(BFs, na.rm=T)
-#   }
-#   
-#   #Visibility (maximum from watch period)
-#   VSs <- as.numeric(data[Shifts.begin[i]:(Shifts.begin[i+1]-1), 13])
-#   if (sum(!is.na(VSs)) == 0){
-#     VS <- NA 
-#   } else {
-#     VS <- max(VSs, na.rm=T) 
-#   }
-#   
-#   # if still NA
-#   if (is.na(BF)) {BF <- data[Shifts.begin[i]+1, 5]}
-#   if (is.na(VS)) {VS <- data[Shifts.begin[i]+1, 6]}
-#   
-#   Spillover <- vector(length = 0)
-#   if (i < max.shifts){
-#     # Groups = Observers. Only the first (primary) observer is considered (V5)
-#     GroupsThisWatch <- data[Shifts.begin[i]:(Shifts.begin[i+1]-1),] %>% # Group numbers from this watch period
-#       filter(V2 == "S") %>%
-#       distinct(V5) %>%
-#       pull()
-#     
-#     GroupsNextWatch <- data[Shifts.begin[i+1]:(Shifts.begin[i+2]-1),] %>% # Group numbers from next watch period
-#       filter(V2 == "S") %>%
-#       distinct(V5) %>%
-#       pull()
-#     
-#     # Which groups from watch i were also observed in watch i+1? They should be excluded from i and counted in i+1
-#     Spillover <- GroupsThisWatch[GroupsThisWatch %in% GroupsNextWatch] 
-#     
-#   }
-#   
-#   data.shift <- data[(Shifts.begin[i]):(Shifts.begin[i+1]-1),]
-#   if(length(Spillover > 0)){ #if there are groups that spill over into following watch, 
-#     # figure out if there were any sightings that need to be considered:
-#     sub.data <- data.shift %>% #data[(Shifts.begin[i]):(Shifts.begin[i+1]-1),] %>% 
-#       filter(V2 == "S", !(V5 %in% Spillover), V14 != "North")
-#     
-#     if (nrow(sub.data) > 0){
-#       N <- sub.data %>%
-#         group_by(V5) %>% #group by the whale group number
-#         select(V5, V9) %>%
-#         summarize(N = max(as.numeric(V9), na.rm = T)) %>% 
-#         select(N)  %>% sum()
-#     } else {
-#       N <- 0
-#     }
-#     
-#   } else {   # if there were no spillover
-#     sub.data <- data.shift %>% #data[Shifts.begin[i]:(Shifts.begin[i+1]-1),]  %>%  
-#       filter(V2 == "S", V14 != "North")
-#     
-#     if (nrow(sub.data) > 0){
-#       N <- sub.data %>%
-#         group_by(V5) %>% #group by the whale group number
-#         select(V5, V9) %>%
-#         summarize(N = max(as.numeric(V9), na.rm = T)) %>% 
-#         select(N)  %>% sum()
-#     } else {
-#       N <- 0
-#     }
-#     
-#   }
-#   
-#   out.list <- list(out.df = data.frame(begin = as.numeric(Begin),
-#                                        end = as.numeric(End),
-#                                        dur = as.numeric(End) - as.numeric(Begin),
-#                                        bf = as.numeric(BF),
-#                                        vs = as.numeric(VS),
-#                                        n = N,
-#                                        obs = as.character(Observer),
-#                                        ff = ff,
-#                                        i = i,
-#                                        BeginHr = BeginHr,
-#                                        BeginDay = BeginDay),
-#                    data = sub.data,
-#                    data.shift = data.shift)
-#   return( out.list )
-# }
-
 # A function to extract one shift from a data file.
 get.shift <- function(YEAR, data, ff, i){
   # Each shift always begins with "P"
@@ -231,7 +100,11 @@ get.shift <- function(YEAR, data, ff, i){
   Observer <- data[Shifts.begin[i], 5] 
   # Days since Nov 30th of the previous year
   BeginDay <- mdy(data[Shifts.begin[i], 3]) - mdy(paste0("11/30/", (YEAR - 1)))
-  # Decimal hour of shift start time
+  # Decimal hour of shift start time - need to add seconds because sometimes
+  # the last sighting and next shift starts within one minute. 
+  
+  START HERE NEXT 2022-03-17
+  
   BeginHr <- (hour(hms(data[Shifts.begin[i], 4])) + 
                 (minute(hms(data[Shifts.begin[i], 4]))/60)) 
   #  + (second(hms(data[Shifts.begin[i], 4]))/3600)
@@ -386,7 +259,8 @@ get.shift <- function(YEAR, data, ff, i){
       N <- sub.data %>%
         group_by(V5) %>% #group by the whale group number
         select(V5, V9) %>%
-        summarize(N = max(as.numeric(V9), na.rm = T)) %>% 
+        #summarize(N = max(as.numeric(V9), na.rm = T)) %>% 
+        summarize(N = last(as.numeric(V9))) %>% 
         select(N)  %>% sum()
     } else {
       N <- 0
@@ -400,7 +274,8 @@ get.shift <- function(YEAR, data, ff, i){
       N <- sub.data %>%
         group_by(V5) %>% #group by the whale group number
         select(V5, V9) %>%
-        summarize(N = max(as.numeric(V9), na.rm = T)) %>% 
+        #summarize(N = max(as.numeric(V9), na.rm = T)) %>% 
+        summarize(N = last(as.numeric(V9))) %>% 
         select(N)  %>% sum()
     } else {
       N <- 0

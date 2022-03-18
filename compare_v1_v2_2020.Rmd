@@ -10,27 +10,48 @@ Get data and start looking at them:
 rm(list = ls())
 source("Granite_Canyon_Counts_fcns.R")
 
-v1.out <- readRDS("RData/out_2020_Tomos.rds")
+YEAR <- 2020
+obs.list <- read.csv("Data/Observer list.csv", header = T) 
+colnames(obs.list) <- c("obs", "ID")
+
+v1.out <- readRDS("RData/out_2020_Tomo_v1.rds")
 v2.out <- readRDS("RData/out_2020_Tomo_v2.rds")
-FinalData.v2 <- v2.out$FinalData %>% mutate(v = "V2")%>% select(-dur)
+
+FinalData.v2 <- v2.out$FinalData %>% mutate(v = "V2") %>% select(-dur)
 FinalData.v1 <- v1.out$FinalData %>% mutate(v = "V1") 
+
+# FinalData.v1 %>% 
+#   group_by(ff) %>% 
+#   summarize(nrow = n()) -> v1.summary
+# 
+# v1.summary %>% left_join(v2.summary, by = "ff") %>%
+#   mutate(dif = nrow.x - nrow.y) -> v1Vsv2_n
+
+FinalData.v2 <- v2.out$FinalData %>% 
+  mutate(v = "V2") %>% 
+  left_join(obs.list, by = "obs") 
+
+# find if there is NA in ID - not in the look up table  
+ID.NA <- filter(FinalData.v2, is.na(ID))
+
+unique.ID.NA <- unique(ID.NA$obs)
+
+if (length(unique.ID.NA) > 0){
+  for (k in 1:length(unique.ID.NA)){
+    FinalData.v2[FinalData.v2$obs == unique.ID.NA[k], "ID"] <- max(obs.list$ID) + k
+    
+  }
+  
+}
+
+# replace column names
+FinalData.v2 %>% select(-obs) %>%
+  mutate(obs = ID) %>%
+  select(-ID) -> FinalData.v2
+
+# rearrange the columns to match v1
+FinalData.v2 <- FinalData.v2[, names(FinalData.v1)]
 FinalData.Both <- rbind(FinalData.v2, FinalData.v1)
-
-# dim(FinalData.v1)
-# dim(FinalData.v2)
-
-FinalData.v1 %>% 
-  group_by(ff) %>% 
-  summarize(nrow = n()) -> v1.summary
-
-
-FinalData.v2 %>% 
-  group_by(ff) %>% 
-  summarize(nrow = n()) -> v2.summary
-
-v1.summary %>% left_join(v2.summary, by = "ff") %>%
-  mutate(dif = nrow.x - nrow.y) -> v1Vsv2_n
-
 
 # #%>% filter(abs(dif) > 0) 
 # comp.df <- data.frame(nrow = nrow(Tomo.out$FinalData), ncol = 6) 
@@ -52,35 +73,230 @@ v1.summary %>% left_join(v2.summary, by = "ff") %>%
 ```
 
 
+
 ```{r}
+min.begin <- min(floor(FinalData.Both$begin))
+max.begin <- max(ceiling(FinalData.Both$begin))
 
-FinalData.Both %>% filter(ff == 36) %>% filter(v == "V1")
-FinalData.Both %>% filter(ff == 36) %>% filter(v == "V2")
-# i = 6 is not in v1 output 
+time.steps <- min.begin:max.begin
+difs <- data.frame(begin = double(),
+                   end = double(),
+                   min.begin = double(), 
+                   max.end = double(), 
+                   n.periods = integer(), 
+                   max.bf = integer(), 
+                   max.vs = integer(), 
+                   total.whales = integer(),
+                   time.step = integer(),
+                   stringsAsFactors = F)
 
-data.36 <- get.data("Data/", 2020, ff = 36)
+c <- k <- 1
+for (k in 1:(length(time.steps)-1)){
+  tmp <- filter(FinalData.Both, begin >= time.steps[k] & begin < time.steps[k+1])
+  if (nrow(tmp) > 0){
+    tmp %>% filter(v == "V1") -> tmp.1
+    tmp %>% filter(v == "V2") -> tmp.2
+    
+    difs[c,] <- c(min(tmp$begin), 
+                  max(tmp$end),
+                  min(tmp.1$begin) - min(tmp.2$begin), 
+                  max(tmp.1$end) - max(tmp.2$end),
+                  nrow(tmp.1) - nrow(tmp.2),
+                  max(tmp.1$bf) - max(tmp.1$bf),
+                  max(tmp.1$vs) - max(tmp.1$vs),
+                  sum(tmp.1$n) - sum(tmp.2$n),
+                  time.steps[k])
+    c <- c + 1
+    
+  }
+  
+}
 
-# but this returns fine... where did it go? 
-output.36.6 <- get.shift(2020, data.36, ff = 36, i = 6)
 
-# Correct length
-v1.out$CorrectLength %>% filter(ff == 36)
-
-# first output
-v1.out$Data_Out %>% filter(ff == 36)
-#Still not in there
-
-#So, it was completely missed from the beginning
-
-# Turns out there was no "E" entry at the end of the file. So, the last shift
-# was completely missed using the previous version. My new code adds a line
-# with "E" as the event at 5 seconds after the final record in the data. So, the 
-# problem is solved. 
-
-data.36 %>% filter(begin > 59.56 & begin < 59.69)
-
-
-# Group 25 changed the number from 2, to 7, to 5. This explains the discrepancy of 2.
 ```
 
 
+
+```{r}
+difs %>% filter(n.periods != 0 | total.whales != 0) -> difs.1
+FinalData.Both %>% mutate(time.steps = floor(FinalData.Both$begin)) -> FinalData.Both
+
+v2.out$Data_Out %>% 
+  mutate(time.steps = floor(v2.out$Data_Out$begin)) -> Data_Out.v2 
+
+v2.out$CorrectLength %>%
+  mutate(time.steps = floor(v2.out$CorrectLength$begin)) -> CorrectLength.v2 
+
+```
+
+Many problems disappeared after changing N = max() to N = last().
+
+```{r}
+idx <- 1
+difs.1[idx,]
+```
+
+2 less periods and 35 less whales in V1 than in V2
+
+```{r}
+
+FinalData.Both %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+  filter(v == "V1") -> tmp.V1
+
+FinalData.Both %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+  filter(v == "V2") -> tmp.V2
+
+# Somehow, no data were retrieved in V1 for this time step (55)
+
+# The fifth shift is missing two whales in V1.
+Data_Out.v2 %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) 
+# there were 5 shifts but only two seem to have long enough duration
+
+FF <- 34
+data <- get.data("Data/", YEAR, ff = FF)
+# 2020-01-24, 
+
+shift <- 1
+out.shift.1 <- get.shift(YEAR, data, ff=FF, i=shift)
+
+# I don't know why V1 did not pick up any... It's possible that extensive comments
+# made parsing difficult... 
+
+```
+
+
+
+```{r}
+idx <- 2
+difs.1[idx,]
+```
+
+1 less period and 14 less whales in V1 than in V2
+
+```{r}
+
+FinalData.Both %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+  filter(v == "V1") -> tmp.V1
+
+FinalData.Both %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+  filter(v == "V2") -> tmp.V2
+
+# the 6th shift is missing in V1
+Data_Out.v2 %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) 
+
+FF <- 36
+data <- get.data("Data/", YEAR, ff = FF)
+# 2020-01-28, 
+
+shift <- 6
+out.shift.6 <- get.shift(YEAR, data, ff=FF, i=shift)
+
+# There was no E entry at the end of the file, which might have caused a problem
+# in V1 extraction script. That has been fixed. But... sightings 65 and 66 were
+# not picked up probably because data were not entered correctly. Need to edit 
+# the data file. _TE added to the file name. 
+
+
+out.shift.6$data %>% group_by(V5) %>%
+  mutate(V9 = as.numeric(V9)) %>%
+  summarize(n = last(V9)) -> summary.6
+  
+sum(summary.6$n)  
+
+# There were 14 whales in there. 
+```
+
+
+```{r}
+idx <- 3
+difs.1[idx,]
+```
+
+V2 has 8 more whales
+
+```{r}
+
+FinalData.Both %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+  filter(v == "V1") -> tmp.V1
+
+FinalData.Both %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+  filter(v == "V2") -> tmp.V2
+
+Data_Out.v2 %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) 
+
+CorrectLength.v2%>% 
+  filter(time.steps == difs.1[idx, "time.step"]) 
+
+# There were 7 or 8 shifts on this date. V1 picked up 6, 7, and 8, whereas
+# V2 picked up 4, 5, 6, and 7. V2's 5, 6, and 7 are the same as V1's 4, 5, and 6, 
+# respectively. It must have been something to do with event code.
+
+FF <- 39
+data <- get.data("Data/", YEAR, ff = FF)
+
+shift <- 1
+out.shift.1 <- get.shift(YEAR, data, ff=FF, i=shift)
+
+shift <- 2
+out.shift.2 <- get.shift(YEAR, data, ff=FF, i=shift)
+
+shift <- 3
+out.shift.3 <- get.shift(YEAR, data, ff=FF, i=shift)
+
+# shift 3 lasted very short (0.000694 days = about a min) so V1 ignored
+# it. 
+
+shift <- 4
+out.shift.4 <- get.shift(YEAR, data, ff=FF, i=shift)
+# This was the shift that got dropped by V1. I'm not sure why this was dropped.
+
+
+```
+
+
+
+```{r}
+idx <- 4
+difs.1[idx,]
+```
+
+V1 has 3 more whales
+
+NEED TO FIX GET.DATA FUNCTION TO INCLUDE SECONDS IN TIME. 2022-03-17
+
+```{r}
+
+FinalData.Both %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+  filter(v == "V1") -> tmp.V1
+
+FinalData.Both %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+  filter(v == "V2") -> tmp.V2
+
+# the last shift (5) has 14 whales in V1 and 11 whales in V2
+Data_Out.v2 %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) 
+
+CorrectLength.v2%>% 
+  filter(time.steps == difs.1[idx, "time.step"]) 
+
+FF <- 41
+data <- get.data("Data/", YEAR, ff = FF)
+
+shift <- 5
+out.shift.5 <- get.shift(YEAR, data, ff=FF, i=shift)
+
+shift <- 6
+out.shift.6 <- get.shift(YEAR, data, ff=FF, i=shift)
+
+```
