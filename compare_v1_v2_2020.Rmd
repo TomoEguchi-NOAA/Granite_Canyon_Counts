@@ -8,6 +8,8 @@ Get data and start looking at them:
 
 ```{r}
 rm(list = ls())
+library(tidyverse)
+library(lubridate)
 source("Granite_Canyon_Counts_fcns.R")
 
 YEAR <- 2020
@@ -136,7 +138,7 @@ idx <- 1
 difs.1[idx,]
 ```
 
-2 less periods and 35 less whales in V1 than in V2
+one less whale in V1 than in V2
 
 ```{r}
 
@@ -148,29 +150,71 @@ FinalData.Both %>%
   filter(time.steps == difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
 
-# Somehow, no data were retrieved in V1 for this time step (55)
+# Shift 5 has 12 in V1 and 13 in V2
 
-# The fifth shift is missing two whales in V1.
 Data_Out.v2 %>% 
   filter(time.steps == difs.1[idx, "time.step"]) 
 # there were 5 shifts but only two seem to have long enough duration
 
-FF <- 34
+FF <- 20
 data <- get.data("Data/", YEAR, ff = FF)
-# 2020-01-24, 
+# 2020-01-03, 
 
-shift <- 1
-out.shift.1 <- get.shift(YEAR, data, ff=FF, i=shift)
+shift <- 5
+out.shift.5 <- get.shift(YEAR, data, ff=FF, i=shift)
 
-# I don't know why V1 did not pick up any... It's possible that extensive comments
-# made parsing difficult... 
+data %>% 
+  filter(begin >= tmp.V1[shift,"begin"] & begin <= tmp.V1[shift, "end"]) %>%
+  filter(V2 == "S") %>%
+  select(V5, V9) %>%
+  mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>%
+  group_by(V5) %>%
+  summarize(n = last(V9))
 
+# they add up to 13. Not sure what happened in V1...
 ```
 
 
 
 ```{r}
 idx <- 2
+difs.1[idx,]
+```
+
+2 less periods and 35 less whales in V1 than in V2
+
+```{r}
+
+FinalData.Both %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+  filter(v == "V1") -> tmp.V1
+
+# no shift was picked up by V1
+
+FinalData.Both %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+  filter(v == "V2") -> tmp.V2
+
+# no results returned in V1... 
+Data_Out.v2 %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) 
+
+FF <- 34
+data <- get.data("Data/", YEAR, ff = FF)
+
+shift <- 1
+out.shift.1 <- get.shift(YEAR, data, ff = FF, i = shift)
+
+shift <- 2
+out.shift.2 <- get.shift(YEAR, data, ff = FF, i = shift)
+
+# I believe it has to do with extensive comments... 
+```
+
+
+
+```{r}
+idx <- 3
 difs.1[idx,]
 ```
 
@@ -214,11 +258,11 @@ sum(summary.6$n)
 
 
 ```{r}
-idx <- 3
+idx <- 4
 difs.1[idx,]
 ```
 
-V2 has 8 more whales
+V2 has one more period and 8 more whales
 
 ```{r}
 
@@ -237,11 +281,12 @@ CorrectLength.v2%>%
   filter(time.steps == difs.1[idx, "time.step"]) 
 
 # There were 7 or 8 shifts on this date. V1 picked up 6, 7, and 8, whereas
-# V2 picked up 4, 5, 6, and 7. V2's 5, 6, and 7 are the same as V1's 4, 5, and 6, 
+# V2 picked up 3, 4, 5, and 6. V2's 4, 5, and 6 are the same as V1's 6, 7, and 8, 
 # respectively. It must have been something to do with event code.
 
 FF <- 39
 data <- get.data("Data/", YEAR, ff = FF)
+#2020-01-31
 
 shift <- 1
 out.shift.1 <- get.shift(YEAR, data, ff=FF, i=shift)
@@ -251,13 +296,9 @@ out.shift.2 <- get.shift(YEAR, data, ff=FF, i=shift)
 
 shift <- 3
 out.shift.3 <- get.shift(YEAR, data, ff=FF, i=shift)
-
-# shift 3 lasted very short (0.000694 days = about a min) so V1 ignored
-# it. 
-
-shift <- 4
-out.shift.4 <- get.shift(YEAR, data, ff=FF, i=shift)
 # This was the shift that got dropped by V1. I'm not sure why this was dropped.
+
+
 
 
 ```

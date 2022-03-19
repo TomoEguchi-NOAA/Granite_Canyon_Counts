@@ -72,7 +72,7 @@ get.data <- function(dir, YEAR, ff){
   
   BeginDay <- mdy(data$V3) - mdy(paste0("11/30/", (YEAR - 1)))
   # Decimal hour of shift start time
-  BeginHr <- hour(hms(data$V4)) + minute(hms(data$V4))/60
+  BeginHr <- hour(hms(data$V4)) + minute(hms(data$V4))/60 + second(hms(data$V4))/3600
   
   data %>% mutate(begin = as.numeric(BeginDay) + BeginHr/24) -> data
   return(data)
@@ -101,13 +101,15 @@ get.shift <- function(YEAR, data, ff, i){
   # Days since Nov 30th of the previous year
   BeginDay <- mdy(data[Shifts.begin[i], 3]) - mdy(paste0("11/30/", (YEAR - 1)))
   # Decimal hour of shift start time - need to add seconds because sometimes
-  # the last sighting and next shift starts within one minute. 
+  # the last sighting and next shift starts within one minute. This happened
+  # in a 2020 data file (file 41, 2020-02-04)
   
-  START HERE NEXT 2022-03-17
+  #START HERE NEXT 2022-03-17
   
+  # Beginning hr of the shift.
   BeginHr <- (hour(hms(data[Shifts.begin[i], 4])) + 
-                (minute(hms(data[Shifts.begin[i], 4]))/60)) 
-  #  + (second(hms(data[Shifts.begin[i], 4]))/3600)
+                (minute(hms(data[Shifts.begin[i], 4]))/60) 
+              + (second(hms(data[Shifts.begin[i], 4]))/3600))
   
   # Decimal hour of next shift start time
   if (i < max.shifts){
@@ -115,14 +117,14 @@ get.shift <- function(YEAR, data, ff, i){
     next.event <- Shifts.df[event.idx + 1,]
     if (next.event$event == "P"){
       NextBeginHr <- (hour(hms(data[next.event$row, 4])) + 
-                        (minute(hms(data[next.event$row, 4]))/60))
-      #  + (second(hms(data[next.event$row, 4]))/3600)
+                        (minute(hms(data[next.event$row, 4]))/60)
+                      + (second(hms(data[next.event$row, 4]))/3600))
       EndHr <- NextBeginHr - 0.00001
     } else {  # if the event is "E"
       next.P <- Shifts.df[event.idx+2,]
       NextBeginHr <- (hour(hms(data[next.P$row, 4])) + 
-                        (minute(hms(data[next.P$row, 4]))/60) )
-      # + (second(hms(data[next.P$row, 4]))/3600)
+                        (minute(hms(data[next.P$row, 4]))/60) 
+                      + (second(hms(data[next.P$row, 4]))/3600))
       EndHr <- (hour(hms(data[next.event$row, 4])) + 
                   (minute(hms(data[next.event$row, 4]))/60))
     }
@@ -158,12 +160,14 @@ get.shift <- function(YEAR, data, ff, i){
   # End time is just before next start time (replicating J Durban's calculations)
   # TE: This is incorrect. If there was "E", we should use it. 
   #EndHr <- NextBeginHr - 0.00001 
-  # Beginning time as a decimal day
+  # Beginning time as a decimal day - NextBeginHr needs to include seconds for the
+  # rare occasions when a sighting happens within a minute of the start of a
+  # shift. 
   Begin <- as.numeric(BeginDay) + (BeginHr/24) 
   #End time as a decimal day
   End <- as.numeric(BeginDay) + (EndHr/24)
   
-  data.shift <- data %>% filter(begin >= data[Shifts.begin[i], "begin"] & 
+  data.shift <- data %>% filter(begin >= Begin & 
                                   begin <= End)
   
   if (i < max.shifts){
