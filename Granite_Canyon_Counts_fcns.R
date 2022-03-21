@@ -133,7 +133,7 @@ get.shift <- function(YEAR, data, ff, i){
     event.idx2 <- which(Shifts.df$shift %in% (i+1))
     next.event2 <- Shifts.df[event.idx2+1,]
     
-    if (next.event2$event == "P"){   # if this is the end of the file
+    if (next.event2$event == "P"){   # if the next event is also "P"
        NextEndHr <- (hour(hms(data[next.event2$row, 4])) + 
                        (minute(hms(data[next.event2$row, 4]))/60) ) - 0.00001
        # + (second(hms(data[next.event2$row, 4]))/3600)

@@ -550,11 +550,11 @@ summary.12.6.V2 %>%
 
 
 ```{r}
-idx <- 8
+idx <- 7
 difs.1[idx,]
 ```
 
-The eighth one has 1 more shift and 27 more whales in V1 than V2. Nothing returns from V2!
+1 more shift and 27 more whales in V1 than V2. Nothing returns from V2
 
 ```{r}
 
@@ -598,11 +598,11 @@ out.shift.2 <- get.shift(YEAR, data, ff=FF, i=shift)
 
 
 ```{r}
-idx <- 9
+idx <- 8
 difs.1[idx,]
 ```
 
-The ninth one has 1 more shift and 19 more whales in V1 than V2. 
+1 more shift and 19 more whales in V1 than V2. 
 
 ```{r}
 
@@ -629,8 +629,6 @@ CorrectLength.v2 %>%
 
 FF <- 17
 
-# the last shift (6) has one more whale in V2 than in V1
-
 data <- get.data("Data/", YEAR, ff = FF)
 
 shift <-  1
@@ -640,15 +638,18 @@ out.shift.1 <- get.shift(YEAR, data, ff=FF, i=shift)
 ```
 
 
+V1 has 13 more whales than V1 - Wrong entries of "South" in "EDITED GW160202_071118.dat" (FF=22)
+Some lines were fixed to align entries. No VS were entered in rows from 005 to 024. NA entered. This has been fixed.
 
 
 
 ```{r}
-idx <- 10
+idx <- 9
 difs.1[idx,]
 ```
 
-V2 has two more whales than V1
+
+V1 has one more period and one more whale than V2.
 
 ```{r}
 
@@ -661,48 +662,28 @@ FinalData.Both %>%
   filter(time.steps == difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
 
-# third shift has two more whales in V2. Observer IDs are different 40 (V1) vs. 42 (V2)
+# the fourth period is missing in V2
 
 Data_Out.v2 %>% 
   filter(time.steps == difs.1[idx, "time.step"]) 
 
-FF <- 18
+FF <- 29
 data <- get.data("Data/", YEAR, ff = FF)
 
-shift <-  3
-out.shift.3 <- get.shift(YEAR, data, ff=FF, i=shift)
+shift <-  4
+out.shift.4 <- get.shift(YEAR, data, ff=FF, i=shift)
+# this shift lasted only 34 minutes (12:00:17 to 12:34.28) but was included
+# in the analysis?
 
-
-out.shift.3$data %>%
-  select(V5, V9) %>%
-  mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>%
-  group_by(V5) %>%
-  summarise(max.n = max(V9),
-            last.n = last(V9),
-            d.max.last = max(V9) - last(V9)) -> data.summary.3.v2
-# It's not anything to do with max vs last... 
-
-# Get the raw data files
-data %>% filter(begin >= tmp.V1[3,"begin"] & begin <= tmp.V1[3, "end"]) %>%
-#data.3.5 %>% 
-  filter(V2 == "S") %>%
-  select(V5, V9) %>%
-  mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>%
-  group_by(V5) %>%
-  summarise(max.n = max(V9),
-            last.n = last(V9),
-            d.max.last = max(V9) - last(V9)) -> data.summary.3.v1
-
-# They are the same... 21. So, why did V1 ended up with 19?
 ```
 
 
 
 
-```{r}
-idx <- 11
-difs.1[idx,]
-```
+<!-- ```{r} -->
+<!-- idx <- 11 -->
+<!-- difs.1[idx,] -->
+<!-- ``` -->
 
 The tenth one has 12 more whales in V1 than V2. This has been fixed by modifying the data file. It seems that wrong information is recorded in V13, which is supposed to be  visibility (VS) but "South" is entered in many... that may be the problem
 
@@ -710,136 +691,139 @@ I edited the data file to enter NA where no VS was entered. The file was renamed
 
 Now V2 has one more whales than V1.
 
-```{r}
+<!-- ```{r} -->
 
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
-  filter(v == "V1") -> tmp.V1
-
-
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
-  filter(v == "V2") -> tmp.V2
-
-# the last shift (6) has one more whale in V2. Again the last shift! 
-
-Data_Out.v2 %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) 
-
-FF <- 22
-
-data <- get.data("Data/", YEAR, ff = FF)
-
-shift <-  6
-out.shift.6 <- get.shift(YEAR, data, ff=FF, i=shift)
-
-data %>% 
-  filter(begin >= tmp.V1$begin[shift] & begin <= tmp.V1$end[shift]) %>%
-  filter(V2 == "S") %>%
-  select(V5, V9) %>%
-  mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>%
-  group_by(V5) %>%
-  summarise(last.n = last(V9),
-            max.n = max(V9)) -> summary.22.6.V1
-  
-c(sum(summary.22.6.V1$last.n), sum(summary.22.6.V1$max.n))
-
-out.shift.6$data %>%
-  select(V5, V9) %>%
-  mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>%
-  group_by(V5) %>%
-  summarise(last.n = last(V9),
-            max.n = max(V9)) -> summary.22.6.V2
-
-c(sum(summary.22.6.V2$last.n), sum(summary.22.6.V2$max.n))
-
-summary.22.6.V2 %>% 
-  left_join(summary.22.6.V1, by = "V5") %>%
-  mutate(d.max.n = max.n.x - max.n.y,
-         d.last.n = last.n.x - last.n.y) %>%
-  select(V5, d.max.n, d.last.n) -> summary.22.6
-
-# group 59 was not included in V1, which was observed at 16:30:03, which was a tiny
-# bit (3 seconds) after the supposed end of the shift... 
-```
+<!-- FinalData.Both %>%  -->
+<!--   filter(time.steps == difs.1[idx, "time.step"]) %>%  -->
+<!--   filter(v == "V1") -> tmp.V1 -->
 
 
-```{r}
-idx <- 12
-difs.1[idx,]
-```
+<!-- FinalData.Both %>%  -->
+<!--   filter(time.steps == difs.1[idx, "time.step"]) %>%  -->
+<!--   filter(v == "V2") -> tmp.V2 -->
+
+<!-- # the last shift (6) has one more whale in V2. Again the last shift!  -->
+
+<!-- Data_Out.v2 %>%  -->
+<!--   filter(time.steps == difs.1[idx, "time.step"])  -->
+
+<!-- FF <- 22 -->
+
+<!-- data <- get.data("Data/", YEAR, ff = FF) -->
+
+<!-- shift <-  6 -->
+<!-- out.shift.6 <- get.shift(YEAR, data, ff=FF, i=shift) -->
+
+<!-- data %>%  -->
+<!--   filter(begin >= tmp.V1$begin[shift] & begin <= tmp.V1$end[shift]) %>% -->
+<!--   filter(V2 == "S") %>% -->
+<!--   select(V5, V9) %>% -->
+<!--   mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>% -->
+<!--   group_by(V5) %>% -->
+<!--   summarise(last.n = last(V9), -->
+<!--             max.n = max(V9)) -> summary.22.6.V1 -->
+
+<!-- c(sum(summary.22.6.V1$last.n), sum(summary.22.6.V1$max.n)) -->
+
+<!-- out.shift.6$data %>% -->
+<!--   select(V5, V9) %>% -->
+<!--   mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>% -->
+<!--   group_by(V5) %>% -->
+<!--   summarise(last.n = last(V9), -->
+<!--             max.n = max(V9)) -> summary.22.6.V2 -->
+
+<!-- c(sum(summary.22.6.V2$last.n), sum(summary.22.6.V2$max.n)) -->
+
+<!-- summary.22.6.V2 %>%  -->
+<!--   left_join(summary.22.6.V1, by = "V5") %>% -->
+<!--   mutate(d.max.n = max.n.x - max.n.y, -->
+<!--          d.last.n = last.n.x - last.n.y) %>% -->
+<!--   select(V5, d.max.n, d.last.n) -> summary.22.6 -->
+
+<!-- # group 59 was not included in V1, which was observed at 16:30:03, which was a tiny -->
+<!-- # bit (3 seconds) after the supposed end of the shift...  -->
+<!-- ``` -->
+
+
+<!-- ```{r} -->
+<!-- idx <- 12 -->
+<!-- difs.1[idx,] -->
+<!-- ``` -->
 
 Three more whales in V2 than in V1
 
+<!-- ```{r} -->
+
+<!-- FinalData.Both %>%  -->
+<!--   filter(time.steps == difs.1[idx, "time.step"]) %>%  -->
+<!--   filter(v == "V1") -> tmp.V1 -->
+
+<!-- FinalData.Both %>%  -->
+<!--   filter(time.steps == difs.1[idx, "time.step"]) %>%  -->
+<!--   filter(v == "V2") -> tmp.V2 -->
+
+<!-- # One less whale in shift 1 and two less whales in shift 5 in V1 -->
+
+<!-- Data_Out.v2 %>%  -->
+<!--   filter(time.steps == difs.1[idx, "time.step"])  -->
+
+<!-- FF <- 23 -->
+<!-- data <- get.data("Data/", YEAR, ff = FF) -->
+
+<!-- shift <-  1 -->
+<!-- out.shift.1 <- get.shift(YEAR, data, ff=FF, i=shift) -->
+
+<!-- out.shift.1$data %>% -->
+<!--   select(V5, V9) %>% -->
+<!--   mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>% -->
+<!--   group_by(V5) %>% -->
+<!--   summarise(last.n = last(V9), -->
+<!--             max.n = max(V9)) -> summary.23.1.V2 -->
+
+<!-- data %>%  -->
+<!--   filter(begin >= tmp.V1$begin[shift] & begin <= tmp.V1$end[shift]) %>% -->
+<!--   filter(V2 == "S") %>% -->
+<!--   select(V5, V9) %>% -->
+<!--   mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>% -->
+<!--   group_by(V5) %>% -->
+<!--   summarise(last.n = last(V9), -->
+<!--             max.n = max(V9)) -> summary.23.1.V1 -->
+<!-- # This returns 19... rather than 18 as in tmp.V1 -->
+
+<!-- shift <-  5 -->
+<!-- out.shift.5 <- get.shift(YEAR, data, ff=FF, i=shift) -->
+
+<!-- out.shift.5$data %>% -->
+<!--   select(V5, V9) %>% -->
+<!--   mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>% -->
+<!--   group_by(V5) %>% -->
+<!--   summarise(last.n = last(V9), -->
+<!--             max.n = max(V9)) -> summary.23.5.V2 -->
+
+<!-- data %>%  -->
+<!--   filter(begin >= tmp.V1$begin[shift] & begin <= tmp.V1$end[shift]) %>% -->
+<!--   filter(V2 == "S") %>% -->
+<!--   select(V5, V9) %>% -->
+<!--   mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>% -->
+<!--   group_by(V5) %>% -->
+<!--   summarise(last.n = last(V9), -->
+<!--             max.n = max(V9)) -> summary.23.5.V1 -->
+
+<!-- #V1 HAS MORE WHALES THAN V2...  -->
+
+<!-- summary.22.6.V2 %>%  -->
+<!--   left_join(summary.22.6.V1, by = "V5") %>% -->
+<!--   mutate(d.max.n = max.n.x - max.n.y, -->
+<!--          d.last.n = last.n.x - last.n.y) %>% -->
+<!--   select(V5, d.max.n, d.last.n) -> summary.22.6 -->
+
+
+
+
+<!-- ``` -->
+
 ```{r}
 
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
-  filter(v == "V1") -> tmp.V1
-
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
-  filter(v == "V2") -> tmp.V2
-
-# One less whale in shift 1 and two less whales in shift 5 in V1
-
-Data_Out.v2 %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) 
-
-FF <- 23
-data <- get.data("Data/", YEAR, ff = FF)
-
-shift <-  1
-out.shift.1 <- get.shift(YEAR, data, ff=FF, i=shift)
-
-out.shift.1$data %>%
-  select(V5, V9) %>%
-  mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>%
-  group_by(V5) %>%
-  summarise(last.n = last(V9),
-            max.n = max(V9)) -> summary.23.1.V2
-
-data %>% 
-  filter(begin >= tmp.V1$begin[shift] & begin <= tmp.V1$end[shift]) %>%
-  filter(V2 == "S") %>%
-  select(V5, V9) %>%
-  mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>%
-  group_by(V5) %>%
-  summarise(last.n = last(V9),
-            max.n = max(V9)) -> summary.23.1.V1
-# This returns 19... rather than 18 as in tmp.V1
-
-shift <-  5
-out.shift.5 <- get.shift(YEAR, data, ff=FF, i=shift)
-
-out.shift.5$data %>%
-  select(V5, V9) %>%
-  mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>%
-  group_by(V5) %>%
-  summarise(last.n = last(V9),
-            max.n = max(V9)) -> summary.23.5.V2
-
-data %>% 
-  filter(begin >= tmp.V1$begin[shift] & begin <= tmp.V1$end[shift]) %>%
-  filter(V2 == "S") %>%
-  select(V5, V9) %>%
-  mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>%
-  group_by(V5) %>%
-  summarise(last.n = last(V9),
-            max.n = max(V9)) -> summary.23.5.V1
-
-V1 HAS MORE WHALES THAN V2... 
-
-summary.22.6.V2 %>% 
-  left_join(summary.22.6.V1, by = "V5") %>%
-  mutate(d.max.n = max.n.x - max.n.y,
-         d.last.n = last.n.x - last.n.y) %>%
-  select(V5, d.max.n, d.last.n) -> summary.22.6
-
-
-
-
-```
 
 # the 4th shift did not have long enough period (0.0306 days = 0.73 hrs)
 # the 4th and 5th shifts were combined in V1. I'm going to fix the data file.
@@ -848,3 +832,6 @@ summary.22.6.V2 %>%
 # 046 B	02/11/2016	12:54:35
 # 047 P	02/11/2016	12:54:35	JWG	MSL	N
 # were deleted.
+
+```
+

@@ -138,10 +138,9 @@ idx <- 1
 difs.1[idx,]
 ```
 
-one less whale in V1 than in V2
+Two less periods and 35 less whales in V1 than in V2!
 
 ```{r}
-
 FinalData.Both %>% 
   filter(time.steps == difs.1[idx, "time.step"]) %>% 
   filter(v == "V1") -> tmp.V1
@@ -150,52 +149,11 @@ FinalData.Both %>%
   filter(time.steps == difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
 
-# Shift 5 has 12 in V1 and 13 in V2
+# Nothing returned from V1
 
 Data_Out.v2 %>% 
   filter(time.steps == difs.1[idx, "time.step"]) 
-# there were 5 shifts but only two seem to have long enough duration
 
-FF <- 20
-data <- get.data("Data/", YEAR, ff = FF)
-# 2020-01-03, 
-
-shift <- 5
-out.shift.5 <- get.shift(YEAR, data, ff=FF, i=shift)
-
-data %>% 
-  filter(begin >= tmp.V1[shift,"begin"] & begin <= tmp.V1[shift, "end"]) %>%
-  filter(V2 == "S") %>%
-  select(V5, V9) %>%
-  mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>%
-  group_by(V5) %>%
-  summarize(n = last(V9))
-
-# they add up to 13. Not sure what happened in V1...
-```
-
-
-
-```{r}
-idx <- 2
-difs.1[idx,]
-```
-
-2 less periods and 35 less whales in V1 than in V2
-
-```{r}
-
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
-  filter(v == "V1") -> tmp.V1
-
-# no shift was picked up by V1
-
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
-  filter(v == "V2") -> tmp.V2
-
-# no results returned in V1... 
 Data_Out.v2 %>% 
   filter(time.steps == difs.1[idx, "time.step"]) 
 
@@ -209,16 +167,56 @@ shift <- 2
 out.shift.2 <- get.shift(YEAR, data, ff = FF, i = shift)
 
 # I believe it has to do with extensive comments... 
+
 ```
+
+
+
+<!-- one less whale in V1 than in V2 -->
+
+<!-- ```{r} -->
+
+<!-- FinalData.Both %>%  -->
+<!--   filter(time.steps == difs.1[idx, "time.step"]) %>%  -->
+<!--   filter(v == "V1") -> tmp.V1 -->
+
+<!-- FinalData.Both %>%  -->
+<!--   filter(time.steps == difs.1[idx, "time.step"]) %>%  -->
+<!--   filter(v == "V2") -> tmp.V2 -->
+
+<!-- # Shift 5 has 12 in V1 and 13 in V2 -->
+
+<!-- Data_Out.v2 %>%  -->
+<!--   filter(time.steps == difs.1[idx, "time.step"])  -->
+<!-- # there were 5 shifts but only two seem to have long enough duration -->
+
+<!-- FF <- 20 -->
+<!-- data <- get.data("Data/", YEAR, ff = FF) -->
+<!-- # 2020-01-03,  -->
+
+<!-- shift <- 5 -->
+<!-- out.shift.5 <- get.shift(YEAR, data, ff=FF, i=shift) -->
+
+<!-- data %>%  -->
+<!--   filter(begin >= tmp.V1[shift,"begin"] & begin <= tmp.V1[shift, "end"]) %>% -->
+<!--   filter(V2 == "S") %>% -->
+<!--   select(V5, V9) %>% -->
+<!--   mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>% -->
+<!--   group_by(V5) %>% -->
+<!--   summarize(n = last(V9)) -->
+
+<!-- # they add up to 13. Not sure what happened in V1... -->
+<!-- ``` -->
 
 
 
 ```{r}
-idx <- 3
+idx <- 2
 difs.1[idx,]
 ```
 
-1 less period and 14 less whales in V1 than in V2
+1 less period and 12 less whales in V1 than in V2 (fixing the data file change
+this to 13 whales)
 
 ```{r}
 
@@ -230,21 +228,22 @@ FinalData.Both %>%
   filter(time.steps == difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
 
-# the 6th shift is missing in V1
+# the sixth period with 12 whales were not returned from V1
+
 Data_Out.v2 %>% 
   filter(time.steps == difs.1[idx, "time.step"]) 
 
 FF <- 36
 data <- get.data("Data/", YEAR, ff = FF)
-# 2020-01-28, 
 
 shift <- 6
 out.shift.6 <- get.shift(YEAR, data, ff=FF, i=shift)
 
 # There was no E entry at the end of the file, which might have caused a problem
 # in V1 extraction script. That has been fixed. But... sightings 65 and 66 were
-# not picked up probably because data were not entered correctly. Need to edit 
-# the data file. _TE added to the file name. 
+# not picked up probably because data were not entered correctly. Needed to edit 
+# the data file. _TE added to the file name. 2022-03-21 (There may be another 
+# version on the other computer... make sure they are equivalent!)
 
 
 out.shift.6$data %>% group_by(V5) %>%
@@ -253,16 +252,26 @@ out.shift.6$data %>% group_by(V5) %>%
   
 sum(summary.6$n)  
 
-# There were 14 whales in there. 
+# There were 12 whales in there. (now 13)
+
+data %>%  
+  filter(begin >= tmp.V2[6,"begin"] & begin <= tmp.V2[6, "end"]) %>% 
+  filter(V2 == "S") %>% 
+  select(V5, V9) %>% 
+  mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>% 
+  group_by(V5) %>% 
+  summarize(n = last(V9)) 
+
+
 ```
 
 
 ```{r}
-idx <- 4
+idx <- 3
 difs.1[idx,]
 ```
 
-V2 has one more period and 8 more whales
+1 less period and 8 less whales in V1 than in V2. Now 14 whales after fixing missing BF and VS entries.
 
 ```{r}
 
@@ -274,70 +283,39 @@ FinalData.Both %>%
   filter(time.steps == difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
 
+# the first shift is missing in V1
 Data_Out.v2 %>% 
   filter(time.steps == difs.1[idx, "time.step"]) 
-
-CorrectLength.v2%>% 
-  filter(time.steps == difs.1[idx, "time.step"]) 
-
-# There were 7 or 8 shifts on this date. V1 picked up 6, 7, and 8, whereas
-# V2 picked up 3, 4, 5, and 6. V2's 4, 5, and 6 are the same as V1's 6, 7, and 8, 
-# respectively. It must have been something to do with event code.
 
 FF <- 39
 data <- get.data("Data/", YEAR, ff = FF)
-#2020-01-31
+# 2020-01-28, 
+# There were 7 shifts. Shifts 5, 6, and 7 are the same as shifts 1, 2 and 3 in 
+# V1. Shift 4 is missing from V1. The first three shifts were too short to be
+# included in analysis. 
 
-shift <- 1
-out.shift.1 <- get.shift(YEAR, data, ff=FF, i=shift)
+shift <- 4
+out.shift.4 <- get.shift(YEAR, data, ff=FF, i=shift)
 
-shift <- 2
-out.shift.2 <- get.shift(YEAR, data, ff=FF, i=shift)
+# Data were entered incorrectly for groups 12, 13, 14, and 15. This was also 
+# fixed in the _TE file. No BF and VS entries. 
 
-shift <- 3
-out.shift.3 <- get.shift(YEAR, data, ff=FF, i=shift)
-# This was the shift that got dropped by V1. I'm not sure why this was dropped.
+out.shift.4$data %>% group_by(V5) %>%
+  mutate(V9 = as.numeric(V9)) %>%
+  summarize(n = last(V9)) -> summary.39.4.v2
+  
+data %>%  
+  filter(begin >= tmp.V2[1,"begin"] & begin <= tmp.V2[1, "end"]) %>% 
+  filter(V2 == "S") %>% 
+  select(V5, V9) %>% 
+  mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>% 
+  group_by(V5) %>% 
+  summarize(n = last(V9)) 
 
-
-
-
+# There were 14 whales in there. V1 and V2 match in the numbers but why is there
+# one missing period? 
 ```
 
-
-
-```{r}
-idx <- 4
-difs.1[idx,]
-```
-
-V1 has 3 more whales
 
 NEED TO FIX GET.DATA FUNCTION TO INCLUDE SECONDS IN TIME. 2022-03-17
-
-```{r}
-
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
-  filter(v == "V1") -> tmp.V1
-
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
-  filter(v == "V2") -> tmp.V2
-
-# the last shift (5) has 14 whales in V1 and 11 whales in V2
-Data_Out.v2 %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) 
-
-CorrectLength.v2%>% 
-  filter(time.steps == difs.1[idx, "time.step"]) 
-
-FF <- 41
-data <- get.data("Data/", YEAR, ff = FF)
-
-shift <- 5
-out.shift.5 <- get.shift(YEAR, data, ff=FF, i=shift)
-
-shift <- 6
-out.shift.6 <- get.shift(YEAR, data, ff=FF, i=shift)
-
-```
+This has been completed.
