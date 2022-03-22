@@ -125,8 +125,10 @@ get.shift <- function(YEAR, data, ff, i){
       NextBeginHr <- (hour(hms(data[next.P$row, 4])) + 
                         (minute(hms(data[next.P$row, 4]))/60) 
                       + (second(hms(data[next.P$row, 4]))/3600))
+      
       EndHr <- (hour(hms(data[next.event$row, 4])) + 
-                  (minute(hms(data[next.event$row, 4]))/60))
+                  (minute(hms(data[next.event$row, 4]))/60) + 
+                  (second(hms(data[next.event$row, 4]))/3600))
     }
 
     # Find next end hr to find the next shift to figure out spillovers
@@ -135,12 +137,13 @@ get.shift <- function(YEAR, data, ff, i){
     
     if (next.event2$event == "P"){   # if the next event is also "P"
        NextEndHr <- (hour(hms(data[next.event2$row, 4])) + 
-                       (minute(hms(data[next.event2$row, 4]))/60) ) - 0.00001
-       # + (second(hms(data[next.event2$row, 4]))/3600)
+                       (minute(hms(data[next.event2$row, 4]))/60) + 
+                       (second(hms(data[next.event2$row, 4]))/3600) ) - 0.00001
+       # 
     } else {  # if the event is "E"
        NextEndHr <- (hour(hms(data[next.event2$row, 4])) + 
-                       (minute(hms(data[next.event2$row, 4]))/60) )
-       # + (second(hms(data[next.event2$row, 4]))/3600)
+                       (minute(hms(data[next.event2$row, 4]))/60) 
+                     + (second(hms(data[next.event2$row, 4]))/3600))
     }
     
 
@@ -153,7 +156,8 @@ get.shift <- function(YEAR, data, ff, i){
       end.row <- next.event$row
     }
     EndHr <-  (hour(hms(data[end.row, 4])) + 
-                 (minute(hms(data[end.row, 4]))/60))
+                 (minute(hms(data[end.row, 4]))/60) + 
+                 (second(hms(data[end.row, 4]))/3600))
   }
   
   

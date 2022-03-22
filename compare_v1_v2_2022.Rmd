@@ -10,11 +10,17 @@ Get data and start looking at them:
 rm(list = ls())
 source("Granite_Canyon_Counts_fcns.R")
 
-v1.out <- readRDS("RData/out_2022_Tomos.rds")
+YEAR <- 2022
+
+GO THROUGH THIS FILE ONCE MORE TO MAKE SURE EVERYTHING LOOKS OKAY. 2022-03-21
+
+v3.out <- readRDS("RData/out_2022_Joshs.rds")
 v2.out <- readRDS("RData/out_2022_Tomo_v2.rds")
+v1.out <- readRDS("RData/out_2022_Tomo_v1.rds")
 FinalData.v2 <- v2.out$FinalData %>% mutate(v = "V2")%>% select(-dur)
 FinalData.v1 <- v1.out$FinalData %>% mutate(v = "V1") 
-FinalData.Both <- rbind(FinalData.v2, FinalData.v1)
+FinalData.v3 <- v3.out$FinalData %>% mutate(v = "V3") 
+FinalData.all <- rbind(FinalData.v1, FinalData.v2, FinalData.v3)
 
 # dim(FinalData.v1)
 # dim(FinalData.v2)
@@ -28,29 +34,162 @@ FinalData.v2 %>%
   group_by(ff) %>% 
   summarize(nrow = n()) -> v2.summary
 
-v1.summary %>% left_join(v2.summary, by = "ff") %>%
-  mutate(dif = nrow.x - nrow.y) -> v1Vsv2_n
+FinalData.v3 %>% 
+  group_by(ff) %>% 
+  summarize(nrow = n()) -> v3.summary
 
+v1.summary %>% left_join(v2.summary, by = "ff") %>% 
+  left_join(v3.summary, by = "ff") %>%
+  mutate(dif_1vs2 = nrow.x - nrow.y,
+         dif_1vs3 = nrow.x - nrow,
+         dif_2vs3 = nrow.y - nrow) -> v1Vsv2VsV3_n
 
-# #%>% filter(abs(dif) > 0) 
-# comp.df <- data.frame(nrow = nrow(Tomo.out$FinalData), ncol = 6) 
-# #begin = NA, end = NA, max.bf = NA, max.vs = NA, total.n = NA)
-# Fs <- unique(FinalData.Tomo$ff)
-# for (f in 1:length(Fs)){
-#   J1 <- Josh.out$FinalData %>% filter(ff == Fs[f])
-#   T1 <- Tomo.out$FinalData %>% filter(ff == Fs[f])
-#   
-#   comp.df[f,1] <- J1$begin[1] - T1$begin[1]
-#   comp.df[f,2] <- J1$end[1] - T1$end[1]
-#   comp.df[f,3] <- max(J1$bf) - max(T1$bf)
-#   comp.df[f,4] <- max(J1$vs) - max(T1$vs)
-#   comp.df[f,5] <- sum(J1$n) - sum(T1$n)
-#   comp.df[f,6] <- Fs[f]
-# 
-# }
 
 ```
 
 
-Seems like they are identical in number of rows. 
+Seems like they are identical in the number of rows. 
+
+```{r}
+obs.list <- read.csv("Data/Observer list.csv", header = T) 
+colnames(obs.list) <- c("obs", "ID")
+
+FinalData.v3 <- v3.out$FinalData %>% mutate(v = "V3") 
+FinalData.v2 <- v2.out$FinalData %>% mutate(v = "V2") %>% select(-dur)
+FinalData.v1 <- v1.out$FinalData %>% mutate(v = "V1") 
+
+FinalData.v2 %>% 
+  left_join(obs.list, by = "obs") -> FinalData.v2
+
+# find if there is NA in ID - not in the look up table  
+ID.NA <- filter(FinalData.v2, is.na(ID))
+
+unique.ID.NA <- unique(ID.NA$obs)
+
+if (length(unique.ID.NA) > 0){
+  for (k in 1:length(unique.ID.NA)){
+    FinalData.v2[FinalData.v2$obs == unique.ID.NA[k], "ID"] <- max(obs.list$ID) + k
+    
+  }
+  
+}
+
+# replace column names
+FinalData.v2 %>% select(-obs) %>%
+  mutate(obs = ID) %>%
+  select(-ID) -> FinalData.v2
+
+# rearrange the columns to match v1
+FinalData.v2 <- FinalData.v2[, names(FinalData.v1)]
+FinalData.v3 <- FinalData.v3[, names(FinalData.v1)]
+FinalData.Both <- rbind(FinalData.v2, FinalData.v1)
+FinalData.All <- rbind(FinalData.v1, FinalData.v2, FinalData.v3)
+```
+
+
+
+```{r}
+min.begin <- min(floor(FinalData.Both$begin))
+max.begin <- max(ceiling(FinalData.Both$begin))
+
+time.steps <- min.begin:max.begin
+difs <- data.frame(begin = double(),
+                   end = double(),
+                   min.begin = double(), 
+                   max.end = double(), 
+                   n.periods = integer(), 
+                   max.bf = integer(), 
+                   max.vs = integer(), 
+                   total.whales = integer(),
+                   time.step = integer(),
+                   stringsAsFactors = F)
+
+c <- k <- 1
+for (k in 1:(length(time.steps)-1)){
+  tmp <- filter(FinalData.Both, begin >= time.steps[k] & begin < time.steps[k+1])
+  if (nrow(tmp) > 0){
+    tmp %>% filter(v == "V1") -> tmp.1
+    tmp %>% filter(v == "V2") -> tmp.2
+    
+    difs[c,] <- c(min(tmp$begin), 
+                  max(tmp$end),
+                  min(tmp.1$begin) - min(tmp.2$begin), 
+                  max(tmp.1$end) - max(tmp.2$end),
+                  nrow(tmp.1) - nrow(tmp.2),
+                  max(tmp.1$bf) - max(tmp.1$bf),
+                  max(tmp.1$vs) - max(tmp.1$vs),
+                  sum(tmp.1$n) - sum(tmp.2$n),
+                  time.steps[k])
+    c <- c + 1
+    
+  }
+  
+}
+```
+
+
+
+```{r}
+difs %>% filter(n.periods != 0 | total.whales != 0) -> difs.1
+FinalData.Both %>% mutate(time.steps = floor(FinalData.Both$begin)) -> FinalData.Both
+
+v2.out$Data_Out %>% 
+  mutate(time.steps = floor(v2.out$Data_Out$begin)) -> Data_Out.v2 
+
+v2.out$CorrectLength %>%
+  mutate(time.steps = floor(v2.out$CorrectLength$begin)) -> CorrectLength.v2 
+
+```
+
+There is only one. 3 more whales in V2 than in V1.
+
+
+```{r}
+idx <- 1
+difs.1[idx,]
+```
+
+
+
+```{r}
+FinalData.Both %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+  filter(v == "V1") -> tmp.V1
+
+FinalData.Both %>% 
+  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+  filter(v == "V2") -> tmp.V2
+
+# Nothing returned from V1 or V2
+
+
+FF <- 13
+data <- get.data("Data/", YEAR, ff = FF)
+# 1/13/2022 - wrong data entry on line 89 - fixed and saved with _TE
+# Also changed the "E" entry time from 15:00:00 to 15:00:40 because
+# there was a sighting at 15:00:38
+
+shift <- 5
+out.shift.5 <- get.shift(YEAR, data, ff = FF, i = shift)
+
+
+data %>%  
+  filter(begin >= tmp.V1[5,"begin"] & begin <= tmp.V1[5, "end"]) %>% 
+  filter(V2 == "S") %>% 
+  select(V5, V9) %>% 
+  mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>% 
+  group_by(V5) %>% 
+  summarize(n = last(V9)) -> summary.13.5.V1
+
+# there are 31 whales here, and so as V2. Why did V1 compute as 28 whales?
+
+
+out.shift.5$data %>% group_by(V5) %>%
+  mutate(V9 = as.numeric(V9)) %>%
+  summarize(n = last(V9)) -> summary.13.5.V2
+
+# Group 53 (3) should not come in because it is found in the next shift, which was
+# too short to be included. 2022-03-21
+```
+
 

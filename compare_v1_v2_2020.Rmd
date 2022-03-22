@@ -55,22 +55,6 @@ FinalData.v2 %>% select(-obs) %>%
 FinalData.v2 <- FinalData.v2[, names(FinalData.v1)]
 FinalData.Both <- rbind(FinalData.v2, FinalData.v1)
 
-# #%>% filter(abs(dif) > 0) 
-# comp.df <- data.frame(nrow = nrow(Tomo.out$FinalData), ncol = 6) 
-# #begin = NA, end = NA, max.bf = NA, max.vs = NA, total.n = NA)
-# Fs <- unique(FinalData.Tomo$ff)
-# for (f in 1:length(Fs)){
-#   J1 <- Josh.out$FinalData %>% filter(ff == Fs[f])
-#   T1 <- Tomo.out$FinalData %>% filter(ff == Fs[f])
-#   
-#   comp.df[f,1] <- J1$begin[1] - T1$begin[1]
-#   comp.df[f,2] <- J1$end[1] - T1$end[1]
-#   comp.df[f,3] <- max(J1$bf) - max(T1$bf)
-#   comp.df[f,4] <- max(J1$vs) - max(T1$vs)
-#   comp.df[f,5] <- sum(J1$n) - sum(T1$n)
-#   comp.df[f,6] <- Fs[f]
-# 
-# }
 
 ```
 
@@ -150,9 +134,6 @@ FinalData.Both %>%
   filter(v == "V2") -> tmp.V2
 
 # Nothing returned from V1
-
-Data_Out.v2 %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) 
 
 Data_Out.v2 %>% 
   filter(time.steps == difs.1[idx, "time.step"]) 
@@ -314,6 +295,15 @@ data %>%
 
 # There were 14 whales in there. V1 and V2 match in the numbers but why is there
 # one missing period? 
+
+data %>%  
+  filter(begin >= tmp.V2[1,"begin"] & begin <= tmp.V2[1, "end"])
+
+# I think this was dropped because of using hr and min only and didn't get 
+# quite 90 minutes (or 85 min with a 5 min grace period). Beginning time was 
+# 10:30 = 10.516667 and end time was 11:57 = 11.95. 11.95 - 10:30 = 85.9998 min.
+# So, that should have been included... So, I don't know why this was dropped...
+
 ```
 
 
