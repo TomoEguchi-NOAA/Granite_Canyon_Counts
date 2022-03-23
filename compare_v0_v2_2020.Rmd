@@ -115,7 +115,7 @@ v2.out$CorrectLength %>%
 
 ```
 
-Many problems disappeared after changing N = max() to N = last().
+There were 3 differences. 
 
 ```{r}
 idx <- 1

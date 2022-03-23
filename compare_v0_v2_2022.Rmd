@@ -10,19 +10,19 @@ Get data and start looking at them:
 rm(list = ls())
 source("Granite_Canyon_Counts_fcns.R")
 library(tidyverse)
-library(lubtidate)
+library(lubridate)
 
 YEAR <- 2022
 
 #GO THROUGH THIS FILE ONCE MORE TO MAKE SURE EVERYTHING LOOKS OKAY. 2022-03-21
 
-v3.out <- readRDS("RData/out_2022_Joshs.rds")
+v1.out <- readRDS("RData/out_2022_Joshs.rds")
 v2.out <- readRDS("RData/out_2022_Tomo_v2.rds")
-v1.out <- readRDS("RData/out_2022_Tomo_v1.rds")
+
 FinalData.v2 <- v2.out$FinalData %>% mutate(v = "V2")%>% select(-dur)
 FinalData.v1 <- v1.out$FinalData %>% mutate(v = "V1") 
-FinalData.v3 <- v3.out$FinalData %>% mutate(v = "V3") 
-FinalData.all <- rbind(FinalData.v1, FinalData.v2, FinalData.v3)
+
+FinalData.all <- rbind(FinalData.v1, FinalData.v2)
 
 # dim(FinalData.v1)
 # dim(FinalData.v2)
@@ -31,20 +31,12 @@ FinalData.v1 %>%
   group_by(ff) %>% 
   summarize(nrow = n()) -> v1.summary
 
-
 FinalData.v2 %>% 
   group_by(ff) %>% 
   summarize(nrow = n()) -> v2.summary
 
-FinalData.v3 %>% 
-  group_by(ff) %>% 
-  summarize(nrow = n()) -> v3.summary
-
 v1.summary %>% left_join(v2.summary, by = "ff") %>% 
-  left_join(v3.summary, by = "ff") %>%
-  mutate(dif_1vs2 = nrow.x - nrow.y,
-         dif_1vs3 = nrow.x - nrow,
-         dif_2vs3 = nrow.y - nrow) -> v1Vsv2VsV3_n
+  mutate(dif_1vs2 = nrow.x - nrow.y) -> v1Vsv2_n
 
 
 ```
@@ -56,7 +48,6 @@ Seems like they are identical in the number of rows.
 obs.list <- read.csv("Data/Observer list.csv", header = T) 
 colnames(obs.list) <- c("obs", "ID")
 
-FinalData.v3 <- v3.out$FinalData %>% mutate(v = "V3") 
 FinalData.v2 <- v2.out$FinalData %>% mutate(v = "V2") %>% select(-dur)
 FinalData.v1 <- v1.out$FinalData %>% mutate(v = "V1") 
 
@@ -83,9 +74,7 @@ FinalData.v2 %>% select(-obs) %>%
 
 # rearrange the columns to match v1
 FinalData.v2 <- FinalData.v2[, names(FinalData.v1)]
-FinalData.v3 <- FinalData.v3[, names(FinalData.v1)]
 FinalData.Both <- rbind(FinalData.v2, FinalData.v1)
-FinalData.All <- rbind(FinalData.v1, FinalData.v2, FinalData.v3)
 ```
 
 
@@ -143,55 +132,5 @@ v2.out$CorrectLength %>%
 
 ```
 
-There is only one. 3 more whales in V2 than in V1.
-
-
-```{r}
-idx <- 1
-difs.1[idx,]
-```
-
-
-
-```{r}
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
-  filter(v == "V1") -> tmp.V1
-
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
-  filter(v == "V2") -> tmp.V2
-
-# Nothing returned from V1 or V2
-
-
-FF <- 13
-data <- get.data("Data/", YEAR, ff = FF)
-# 1/13/2022 - wrong data entry on line 89 - fixed and saved with _TE
-# Also changed the "E" entry time from 15:00:00 to 15:00:40 because
-# there was a sighting at 15:00:38
-
-shift <- 5
-out.shift.5 <- get.shift(YEAR, data, ff = FF, i = shift)
-
-
-data %>%  
-  filter(begin >= tmp.V1[5,"begin"] & begin <= tmp.V1[5, "end"]) %>% 
-  filter(V2 == "S") %>% 
-  select(V5, V9) %>% 
-  mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>% 
-  group_by(V5) %>% 
-  summarize(n = last(V9)) -> summary.13.5.V1
-
-# there are 31 whales here, and so as V2. Why did V1 compute as 28 whales?
-
-
-out.shift.5$data %>% group_by(V5) %>%
-  mutate(V9 = as.numeric(V9)) %>%
-  summarize(n = last(V9)) -> summary.13.5.V2
-
-# Group 53 (3) should not come in because it is found in the next shift, which was
-# too short to be included. 2022-03-21
-```
-
+No difference between them. 
 

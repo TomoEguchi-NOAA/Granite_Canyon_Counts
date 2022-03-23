@@ -4,7 +4,7 @@ output: html_notebook
 ---
 
 
-Surveys were conducted in 2006/2007 (2007 data), 2007/2008 (2008 data), 2009/2010 (2010 data), 2010/2011 (2011 data), 2014/2015 (2015 data), 2015/2016 (2016 data), and 2019/2020 (2020 data). So, this one (2016), it should be the 6th dataset. They should put Year in their dataset.
+Surveys were conducted in 2006/2007 (2007 data), 2007/2008 (2008 data), 2009/2010 (2010 data), 2010/2011 (2011 data), 2014/2015 (2015 data), 2015/2016 (2016 data), and 2019/2020 (2020 data). So, this one (2015), it should be the 5th dataset. They should put Year in their dataset.
 
 Get data and start looking at them:
 
@@ -15,7 +15,7 @@ library(lubridate)
 library(readr)
 source("Granite_Canyon_Counts_fcns.R")
 
-# this is for the 6th data set in the analysis (2016)
+# this is for the 5th data set in the analysis (2015)
 YEAR <- 2015
 idx.yr <- 5
 
@@ -38,7 +38,7 @@ colnames(obs.list) <- c("obs", "ID")
 # this file contains all input data for WinBUGS.
 v1.out <- readRDS("RData/2006-2019_GC_Formatted_Data.RDS")
 
-# Pull out the information for 2016
+# Pull out the information for 2015
 periods.2015 <- v1.out$periods[idx.yr]
 n.2015 <- v1.out$n[1:periods.2015,,idx.yr]
 n.com.2015 <- v1.out$n.com[1:periods.2015,,idx.yr]
@@ -91,6 +91,11 @@ FinalData.v2 %>% select(-obs) %>%
 FinalData.v2 <- FinalData.v2[, names(FinalData.v1)]
 FinalData.Both <- rbind(FinalData.v2, FinalData.v1)
 
+v2.out$Data_Out %>% 
+  mutate(time.steps = floor(v2.out$Data_Out$begin)) -> Data_Out.v2 
+
+v2.out$CorrectLength %>%
+  mutate(time.steps = floor(v2.out$CorrectLength$begin)) -> CorrectLength.v2 
 
 ```
 
@@ -143,11 +148,6 @@ There are some differences in the number of whales detected per day. Look at one
 difs %>% filter(n.periods != 0 | total.whales != 0) -> difs.1
 FinalData.Both %>% mutate(time.steps = floor(FinalData.Both$begin)) -> FinalData.Both
 
-v2.out$Data_Out %>% 
-  mutate(time.steps = floor(v2.out$Data_Out$begin)) -> Data_Out.v2 
-
-v2.out$CorrectLength %>%
-  mutate(time.steps = floor(v2.out$CorrectLength$begin)) -> CorrectLength.v2 
 
 ```
 
@@ -201,6 +201,13 @@ idx <- 2
 difs.1[idx,]
 ```
 
+
+
+```{r}
+idx <- 3
+difs.1[idx,]
+```
+
 One more period and 12 more whales in V2 than in V1.
 
 ```{r}
@@ -238,7 +245,7 @@ data %>%
 
 
 ```{r}
-idx <- 3
+idx <- 4
 difs.1[idx,]
 ```
 
@@ -254,7 +261,7 @@ FinalData.Both %>%
   filter(time.steps == difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
 
-# The last shift (6) has one more whale in V2 than in V2
+# The last shift (6) has one more whale in V2 than in V1
 Data_Out.v2 %>% 
   filter(time.steps == difs.1[idx, "time.step"]) 
 
@@ -278,7 +285,7 @@ data %>%
 
 
 ```{r}
-idx <- 4
+idx <- 5
 difs.1[idx,]
 ```
 
@@ -321,57 +328,6 @@ data %>%
   summarize(n = last(V9))
 
 # I don't know why one less whale in V1.
-```
-
-
-
-```{r}
-idx <- 5
-difs.1[idx,]
-```
-
-Two more whales in V2 than in V1.
-
-```{r}
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
-  filter(v == "V1") -> tmp.V1
-
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
-  filter(v == "V2") -> tmp.V2
-
-# The first shift has 2 more whales in V2 than in V1
-Data_Out.v2 %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) 
-
-FF <- 27
-data <- get.data("Data/", YEAR, ff = FF)
-
-shift <- 1
-out.shift.1 <- get.shift(YEAR, data, ff=FF, i=shift)
-
-out.shift.1$data %>%
-  select(V5, V9) %>%
-  mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>%
-  group_by(V5) %>%
-  summarise(last.n = last(V9),
-            max.n = max(V9)) -> summary.27.1.V2
-
-data %>% 
-  filter(begin >= tmp.V1[shift,"begin"] & begin <= tmp.V1[shift, "end"]) %>%
-  filter(V2 == "S") %>%
-  select(V5, V9) %>%
-  mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>%
-  group_by(V5) %>%
-  summarize(n = last(V9))
-
-# They add up to 16, which is more than V2 found... 
-
-# V2 has no group 8 (but only 1 whale) - not sure why they were added to 13. The
-# group 8 was sighted in the next shift, so it should not be added in this 
-# shift. So, adding groups from 1 to 7 should be 15, not 13. Last and maximum
-# counts per group did not make any difference. 
 ```
 
 
@@ -424,14 +380,12 @@ data %>%
 
 ```
 
-
-
 ```{r}
 idx <- 7
 difs.1[idx,]
 ```
 
-One more shift and 4 more whales in V1 than in V2.
+One more shift and four more whales in V1 than in V2.
 
 ```{r}
 FinalData.Both %>% 
@@ -442,13 +396,9 @@ FinalData.Both %>%
   filter(time.steps == difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
 
-# The first shift with 4 whales is missing in V2 
+# The second shift with 5 whales is missing in V1 
 Data_Out.v2 %>% 
   filter(time.steps == difs.1[idx, "time.step"]) 
-
-# Shift 1 was too short and VS was 5 with no whales. 
-# Shift 2 somewhat matches with first shift in V1 but duration is different
-#  Shifts 3 to 6 seem the same as V1's shifts 2-5.
 
 FF <- 30
 data <- get.data("Data/", YEAR, ff = FF)
@@ -456,33 +406,27 @@ data <- get.data("Data/", YEAR, ff = FF)
 shift <- 2
 out.shift.2 <- get.shift(YEAR, data, ff=FF, i=shift)
 
+# Only 1 hr of data (9:00:15 - 10:01:36). Why did V2 included this one? There is 
+# no next shift. The "E" line is at 10:30:51. So, the shift duration is correct.
+
 out.shift.2$data %>%
   select(V5, V9) %>%
   mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>%
   group_by(V5) %>%
   summarise(last.n = last(V9),
-            max.n = max(V9)) -> summary.30.2.V2
+            max.n = max(V9)) -> summary.28.2.V2
 
 data %>% 
-  filter(begin >= tmp.V1[1,"begin"] & begin <= tmp.V1[1, "end"]) %>%
+  filter(begin >= tmp.V2[1,"begin"] & begin <= tmp.V2[1, "end"]) %>%
   filter(V2 == "S") %>%
   select(V5, V9) %>%
   mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>%
   group_by(V5) %>%
   summarize(n = last(V9))
 
-# This shift started at 10:00 and ended at 10:27:39
-# In the data, start time was changed to 9:00:00 (71.3750). In the raw data file,
-# the day started at 7:30 but due to poor conditions (BF = 4, VS = 5), observation 
-# did not start until 10:00:26. 
-
-data %>% 
-  filter(begin >= tmp.V1[1,"begin"] & begin <= tmp.V1[1, "end"])
+# I'm not sure why this was excluded in V1
 
 ```
-
-
-
 
 ```{r}
 idx <- 8

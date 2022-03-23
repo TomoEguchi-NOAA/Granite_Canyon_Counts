@@ -104,8 +104,6 @@ get.shift <- function(YEAR, data, ff, i){
   # the last sighting and next shift starts within one minute. This happened
   # in a 2020 data file (file 41, 2020-02-04)
   
-  #START HERE NEXT 2022-03-17
-  
   # Beginning hr of the shift.
   BeginHr <- (hour(hms(data[Shifts.begin[i], 4])) + 
                 (minute(hms(data[Shifts.begin[i], 4]))/60) 
