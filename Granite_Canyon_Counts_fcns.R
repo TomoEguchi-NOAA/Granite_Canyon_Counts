@@ -195,11 +195,48 @@ get.shift <- function(YEAR, data, ff, i){
   #                                   begin <= End)
   # }
 
+  # This really removes information from "V" entries because there is no
+  # V12 when "V" is entered (i.e., NA). I think this is better because
+  # there was a case (1/12/2015 9:00 - 10:30) where visibility changed from 4
+  # to 5 at the end of a period (30 sec from the end). I think those sightings
+  # should be included, rather than excluded. The same is true for VS below. 
+  #
+  # However... there were shifts (e.g., 2/5/2015 9:00-10:30) where BF changed to
+  # 5 in the middle of the shift (1 hr in), so that shift should be removed. But
+  # by using just "S" entries, it was not removed. So, I need to fix that. 2022-03-30
+  BFs.S <- data.shift %>% 
+    filter(V2 == "S") %>% 
+    select(V12, begin) %>%
+    transmute(BF = as.numeric(V12),
+              time = begin)
+    #pull() %>% as.numeric()
   
-  BFs <- data.shift %>% 
-    filter(V2 == "V" | V2 == "S") %>% 
-    select(V12) %>% 
-    pull()%>% as.numeric()
+  BFs.V <- data.shift %>% 
+    filter(V2 == "V") %>% 
+    select(V5, begin) %>%
+    transmute(BF = as.numeric(V5),
+              time = begin)
+  
+    #pull()%>% as.numeric()
+  
+  BFs.dt <- rbind(BFs.S, BFs.V) %>%
+    arrange(time) %>%
+    mutate(dt = (time - min(time)) * (24*60))  # dt in minutes
+  
+  # if BF changed to 5 within the last 5 minutes, keep the entire period (max(BF) < 5)
+  # but if BF changed to 5 before then, make the max BF = 5.
+  BFs.dt %>% 
+    filter(BF > 4) -> High.BFs
+  
+  if (nrow(High.BFs) == 0) {
+    BFs <- BFs.dt$BF
+  } else {
+    if (min(High.BFs$dt) > 85){   # when the first change happened within 5 min of the shift change
+      BFs <- BFs.dt$BF[BFs.dt$BF < 5]
+    } else {
+      BFs <- BFs.dt$BF
+    }
+  }
   # if (i < max.shifts){
   #   BFs <- as.numeric(data[Shifts.begin[i]:(Shifts.begin[i+1]-1), 12])    
   # } else {
@@ -207,31 +244,53 @@ get.shift <- function(YEAR, data, ff, i){
   #     select(V12) %>% pull()
   # }
   
+  
   if (sum(!is.na(BFs)) == 0){
     BF <- NA
   } else {
     BF <- max(BFs, na.rm=T)
   }
   
-  #Visibility (maximum from watch period)
-  VSs <- data.shift %>% 
-    filter(V2 == "V" | V2 == "S") %>% 
-    select(V13) %>%
-    pull() %>% as.numeric()
-  # if (i < max.shifts){
-  #   VSs <- as.numeric(data[Shifts.begin[i]:(Shifts.begin[i+1]-1), 13])
-  # } else {
-  #   VSs <- data %>% filter(begin >= data[Shifts.begin[i], "begin"] & 
-  #                            begin <= as.numeric(BeginDay + NextBeginHr/24)) %>%
-  #     select(V13) %>% pull()
-  # }
+  VSs.S <- data.shift %>% 
+    filter(V2 == "S") %>% 
+    select(V13, begin) %>%
+    transmute(VS = as.numeric(V13),
+              time = begin)
+  #pull() %>% as.numeric()
   
-  if (sum(!is.na(VSs)) == 0){
-    VS <- NA 
+  VSs.V <- data.shift %>% 
+    filter(V2 == "V") %>% 
+    select(V6, begin) %>%
+    transmute(VS = as.numeric(V6),
+              time = begin)
+  
+  #pull()%>% as.numeric()
+  
+  VSs.dt <- rbind(VSs.S, VSs.V) %>%
+    arrange(time) %>%
+    mutate(dt = (time - min(time)) * (24*60))  # dt in minutes
+  
+  # if VS changed to 5 within the last 5 minutes, keep the entire period (max(VS) < 5)
+  # but if VS changed to 5 before then, make the max VS = 5.
+  VSs.dt %>% 
+    filter(VS > 4) -> High.VSs
+  
+  if (nrow(High.VSs) == 0) {
+    VSs <- VSs.dt$VS
   } else {
-    VS <- max(VSs, na.rm=T) 
+    if (min(High.VSs$dt) > 85){   # when the first change happened within 5 min of the shift change
+      VSs <- VSs.dt$VS[VSs.dt$VS < 5]
+    } else {
+      VSs <- VSs.dt$VS
+    }
   }
   
+  if (sum(!is.na(VSs)) == 0){
+    VS <- NA
+  } else {
+    VS <- max(VSs, na.rm=T)
+  }
+
   # if still NA, take the first "V" entry
   if (is.na(BF)) {BF <- data[Shifts.begin[i]+1, 5]}
   if (is.na(VS)) {VS <- data[Shifts.begin[i]+1, 6]}
@@ -256,10 +315,12 @@ get.shift <- function(YEAR, data, ff, i){
     
   }
   
+  # Changed V14 != "North" to tolower(V14) != "north" because of entries using
+  # uppercase "NORTH" in 2015 (file 11), which was not filtered out correctly in V2. 
   if(length(Spillover > 0)){ #if there are groups that spill over into following watch, 
     # figure out if there were any sightings that need to be considered:
     sub.data <- data.shift %>% #data[(Shifts.begin[i]):(Shifts.begin[i+1]-1),] %>% 
-      filter(V2 == "S", !(V5 %in% Spillover), V14 != "North")
+      filter(V2 == "S", !(V5 %in% Spillover), tolower(V14) != "north")
     
     if (nrow(sub.data) > 0){
       N <- sub.data %>%
@@ -274,7 +335,7 @@ get.shift <- function(YEAR, data, ff, i){
     
   } else {   # if there were no spillover
     sub.data <- data.shift %>% #data[Shifts.begin[i]:(Shifts.begin[i+1]-1),]  %>%  
-      filter(V2 == "S", V14 != "North")
+      filter(V2 == "S", tolower(V14) != "north")
     
     if (nrow(sub.data) > 0){
       N <- sub.data %>%

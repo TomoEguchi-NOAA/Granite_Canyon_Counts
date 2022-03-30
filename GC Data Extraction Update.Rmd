@@ -36,7 +36,7 @@ In other words, beginning and end of each shift were events "P" or "E." This wor
 
 Another difference is that I added seconds to define beginning and end of each shift. In the Durban/Stewart version, time was defined using only hours and minutes:
 
-NextBeginHr <- (hour(hms(data[Shifts[i+1],4])) + (minute(hms(data[Shifts[i+1],4]))/60)
+    NextBeginHr <- (hour(hms(data[Shifts[i+1],4])) + (minute(hms(data[Shifts[i+1],4]))/60)
 
 In rare occasions, the last sighting of a shift and the following shift started within a minute, causing the last sighting to be dropped (e.g., file 41, 2020-02-04. See below). Consequently, I added seconds to each line that calculates decimal hours. 
 
@@ -206,6 +206,7 @@ data %>%
 The first inconsistency was found for `r fractional_Day2YMDhms(difs.1[idx, "begin"], YEAR)$YMD`. There were `r abs(difs.1[idx, "total.whales"])` more whales in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`. Examining the data for this date indicated that this is for the `r Data_Out.v2.tmp[1, "ff"]` `r ifelse(Data_Out.v2.tmp[1, "ff"] == 1, "-st", ifelse(Data_Out.v2.tmp[1, "ff"] == 2, "-nd", "-th")` file in the `r YEAR` directory, i.e., ff = `r Data_Out.v2.tmp[1, "ff"]`. The particular data file was examined more closely.
 
 There was a total of `r nrow(Data_Out.v2.tmp)` shifts on `r fractional_Day2YMDhms(difs.1[idx, "begin"], YEAR)$YMD`. During the third shift (`r fractional_Day2YMDhms(Data_Out.v2.tmp[3, "begin"], YEAR)$hms` to `r fractional_Day2YMDhms(Data_Out.v2.tmp[3, "end"], YEAR)$hms`), the maximum Beaufort sea state was `r Data_Out.v2.tmp[3, "bf"]`. Consequently, the shift was removed from further analyses. 
+
 Comparing the two outputs for the remaining four shifts, there were 3 more whales recorded in the last (fifth) shift (from `r fractional_Day2YMDhms(tmp.V2[4, "begin"], YEAR)$hms` to `r fractional_Day2YMDhms(tmp.V2[4, "end"], YEAR)$hms`) of the day from Ver2.0 (n = `r tmp.V2[4, "n"]`) than from Ver1.0 (n = `r tmp.V1[4, "n"]`). Because I did not have access to the intermediate steps of the data extraction process, I did not determine what made the difference. 
 
 
@@ -215,20 +216,24 @@ Comparing the two outputs for the remaining four shifts, there were 3 more whale
 idx <- 2
 FinalData.Both %>% 
   filter(time.steps == difs.1[idx, "time.step"]) %>% 
-  filter(v == "V1") -> tmp.V1
+  filter(v == "V1") -> tmp.V0
 
 FinalData.Both %>% 
   filter(time.steps == difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
 
+# comparing tmp.V0 and tmp.V2 results in 3 more whales in the last shift (6)
+# V0 = 25 and V2 = 28
+
 # All data before removing too short/long and too high Beaufort/VS. 
 Data_Out.v2 %>% 
   filter(time.steps == difs.1[idx, "time.step"])  -> Data_Out.v2.tmp
 
+# output shows the file id is 9
 FF <- Data_Out.v2.tmp[1, "ff"]
 data <- get.data("Data/", YEAR, ff = FF)
 
-shift <- 5
+shift <- 6
 out.shift <- get.shift(YEAR, data, ff=FF, i=shift)
 
 data %>% 
@@ -242,7 +247,9 @@ data %>%
 
 ```
 
-In the second inconsistency (`r fractional_Day2YMDhms(difs.1[idx, "begin"], YEAR)$YMD`), there was one more shift and `r abs(difs.1[idx, "total.whales"])` more whales in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`. The second shift (from `r fractional_Day2YMDhms(tmp.V2[2, "begin"], YEAR)$hms` to `r fractional_Day2YMDhms(tmp.V2[2, "end"], YEAR)$hms`) was eliminated in the output from Ver1.0. Because I did not have access to the intermediate steps of the data extraction process, I did not determine what made the difference.
+
+The second inconsistency (`r fractional_Day2YMDhms(difs.1[idx, "begin"], YEAR)$YMD`) came from having the difference in the end time, where V0 ended at `r fractional_Day2YMDhms(tmp.V0[6,"end"], 2015)$hms` and missed the last sighting `r summary.V2[nrow(summary.V2), "V5"]` of `r summary.V2[nrow(summary.V2), "n"]` whales. This is probably due to not having the seconds in the time extraction lines in the previous code. 
+
 
 #### (3) {-}
 
@@ -277,7 +284,8 @@ data %>%
 
 ```
 
-In the third inconsistency (`r fractional_Day2YMDhms(difs.1[idx, "begin"], YEAR)$YMD`), one more whale was found during the last (sixth) in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`. The sixth shift (from `r fractional_Day2YMDhms(tmp.V2[6, "begin"], YEAR)$hms` to `r fractional_Day2YMDhms(tmp.V2[6, "end"], YEAR)$hms`). Because I did not have access to the intermediate steps of the data extraction process, I did not determine what made the difference.
+
+In the third inconsistency, there was one more shift and `r abs(difs.1[idx, "total.whales"])` more whales in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`. The second shift (from `r fractional_Day2YMDhms(tmp.V2[2, "begin"], YEAR)$hms` to `r fractional_Day2YMDhms(tmp.V2[2, "end"], YEAR)$hms`) was eliminated in the output from Ver1.0. This was caused by Beaufort and visibility code changing to 5s at the very end of the watch period (within 30 seconds of the end). I think this period should be retained. My extraction function uses BF and VS codes only from sighting rows. 
 
 
 #### (4) {-}
@@ -312,6 +320,9 @@ data %>%
   summarize(n = last(V9)) -> summary.data
 
 ```
+
+
+In the third inconsistency (`r fractional_Day2YMDhms(difs.1[idx, "begin"], YEAR)$YMD`), one more whale was found during the last (sixth) in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`. The sixth shift (from `r fractional_Day2YMDhms(tmp.V2[6, "begin"], YEAR)$hms` to `r fractional_Day2YMDhms(tmp.V2[6, "end"], YEAR)$hms`). Because I did not have access to the intermediate steps of the data extraction process, I did not determine what made the difference.
 
 The data file for `r fractional_Day2YMDhms(difs.1[idx, "begin"], YEAR)$YMD` contained the following problem. A shift started at 7:30:36 and ended 10:26:44, which was almost as twice as a usual shift of 1.5 hrs.  There should have been a shift change (event code "P") at 9 a.m. I added this shift change and created a new file with _TE added to the file name. 
 
