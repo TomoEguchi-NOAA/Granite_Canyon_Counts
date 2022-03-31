@@ -316,7 +316,7 @@ difs.1[idx,]
 One more shift and 10 more whales in V2 than in V0.
 
 ```{r}
-# This file containd the following problem first. 
+# This file contained the following problem first. 
 # The shift started at 7:30:36 and ended 10:26:44, which was way too long... 
 # There should have been a shift change at 9 a.m., which was not recorded.
 # This was fixed with _TE added to the file name (2/3/2015)
@@ -352,7 +352,8 @@ data %>%
   group_by(V5) %>%
   summarize(n = last(V9)) -> summary.V2
 
-# I don't know why this period was removed in V0. 
+# I don't know why this period was removed in V0. - because of the shift that was too long.
+
 ```
 
 
@@ -441,7 +442,9 @@ out.shift.2$data %>%
   mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>%
   group_by(V5) %>%
   summarise(last.n = last(V9),
-            max.n = max(V9)) -> summary.28.2.V2
+            max.n = max(V9)) -> summary.31.2.V2
+
+# sum of last.n's in summary.31.2.V2 is 13. How did V0 come up with 14?
 
 data %>% 
   filter(begin >= tmp.V0[shift,"begin"] & begin <= tmp.V0[shift, "end"]) %>%
@@ -463,6 +466,7 @@ data %>%
 
 ```
 
+I think what happened here is that Group 22 (n = 1 for southbound and n = 2 for northbound) was included in V0 (just the southbound recording), whereas it was excluded in V2. 
 
 That's it for 2015. 
 
