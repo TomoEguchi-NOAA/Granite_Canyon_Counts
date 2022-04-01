@@ -8,36 +8,21 @@ Get data and start looking at them:
 
 ```{r}
 rm(list = ls())
-source("Granite_Canyon_Counts_fcns.R")
+
 library(tidyverse)
 library(lubridate)
-
+source("Granite_Canyon_Counts_fcns.R")
 YEAR <- 2022
-
+FILES <- list.files(paste0("Data/", YEAR, "/"))
 #GO THROUGH THIS FILE ONCE MORE TO MAKE SURE EVERYTHING LOOKS OKAY. 2022-03-21
 
-v1.out <- readRDS("RData/out_2022_Joshs.rds")
-v2.out <- readRDS("RData/out_2022_Tomo_v2.rds")
+#obs.list <- read.csv("Data/Observer list.csv", header = T) 
+obs.list <- read.csv("Data/Observer list 2022.csv", header = T) 
+if (is.character(obs.list$ID)){
+  obs.list$ID <- as.integer(obs.list$ID)
+}
 
-FinalData.v2 <- v2.out$FinalData %>% mutate(v = "V2")%>% select(-dur)
-FinalData.v1 <- v1.out$FinalData %>% mutate(v = "V1") 
-
-FinalData.all <- rbind(FinalData.v1, FinalData.v2)
-
-# dim(FinalData.v1)
-# dim(FinalData.v2)
-
-FinalData.v1 %>% 
-  group_by(ff) %>% 
-  summarize(nrow = n()) -> v1.summary
-
-FinalData.v2 %>% 
-  group_by(ff) %>% 
-  summarize(nrow = n()) -> v2.summary
-
-v1.summary %>% left_join(v2.summary, by = "ff") %>% 
-  mutate(dif_1vs2 = nrow.x - nrow.y) -> v1Vsv2_n
-
+out.list <- compare.V0.V2.raw(YEAR, obs.list)
 
 ```
 
@@ -45,92 +30,32 @@ v1.summary %>% left_join(v2.summary, by = "ff") %>%
 Seems like they are identical in the number of rows. 
 
 ```{r}
-obs.list <- read.csv("Data/Observer list.csv", header = T) 
-colnames(obs.list) <- c("obs", "ID")
-
-FinalData.v2 <- v2.out$FinalData %>% mutate(v = "V2") %>% select(-dur)
-FinalData.v1 <- v1.out$FinalData %>% mutate(v = "V1") 
-
-FinalData.v2 %>% 
-  left_join(obs.list, by = "obs") -> FinalData.v2
-
-# find if there is NA in ID - not in the look up table  
-ID.NA <- filter(FinalData.v2, is.na(ID))
-
-unique.ID.NA <- unique(ID.NA$obs)
-
-if (length(unique.ID.NA) > 0){
-  for (k in 1:length(unique.ID.NA)){
-    FinalData.v2[FinalData.v2$obs == unique.ID.NA[k], "ID"] <- max(obs.list$ID) + k
-    
-  }
-  
-}
-
-# replace column names
-FinalData.v2 %>% select(-obs) %>%
-  mutate(obs = ID) %>%
-  select(-ID) -> FinalData.v2
-
-# rearrange the columns to match v1
-FinalData.v2 <- FinalData.v2[, names(FinalData.v1)]
-FinalData.Both <- rbind(FinalData.v2, FinalData.v1)
+out.list$difs.1
 ```
-
 
 
 ```{r}
-min.begin <- min(floor(FinalData.Both$begin))
-max.begin <- max(ceiling(FinalData.Both$begin))
+idx <- 1
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
+  filter(v == "V0") -> tmp.V0
 
-time.steps <- min.begin:max.begin
-difs <- data.frame(begin = double(),
-                   end = double(),
-                   min.begin = double(), 
-                   max.end = double(), 
-                   n.periods = integer(), 
-                   max.bf = integer(), 
-                   max.vs = integer(), 
-                   total.whales = integer(),
-                   time.step = integer(),
-                   stringsAsFactors = F)
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
+  filter(v == "V2") -> tmp.V2
 
-c <- k <- 1
-for (k in 1:(length(time.steps)-1)){
-  tmp <- filter(FinalData.Both, begin >= time.steps[k] & begin < time.steps[k+1])
-  if (nrow(tmp) > 0){
-    tmp %>% filter(v == "V1") -> tmp.1
-    tmp %>% filter(v == "V2") -> tmp.2
-    
-    difs[c,] <- c(min(tmp$begin), 
-                  max(tmp$end),
-                  min(tmp.1$begin) - min(tmp.2$begin), 
-                  max(tmp.1$end) - max(tmp.2$end),
-                  nrow(tmp.1) - nrow(tmp.2),
-                  max(tmp.1$bf) - max(tmp.1$bf),
-                  max(tmp.1$vs) - max(tmp.1$vs),
-                  sum(tmp.1$n) - sum(tmp.2$n),
-                  time.steps[k])
-    c <- c + 1
-    
-  }
-  
-}
+# Shift 2 is missing from V2
+
+out.list$Data_Out.v2 %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) -> Data_Out.v2.tmp
+
+# Visibility is 5 in V2 output but 4 in V1 output.
+FF <- Data_Out.v2.tmp[1, "ff"]
+data <- get.data("Data/", YEAR, ff = FF)
+
+out.shift <- get.shift(YEAR, data, ff = 12, i = 2)
+# Visibility started at 5 but decreased to 4 within 30 minutes from the beginning
+# Should this be included? If it should be included, we should change the data
+# file. 
 ```
-
-
-
-```{r}
-difs %>% filter(n.periods != 0 | total.whales != 0) -> difs.1
-FinalData.Both %>% mutate(time.steps = floor(FinalData.Both$begin)) -> FinalData.Both
-
-v2.out$Data_Out %>% 
-  mutate(time.steps = floor(v2.out$Data_Out$begin)) -> Data_Out.v2 
-
-v2.out$CorrectLength %>%
-  mutate(time.steps = floor(v2.out$CorrectLength$begin)) -> CorrectLength.v2 
-
-```
-
-No difference between them. 
 

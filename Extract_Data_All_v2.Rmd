@@ -15,7 +15,7 @@ library(lubridate)
 source("Granite_Canyon_Counts_fcns.R")
 
 
-YEAR <- 2016 #Enter the year of the data files
+YEAR <- 2022 #Enter the year of the data files
 
 ```
 

@@ -13,6 +13,18 @@ knitr::opts_chunk$set(echo = TRUE)
 source("Granite_Canyon_Counts_fcns.R")
 library(tidyverse)
 library(lubridate)
+library(flextable)
+
+set_flextable_defaults(font.size = 9,
+                       font.family = "Cambria")
+# some constants here:
+# # periods for the 6 survey years
+periods <-c(136, 135, 164, 178, 179, 151)
+
+# Observer list gets updated as new observers are added. 
+obs.list <- read.csv("Data/Observer list.csv", header = T) 
+colnames(obs.list) <- c("obs", "ID")
+
 
 ```
 
@@ -21,29 +33,31 @@ library(lubridate)
 This document summarizes why and how I modified the R script file that was used to extract gray whale count data from the Granite Canyon surveys. Although the difference in resulting abundance estimates is presumed to be minor, I will re-analyze the data and provide a summary when the analysis is completed. I think it is prudent to document the changes over the years now so that the next analyst will have sufficient knowledge to explain the entire process of data analyses, which includes data extraction and model fitting. 
 
 ## Why {-}
-Because of minor differences in the data file format before and after the 2020 season, Josh Stewart modified the script file that was developed by John Durban for earlier years (called extraction scripts hereafter). However, the new version of R (V.4) has apparently changed how the "read.table" function reads text files. Consequently, the script file for data files prior to the 2020 season no longer worked. Furthermore, when I examined the input and output files from the extraction script for the 2020 season, I found some minor discrepancies (detailed below). Consequently, I decided to make a function that can read pre- and post-2020 season data to simplify the data extraction process. 
+Because of minor differences in the data file format before and after the 2020 season, Josh Stewart modified the script file that was developed by John Durban for earlier years (called extraction scripts hereafter). However, the new version of R (V.4) has apparently changed how the "read.table" function reads text files. Consequently, the script file for data files prior to the 2020 season no longer worked. Furthermore, when I examined the input and output files from the extraction script for the 2020 season, I found some minor discrepancies (detailed below). Consequently, I decided to make a script file that can be used to read pre- and post-2020 season data to simplify the data extraction process. 
 
-While creating the new extraction script, I found that it is important to have the "End" survey line at the end of each data file. I also found that some data were included in the analysis even though they came from shifts that did not last minimum of 85 minutes. These modifications should be recorded somewhere for reproducibility. In addition, some data lines missed expected information, such as Beaufort sea state and visibility, resulting in dropped sightings. It is advisable to create a data checking script so that these errors can be fixed at the end of each survey day. (I think I can do that relatively easily before the next survey.) Comments should be made only with the "C" event, not with others (i.e., B, V, S, P, and E)
+While creating the new extraction script, I found that it is important to have the "End" survey line at the end of each data file. I also found that some data were included in the analysis even though they came from shifts that lasted less than 85 minutes. These modifications should be recorded somewhere for reproducibility. In addition, some data lines missed expected information, such as a Beaufort sea state and visibility, resulting in dropped sightings. It is advisable to create a data checking script so that these errors can be fixed at the end of each survey day. (I think I can do that relatively easily before the next survey.) Comments should be made only with the "C" event, not with others (i.e., B, V, S, P, and E)
 
 I will go through each survey season that I have data for (2015, 2016, 2020, and 2022) and explain the differences in outputs from the old and new extraction scripts.
 
 ## How {-}
-The main difference between the Durban/Stewart and Eguchi versions, hereafter Ver1.0 and Ver2.0 respectively, is how each shift was determined. In V2, start and end of shifts were determined using the following line (V2 is event code):
+The main difference between the Durban/Stewart and Eguchi versions, hereafter Ver1.0 and Ver2.0 respectively, is how each shift was determined. In Ver1.0, start and end of shifts were determined using the following line (V2 is event code):
 
     Shifts <- which(data$V2 %in% c('P','E')) 
 
 In other words, beginning and end of each shift were events "P" or "E." This works if there was a "P" or "E" at the end of a data file. If there was no "P" or "E" at the end (it has happened before), the last shift is completely dropped from data extraction. I extracted beginning and end separately and looked for missing "E." 
 
-Another difference is that I added seconds to define beginning and end of each shift. In the Durban/Stewart version, time was defined using only hours and minutes:
+Another difference is that I added seconds to define beginning and end of each shift. In Ver1.0, time was defined using only hours and minutes:
 
     NextBeginHr <- (hour(hms(data[Shifts[i+1],4])) + (minute(hms(data[Shifts[i+1],4]))/60)
 
-In rare occasions, the last sighting of a shift and the following shift started within a minute, causing the last sighting to be dropped (e.g., file 41, 2020-02-04. See below). Consequently, I added seconds to each line that calculates decimal hours. 
+In some occasions, the last sighting of a shift and the following shift started within a minute, causing the last sighting to be dropped (e.g., file 41, 2020-02-04. See below). Consequently, I added seconds to each line that calculates decimal hours. 
 
-New version contains two functions: one to extract data from a file (get.data) and another to extract each shift (get.shift). The get.data function requires three inputs; dir, YEAR, and ff, where dir is the directory name that contains all data files, YEAR is the survey year, and ff is the sequential number of a file (ordered alpha-numerically). The get.shift function requires four inputs; YEAR, data, ff, and i, where YEAR is the survey year, data is the output from the get.data function, ff is the sequential number of a file, and i is the shift identification number (an integer). These functions are used in a script file named "Extract_Data_All_v2.Rmd," in which all data files in a directory for a survey year are read, data extracted, and summarized for abundance estimation.
+New version contains two functions: one to extract data from a file (get.data) and another to extract each shift (get.shift). The get.data function requires three inputs; dir, YEAR, and ff, where dir is the directory name that contains all data files, YEAR is the survey year, and ff is the sequential number of a file (ordered alpha-numerically). The get.shift function requires four inputs; YEAR, data, ff, and i, where YEAR is the survey year, data is the output from the get.data function, ff is the sequential number of a file, and i is the shift identification number (an integer). These functions are used in a script file named "Extract_Data_All_v2.Rmd," in which all data files in a directory for a survey year are read, data extracted, and summarized for abundance estimation. It is assumed in these functions that there are directories that contain data files for each survey seasons and they are named by the season, e.g., Data/2020. 
 
 ### 2015 {-}
-For the 2015 and 2016 seasons, I was unable to compare data extraction methods using the Durban/Stewart script because it no longer functioned properly due to the change in the read.table function. The error comes with how data columns are aligned. Consequently, I compared summarized data, which were already extracted for abundance estimation, to the output from my new extraction functions. The summarized data contained surveys from 2006/2007 (2007 data), 2007/2008 (2008 data), 2009/2010 (2010 data), 2010/2011 (2011 data), 2014/2015 (2015 data), 2015/2016 (2016 data), and 2019/2020 (2020 data). So, this one (2015 data), it should be the 5th dataset. The year information should be explicitly included in the data. 
+For the 2015 and 2016 seasons, I was unable to compare data extraction methods using Ver1.0 because it no longer functioned properly due to the change in the read.table function. The error comes with how data columns are aligned. Consequently, I compared summarized data, which were already extracted for abundance estimation, to the output from Ver2.0. 
+
+The summarized data contained surveys from 2006/2007 (2007 data), 2007/2008 (2008 data), 2009/2010 (2010 data), 2010/2011 (2011 data), 2014/2015 (2015 data), 2015/2016 (2016 data), and 2019/2020 (2020 data). So, this dataset (2015 data) should be the 5th. The year information should be explicitly included in the data. 
 
 ```{r Compare-2015, error=FALSE, warning=FALSE, include=FALSE}
 # this is for the 5th data set in the analysis (2015)
@@ -51,141 +65,32 @@ YEAR <- 2015
 FILES <- list.files(paste0("Data/", YEAR, "/"))
 idx.yr <- 5
 
-# # periods for the 6 survey years
-periods <-c(136, 135, 164, 178, 179, 151)
-
-#Watch start times, as fraction of a day - stored in a different file
-begin <- as.matrix(read.table("Data/begin.txt", 
-                              header=T, 
-                              nrows = max(periods)))
-
-#watch end times
-end <- as.matrix(read.table("Data/end.txt", 
-                            header=T,
-                            nrows = max(periods)))
-
-obs.list <- read.csv("Data/Observer list.csv", header = T) 
-colnames(obs.list) <- c("obs", "ID")
-
-
-# this file contains all input data for WinBUGS.
-V0.out <- readRDS("RData/2006-2019_GC_Formatted_Data.RDS")
-
-# Pull out the information for 2015
-periods.2015 <- V0.out$periods[idx.yr]
-n.2015 <- V0.out$n[1:periods.2015,,idx.yr]
-n.com.2015 <- V0.out$n.com[1:periods.2015,,idx.yr]
-n.sp.2015 <- V0.out$n.sp[1:periods.2015,,idx.yr]
-obs.2015 <- V0.out$obs[1:periods.2015,,idx.yr]
-
-vs.2015 <- V0.out$vs[1:periods.2015,idx.yr]
-bf.2015 <- V0.out$bf[1:periods.2015,idx.yr]
-day.2015 <- V0.out$day[1:periods.2015,idx.yr]
-
-FinalData.V0 <- data.frame(begin = begin[1:periods[idx.yr], idx.yr],
-                           end = end[1:periods[idx.yr], idx.yr],
-                           bf = bf.2015,
-                           vs = vs.2015,
-                           n = n.2015[,1],
-                           obs = obs.2015[,1],
-                           BeginDay = day.2015,
-                           v = "V0")
-
-# This contains the results from my version
-v2.out <- readRDS("RData/out_2015_Tomo_v2.rds")
-FinalData.v2 <- v2.out$FinalData %>% 
-  mutate(v = "V2") %>% 
-  left_join(obs.list, by = "obs") %>%
-  select(-c(dur, ff, i, BeginHr)) 
-
-# find if there is NA in ID - not in the look up table  
-ID.NA <- filter(FinalData.v2, is.na(ID))
-
-unique.ID.NA <- unique(ID.NA$obs)
-
-if (length(unique.ID.NA) > 0){
-  for (k in 1:length(unique.ID.NA)){
-    FinalData.v2[FinalData.v2$obs == unique.ID.NA[k], "ID"] <- max(obs.list$ID) + k
-    
-  }
-  
-}
-
-# replace column names
-FinalData.v2 %>% select(-obs) %>%
-  mutate(obs = ID) %>%
-  select(-ID) -> FinalData.v2
-
-# rearrange the columns to match V0
-FinalData.v2 <- FinalData.v2[, names(FinalData.V0)]
-FinalData.Both <- rbind(FinalData.v2, FinalData.V0)
-
-v2.out$Data_Out %>% 
-  mutate(time.steps = floor(v2.out$Data_Out$begin)) -> Data_Out.v2 
-
-v2.out$CorrectLength %>%
-  mutate(time.steps = floor(v2.out$CorrectLength$begin)) -> CorrectLength.v2 
-
-min.begin <- min(floor(FinalData.Both$begin))
-max.begin <- max(ceiling(FinalData.Both$begin))
-
-time.steps <- min.begin:max.begin
-difs <- data.frame(begin = double(),
-                   end = double(),
-                   min.begin = double(), 
-                   max.end = double(), 
-                   n.periods = integer(), 
-                   max.bf = integer(), 
-                   max.vs = integer(), 
-                   total.whales = integer(),
-                   time.step = integer(),
-                   stringsAsFactors = F)
-
-c <- k <- 1
-for (k in 1:(length(time.steps)-1)){
-  tmp <- filter(FinalData.Both, begin >= time.steps[k] & begin < time.steps[k+1])
-  if (nrow(tmp) > 0){
-    tmp %>% filter(v == "V0") -> tmp.1
-    tmp %>% filter(v == "V2") -> tmp.2
-    
-    difs[c,] <- c(min(tmp$begin), 
-                  max(tmp$end),
-                  min(tmp.1$begin) - min(tmp.2$begin), 
-                  max(tmp.1$end) - max(tmp.2$end),
-                  nrow(tmp.1) - nrow(tmp.2),
-                  max(tmp.1$bf) - max(tmp.1$bf),
-                  max(tmp.1$vs) - max(tmp.1$vs),
-                  sum(tmp.1$n) - sum(tmp.2$n),
-                  time.steps[k])
-    c <- c + 1
-    
-  }
-  
-}
-
-difs %>% filter(n.periods != 0 | total.whales != 0) -> difs.1
-FinalData.Both %>% mutate(time.steps = floor(FinalData.Both$begin)) -> FinalData.Both
+out.list <- compare.V0.V2.BUGSinput(YEAR, idx.yr, periods, obs.list)
 
 ```
 
 
-There were `r nrow(difs.1)` difference in the number of whales detected or the number of sampling shifts per day. Look at one at a time to see what made the difference. This was completed in "compare_v0_v2_2015.Rmd" and its contents are explained fully here. 
+There were `r nrow(out.list$difs.1)` difference in the number of whales detected or the number of sampling shifts per day. Look at one at a time to see what made the difference. This was completed in "compare_v0_v2_2015.Rmd" and its contents are explained fully here. 
 
-#### (1) {-}
+#### (1) `r fractional_Day2YMDhms(out.list$difs.1[1,"begin"], YEAR)$YMD` {-}
 
 ```{r dif-2015-1, warning=FALSE, include=FALSE, error=FALSE}
 idx <- 1
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+YMD <- fractional_Day2YMDhms(out.list$difs.1[idx,"begin"], YEAR)$YMD
+
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V0") -> tmp.V0
 
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
 
+comp.table <- n.comparison(out.list$FinalData.Both, out.list$difs.1, idx)
+
 # All data before removing too short/long and too high Beaufort/VS. 
-Data_Out.v2 %>% 
-  filter(time.steps == difs.1[idx, "time.step"])  -> Data_Out.v2.tmp
+out.list$Data_Out.v2 %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"])  -> Data_Out.v2.tmp
 
 FF <- Data_Out.v2.tmp[1, "ff"]
 data <- get.data("Data/", YEAR, ff = FF)
@@ -223,31 +128,43 @@ data %>%
 
 ```
 
-The first inconsistency was found for `r fractional_Day2YMDhms(difs.1[idx, "begin"], YEAR)$YMD`. There were `r abs(difs.1[idx, "total.whales"])` more whales in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`. Examining the data for this date indicated that this is for the `r Data_Out.v2.tmp[1, "ff"]` `r ifelse(Data_Out.v2.tmp[1, "ff"] == 1, "-st", ifelse(Data_Out.v2.tmp[1, "ff"] == 2, "-nd", "-th")` file in the `r YEAR` directory, i.e., ff = `r Data_Out.v2.tmp[1, "ff"]` (`r FILES[FF]`). The particular data file was examined more closely.
+The first inconsistency was found for `r fractional_Day2YMDhms(out.list$difs.1[idx, "begin"], YEAR)$YMD` (Table \@ref(tab:Table-dif-2015-1)). There were `r abs(out.list$difs.1[idx, "total.whales"])` more whales in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`. 
 
-There was a total of `r nrow(Data_Out.v2.tmp)` shifts on `r fractional_Day2YMDhms(difs.1[idx, "begin"], YEAR)$YMD`. During the third shift (`r fractional_Day2YMDhms(Data_Out.v2.tmp[3, "begin"], YEAR)$hms` to `r fractional_Day2YMDhms(Data_Out.v2.tmp[3, "end"], YEAR)$hms`), the maximum Beaufort sea state was `r Data_Out.v2.tmp[3, "bf"]`. Consequently, the shift was removed from further analyses. 
+There was a total of `r nrow(Data_Out.v2.tmp)` shifts on `r fractional_Day2YMDhms(out.list$difs.1[idx, "begin"], YEAR)$YMD`. During the third shift (`r fractional_Day2YMDhms(Data_Out.v2.tmp[3, "begin"], YEAR)$hms` to `r fractional_Day2YMDhms(Data_Out.v2.tmp[3, "end"], YEAR)$hms`), the maximum Beaufort sea state was `r Data_Out.v2.tmp[3, "bf"]`. Consequently, the shift was removed from further analyses. 
 
-Comparing the two outputs for the remaining four shifts, there were 3 more whales recorded in the last (fifth) shift (from `r fractional_Day2YMDhms(tmp.V2[4, "begin"], YEAR)$hms` to `r fractional_Day2YMDhms(tmp.V2[4, "end"], YEAR)$hms`) of the day from Ver2.0 (n = `r tmp.V2[4, "n"]`) than from Ver1.0 (n = `r tmp.V0[4, "n"]`). Using the start and end times for Ver1.0 did not change the number of recorded whales (n = `r sum(summary.V0$n)`). Because I did not have access to the intermediate steps of the data extraction process, I could not determine what made the difference. 
+Comparing the two outputs for the remaining four shifts, there were 3 more whales recorded in the last (fifth) shift (from `r fractional_Day2YMDhms(tmp.V2[4, "begin"], YEAR)$hms` to `r fractional_Day2YMDhms(tmp.V2[4, "end"], YEAR)$hms`) of the day from Ver2.0 (n = `r tmp.V2[4, "n"]`) than from Ver1.0 (n = `r tmp.V0[4, "n"]`; Table \@ref(tab:Table-dif-2015-1)). Using the start and end times for Ver1.0 did not change the number of recorded whales (n = `r sum(summary.V0$n)`). Because I did not have access to the intermediate steps of the data extraction process, I could not determine what made the difference. 
 
 
-#### (2) {-}
+```{r Table-dif-2015-1, echo=FALSE, warning=FALSE}
+flextable(comp.table) %>% 
+ set_caption(paste0("A comparison of results of data extraction for ", YMD, " using Ver1.0 and Ver2.0. n.XXX is the number of observed whales, vs.XXX is the visibility, and Bf.XXX is the Beaufort scale, where XXX is either Ver1.0 or Ver2.0")) %>%
+  set_table_properties(width = 0.5, layout = "autofit")
+
+```
+
+
+#### (2) `r fractional_Day2YMDhms(out.list$difs.1[2,"begin"], YEAR)$YMD`{-}
 
 ```{r dif-2015-2, warning=FALSE, include=FALSE, error=FALSE}
 idx <- 2
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+YMD <- fractional_Day2YMDhms(out.list$difs.1[idx,"begin"], YEAR)$YMD
+
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V0") -> tmp.V0
 
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
+
+comp.table <- n.comparison(out.list$FinalData.Both, out.list$difs.1, idx)
 
 # comparing tmp.V0 and tmp.V2 results in 3 more whales in the last shift (6)
 # V0 = 25 and V2 = 28
 
 # All data before removing too short/long and too high Beaufort/VS. 
-Data_Out.v2 %>% 
-  filter(time.steps == difs.1[idx, "time.step"])  -> Data_Out.v2.tmp
+out.list$Data_Out.v2 %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"])  -> Data_Out.v2.tmp
 
 # output shows the file id is 9
 FF <- Data_Out.v2.tmp[1, "ff"]
@@ -283,28 +200,47 @@ data %>%
   group_by(V5) %>%
   summarize(n = last(V9)) -> summary.V2
 
+last.rows <- tail(out.shift$data.shift) %>% select(-c(V15, V16, begin))
 ```
 
 
-The second inconsistency was found for `r fractional_Day2YMDhms(difs.1[idx, "begin"], YEAR)$YMD`. There were `r abs(difs.1[idx, "total.whales"])` more whales in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`. Examining the data for this date indicated that this is for the `r Data_Out.v2.tmp[1, "ff"]` `r ifelse(Data_Out.v2.tmp[1, "ff"] == 1, "-st", ifelse(Data_Out.v2.tmp[1, "ff"] == 2, "-nd", "-th")` file in the `r YEAR` directory, i.e., ff = `r Data_Out.v2.tmp[1, "ff"]` (`r FILES[FF]`). The particular data file was examined more closely.
-
-The difference for this data file came from lack of seconds in the end time, where V0 ended at `r fractional_Day2YMDhms(tmp.V0[6,"end"], 2015)$hms` and missed the last sighting `r summary.V2[nrow(summary.V2), "V5"]` of `r summary.V2[nrow(summary.V2), "n"]` whales.  
+The second inconsistency was found for `r fractional_Day2YMDhms(out.list$difs.1[idx, "begin"], YEAR)$YMD`. There were `r abs(out.list$difs.1[idx, "total.whales"])` more whales in the output from `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in the output from `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")` (Table \@ref(tab:Table-dif-2015-2)). 
 
 
-#### (3) {-}
+```{r Table-dif-2015-2, echo=FALSE, warning=FALSE}
+flextable(comp.table) %>% 
+ set_caption(paste0("A comparison of results of data extraction for ", YMD, " using Ver1.0 and Ver2.0. n.XXX is the number of observed whales, vs.XXX is the visibility, and Bf.XXX is the Beaufort scale, where XXX is either Ver1.0 or Ver2.0")) %>%
+  set_table_properties(width = 0.5, layout = "autofit")
+
+```
+
+The difference for this data file came from the lack of seconds in the end time, where the end time for the last shift was `r tmp.V0[6, "end"]`, which is equal to `r fractional_Day2YMDhms(tmp.V0[6, "end"], YEAR)$hms`. Consequently, the last sighting, which occurred at `r out.shift$data[nrow(out.shift$data), "V4"] ` was omitted from the Ver1.0 data extraction (Table \@ref(tab:Table-data-2015-2)).   
+
+
+```{r Table-data-2015-2, echo=FALSE, warning=FALSE}
+flextable(last.rows) %>% 
+  set_caption(paste0("The last six rows of raw data for ", YMD, ", where V1 = event ID, V2 = event code (S = sighting, E = end of shift), V3 = date, V4 = time, V5 = gropu ID, V6 = compass bearing, V7 = reticles, V8 = distance in nm, V9 = group size, V10 = primary observer, V11 = secondary observer, V12 = Beaufort scale, V13  = visibility code, V14 = direction of movement.")) %>%
+  set_table_properties(width = 0.5, layout = "autofit")
+```
+
+#### (3) `r fractional_Day2YMDhms(out.list$difs.1[3,"begin"], YEAR)$YMD` {-}
 
 ```{r dif-2015-3, warning=FALSE, include=FALSE, error=FALSE}
 idx <- 3
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+YMD <- fractional_Day2YMDhms(out.list$difs.1[idx,"begin"], YEAR)$YMD
+
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V0") -> tmp.V0
 
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
 
-Data_Out.v2 %>% 
-  filter(time.steps == difs.1[idx, "time.step"])  -> Data_Out.v2.tmp
+comp.table <- n.comparison(out.list$FinalData.Both, out.list$difs.1, idx)
+
+out.list$Data_Out.v2 %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"])  -> Data_Out.v2.tmp
 
 FF <- Data_Out.v2.tmp[1, "ff"]
 data <- get.data("Data/", YEAR, ff = FF)
@@ -321,39 +257,55 @@ data %>%
   group_by(V5) %>%
   summarize(n = last(V9)) -> summary.data
 
+last.raws <- tail(out.shift$data.shift) %>% 
+  select(-c(V15, V16, begin))
 ```
 
 
-The third inconsistency was found for `r fractional_Day2YMDhms(difs.1[idx, "begin"], YEAR)$YMD`. There were `r abs(difs.1[idx, "total.whales"])` more whales in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`. Examining the data for this date indicated that this is for the `r Data_Out.v2.tmp[1, "ff"]` `r ifelse(Data_Out.v2.tmp[1, "ff"] == 1, "-st", ifelse(Data_Out.v2.tmp[1, "ff"] == 2, "-nd", "-th")` file in the `r YEAR` directory, i.e., ff = `r Data_Out.v2.tmp[1, "ff"]` (`r FILES[FF]`). The particular data file was examined more closely.
+The third inconsistency was found for `r fractional_Day2YMDhms(out.list$difs.1[idx, "begin"], YEAR)$YMD`. There were `r abs(out.list$difs.1[idx, "total.whales"])` more whales in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")` (Table \@ref(tab:Table-dif-2015-3a)). 
 
-The second shift (from `r fractional_Day2YMDhms(tmp.V2[2, "begin"], YEAR)$hms` to `r fractional_Day2YMDhms(tmp.V2[2, "end"], YEAR)$hms`) was eliminated in the output from Ver1.0. This was caused by Beaufort and visibility code changing to 5s at the very end of the watch period (within 30 seconds from the end; Table \@ref(tab:Table-dif-2015-3)). I think this period should be retained. The new version (Ver2.0) determines when BF and VS codes changed within a shift, where a shift is retained if either or both code change to unacceptable levels within 5 minutes of the end of the shift.  
+```{r Table-dif-2015-3a, echo=FALSE, warning=FALSE}
+flextable(comp.table) %>%
+  set_caption(paste0("A comparison of results of data extraction for ", YMD, " using Ver1.0 and Ver2.0. n.XXX is the number of observed whales, vs.XXX is the visibility, and BF.XXX is the Beaufort scale, where XXX is either Ver1.0 or Ver2.0"))
+```
 
 
+The second shift (from `r fractional_Day2YMDhms(tmp.V2[2, "begin"], YEAR)$hms` to `r fractional_Day2YMDhms(tmp.V2[2, "end"], YEAR)$hms`) was eliminated in the output from Ver1.0. This was caused by Beaufort and visibility code changing to 5s at the very end of the watch period (within 30 seconds from the end; Table \@ref(tab:Table-dif-2015-3)). I think this period should be retained. The new version (Ver2.0) determines when BF and VS codes changed within a shift, where a shift was retained if either or both code changed to unacceptable levels within 5 minutes of the end of the shift.  
 
 ```{r Table-dif-2015-3, echo=FALSE, warning=FALSE}
-knitr::kable(out.shift$data.shift, 
-             digits = 2,
-             row.names = F,
-             #format.args = list(big.mark = ",", scientific = FALSE),
-             caption = paste0("Raw data for the ", shift, "nd shift on ", fractional_Day2YMDhms(difs.1[idx, "begin"], YEAR)$YMD, ". Beaufort and visibility changed to 5s at ", fractional_Day2YMDhms(out.shift$data.shift[17, "begin"], YEAR)$hms, "."))
+flextable(last.raws) %>%
+  set_caption(paste0("The last six rows of the raw data for the ", shift, 
+                     "nd shift on ", 
+                     fractional_Day2YMDhms(out.list$difs.1[idx, "begin"],
+                                           YEAR)$YMD, 
+                     ". Beaufort and visibility changed to 5s at ",
+                     fractional_Day2YMDhms(out.shift$data.shift[17, "begin"], 
+                                           YEAR)$hms, ", where V1 = event ID, V2 = event code (S = sighting, E = end of shift), V3 = date, V4 = time, V5 = gropu ID, V6 = compass bearing, V7 = reticles, V8 = distance in nm, V9 = group size, V10 = primary observer, V11 = secondary observer, V12 = Beaufort scale, V13  = visibility code, V14 = direction of movement when V2 = 'S', V5 = Beaufort scale and V6 = visibility code when V2 = 'V'.")) %>%
+  set_table_properties(width = 0.5, layout = "autofit")
 ```
 
 
-#### (4) {-}
+
+
+#### (4) `r fractional_Day2YMDhms(out.list$difs.1[4,"begin"], YEAR)$YMD` {-}
 
 ```{r dif-2015-4, warning=FALSE, include=FALSE, error=FALSE}
 idx <- 4
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+YMD <- fractional_Day2YMDhms(out.list$difs.1[idx,"begin"], YEAR)$YMD
+
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V0") -> tmp.V0
 
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
 
+comp.table <- n.comparison(out.list$FinalData.Both, out.list$difs.1, idx)
+
 # All data before removing too short/long and too high Beaufort/VS. 
-Data_Out.v2 %>% 
-  filter(time.steps == difs.1[idx, "time.step"])  -> Data_Out.v2.tmp
+out.list$Data_Out.v2 %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"])  -> Data_Out.v2.tmp
 
 FF <- Data_Out.v2.tmp[1, "ff"]
 data <- get.data("Data/", YEAR, ff = FF)
@@ -374,35 +326,46 @@ data %>%
 
 
 
-The fourth inconsistency was found for `r fractional_Day2YMDhms(difs.1[idx, "begin"], YEAR)$YMD`. This file (`r FILES[FF]`) contained the following problem first. The first shift started at 7:30:36 and ended 10:26:44, which was too long for a typical shift. There should have been a shift change at 9 a.m., which was not recorded. I fixed this error and a new file was created with _TE added to the file name (2/3/2015).
+The fourth inconsistency was found for `r fractional_Day2YMDhms(out.list$difs.1[idx, "begin"], YEAR)$YMD`. This file (`r FILES[FF]`) contained the following problem first. The first shift started at 7:30:36 and ended 10:26:44, which was too long for a typical shift. There should have been a shift change at 9 a.m., which was not recorded. I fixed this error and a new file was created with _TE added to the file name.
 
-After correcting the above error, there was one more period with `r abs(difs.1[idx, "total.whales"])` whales was found in Ver2.0, which was excluded in Ver1.0. The shift started at `r fractional_Day2YMDhms(tmp.V2[2, "begin"], YEAR)$hms` and ended at `r fractional_Day2YMDhms(tmp.V2[2, "end"], YEAR)$hms`). 
+After correcting the above error, one more shift with `r abs(out.list$difs.1[idx, "total.whales"])` whales was found in the output from Ver2.0, which was excluded in that from Ver1.0 (Table \@ref(tab:Table-dif-2015-4)). The shift started at `r fractional_Day2YMDhms(tmp.V2[2, "begin"], YEAR)$hms` and ended at `r fractional_Day2YMDhms(tmp.V2[2, "end"], YEAR)$hms`. This omission was caused by the above data entry error where the first shift was too long and was excluded in the data extraction process. 
 
-The difference came from the error where the shift was too long and was excluded in the data extraction process. 
+```{r Table-dif-2015-4, echo=FALSE, warning=FALSE}
+flextable(comp.table) %>%
+  set_caption(paste0("A comparison of results of data extraction for ", YMD, " using Ver1.0 and Ver2.0. n.XXX is the number of observed whales, vs.XXX is the visibility, and BF.XXX is the Beaufort scale, where XXX is either Ver1.0 or Ver2.0")) %>%
+  set_table_properties(width = 0.5, layout = "autofit")
+```
 
-#### (5) {-}
+
+#### (5) `r fractional_Day2YMDhms(out.list$difs.1[5,"begin"], YEAR)$YMD` {-}
 
 ```{r dif-2015-5, warning=FALSE, include=FALSE, error=FALSE}
 idx <- 5
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+YMD <- fractional_Day2YMDhms(out.list$difs.1[idx,"begin"], YEAR)$YMD
+
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V0") -> tmp.V0
 
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
 
+comp.table <- n.comparison(out.list$FinalData.Both, out.list$difs.1, idx)
+
 # All data before removing too short/long and too high Beaufort/VS. 
-Data_Out.v2 %>% 
-  filter(time.steps == difs.1[idx, "time.step"])  -> Data_Out.v2.tmp
+out.list$Data_Out.v2 %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"])  -> Data_Out.v2.tmp
 
 FF <- Data_Out.v2.tmp[1, "ff"]
 data <- get.data("Data/", YEAR, ff = FF)
 
 shift <- 2
-out.shift <- get.shift(YEAR, data, ff=FF, i=shift)
+out.shift.1 <- get.shift(YEAR, data, ff=FF, i=1)
+out.shift.2 <- get.shift(YEAR, data, ff=FF, i=2)
 
-out.shift$data %>% select(V5, V9) %>%
+out.shift$data %>% 
+  select(V5, V9) %>%
   mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>%
   group_by(V5) %>%
   summarize(n = last(V9)) -> summary.data.V2
@@ -416,37 +379,46 @@ data %>%
   group_by(V5) %>%
   summarize(n = last(V9)) -> summary.data
 
+first.rows <- head(data, 8) %>% select(-c(V15:begin))
 ```
 
 
-The fifth inconsistency was found for `r fractional_Day2YMDhms(difs.1[idx, "begin"], YEAR)$YMD`. There were `r abs(difs.1[idx, "total.whales"])` more whales in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`. Examining the data for this date indicated that this is for the `r Data_Out.v2.tmp[1, "ff"]` `r ifelse(Data_Out.v2.tmp[1, "ff"] == 1, "-st", ifelse(Data_Out.v2.tmp[1, "ff"] == 2, "-nd", "-th")` file in the `r YEAR` directory, i.e., ff = `r Data_Out.v2.tmp[1, "ff"]` (`r FILES[FF]`). The particular data file was examined more closely.
+The fifth inconsistency was found for `r fractional_Day2YMDhms(out.list$difs.1[idx, "begin"], YEAR)$YMD` (`r FILES[FF]`). There were `r abs(out.list$difs.1[idx, "total.whales"])` more whales in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")` (Table \@ref(tab:Table-dif-2015-5)). 
 
-The data shows that first shift was from `r Data_Out.v2.tmp[1, "begin"]` (`r fractional_Day2YMDhms(Data_Out.v2.tmp[1, "begin"], YEAR)$hms`) to `r Data_Out.v2.tmp[1, "end"]` (`r fractional_Day2YMDhms(Data_Out.v2.tmp[1, "end"], YEAR)$hms`). The second shift was from `r Data_Out.v2.tmp[2, "begin"]` (`r fractional_Day2YMDhms(Data_Out.v2.tmp[2, "begin"], YEAR)$hms`) to `r Data_Out.v2.tmp[1, "end"]` (`r fractional_Day2YMDhms(Data_Out.v2.tmp[1, "end"], YEAR)$hms`). The summarized data from .RData has the first shift from `r tmp.V0[1, "begin"]` (`r fractional_Day2YMDhms(tmp.V0[1, "begin"], YEAR)$hms`) to `r tmp.V0[1, "end"]` (`r fractional_Day2YMDhms(tmp.V0[1, "end"], YEAR)$hms`). In the raw data file, there is no information between 7:31:23 and 10:00:26 (shown below).  
+```{r Table-dif-2015-5, echo=FALSE, warning=FALSE}
+flextable(comp.table) %>%
+  set_caption(paste0("A comparison of results of data extraction for ", YMD, " using Ver1.0 and Ver2.0. n.XXX is the number of observed whales, vs.XXX is the visibility, and BF.XXX is the Beaufort scale, where XXX is either Ver1.0 or Ver2.0")) %>%
+  set_table_properties(width = 0.5, layout = "autofit")
 
-Edited for JWD
-001 B	02/09/2015	07:30:55
-002 P	02/09/2015	07:30:55	DWW	WLP	N
-003 V	02/09/2015	07:30:55	4	5
-005 E	02/09/2015	07:31:23
-006 B	02/09/2015	10:00:26
-007 P	02/09/2015	10:00:26	PCF	DWW	N
-008 V	02/09/2015	10:00:26	3	4
+```
+
+The summarized data indicated that first shift was from `r fractional_Day2YMDhms(Data_Out.v2.tmp[1, "begin"], YEAR)$hms` to `r fractional_Day2YMDhms(Data_Out.v2.tmp[1, "end"], YEAR)$hms`, whereas the second shift was from `r fractional_Day2YMDhms(Data_Out.v2.tmp[2, "begin"], YEAR)$hms` to `r fractional_Day2YMDhms(Data_Out.v2.tmp[1, "end"], YEAR)$hms`. The summarized data from .RData, i.e., output of Ver1.0, has the first shift from `r tmp.V0[1, "begin"]` (`r fractional_Day2YMDhms(tmp.V0[1, "begin"], YEAR)$hms`) to `r tmp.V0[1, "end"]` (`r fractional_Day2YMDhms(tmp.V0[1, "end"], YEAR)$hms`). In the raw data file, there is no information between 7:31:23 and 10:00:26 (Table \@ref(tab:Table-data-2015-5)).  
+
+```{r Table-data-2015-5, echo=FALSE, warning=FALSE}
+flextable(first.rows) %>%
+  set_caption(paste0("The first eight rows of the raw data for ", 
+                     fractional_Day2YMDhms(out.list$difs.1[idx, "begin"],
+                                           YEAR)$YMD, ", where V1 = event ID, V2 = event code (S = sighting, E = end of shift), V3 = date, V4 = time, V5 = gropu ID, V6 = compass bearing, V7 = reticles, V8 = distance in nm, V9 = group size, V10 = primary observer, V11 = secondary observer, V12 = Beaufort scale, V13  = visibility code, V14 = direction of movement when V2 = 'S', V5 = Beaufort scale and V6 = visibility code when V2 = 'V', V5 and V6 show observers when V2 = 'P'. Event code (V2) = 'B' and 'E' indicate the beginning and end of an observation period, respectively."))  %>%
+  set_table_properties(width = 0.5, layout = "autofit")
+```
 
 
-#### (6) {-}
+#### (6) `r fractional_Day2YMDhms(out.list$difs.1[6,"begin"], YEAR)$YMD` {-}
 
 ```{r dif-2015-6, warning=FALSE, include=FALSE, error=FALSE}
 idx <- 6
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V0") -> tmp.V0
 
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
 
-Data_Out.v2 %>% 
-  filter(time.steps == difs.1[idx, "time.step"])  -> Data_Out.v2.tmp
+comp.table <- n.comparison(out.list$FinalData.Both, out.list$difs.1, idx)
+
+out.list$Data_Out.v2 %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"])  -> Data_Out.v2.tmp
 
 FF <- Data_Out.v2.tmp[1, "ff"]
 data <- get.data("Data/", YEAR, ff = FF)
@@ -471,9 +443,17 @@ data %>%
 ```
 
 
-The last inconsistency for 2015 was found for `r fractional_Day2YMDhms(difs.1[idx, "begin"], YEAR)$YMD`. There were `r abs(difs.1[idx, "total.whales"])` more whales in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`. Examining the data for this date indicated that this is for the `r Data_Out.v2.tmp[1, "ff"]` `r ifelse(Data_Out.v2.tmp[1, "ff"] == 1, "-st", ifelse(Data_Out.v2.tmp[1, "ff"] == 2, "-nd", "-th")` file in the `r YEAR` directory, i.e., ff = `r Data_Out.v2.tmp[1, "ff"]` (`r FILES[FF]`). The particular data file was examined more closely.
+The last inconsistency for 2015 was found for `r fractional_Day2YMDhms(out.list$difs.1[idx, "begin"], YEAR)$YMD` (`r FILES[FF]`). There were `r abs(out.list$difs.1[idx, "total.whales"])` more whales in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")` (Table \@ref(tab:Table-dif-2015-6)). 
 
-The difference likely came from the inclusion of group 22, which was observed to be moving south and north. When it was observed southbound, the group size was estimated to be one whale. On the northbound observation, it had a maximum of 2. In Ver1.0, the group of one whale was included. I don't have a way to confirm it. 
+
+```{r Table-dif-2015-6, echo=FALSE, warning=FALSE}
+flextable(comp.table) %>%
+  set_caption(paste0("A comparison of results of data extraction for ", YMD, " using Ver1.0 and Ver2.0. n.XXX is the number of observed whales, vs.XXX is the visibility, and BF.XXX is the Beaufort scale, where XXX is either Ver1.0 or Ver2.0")) %>%
+  set_table_properties(width = 0.5, layout = "autofit")
+```
+
+I don't know why there was one less whale found in the output of Ver2.0 compared with the output of Ver1.0 for the second shift.
+
 
 ### 2016 {-}
 
@@ -484,185 +464,88 @@ FILES <- list.files(paste0("Data/", YEAR, "/"))
 idx.yr <- 6
 
 # # periods for the 6 survey years
-periods <-c(136, 135, 164, 178, 179, 151)
+# periods <-c(136, 135, 164, 178, 179, 151)
+# obs.list <- read.csv("Data/Observer list.csv", header = T) 
+# colnames(obs.list) <- c("obs", "ID")
+# update the observer list from the last one
+obs.list <- out.list$obs.list
+out.list <- compare.V0.V2.BUGSinput(YEAR, idx.yr, periods, obs.list)
 
-#Watch start times, as fraction of a day - stored in a different file
-begin <- as.matrix(read.table("Data/begin.txt", 
-                              header=T, 
-                              nrows = max(periods)))
-
-#watch end times
-end <- as.matrix(read.table("Data/end.txt", 
-                            header=T,
-                            nrows = max(periods)))
-
-obs.list <- read.csv("Data/Observer list.csv", header = T) 
-colnames(obs.list) <- c("obs", "ID")
-
-# this file contains all input data for WinBUGS.
-v0.out <- readRDS("RData/2006-2019_GC_Formatted_Data.RDS")
-
-# Pull out the information for 2016
-periods.2016 <- v0.out$periods[idx.yr]
-n.2016 <- v0.out$n[1:periods.2016,,idx.yr]
-n.com.2016 <- v0.out$n.com[1:periods.2016,,idx.yr]
-n.sp.2016 <- v0.out$n.sp[1:periods.2016,,idx.yr]
-obs.2016 <- v0.out$obs[1:periods.2016,,idx.yr]
-
-vs.2016 <- v0.out$vs[1:periods.2016,idx.yr]
-bf.2016 <- v0.out$bf[1:periods.2016,idx.yr]
-day.2016 <- v0.out$day[1:periods.2016,idx.yr]
-
-FinalData.v0 <- data.frame(begin = begin[1:periods[idx.yr], idx.yr],
-                           end = end[1:periods[idx.yr], idx.yr],
-                           bf = bf.2016,
-                           vs = vs.2016,
-                           n = n.2016[,1],
-                           obs = obs.2016[,1],
-                           BeginDay = day.2016,
-                           v = "V0")
-
-# This contains the results from my version
-v2.out <- readRDS("RData/out_2016_Tomo_v2.rds")
-FinalData.v2 <- v2.out$FinalData %>% 
-  mutate(v = "V2") %>% 
-  left_join(obs.list, by = "obs") %>%
-  select(-c(dur, ff, i, BeginHr)) 
-
-# find if there is NA in ID - not in the look up table  
-ID.NA <- filter(FinalData.v2, is.na(ID))
-
-unique.ID.NA <- unique(ID.NA$obs)
-
-if (length(unique.ID.NA) > 0){
-  for (k in 1:length(unique.ID.NA)){
-    FinalData.v2[FinalData.v2$obs == unique.ID.NA[k], "ID"] <- max(obs.list$ID) + k
-    
-  }
-  
-}
-
-# replace column names
-FinalData.v2 %>% select(-obs) %>%
-  mutate(obs = ID) %>%
-  select(-ID) -> FinalData.v2
-
-# rearrange the columns to match v0
-FinalData.v2 <- FinalData.v2[, names(FinalData.v0)]
-FinalData.Both <- rbind(FinalData.v2, FinalData.v0)
-
-min.begin <- min(floor(FinalData.Both$begin))
-max.begin <- max(ceiling(FinalData.Both$begin))
-
-time.steps <- min.begin:max.begin
-difs <- data.frame(begin = double(),
-                   end = double(),
-                   min.begin = double(), 
-                   max.end = double(), 
-                   n.periods = integer(), 
-                   max.bf = integer(), 
-                   max.vs = integer(), 
-                   total.whales = integer(),
-                   time.step = integer(),
-                   stringsAsFactors = F)
-
-c <- k <- 1
-for (k in 1:(length(time.steps)-1)){
-  tmp <- filter(FinalData.Both, begin >= time.steps[k] & begin < time.steps[k+1])
-  if (nrow(tmp) > 0){
-    tmp %>% filter(v == "V0") -> tmp.1
-    tmp %>% filter(v == "V2") -> tmp.2
-    
-    difs[c,] <- c(min(tmp$begin), 
-                  max(tmp$end),
-                  min(tmp.1$begin) - min(tmp.2$begin), 
-                  max(tmp.1$end) - max(tmp.2$end),
-                  nrow(tmp.1) - nrow(tmp.2),
-                  max(tmp.1$bf) - max(tmp.1$bf),
-                  max(tmp.1$vs) - max(tmp.1$vs),
-                  sum(tmp.1$n) - sum(tmp.2$n),
-                  time.steps[k])
-    c <- c + 1
-    
-  }
-  
-}
-
-difs %>% filter(n.periods != 0 | total.whales != 0) -> difs.1
-FinalData.Both %>% mutate(time.steps = floor(FinalData.Both$begin)) -> FinalData.Both
-
-v2.out$Data_Out %>% 
-  mutate(time.steps = floor(v2.out$Data_Out$begin)) -> Data_Out.v2 
-
-v2.out$CorrectLength %>%
-  mutate(time.steps = floor(v2.out$CorrectLength$begin)) -> CorrectLength.v2 
 ```
 
 Wrong entries of "South" in "EDITED GW160202_071118.dat" (FF=22). Some lines were fixed to align entries. No VS were entered in rows from 005 to 024. NA entered. This has been fixed.
 
-#### (1) {-}
+#### (1) `r fractional_Day2YMDhms(out.list$difs.1[1,"begin"], YEAR)$YMD`  {-}
 
 ```{r dif-2016-01, warning=FALSE, include=FALSE, error=FALSE}
 idx <- 1
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+YMD <- fractional_Day2YMDhms(out.list$difs.1[idx,"begin"], YEAR)$YMD
+
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V0") -> tmp.V0
 
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
 
-Data_Out.v2 %>% 
-  filter(time.steps == difs.1[idx, "time.step"])  -> Data_Out.v2.tmp
+comp.table <- n.comparison(out.list$FinalData.Both, out.list$difs.1, idx)
+
+out.list$Data_Out.v2 %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"])  -> Data_Out.v2.tmp
 
 FF <- Data_Out.v2.tmp[1, "ff"]
 data <- get.data("Data/", YEAR, ff = FF)
 
 # shift <- 1
-# out.shift <- get.shift(YEAR, data, ff=FF, i=shift)
+#out.shift.1 <- get.shift(YEAR, data, ff=FF, i=1)
+
+first.rows <- head(data, 15) %>% select(-c(V15:begin))
+```
+
+The first inconsistency for 2016 was for `r fractional_Day2YMDhms(out.list$difs.1[idx, "begin"], YEAR)$YMD` (`r FILES[FF]`). There were `r abs(out.list$difs.1[idx, "total.whales"])` more whales in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")` (Table \@ref(tab:Table-dif-2016-01). 
+
+
+```{r Table-dif-2016-01, echo=FALSE, warning=FALSE}
+
+flextable(comp.table) %>%
+  set_caption(paste0("A comparison of results of data extraction for ", YMD, " using Ver1.0 and Ver2.0. n.XXX is the number of observed whales, vs.XXX is the visibility, and BF.XXX is the Beaufort scale, where XXX is either Ver1.0 or Ver2.0")) %>%
+  set_table_properties(width = 0.5, layout = "autofit")
 
 ```
 
-The first inconsistency was in file `r fractional_Day2YMDhms(difs.1[idx, "begin"], YEAR)$YMD`. There were `r abs(difs.1[idx, "total.whales"])` more whales in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`. Examining the data for this date indicated that this is for the `r Data_Out.v2.tmp[1, "ff"]` `r ifelse(Data_Out.v2.tmp[1, "ff"] == 1, "-st", ifelse(Data_Out.v2.tmp[1, "ff"] == 2, "-nd", "-th")` file in the `r YEAR` directory, i.e., ff = `r Data_Out.v2.tmp[1, "ff"]` (`r FILES[FF]`).
+This came from the first shift, which lasted only 30 minutes (`r fractional_Day2YMDhms(Data_Out.v2.tmp[1, "begin"], YEAR)$hms` - `r fractional_Day2YMDhms(Data_Out.v2.tmp[1, "end"], YEAR)$hms`), where a new observer replaced one observer. Consequently, this shift was excluded by the "correct length" filter. In the summarized data (Table \@ref(tab:Table-data-2016-01)), however, a new starting time (`r fractional_Day2YMDhms(tmp.V0[1, "begin"], YEAR)$hms`) was inserted. This, however, does not exist in the data file (Table \@ref(tab:Table-data-2016-01). 
 
-This came from the first shift, which lasted only 30 minutes (`r fractional_Day2YMDhms(Data_Out.v2.tmp[1, "begin"], YEAR)$hms` - `r fractional_Day2YMDhms(Data_Out.v2.tmp[1, "end"], YEAR)$hms`), where a new observer replaced one observer. Consequently, this shift was excluded by the "correct length" filter. In the summarized data, however, a new starting time (`r fractional_Day2YMDhms(tmp.V0[1, "begin"], YEAR)$hms`) was inserted. This, however, does not exist in the data file:
-
-EDITED for JWD
-001 B	12/30/2015	08:30:33
-002 P	12/30/2015	08:30:33	DWW	WLP	N
-003 V	12/30/2015	08:30:33	2	2
-004 S	12/30/2015	08:39:53	1	286	0.86	2.4	1	DWW	WLP	2	2		South
-005 S	12/30/2015	08:43:57	1	266	0.67	3.2	1	DWW	WLP	2	2		South
-006 S	12/30/2015	08:46:18	1	252	0.64	3.4	1	DWW	WLP	2	2		South
-007 S	12/30/2015	08:47:57	1	240	0.62	3.5	1	DWW	WLP	2	2		South
-008 S	12/30/2015	08:49:26	2	264	1.95	0.8	1	DWW	WLP	2	2		South
-009 S	12/30/2015	08:50:47	2	260	1.95	0.8	1	DWW	WLP	2	2		South
-010 S	12/30/2015	08:54:20	3	287	0.92	2.2	1	DWW	WLP	2	2		South
-011 S	12/30/2015	08:55:34	2	254	2.33	0.6	1	DWW	WLP	2	2		South
-012 S	12/30/2015	08:59:09	3	270	0.73	2.9	1	DWW	WLP	2	2		South
-013 P	12/30/2015	09:00:21	RLB	DWW	N
-014 V	12/30/2015	09:00:21	2	2
-015 S	12/30/2015	09:03:48	4	275	1.25	1.5	1	RLB	DWW	2	2		South
+```{r Table-data-2016-01, echo=FALSE, warning=FALSE}
+flextable(first.rows) %>%
+  set_caption(paste0("The first 15 rows of the raw data for ", 
+                     fractional_Day2YMDhms(out.list$difs.1[idx, "begin"],
+                                           YEAR)$YMD, ", where V1 = event ID, V2 = event code (S = sighting, E = end of shift), V3 = date, V4 = time, V5 = gropu ID, V6 = compass bearing, V7 = reticles, V8 = distance in nm, V9 = group size, V10 = primary observer, V11 = secondary observer, V12 = Beaufort scale, V13  = visibility code, V14 = direction of movement when V2 = 'S', V5 = Beaufort scale and V6 = visibility code when V2 = 'V', V5 and V6 show observers when V2 = 'P'. Event code (V2) = 'B' and 'E' indicate the beginning and end of an observation period, respectively."))  %>%
+  set_table_properties(width = 0.5, layout = "autofit")
+```
 
 Consequently, I think it is inappropriate to create a new start time, where there was no observation between `r fractional_Day2YMDhms(tmp.V0[1, "begin"], YEAR)$hms` and 8:30:33.
 
-reality, however, the shift continued with new observers. I removed the line 013 (013 P	12/30/2015	09:00:21	RLB	DWW	N) to combine the two shifts. The new file is named with _TE. This, however, ends up in the shift being too long (2 hrs), which would be excluded during the data extraction step. I think the best approach is to remove the first short shift. The new file with _TE was removed and the original file was put back in place. 
+In reality, however, the shift continued with new observers. I removed the line 013 (013 P	12/30/2015	09:00:21	RLB	DWW	N) to combine the two shifts. The new file is named with _TE. This, however, ends up in the shift being too long (2 hrs), which would be excluded during the data extraction step. I think the best approach is to remove the first short shift. The new file with _TE was removed and the original file was put back in place. 
 
-
-#### (2) {-}
+#### (2) `r fractional_Day2YMDhms(out.list$difs.1[2,"begin"], YEAR)$YMD` {-}
 
 ```{r dif-2016-02, warning=FALSE, include=FALSE, error=FALSE}
 idx <- 2
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+YMD <- fractional_Day2YMDhms(out.list$difs.1[idx,"begin"], YEAR)$YMD
+
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V0") -> tmp.V0
 
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
 
-Data_Out.v2 %>% 
-  filter(time.steps == difs.1[idx, "time.step"])  -> Data_Out.v2.tmp
+comp.table <- n.comparison(out.list$FinalData.Both, out.list$difs.1, idx)
+
+out.list$Data_Out.v2 %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"])  -> Data_Out.v2.tmp
 
 FF <- Data_Out.v2.tmp[1, "ff"]
 data <- get.data("Data/", YEAR, ff = FF)
@@ -689,26 +572,50 @@ data %>%
 # comparing summary.V0 and summary.V2 shows that the group 69 was excluded from V0 output
 # The group was observed/recorded 1 second before the end of the shift. Not using seconds
 # in V0 excluded this sighting. 
+
+last.rows <- tail(data) %>% select(-c(V15:begin))
+
 ```
 
-The summary results for `r fractional_Day2YMDhms(difs.1[idx, "begin"], YEAR)$YMD` contained `r abs(difs.1[idx, "total.whales"])` more whales in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`. Examining the data for this date indicated that this is for the `r Data_Out.v2.tmp[1, "ff"]` `r ifelse(Data_Out.v2.tmp[1, "ff"] == 1, "-st", ifelse(Data_Out.v2.tmp[1, "ff"] == 2, "-nd", "-th")` file in the `r YEAR` directory, i.e., ff = `r Data_Out.v2.tmp[1, "ff"]` (`r FILES[FF]`).
+The summary results for `r fractional_Day2YMDhms(out.list$difs.1[idx, "begin"], YEAR)$YMD` (`r FILES[FF]`) contained `r abs(out.list$difs.1[idx, "total.whales"])` more whales in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")` (Table \@ref(tab:Table-dif-2016-02)). 
 
-In Ver1.0, there was no record of group ID 69, which was observed at `r fractional_Day2YMDhms(out.shift$data[str_detect(out.shift$data$V5, "69"), "begin"])$hms`, only one second before the end of the shift. 
 
-#### 3 {-}
+```{r Table-dif-2016-02, echo=FALSE, warning=FALSE}
+flextable(comp.table) %>%
+  set_caption(paste0("A comparison of results of data extraction for ", YMD, " using Ver1.0 and Ver2.0. n.XXX is the number of observed whales, vs.XXX is the visibility, and BF.XXX is the Beaufort scale, where XXX is either Ver1.0 or Ver2.0")) %>%
+  set_table_properties(width = 0.5, layout = "autofit")
+
+```
+
+In Ver1.0, there was no record of group ID 69, which was observed at `r fractional_Day2YMDhms(out.shift$data[str_detect(out.shift$data$V5, "69"), "begin"], YEAR)$hms`, only one second before the end of the shift (Table \@ref(tab:Table-data-2016-02)). The end of this shift in Ver1.0 was `r fractional_Day2YMDhms(tmp.V0[6,"end"], YEAR)`. Consequently, the last sighting was not included in the summary data. 
+
+```{r Table-data-2016-02, echo=FALSE, warning=FALSE}
+flextable(last.rows) %>%
+    set_caption(paste0("The last six rows of the raw data for ", 
+                     fractional_Day2YMDhms(out.list$difs.1[idx, "begin"],
+                                           YEAR)$YMD, ", where V1 = event ID, V2 = event code (S = sighting, E = end of shift), V3 = date, V4 = time, V5 = gropu ID, V6 = compass bearing, V7 = reticles, V8 = distance in nm, V9 = group size, V10 = primary observer, V11 = secondary observer, V12 = Beaufort scale, V13  = visibility code, V14 = direction of movement when V2 = 'S', V5 = Beaufort scale and V6 = visibility code when V2 = 'V', V5 and V6 show observers when V2 = 'P'. Event code (V2) = 'B' and 'E' indicate the beginning and end of an observation period, respectively."))  %>%
+  set_table_properties(width = 0.5, layout = "autofit")
+```
+
+
+
+#### (3) `r fractional_Day2YMDhms(out.list$difs.1[3,"begin"], YEAR)$YMD` {-}
 
 ```{r dif-2016-03, warning=FALSE, include=FALSE, error=FALSE}
 idx <- 3
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+YMD <- fractional_Day2YMDhms(out.list$difs.1[idx,"begin"], YEAR)$YMD
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V0") -> tmp.V0
 
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
 
-Data_Out.v2 %>% 
-  filter(time.steps == difs.1[idx, "time.step"])  -> Data_Out.v2.tmp
+comp.table <- n.comparison(out.list$FinalData.Both, out.list$difs.1, idx)
+
+out.list$Data_Out.v2 %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"])  -> Data_Out.v2.tmp
 
 FF <- Data_Out.v2.tmp[1, "ff"]
 data <- get.data("Data/", YEAR, ff = FF)
@@ -716,38 +623,54 @@ data <- get.data("Data/", YEAR, ff = FF)
 shift <-  1
 out.shift.1 <- get.shift(YEAR, data, ff=FF, i=shift)
 
+first.rows <- out.shift.1$data.shift %>%
+  select(-c(V15:begin))
 ```
 
-The data summary for `r fractional_Day2YMDhms(difs.1[idx, "begin"], YEAR)$YMD` contained `r abs(difs.1[idx, "total.whales"])` more whales in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`. Examining the data for this date indicated that this is for the `r Data_Out.v2.tmp[1, "ff"]` `r ifelse(Data_Out.v2.tmp[1, "ff"] == 1, "-st", ifelse(Data_Out.v2.tmp[1, "ff"] == 2, "-nd", "-th")` file in the `r YEAR` directory, i.e., ff = `r Data_Out.v2.tmp[1, "ff"]` (`r FILES[FF]`).
-
-There were total of `r nrow(Data_Out.v2.tmp)` shifts for this day. The first shift from `r fractional_Day2YMDhms(Data_Out.v2.tmp[1, "begin"], YEAR)$hms` to `r fractional_Day2YMDhms(Data_Out.v2.tmp[1, "end"], YEAR)$hms` (`r signif(Data_Out.v2.tmp[1, "dur"] * 24 * 60, 3)` minutes). The raw data file indicated that the first shift started at 8 a.m. 
-
-EDITED for JWD
-001 B	01/04/2016	08:00:43
-002 P	01/04/2016	08:00:43	PCF	DWW	N
-003 V	01/04/2016	08:00:43	4	4
-005 S	01/04/2016	08:07:12	1	274	1.39	1.3	2	PCF	DWW	4	4		South
-006 S	01/04/2016	08:08:57	2	287	1.47	1.2	3	PCF	DWW	4	4		South
-007 S	01/04/2016	08:16:31	3	262	1.95	0.8	1	PCF	DWW	4	4		South
-
-In the summary data, the first shift started at `r fractional_Day2YMDhms(tmp.V0[1,"begin"], YEAR)$hms`. I don't think it's proper to inflate the hours of observation. 
+The data summary for `r fractional_Day2YMDhms(out.list$difs.1[idx, "begin"], YEAR)$YMD` (`r FILES[FF]`) contained `r abs(out.list$difs.1[idx, "total.whales"])` more whales in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")` (Table \@ref(tab:Table-dif-2016-03). 
 
 
-#### 4 {-}
+```{r Table-dif-2016-03, echo=FALSE, warning=FALSE}
+
+flextable(comp.table) %>%
+  set_caption(paste0("A comparison of results of data extraction for ", YMD, " using Ver1.0 and Ver2.0. n.XXX is the number of observed whales, vs.XXX is the visibility, and BF.XXX is the Beaufort scale, where XXX is either Ver1.0 or Ver2.0")) %>%
+  set_table_properties(width = 0.5, layout = "autofit")
+
+```
+
+There were total of `r nrow(Data_Out.v2.tmp)` shifts for this day. The first shift from `r fractional_Day2YMDhms(Data_Out.v2.tmp[1, "begin"], YEAR)$hms` to `r fractional_Day2YMDhms(Data_Out.v2.tmp[1, "end"], YEAR)$hms` (`r signif(Data_Out.v2.tmp[1, "dur"] * 24 * 60, 3)` minutes). The raw data file indicated that the first shift started at 8 a.m. (Table \@ref(tab:Table-data-2016-03).
+
+```{r Table-data-2016-03, echo=FALSE, warning=FALSE}
+flextable(first.rows) %>%
+  set_caption(paste0("The first eight rows of the raw data for ", 
+                     fractional_Day2YMDhms(out.list$difs.1[idx, "begin"],
+                                           YEAR)$YMD, ", where V1 = event ID, V2 = event code (S = sighting, E = end of shift), V3 = date, V4 = time, V5 = gropu ID, V6 = compass bearing, V7 = reticles, V8 = distance in nm, V9 = group size, V10 = primary observer, V11 = secondary observer, V12 = Beaufort scale, V13  = visibility code, V14 = direction of movement when V2 = 'S', V5 = Beaufort scale and V6 = visibility code when V2 = 'V', V5 and V6 show observers when V2 = 'P'. Event code (V2) = 'B' and 'E' indicate the beginning and end of an observation period, respectively."))  %>%
+  set_table_properties(width = 0.5, layout = "autofit")
+
+```
+
+
+In the summary data from Ver1.0, the first shift started at `r fractional_Day2YMDhms(tmp.V0[1,"begin"], YEAR)$hms`. I don't think it's proper to inflate the hours of observation. 
+
+#### (4) `r fractional_Day2YMDhms(out.list$difs.1[4,"begin"], YEAR)$YMD` {-}
 
 ```{r dif-2016-04, warning=FALSE, include=FALSE, error=FALSE}
 idx <- 4
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+YMD <- fractional_Day2YMDhms(out.list$difs.1[idx,"begin"], YEAR)$YMD
+
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V0") -> tmp.V0
 
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
 
+comp.table <- n.comparison(out.list$FinalData.Both, out.list$difs.1, idx)
+
 # V2 is missing the first and second shifts
-Data_Out.v2 %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) -> Data_Out.v2.tmp
+out.list$Data_Out.v2 %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) -> Data_Out.v2.tmp
 
 # The first and second shifts are too short... 
 FF <- Data_Out.v2.tmp[1, "ff"]
@@ -761,54 +684,65 @@ out.shift.1 <- get.shift(YEAR, data, ff=FF, i=shift)
 shift <-  2
 out.shift.2 <- get.shift(YEAR, data, ff=FF, i=shift)
 # Started at 10:34:53 and ended 10:56:57, so < 1 hr
+first.rows <- head(data) %>%
+  select(-c(V15:begin))
+```
+
+The data summary for `r fractional_Day2YMDhms(out.list$difs.1[idx, "begin"], YEAR)$YMD` (`r FILES[FF]`) contained `r abs(out.list$difs.1[idx, "total.whales"])` more whales in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`, with 2 more shifts in Ver1.0 than in Ver2.0 (Table \@ref(tab:Table-dif-2016-04). 
+
+
+```{r Table-dif-2016-04, echo=FALSE, warning=FALSE}
+flextable(comp.table) %>%
+  set_caption(paste0("A comparison of results of data extraction for ", YMD, " using Ver1.0 and Ver2.0. n.XXX is the number of observed whales, vs.XXX is the visibility, and BF.XXX is the Beaufort scale, where XXX is either Ver1.0 or Ver2.0")) %>%
+  set_table_properties(width = 0.5, layout = "autofit")
 
 ```
 
-The data summary for `r fractional_Day2YMDhms(difs.1[idx, "begin"], YEAR)$YMD` contained `r abs(difs.1[idx, "total.whales"])` more whales in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`, with 2 more shifts in Ver1.0 than in Ver2.0. Examining the data for this date indicated that this is for the `r Data_Out.v2.tmp[1, "ff"]` `r ifelse(Data_Out.v2.tmp[1, "ff"] == 1, "-st", ifelse(Data_Out.v2.tmp[1, "ff"] == 2, "-nd", "-th")` file in the `r YEAR` directory, i.e., ff = `r Data_Out.v2.tmp[1, "ff"]` (`r FILES[FF]`).
+The first two shifts were not found in the output from Ver2.0. The first shift started at `r Data_Out.v2.tmp[1, "begin"]`, which is `r fractional_Day2YMDhms(Data_Out.v2.tmp[1, "begin"], YEAR)$hms` (The raw data file also started at this time. (Table \@ref(tab:Table-dif-2016-04)). In the summarized file from Ver1.0, however, it started at `r fractional_Day2YMDhms(tmp.V0[1, "begin"], YEAR)$hms`. This is not right because there was no observation between 7:30 and 8:30. 
 
-The first two shifts were not found in the output from Ver2.0. The first shift started at `r Data_Out.v2.tmp[1, "begin"]`, which is `r fractional_Day2YMDhms(Data_Out.v2.tmp[1, "begin"], YEAR)$hms` (The raw data file also started at this time. See below.). In the summarized file, however, it started at `r tmp.V0[1, "begin"]` (`r fractional_Day2YMDhms(tmp.V0[1, "begin"], YEAR)$hms`). This is not right because there was no observation between 7:30 and 8:30. 
-
-EDITED for JWD
-001 B	01/05/2016	08:30:06
-002 P	01/05/2016	08:30:06	MHS	PCF	N
-003 V	01/05/2016	08:30:06	4	4
-004 S	01/05/2016	08:31:49	1	263	1.13	1.7	2	MHS	PCF	4	4		South
-005 S	01/05/2016	08:33:57	2	242	1.57	1.1	1	MHS	PCF	4	4		South
-006 S	01/05/2016	08:36:07	1	255	1.13	1.7	2	MHS	PCF	4	4		South
+```{r Table-data-2016-04, echo=FALSE, warning=FALSE}
+flextable(first.rows) %>%
+  set_caption(paste0("The first eight rows of the raw data for ", 
+                     fractional_Day2YMDhms(out.list$difs.1[idx, "begin"],
+                                           YEAR)$YMD, ", where V1 = event ID, V2 = event code (S = sighting, E = end of shift), V3 = date, V4 = time, V5 = gropu ID, V6 = compass bearing, V7 = reticles, V8 = distance in nm, V9 = group size, V10 = primary observer, V11 = secondary observer, V12 = Beaufort scale, V13  = visibility code, V14 = direction of movement when V2 = 'S', V5 = Beaufort scale and V6 = visibility code when V2 = 'V', V5 and V6 show observers when V2 = 'P'. Event code (V2) = 'B' and 'E' indicate the beginning and end of an observation period, respectively."))  %>%
+  set_table_properties(width = 0.5, layout = "autofit")
+```
 
 
-For the second shift, data indicated that it started at `r Data_Out.v2.tmp[2, "begin"]` (`r fractional_Day2YMDhms(Data_Out.v2.tmp[2, "begin"], YEAR)$hms`) and ended at `r Data_Out.v2.tmp[2, "end"]` (`r fractional_Day2YMDhms(Data_Out.v2.tmp[2, "end"], YEAR)$hms`). In the summarized file, however, it started at `r tmp.V0[2, "begin"]` (`r fractional_Day2YMDhms(tmp.V0[2, "begin"], YEAR)$hms`) and ended at `r tmp.V0[2, "end"]` (`r fractional_Day2YMDhms(tmp.V0[2, "end"], YEAR)$hms`). This is also not good because there
-was no  observation between 10:56:57 and 12:00:00 (> 1hr). I think these two shifts should be removed. 
+For the second shift, data indicated that it started at `r fractional_Day2YMDhms(Data_Out.v2.tmp[2, "begin"], YEAR)$hms` and ended at `r fractional_Day2YMDhms(Data_Out.v2.tmp[2, "end"], YEAR)$hms` (Table \@ref(tab:Table-dif-2016-04a). In the summarized file from Ver1.0, however, it started at `r tmp.V0[2, "begin"]` (`r fractional_Day2YMDhms(tmp.V0[2, "begin"], YEAR)$hms`) and ended at `r tmp.V0[2, "end"]` (`r fractional_Day2YMDhms(tmp.V0[2, "end"], YEAR)$hms`). This is also not good because there was no observation between 10:56:57 and 12:00:00 (> 1hr). I think these two shifts should be removed. 
 
-015 E	01/05/2016	08:56:51
-017 B	01/05/2016	10:34:53
-018 P	01/05/2016	10:34:53	PCF	DWW	N
-019 V	01/05/2016	10:34:53	4	4
-021 E	01/05/2016	10:56:57
-023 B	01/05/2016	12:00:43
-024 P	01/05/2016	12:00:03	MHS	PCF	N
-025 V	01/05/2016	12:00:03	4	4
-026 S	01/05/2016	12:00:24	6	242	1.13	1.7	4	MHS	PCF	4	4		South
-027 V	01/05/2016	12:03:28	4	4
-028 S	01/05/2016	12:09:34	7	291	1.39	1.3	6	MHS	PCF	4	4		South
+```{r Table-data-2016-04a, echo=FALSE, warning=FALSE}
+data.2 <- rbind(out.shift.2$data.shift, head(out.shift.2$data.next.shift)) %>%
+  select(-c(V15:begin))
+
+flextable(data.2) %>%
+  set_caption(paste0("Raw data for ", 
+                     fractional_Day2YMDhms(out.list$difs.1[idx, "begin"],
+                                           YEAR)$YMD, "between 10:30 and 12:10, where V1 = event ID, V2 = event code (S = sighting, E = end of shift), V3 = date, V4 = time, V5 = gropu ID, V6 = compass bearing, V7 = reticles, V8 = distance in nm, V9 = group size, V10 = primary observer, V11 = secondary observer, V12 = Beaufort scale, V13  = visibility code, V14 = direction of movement when V2 = 'S', V5 = Beaufort scale and V6 = visibility code when V2 = 'V', V5 and V6 show observers when V2 = 'P'. Event code (V2) = 'B' and 'E' indicate the beginning and end of an observation period, respectively."))  %>%
+  set_table_properties(width = 0.5, layout = "autofit")
+```
 
 
-#### 5 {-}
+#### (5) `r fractional_Day2YMDhms(out.list$difs.1[5,"begin"], YEAR)$YMD` {-}
 
 ```{r dif-2016-05, warning=FALSE, include=FALSE, error=FALSE}
 idx <- 5
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+YMD <- fractional_Day2YMDhms(out.list$difs.1[idx,"begin"], YEAR)$YMD
+
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V0") -> tmp.V0
 
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
 
 # V0 is missing the third shift (n = 13) and one less whale in the last (6th) shift
 
-Data_Out.v2 %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) -> Data_Out.v2.tmp
+comp.table <- n.comparison(out.list$FinalData.Both, out.list$difs.1, idx)
+
+out.list$Data_Out.v2 %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) -> Data_Out.v2.tmp
 
 FF <- Data_Out.v2.tmp[1, "ff"]
 out.shift.3 <- get.shift(YEAR, data, ff=FF, i=3)
@@ -819,26 +753,40 @@ out.shift.6 <- get.shift(YEAR, data, ff=FF, i=6)
 ```
 
 
-The data summary for `r fractional_Day2YMDhms(difs.1[idx, "begin"], YEAR)$YMD` contained `r abs(difs.1[idx, "total.whales"])` more whales in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`, with `r abs(nrow(tmp.V0) - nrow(tmp.V2))` more shifts in `r ifelse((nrow(tmp.V0) - nrow(tmp.V2)) < 0, "Ver2.0", "Ver1.0")` than in `r ifelse((nrow(tmp.V0) - nrow(tmp.V2)) < 0, "Ver1.0", "Ver2.0")`. Examining the data for this date indicated that this is for the `r Data_Out.v2.tmp[1, "ff"]` `r ifelse(Data_Out.v2.tmp[1, "ff"] == 1, "-st", ifelse(Data_Out.v2.tmp[1, "ff"] == 2, "-nd", "-th")` file in the `r YEAR` directory, i.e., ff = `r Data_Out.v2.tmp[1, "ff"]` (`r FILES[FF]`).
+The data summary for `r fractional_Day2YMDhms(out.list$difs.1[idx, "begin"], YEAR)$YMD` contained `r abs(out.list$difs.1[idx, "total.whales"])` more whales in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`, with `r abs(nrow(tmp.V0) - nrow(tmp.V2))` more shifts in `r ifelse((nrow(tmp.V0) - nrow(tmp.V2)) < 0, "Ver2.0", "Ver1.0")` than in `r ifelse((nrow(tmp.V0) - nrow(tmp.V2)) < 0, "Ver1.0", "Ver2.0")`. Examining the data for this date indicated that this is for the `r Data_Out.v2.tmp[1, "ff"]` `r ifelse(Data_Out.v2.tmp[1, "ff"] == 1, "-st", ifelse(Data_Out.v2.tmp[1, "ff"] == 2, "-nd", "-th"))` file in the `r YEAR` directory, i.e., ff = `r Data_Out.v2.tmp[1, "ff"]` (`r FILES[FF]`).
 
 The third shift was missing from the output of Ver1.0. The shift lasted from `r fractional_Day2YMDhms(Data_Out.v2.tmp[3, "begin"], YEAR)$hms` to `r fractional_Day2YMDhms(Data_Out.v2.tmp[3, "end"], YEAR)$hms` of `r signif(Data_Out.v2.tmp[3, "dur"], 3)` minutes. The maximum Beaufort was `r Data_Out.v2.tmp[3, "bf"]` and visibility of `r Data_Out.v2.tmp[3, "vs"]`. I'm not sure why this shift was excluded in Ver1.0.
 
 I couldn't figure out why there was one more whale in Ver2.0 than in Ver1.0 for shift 6.
 
-#### 6 {-}
+
+```{r Table-dif-2016-05, echo=FALSE, warning=FALSE}
+knitr::kable(comp.table, 
+             digits = 2,
+             row.names = F,
+             #format.args = list(big.mark = ",", scientific = FALSE),
+             caption = paste0("A comparison of results of data extraction for ", YMD, " using Ver1.0 and Ver2.0. n.XXX is the number of observed whales, vs.XXX is the visibility, and BF.XXX is the Beaufort scale, where XXX is either Ver1.0 or Ver2.0"))
+```
+
+
+#### (6) `r fractional_Day2YMDhms(out.list$difs.1[6,"begin"], YEAR)$YMD` {-}
 
 ```{r dif-2016-06, warning=FALSE, include=FALSE, error=FALSE}
 idx <- 6
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+YMD <- fractional_Day2YMDhms(out.list$difs.1[idx,"begin"], YEAR)$YMD
+
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V0") -> tmp.V0
 
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
 
-Data_Out.v2 %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) -> Data_Out.v2.tmp
+comp.table <- n.comparison(out.list$FinalData.Both, out.list$difs.1, idx)
+
+out.list$Data_Out.v2 %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) -> Data_Out.v2.tmp
 
 FF <- Data_Out.v2.tmp[1, "ff"]
 
@@ -846,25 +794,36 @@ out.shift.6 <- get.shift(YEAR, data, ff=FF, i=6)
 
 ```
 
-The data summary for `r fractional_Day2YMDhms(difs.1[idx, "begin"], YEAR)$YMD` contained `r abs(difs.1[idx, "total.whales"])` more whales in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`. Examining the data for this date indicated that this is for the `r Data_Out.v2.tmp[1, "ff"]` `r ifelse(Data_Out.v2.tmp[1, "ff"] == 1, "-st", ifelse(Data_Out.v2.tmp[1, "ff"] == 2, "-nd", "-th")` file in the `r YEAR` directory, i.e., ff = `r Data_Out.v2.tmp[1, "ff"]` (`r FILES[FF]`).
+The data summary for `r fractional_Day2YMDhms(out.list$difs.1[idx, "begin"], YEAR)$YMD` contained `r abs(out.list$difs.1[idx, "total.whales"])` more whales in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`. Examining the data for this date indicated that this is for the `r Data_Out.v2.tmp[1, "ff"]` `r ifelse(Data_Out.v2.tmp[1, "ff"] == 1, "-st", ifelse(Data_Out.v2.tmp[1, "ff"] == 2, "-nd", "-th"))` file in the `r YEAR` directory, i.e., ff = `r Data_Out.v2.tmp[1, "ff"]` (`r FILES[FF]`).
 
 I don't know why the last shift contained one more whale in Ver2.0 than in Ver1.0.
 
+```{r Table-dif-2016-06, echo=FALSE, warning=FALSE}
+knitr::kable(comp.table, 
+             digits = 2,
+             row.names = F,
+             #format.args = list(big.mark = ",", scientific = FALSE),
+             caption = paste0("A comparison of results of data extraction for ", YMD, " using Ver1.0 and Ver2.0. n.XXX is the number of observed whales, vs.XXX is the visibility, and BF.XXX is the Beaufort scale, where XXX is either Ver1.0 or Ver2.0"))
+```
 
-#### 7 {-}
+
+#### (7) `r fractional_Day2YMDhms(out.list$difs.1[7,"begin"], YEAR)$YMD` {-}
 
 ```{r dif-2016-07, warning=FALSE, include=FALSE, error=FALSE}
 idx <- 7
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+YMD <- fractional_Day2YMDhms(out.list$difs.1[idx,"begin"], YEAR)$YMD
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V0") -> tmp.V0
 
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
 
-Data_Out.v2 %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) -> Data_Out.v2.tmp
+comp.table <- n.comparison(out.list$FinalData.Both, out.list$difs.1, idx)
+
+out.list$Data_Out.v2 %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) -> Data_Out.v2.tmp
 
 FF <- Data_Out.v2.tmp[1, "ff"]
 
@@ -872,25 +831,36 @@ out.shift.6 <- get.shift(YEAR, data, ff=FF, i=6)
 
 ```
 
-The data summary for `r fractional_Day2YMDhms(difs.1[idx, "begin"], YEAR)$YMD` contained `r abs(difs.1[idx, "total.whales"])` more whales in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`. Examining the data for this date indicated that this is for the `r Data_Out.v2.tmp[1, "ff"]` `r ifelse(Data_Out.v2.tmp[1, "ff"] == 1, "-st", ifelse(Data_Out.v2.tmp[1, "ff"] == 2, "-nd", "-th")` file in the `r YEAR` directory, i.e., ff = `r Data_Out.v2.tmp[1, "ff"]` (`r FILES[FF]`).
+The data summary for `r fractional_Day2YMDhms(out.list$difs.1[idx, "begin"], YEAR)$YMD` contained `r abs(out.list$difs.1[idx, "total.whales"])` more whales in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`. Examining the data for this date indicated that this is for the `r Data_Out.v2.tmp[1, "ff"]` `r ifelse(Data_Out.v2.tmp[1, "ff"] == 1, "-st", ifelse(Data_Out.v2.tmp[1, "ff"] == 2, "-nd", "-th"))` file in the `r YEAR` directory, i.e., ff = `r Data_Out.v2.tmp[1, "ff"]` (`r FILES[FF]`).
 
 I don't know why the last shift contained two more whales in Ver2.0 than in Ver1.0.
 
 
-#### 8 {-}
+```{r Table-dif-2016-07, echo=FALSE, warning=FALSE}
+knitr::kable(comp.table, 
+             digits = 2,
+             row.names = F,
+             #format.args = list(big.mark = ",", scientific = FALSE),
+             caption = paste0("A comparison of results of data extraction for ", YMD, " using Ver1.0 and Ver2.0. n.XXX is the number of observed whales, vs.XXX is the visibility, and BF.XXX is the Beaufort scale, where XXX is either Ver1.0 or Ver2.0"))
+```
+
+#### (8) `r fractional_Day2YMDhms(out.list$difs.1[8,"begin"], YEAR)$YMD` {-}
 
 ```{r dif-2016-08, warning=FALSE, include=FALSE, error=FALSE}
 idx <- 8
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+YMD <- fractional_Day2YMDhms(out.list$difs.1[idx,"begin"], YEAR)$YMD
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V0") -> tmp.V0
 
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
 
-Data_Out.v2 %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) -> Data_Out.v2.tmp
+comp.table <- n.comparison(out.list$FinalData.Both, out.list$difs.1, idx)
+
+out.list$Data_Out.v2 %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) -> Data_Out.v2.tmp
 
 FF <- Data_Out.v2.tmp[1, "ff"]
 
@@ -910,27 +880,37 @@ out.shift.2 <- get.shift(YEAR, data, ff=FF, i=shift)
 
 ```
 
-The data summary for `r fractional_Day2YMDhms(difs.1[idx, "begin"], YEAR)$YMD` contained `r abs(difs.1[idx, "total.whales"])` more whales in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`. Examining the data for this date indicated that this is for the `r Data_Out.v2.tmp[1, "ff"]` `r ifelse(Data_Out.v2.tmp[1, "ff"] == 1, "-st", ifelse(Data_Out.v2.tmp[1, "ff"] == 2, "-nd", "-th")` file in the `r YEAR` directory, i.e., ff = `r Data_Out.v2.tmp[1, "ff"]` (`r FILES[FF]`).
+The data summary for `r fractional_Day2YMDhms(out.list$difs.1[idx, "begin"], YEAR)$YMD` contained `r abs(out.list$difs.1[idx, "total.whales"])` more whales in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`. Examining the data for this date indicated that this is for the `r Data_Out.v2.tmp[1, "ff"]` `r ifelse(Data_Out.v2.tmp[1, "ff"] == 1, "-st", ifelse(Data_Out.v2.tmp[1, "ff"] == 2, "-nd", "-th"))` file in the `r YEAR` directory, i.e., ff = `r Data_Out.v2.tmp[1, "ff"]` (`r FILES[FF]`).
 
-No data returned from Ver2.0. There were a total of `r nrow(Data_Out.v2.tmp)` shifts on `r fractional_Day2YMDhms(difs.1[idx, "begin"], YEAR)$YMD`. The first shift started at `r fractional_Day2YMDhms(Data_Out.v2.tmp[1, "begin"], YEAR)$hms` and ended at `r fractional_Day2YMDhms(Data_Out.v2.tmp[1, "end"], YEAR)$hms` (`r signif(Data_Out.v2.tmp[1, "dur"], 3) * 24 * 60` minutes). Consequently, this shift should have been removed because it was too short (5 min grace period). 
+No data returned from Ver2.0. There were a total of `r nrow(Data_Out.v2.tmp)` shifts on `r fractional_Day2YMDhms(out.list$difs.1[idx, "begin"], YEAR)$YMD`. The first shift started at `r fractional_Day2YMDhms(Data_Out.v2.tmp[1, "begin"], YEAR)$hms` and ended at `r fractional_Day2YMDhms(Data_Out.v2.tmp[1, "end"], YEAR)$hms` (`r signif(Data_Out.v2.tmp[1, "dur"], 3) * 24 * 60` minutes). Consequently, this shift should have been removed because it was too short (5 min grace period). 
 
 For the second shift, VS changed to 5 at 15:15:24 but backed down to 4 at 15:22:58. The current filtering algorithm uses the maximum value, so this shift should be removed. But, in general, this shift may be okay to be included because VS = 5 for only 7 minutes. During this 7 minutes, only one group (ID = 20) was sighted 3 times. The group was sighted again after VS reduced to 4. So, I deleted those three sightings in the raw data file (with _TE addition to the data file name).
 
 
-#### 9 {-}
+```{r Table-dif-2016-08, echo=FALSE, warning=FALSE}
+knitr::kable(comp.table, 
+             digits = 2,
+             row.names = F,
+             #format.args = list(big.mark = ",", scientific = FALSE),
+             caption = paste0("A comparison of results of data extraction for ", YMD, " using Ver1.0 and Ver2.0. n.XXX is the number of observed whales, vs.XXX is the visibility, and BF.XXX is the Beaufort scale, where XXX is either Ver1.0 or Ver2.0"))
+```
+
+#### (9) `r fractional_Day2YMDhms(out.list$difs.1[9,"begin"], YEAR)$YMD` {-}
 
 ```{r dif-2016-09, warning=FALSE, include=FALSE, error=FALSE}
 idx <- 9
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+YMD <- fractional_Day2YMDhms(out.list$difs.1[idx,"begin"], YEAR)$YMD
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V0") -> tmp.V0
 
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
 
-Data_Out.v2 %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) -> Data_Out.v2.tmp
+comp.table <- n.comparison(out.list$FinalData.Both, out.list$difs.1, idx)
+out.list$Data_Out.v2 %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) -> Data_Out.v2.tmp
 
 FF <- Data_Out.v2.tmp[1, "ff"]
 
@@ -946,7 +926,7 @@ out.shift.1 <- get.shift(YEAR, data, ff=FF, i=shift)
 
 ```
 
-The data summary for `r fractional_Day2YMDhms(difs.1[idx, "begin"], YEAR)$YMD` contained `r abs(difs.1[idx, "total.whales"])` more whales in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`, with `r abs(nrow(tmp.V0) - nrow(tmp.V2))` more shifts in `r ifelse((nrow(tmp.V0) - nrow(tmp.V2)) < 0, "Ver2.0", "Ver1.0")` than in `r ifelse((nrow(tmp.V0) - nrow(tmp.V2)) < 0, "Ver1.0", "Ver2.0")`. Examining the data for this date indicated that this is for the `r Data_Out.v2.tmp[1, "ff"]` `r ifelse(Data_Out.v2.tmp[1, "ff"] == 1, "-st", ifelse(Data_Out.v2.tmp[1, "ff"] == 2, "-nd", "-th")` file in the `r YEAR` directory, i.e., ff = `r Data_Out.v2.tmp[1, "ff"]` (`r FILES[FF]`).
+The data summary for `r fractional_Day2YMDhms(out.list$difs.1[idx, "begin"], YEAR)$YMD` contained `r abs(out.list$difs.1[idx, "total.whales"])` more whales in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`, with `r abs(nrow(tmp.V0) - nrow(tmp.V2))` more shifts in `r ifelse((nrow(tmp.V0) - nrow(tmp.V2)) < 0, "Ver2.0", "Ver1.0")` than in `r ifelse((nrow(tmp.V0) - nrow(tmp.V2)) < 0, "Ver1.0", "Ver2.0")`. Examining the data for this date indicated that this is for the `r Data_Out.v2.tmp[1, "ff"]` `r ifelse(Data_Out.v2.tmp[1, "ff"] == 1, "-st", ifelse(Data_Out.v2.tmp[1, "ff"] == 2, "-nd", "-th"))` file in the `r YEAR` directory, i.e., ff = `r Data_Out.v2.tmp[1, "ff"]` (`r FILES[FF]`).
 
 The first shift was missing from the output of Ver2.0. The shift started at `r fractional_Day2YMDhms(Data_Out.v2.tmp[1, "begin"], YEAR)$hms` and ended at `r fractional_Day2YMDhms(Data_Out.v2.tmp[1, "end"], YEAR)$hms` (`r signif(Data_Out.v2.tmp[1, "dur"], 3)` minutes). The start time in the output of Ver1.0, however, was `r fractional_Day2YMDhms(tmp.V0[1,"begin"], YEAR)$hms`. The raw data file indicated the beginning of the shift was 7:43:13. 
 
@@ -960,20 +940,31 @@ EDITED for JWD
 If the first shift should be included, a new "Begin" line should be added to the data file.
 
 
-#### 10 {-}
+```{r Table-dif-2016-09, echo=FALSE, warning=FALSE}
+knitr::kable(comp.table, 
+             digits = 2,
+             row.names = F,
+             #format.args = list(big.mark = ",", scientific = FALSE),
+             caption = paste0("A comparison of results of data extraction for ", YMD, " using Ver1.0 and Ver2.0. n.XXX is the number of observed whales, vs.XXX is the visibility, and BF.XXX is the Beaufort scale, where XXX is either Ver1.0 or Ver2.0"))
+```
+
+#### (10) `r fractional_Day2YMDhms(out.list$difs.1[10,"begin"], YEAR)$YMD` {-}
 
 ```{r dif-2016-10, warning=FALSE, include=FALSE, error=FALSE}
 idx <- 10
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+YMD <- fractional_Day2YMDhms(out.list$difs.1[idx,"begin"], YEAR)$YMD
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V0") -> tmp.V0
 
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
 
-Data_Out.v2 %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) -> Data_Out.v2.tmp
+comp.table <- n.comparison(out.list$FinalData.Both, out.list$difs.1, idx)
+
+out.list$Data_Out.v2 %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) -> Data_Out.v2.tmp
 
 FF <- Data_Out.v2.tmp[1, "ff"]
 
@@ -1004,26 +995,37 @@ data %>%
 
 ```
 
-The data summary for `r fractional_Day2YMDhms(difs.1[idx, "begin"], YEAR)$YMD` contained `r abs(difs.1[idx, "total.whales"])` more whales in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`. Examining the data for this date indicated that this is for the `r Data_Out.v2.tmp[1, "ff"]` `r ifelse(Data_Out.v2.tmp[1, "ff"] == 1, "-st", ifelse(Data_Out.v2.tmp[1, "ff"] == 2, "-nd", "-th")` file in the `r YEAR` directory, i.e., ff = `r Data_Out.v2.tmp[1, "ff"]` (`r FILES[FF]`).
+The data summary for `r fractional_Day2YMDhms(out.list$difs.1[idx, "begin"], YEAR)$YMD` contained `r abs(out.list$difs.1[idx, "total.whales"])` more whales in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`. Examining the data for this date indicated that this is for the `r Data_Out.v2.tmp[1, "ff"]` `r ifelse(Data_Out.v2.tmp[1, "ff"] == 1, "-st", ifelse(Data_Out.v2.tmp[1, "ff"] == 2, "-nd", "-th"))` file in the `r YEAR` directory, i.e., ff = `r Data_Out.v2.tmp[1, "ff"]` (`r FILES[FF]`).
 
 During the last shift (6), Ver1.0 returned `r nrow(summary.V0)` groups, whereas Ver2.0 returned `r nrow(summary.V2)` groups. The last group (ID = `r summary.V2[nrow(summary.V2), "V5"]`) was observed at `r out.shift.6$data[str_detect(out.shift.6$data$V5, summary.V2[nrow(summary.V2), "V5"]%>%pull() %>% as.character()), "V4"]`, which was 9 seconds before the end of the shift (`r out.shift.6$data.shift[nrow(out.shift.6$data.shift), "V4"]`). Excluding seconds from defining the beginning and end of each shift resulted in this exclusion. 
 
 
+```{r Table-dif-2016-10, echo=FALSE, warning=FALSE}
+knitr::kable(comp.table, 
+             digits = 2,
+             row.names = F,
+             #format.args = list(big.mark = ",", scientific = FALSE),
+             caption = paste0("A comparison of results of data extraction for ", YMD, " using Ver1.0 and Ver2.0. n.XXX is the number of observed whales, vs.XXX is the visibility, and BF.XXX is the Beaufort scale, where XXX is either Ver1.0 or Ver2.0"))
+```
 
-#### 11 {-}
+#### (11) `r fractional_Day2YMDhms(out.list$difs.1[11,"begin"], YEAR)$YMD` {-}
 
 ```{r dif-2016-11, warning=FALSE, include=FALSE, error=FALSE}
 idx <- 11
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+YMD <- fractional_Day2YMDhms(out.list$difs.1[idx,"begin"], YEAR)$YMD
+
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V0") -> tmp.V0
 
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
 
-Data_Out.v2 %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) -> Data_Out.v2.tmp
+comp.table <- n.comparison(out.list$FinalData.Both, out.list$difs.1, idx)
+
+out.list$Data_Out.v2 %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) -> Data_Out.v2.tmp
 
 FF <- Data_Out.v2.tmp[1, "ff"]
 
@@ -1035,11 +1037,252 @@ out.shift.5 <- get.shift(YEAR, data, ff=FF, i=5)
 
 ```
 
-The data summary for `r fractional_Day2YMDhms(difs.1[idx, "begin"], YEAR)$YMD` contained `r abs(difs.1[idx, "total.whales"])` more whales in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`, with `r abs(nrow(tmp.V0) - nrow(tmp.V2))` more shifts in `r ifelse((nrow(tmp.V0) - nrow(tmp.V2)) < 0, "Ver2.0", "Ver1.0")` than in `r ifelse((nrow(tmp.V0) - nrow(tmp.V2)) < 0, "Ver1.0", "Ver2.0")`. Examining the data for this date indicated that this is for the `r Data_Out.v2.tmp[1, "ff"]` `r ifelse(Data_Out.v2.tmp[1, "ff"] == 1, "-st", ifelse(Data_Out.v2.tmp[1, "ff"] == 2, "-nd", "-th")` file in the `r YEAR` directory, i.e., ff = `r Data_Out.v2.tmp[1, "ff"]` (`r FILES[FF]`).
+The data summary for `r fractional_Day2YMDhms(out.list$difs.1[idx, "begin"], YEAR)$YMD` contained `r abs(out.list$difs.1[idx, "total.whales"])` more whales in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`, with `r abs(nrow(tmp.V0) - nrow(tmp.V2))` more shifts in `r ifelse((nrow(tmp.V0) - nrow(tmp.V2)) < 0, "Ver2.0", "Ver1.0")` than in `r ifelse((nrow(tmp.V0) - nrow(tmp.V2)) < 0, "Ver1.0", "Ver2.0")`. Examining the data for this date indicated that this is for the `r Data_Out.v2.tmp[1, "ff"]` `r ifelse(Data_Out.v2.tmp[1, "ff"] == 1, "-st", ifelse(Data_Out.v2.tmp[1, "ff"] == 2, "-nd", "-th"))` file in the `r YEAR` directory, i.e., ff = `r Data_Out.v2.tmp[1, "ff"]` (`r FILES[FF]`).
 
 In Ver1.0, it appears that shifts 4 and 5 were combined, where the duration of these shifts were `r signif(out.shift.4$out.df$dur * 24 * 60, 3)` and `r signif(out.shift.5$out.df$dur * 24 * 60, 3)` minutes, respectively. They don't quite add up to a sufficient duration of at least 85 minutes. The end time was changed from `r fractional_Day2YMDhms(out.shift.5$out.df$begin, YEAR)$hms` to `r fractional_Day2YMDhms(tmp.V0[4, "end"], YEAR)`. 
 
 
+```{r Table-dif-2016-11, echo=FALSE, warning=FALSE}
+knitr::kable(comp.table, 
+             digits = 2,
+             row.names = F,
+             #format.args = list(big.mark = ",", scientific = FALSE),
+             caption = paste0("A comparison of results of data extraction for ", YMD, " using Ver1.0 and Ver2.0. n.XXX is the number of observed whales, vs.XXX is the visibility, and BF.XXX is the Beaufort scale, where XXX is either Ver1.0 or Ver2.0"))
+```
+
+### 2020 {-}
+
+```{r compare-2020, warning=FALSE, include=FALSE, error=FALSE}
+
+YEAR <- 2020
+FILES <- list.files(paste0("Data/", YEAR, "/"))
+
+# obs.list <- read.csv("Data/Observer list.csv", header = T) 
+# colnames(obs.list) <- c("obs", "ID")
+
+# update the observer list
+obs.list <- out.list$obs.list
+if (is.character(obs.list$ID)){
+  obs.list$ID <- as.integer(obs.list$ID)
+}
+out.list <- compare.V0.V2.raw(YEAR, obs.list)
+
+```
+
+#### (1) `r fractional_Day2YMDhms(out.list$difs.1[1,"begin"], YEAR)$YMD` {-}
+
+```{r dif-2020-1, warning=FALSE, include=FALSE, error=FALSE}
+idx <- 1
+YMD <- fractional_Day2YMDhms(out.list$difs.1[idx,"begin"], YEAR)$YMD
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
+  filter(v == "V0") -> tmp.V0
+
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
+  filter(v == "V2") -> tmp.V2
+
+# Nothing returned from V0
+comp.table <- n.comparison(out.list$FinalData.Both, out.list$difs.1, idx)
+
+out.list$Data_Out.v2 %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) -> Data_Out.v2.tmp
+
+FF <- Data_Out.v2.tmp[1, "ff"]
+data <- get.data("Data/", YEAR, ff = FF)
+
+out.list$v0.out$Data_Out %>% filter(ff == FF) -> V0.FF
+
+data %>%
+  filter(begin >= V0.FF[4,"begin"] & begin <= V0.FF[4, "end"]) -> V0.FF.4
+
+shift <- 1
+out.shift.1 <- get.shift(YEAR, data, ff = FF, i = shift)
+
+shift <- 2
+out.shift.2 <- get.shift(YEAR, data, ff = FF, i = shift)
+
+# I believe it has to do with extensive comments... 
+
+```
+
+The data summary for `r fractional_Day2YMDhms(out.list$difs.1[idx, "begin"], YEAR)$YMD` contained `r abs(out.list$difs.1[idx, "total.whales"])` more whales in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`, with `r abs(nrow(tmp.V0) - nrow(tmp.V2))` more shifts in `r ifelse((nrow(tmp.V0) - nrow(tmp.V2)) < 0, "Ver2.0", "Ver1.0")` than in `r ifelse((nrow(tmp.V0) - nrow(tmp.V2)) < 0, "Ver1.0", "Ver2.0")`. Examining the data for this date indicated that this is for the `r Data_Out.v2.tmp[1, "ff"]` `r ifelse(Data_Out.v2.tmp[1, "ff"] == 1, "-st", ifelse(Data_Out.v2.tmp[1, "ff"] == 2, "-nd", "-th"))` file in the `r YEAR` directory, i.e., ff = `r Data_Out.v2.tmp[1, "ff"]` (`r FILES[FF]`).
+
+Somehow, all visibility code in the summary data from Ver1.0 were nonsensical, which resulted in all `r nrow(V0.FF)` shifts to be excluded. In the output of Ver2.0, there were `r nrow(Data_Out.v2.tmp)` shifts. Comparing the outputs, the fourth shift in Ver1.0 output was missing in Ver2.0 output, which started at `r fractional_Day2YMDhms(V0.FF[4, "begin"], YEAR)$hms` and ended at `r fractional_Day2YMDhms(V0.FF[4, "end"], YEAR)$hms`. There was no shift between these times.
+
+058 V	1/24/20	11:49:24	5	5									
+060 C	1/24/20	11:50:05	"Effort ended due to BSS=5, VIZ=5. Going off watch whale blows to hard to see"										
+061 E	1/24/20	11:50:23											
+065 V	1/24/20	12:30:12	4	4									
+064 P	1/24/20	12:30:12	ARL	KXD	N								
+063 B	1/24/20	12:30:12											
+
+The first two shifts should be included in the analysis, whereas the last 3 had shifts that were too short (`r signif(Data_Out.v2.tmp[3, "dur"] * 24 * 60, 3)`, `r signif(Data_Out.v2.tmp[4, "dur"] * 24 * 60, 3)`, and `r signif(Data_Out.v2.tmp[5, "dur"] * 24 * 60, 3)` minutes, respectively). 
+
+```{r Table-dif-2020-1, echo=FALSE, warning=FALSE}
+knitr::kable(comp.table, 
+             digits = 2,
+             row.names = F,
+             #format.args = list(big.mark = ",", scientific = FALSE),
+             caption = paste0("A comparison of results of data extraction for ", YMD, " using Ver1.0 and Ver2.0. n.XXX is the number of observed whales, vs.XXX is the visibility, and BF.XXX is the Beaufort scale, where XXX is either Ver1.0 or Ver2.0"))
+```
+
+#### (2) `r fractional_Day2YMDhms(out.list$difs.1[2,"begin"], YEAR)$YMD` {-}
+```{r dif-2020-2, warning=FALSE, include=FALSE, error=FALSE}
+idx <- 2
+YMD <- fractional_Day2YMDhms(out.list$difs.1[idx,"begin"], YEAR)$YMD
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
+  filter(v == "V0") -> tmp.V0
+
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
+  filter(v == "V2") -> tmp.V2
+
+comp.table <- n.comparison(out.list$FinalData.Both, out.list$difs.1, idx)
+
+out.list$Data_Out.v2 %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) -> Data_Out.v2.tmp
+
+FF <- Data_Out.v2.tmp[1, "ff"]
+data <- get.data("Data/", YEAR, ff = FF)
+# the sixth period with 14 whales were not returned from V0
+
+out.list$v0.out$Data_Out %>% filter(ff == FF) -> V0.FF
+
+shift <- 6
+out.shift.6 <- get.shift(YEAR, data, ff=FF, i=shift)
+
+# There was no E entry at the end of the file, which might have caused a problem
+# in V0 extraction script. That has been fixed. But... sightings 65 and 66 were
+# not picked up probably because data were not entered correctly. Needed to edit 
+# the data file. _TE added to the file name. 2022-03-21 
+
+```
 
 
+The data summary for `r fractional_Day2YMDhms(out.list$difs.1[idx, "begin"], YEAR)$YMD` contained `r abs(out.list$difs.1[idx, "total.whales"])` more whales in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`, with `r abs(nrow(tmp.V0) - nrow(tmp.V2))` more shifts in `r ifelse((nrow(tmp.V0) - nrow(tmp.V2)) < 0, "Ver2.0", "Ver1.0")` than in `r ifelse((nrow(tmp.V0) - nrow(tmp.V2)) < 0, "Ver1.0", "Ver2.0")`. Examining the data for this date indicated that this is for the `r Data_Out.v2.tmp[1, "ff"]` `r ifelse(Data_Out.v2.tmp[1, "ff"] == 1, "-st", ifelse(Data_Out.v2.tmp[1, "ff"] == 2, "-nd", "-th"))` file in the `r YEAR` directory, i.e., ff = `r Data_Out.v2.tmp[1, "ff"]` (`r FILES[FF]`).
+
+The last shift (6) was not returned from Ver1.0 extraction. From Ver2.0 extraction, the last shift started at `r fractional_Day2YMDhms(tmp.V2[6, "begin"], YEAR)$hms` and ended at `r fractional_Day2YMDhms(tmp.V2[6, "end"], YEAR)$hms` (`r signif(Data_Out.v2.tmp[6, "dur"], 3)` minutes). A total of `r tmp.V2[6, "n"]` whales were observed during the shift.
+
+
+```{r Table-dif-2020-2, echo=FALSE, warning=FALSE}
+knitr::kable(comp.table, 
+             digits = 2,
+             row.names = F,
+             #format.args = list(big.mark = ",", scientific = FALSE),
+             caption = paste0("A comparison of results of data extraction for ", YMD, " using Ver1.0 and Ver2.0. n.XXX is the number of observed whales, vs.XXX is the visibility, and BF.XXX is the Beaufort scale, where XXX is either Ver1.0 or Ver2.0"))
+```
+
+#### (3) `r fractional_Day2YMDhms(out.list$difs.1[3,"begin"], YEAR)$YMD` {-}
+```{r dif-2020-3, warning=FALSE, include=FALSE, error=FALSE}
+idx <- 3
+YMD <- fractional_Day2YMDhms(out.list$difs.1[idx,"begin"], YEAR)$YMD
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
+  filter(v == "V0") -> tmp.V0
+
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
+  filter(v == "V2") -> tmp.V2
+
+comp.table <- n.comparison(out.list$FinalData.Both, out.list$difs.1, idx)
+out.list$Data_Out.v2 %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) -> Data_Out.v2.tmp
+
+FF <- Data_Out.v2.tmp[1, "ff"]
+data <- get.data("Data/", YEAR, ff = FF)
+
+v0.all.data <- out.list$v0.out$Data_Out
+
+V0.FF <- v0.all.data %>% filter(ff == FF)
+
+# Looking at V0.FF, i = 2 in V0 shows there was no data for that shift.
+data %>%  
+  filter(begin >= V0.FF[2,"begin"] & begin <= V0.FF[2, "end"]) -> data.FF.i
+# there were only two lines: V and E, which should have been part of the 
+# first shift. 
+
+# in Vers2.0
+out.shift.1 <- get.shift(YEAR, data, ff=FF, i=1)
+# The last two lines match with the 2nd shift from Ver1.0
+
+# The difference was caused by Ver1.0 dropping the 4th shift, where Bft and VS
+# were NAs.
+
+out.shift.4 <- get.shift(YEAR, data, ff=FF, i=4)
+```
+
+The data summary for `r fractional_Day2YMDhms(out.list$difs.1[idx, "begin"], YEAR)$YMD` contained `r abs(out.list$difs.1[idx, "total.whales"])` more whales in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`, with `r abs(nrow(tmp.V0) - nrow(tmp.V2))` more shifts in `r ifelse((nrow(tmp.V0) - nrow(tmp.V2)) < 0, "Ver2.0", "Ver1.0")` than in `r ifelse((nrow(tmp.V0) - nrow(tmp.V2)) < 0, "Ver1.0", "Ver2.0")`. Examining the data for this date indicated that this is for the `r Data_Out.v2.tmp[1, "ff"]` `r ifelse(Data_Out.v2.tmp[1, "ff"] == 1, "-st", ifelse(Data_Out.v2.tmp[1, "ff"] == 2, "-nd", "-th"))` file in the `r YEAR` directory, i.e., ff = `r Data_Out.v2.tmp[1, "ff"]` (`r FILES[FF]`).
+
+Ver1.0 returned `r nrow(tmp.V0)` shifts whereas Ver2.0 returned `r nrow(tmp.V2)`. Ver1.0 missed the shift from `r fractional_Day2YMDhms(tmp.V2[1, "begin"], YEAR)$hms` to `r fractional_Day2YMDhms(tmp.V2[1, "end"], YEAR)$hms`. Ver1.0 dropped this shift because it did not pick up correct Beaufort and visibility code and returned NAs. Ver2.0 fixed the problem.
+
+
+```{r Table-dif-2020-3, echo=FALSE, warning=FALSE}
+knitr::kable(comp.table, 
+             digits = 2,
+             row.names = F,
+             #format.args = list(big.mark = ",", scientific = FALSE),
+             caption = paste0("A comparison of results of data extraction for ", YMD, " using Ver1.0 and Ver2.0. n.XXX is the number of observed whales, vs.XXX is the visibility, and BF.XXX is the Beaufort scale, where XXX is either Ver1.0 or Ver2.0"))
+```
+
+### 2022 {-}
+
+#### (1) `r fractional_Day2YMDhms(out.list$difs.1[1,"begin"], YEAR)$YMD` {-}
+```{r}
+YEAR <- 2022
+FILES <- list.files(paste0("Data/", YEAR, "/"))
+
+# update the observer list
+obs.list <- out.list$obs.list
+if (is.character(obs.list$ID)){
+  obs.list$ID <- as.integer(obs.list$ID)
+}
+
+out.list <- compare.V0.V2.raw(YEAR, obs.list)
+
+idx <- 1
+YMD <- fractional_Day2YMDhms(out.list$difs.1[idx,"begin"], YEAR)$YMD
+
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
+  filter(v == "V0") -> tmp.V0
+
+out.list$FinalData.Both %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) %>% 
+  filter(v == "V2") -> tmp.V2
+
+comp.table <- n.comparison(out.list$FinalData.Both, out.list$difs.1, idx)
+out.list$Data_Out.v2 %>% 
+  filter(time.steps == out.list$difs.1[idx, "time.step"]) -> Data_Out.v2.tmp
+
+FF <- Data_Out.v2.tmp[1, "ff"]
+data <- get.data("Data/", YEAR, ff = FF)
+
+out.shift <- get.shift(YEAR, data, ff = FF, i = 2)
+# Visibility started at 5 but decreased to 4 within 30 minutes from the beginning
+# Should this be included? If it should be included, we should change the data
+# file. 
+```
+
+The data summary for `r fractional_Day2YMDhms(out.list$difs.1[idx, "begin"], YEAR)$YMD` contained `r abs(out.list$difs.1[idx, "total.whales"])` more whales in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver2.0", "Ver1.0")` than in `r ifelse(out.list$difs.1[idx, "total.whales"] < 0, "Ver1.0", "Ver2.0")`, with `r abs(nrow(tmp.V0) - nrow(tmp.V2))` more shifts in `r ifelse((nrow(tmp.V0) - nrow(tmp.V2)) < 0, "Ver2.0", "Ver1.0")` than in `r ifelse((nrow(tmp.V0) - nrow(tmp.V2)) < 0, "Ver1.0", "Ver2.0")`. Examining the data for this date indicated that this is for the `r Data_Out.v2.tmp[1, "ff"]` `r ifelse(Data_Out.v2.tmp[1, "ff"] == 1, "-st", ifelse(Data_Out.v2.tmp[1, "ff"] == 2, "-nd", "-th"))` file in the `r YEAR` directory, i.e., ff = `r Data_Out.v2.tmp[1, "ff"]` (`r FILES[FF]`).
+
+The output from Ver1.0 contained one extra shift (from `r fractional_Day2YMDhms(tmp.V0[2, "begin"], YEAR)$hms` to `r fractional_Day2YMDhms(tmp.V0[2, "end"], YEAR)$hms`). Ver2.0 showed that maximum visibility during this shift was 5. Visibility of this shift started at 5 but decreased to 4 within 30 minutes from the beginning. If this shift should be included in the analysis, we should change the data file. 
+
+019 P	01/12/2022	09:00:00	AEH	ARL	N
+020 V	01/12/2022	09:00:00	2	5
+021 C	01/12/2022	09:00:45	Fog obscuring the horizon and most of the study area.
+022 V	01/12/2022	09:29:55	2	4
+023 C	01/12/2022	09:31:33	We are have little visibility for about the last reticle.
+024 C	01/12/2022	09:33:14	bino calibration PO:270; DR:269
+025 S	01/12/2022	09:35:47	10	258	0.99	2	1	AEH	ARL	2	4		South
+
+
+```{r Table-dif-2022-1, echo=FALSE, warning=FALSE}
+knitr::kable(comp.table, 
+             digits = 2,
+             row.names = F,
+             #format.args = list(big.mark = ",", scientific = FALSE),
+             caption = paste0("A comparison of results of data extraction for ", YMD, " using Ver1.0 and Ver2.0. n.XXX is the number of observed whales, vs.XXX is the visibility, and BF.XXX is the Beaufort scale, where XXX is either Ver1.0 or Ver2.0"))
+```
 

@@ -16,127 +16,33 @@ YEAR <- 2020
 obs.list <- read.csv("Data/Observer list.csv", header = T) 
 colnames(obs.list) <- c("obs", "ID")
 
-v1.out <- readRDS(paste0("RData/out_", YEAR, "_Joshs.rds"))
-v2.out <- readRDS(paste0("RData/out_", YEAR, "_Tomo_v2.rds"))
-
-FinalData.v2 <- v2.out$FinalData %>% mutate(v = "V2") %>% select(-dur)
-FinalData.v1 <- v1.out$FinalData %>% mutate(v = "V1") 
-
-# FinalData.v1 %>% 
-#   group_by(ff) %>% 
-#   summarize(nrow = n()) -> v1.summary
-# 
-# v1.summary %>% left_join(v2.summary, by = "ff") %>%
-#   mutate(dif = nrow.x - nrow.y) -> v1Vsv2_n
-
-FinalData.v2 <- v2.out$FinalData %>% 
-  mutate(v = "V2") %>% 
-  left_join(obs.list, by = "obs") 
-
-# find if there is NA in ID - not in the look up table  
-ID.NA <- filter(FinalData.v2, is.na(ID))
-
-unique.ID.NA <- unique(ID.NA$obs)
-
-if (length(unique.ID.NA) > 0){
-  for (k in 1:length(unique.ID.NA)){
-    FinalData.v2[FinalData.v2$obs == unique.ID.NA[k], "ID"] <- max(obs.list$ID) + k
-    
-  }
-  
-}
-
-# replace column names
-FinalData.v2 %>% select(-obs) %>%
-  mutate(obs = ID) %>%
-  select(-ID) -> FinalData.v2
-
-# rearrange the columns to match v1
-FinalData.v2 <- FinalData.v2[, names(FinalData.v1)]
-FinalData.Both <- rbind(FinalData.v2, FinalData.v1)
-
+difs.list <- compare.V0.V2.raw(YEAR, obs.list)
 
 ```
 
-
-
-```{r}
-min.begin <- min(floor(FinalData.Both$begin))
-max.begin <- max(ceiling(FinalData.Both$begin))
-
-time.steps <- min.begin:max.begin
-difs <- data.frame(begin = double(),
-                   end = double(),
-                   min.begin = double(), 
-                   max.end = double(), 
-                   n.periods = integer(), 
-                   max.bf = integer(), 
-                   max.vs = integer(), 
-                   total.whales = integer(),
-                   time.step = integer(),
-                   stringsAsFactors = F)
-
-c <- k <- 1
-for (k in 1:(length(time.steps)-1)){
-  tmp <- filter(FinalData.Both, begin >= time.steps[k] & begin < time.steps[k+1])
-  if (nrow(tmp) > 0){
-    tmp %>% filter(v == "V1") -> tmp.1
-    tmp %>% filter(v == "V2") -> tmp.2
-    
-    difs[c,] <- c(min(tmp$begin), 
-                  max(tmp$end),
-                  min(tmp.1$begin) - min(tmp.2$begin), 
-                  max(tmp.1$end) - max(tmp.2$end),
-                  nrow(tmp.1) - nrow(tmp.2),
-                  max(tmp.1$bf) - max(tmp.1$bf),
-                  max(tmp.1$vs) - max(tmp.1$vs),
-                  sum(tmp.1$n) - sum(tmp.2$n),
-                  time.steps[k])
-    c <- c + 1
-    
-  }
-  
-}
-
-
-```
-
-
-
-```{r}
-difs %>% filter(n.periods != 0 | total.whales != 0) -> difs.1
-FinalData.Both %>% mutate(time.steps = floor(FinalData.Both$begin)) -> FinalData.Both
-
-v2.out$Data_Out %>% 
-  mutate(time.steps = floor(v2.out$Data_Out$begin)) -> Data_Out.v2 
-
-v2.out$CorrectLength %>%
-  mutate(time.steps = floor(v2.out$CorrectLength$begin)) -> CorrectLength.v2 
-
-```
 
 There were 3 differences. 
 
 ```{r}
 idx <- 1
-difs.1[idx,]
+difs.list$difs.1[idx,]
 ```
 
-Two less periods and 35 less whales in V1 than in V2!
+Two less periods and 35 less whales in V0 than in V2!
 
 ```{r}
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
-  filter(v == "V1") -> tmp.V1
+difs.list$FinalData.Both %>% 
+  filter(time.steps == difs.list$difs.1[idx, "time.step"]) %>% 
+  filter(v == "V0") -> tmp.V0
 
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+difs.list$FinalData.Both %>% 
+  filter(time.steps == difs.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
 
-# Nothing returned from V1
+# Nothing returned from V0
 
-Data_Out.v2 %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) 
+difs.list$Data_Out.v2 %>% 
+  filter(time.steps == difs.list$difs.1[idx, "time.step"]) 
 
 FF <- 34
 data <- get.data("Data/", YEAR, ff = FF)
@@ -152,67 +58,28 @@ out.shift.2 <- get.shift(YEAR, data, ff = FF, i = shift)
 ```
 
 
-
-<!-- one less whale in V1 than in V2 -->
-
-<!-- ```{r} -->
-
-<!-- FinalData.Both %>%  -->
-<!--   filter(time.steps == difs.1[idx, "time.step"]) %>%  -->
-<!--   filter(v == "V1") -> tmp.V1 -->
-
-<!-- FinalData.Both %>%  -->
-<!--   filter(time.steps == difs.1[idx, "time.step"]) %>%  -->
-<!--   filter(v == "V2") -> tmp.V2 -->
-
-<!-- # Shift 5 has 12 in V1 and 13 in V2 -->
-
-<!-- Data_Out.v2 %>%  -->
-<!--   filter(time.steps == difs.1[idx, "time.step"])  -->
-<!-- # there were 5 shifts but only two seem to have long enough duration -->
-
-<!-- FF <- 20 -->
-<!-- data <- get.data("Data/", YEAR, ff = FF) -->
-<!-- # 2020-01-03,  -->
-
-<!-- shift <- 5 -->
-<!-- out.shift.5 <- get.shift(YEAR, data, ff=FF, i=shift) -->
-
-<!-- data %>%  -->
-<!--   filter(begin >= tmp.V1[shift,"begin"] & begin <= tmp.V1[shift, "end"]) %>% -->
-<!--   filter(V2 == "S") %>% -->
-<!--   select(V5, V9) %>% -->
-<!--   mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>% -->
-<!--   group_by(V5) %>% -->
-<!--   summarize(n = last(V9)) -->
-
-<!-- # they add up to 13. Not sure what happened in V1... -->
-<!-- ``` -->
-
-
-
 ```{r}
 idx <- 2
-difs.1[idx,]
+difs.list$difs.1[idx,]
 ```
 
-1 less period and 12 less whales in V1 than in V2 (fixing the data file change
-this to 13 whales)
+1 less period and 12 less whales in V0 than in V2 (fixing the data file change
+this to 13 whales, then to 14)
 
 ```{r}
 
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
-  filter(v == "V1") -> tmp.V1
+difs.list$FinalData.Both %>% 
+  filter(time.steps == difs.list$difs.1[idx, "time.step"]) %>% 
+  filter(v == "V0") -> tmp.V0
 
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+difs.list$FinalData.Both %>% 
+  filter(time.steps == difs.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
 
-# the sixth period with 12 whales were not returned from V1
+# the sixth period with 14 whales were not returned from V0
 
-Data_Out.v2 %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) 
+difs.list$Data_Out.v2 %>% 
+  filter(time.steps == difs.list$difs.1[idx, "time.step"]) 
 
 FF <- 36
 data <- get.data("Data/", YEAR, ff = FF)
@@ -221,11 +88,10 @@ shift <- 6
 out.shift.6 <- get.shift(YEAR, data, ff=FF, i=shift)
 
 # There was no E entry at the end of the file, which might have caused a problem
-# in V1 extraction script. That has been fixed. But... sightings 65 and 66 were
+# in V0 extraction script. That has been fixed. But... sightings 65 and 66 were
 # not picked up probably because data were not entered correctly. Needed to edit 
 # the data file. _TE added to the file name. 2022-03-21 (There may be another 
 # version on the other computer... make sure they are equivalent!)
-
 
 out.shift.6$data %>% group_by(V5) %>%
   mutate(V9 = as.numeric(V9)) %>%
@@ -233,7 +99,7 @@ out.shift.6$data %>% group_by(V5) %>%
   
 sum(summary.6$n)  
 
-# There were 12 whales in there. (now 13)
+# There were 12 whales in there. (now 13 then 14)
 
 data %>%  
   filter(begin >= tmp.V2[6,"begin"] & begin <= tmp.V2[6, "end"]) %>% 
@@ -249,60 +115,58 @@ data %>%
 
 ```{r}
 idx <- 3
-difs.1[idx,]
+difs.list$difs.1[idx,]
 ```
 
-1 less period and 8 less whales in V1 than in V2. Now 14 whales after fixing missing BF and VS entries.
+1 less period and 14 less whales in V0 than in V2. Now 14 whales after fixing missing BF and VS entries.
 
 ```{r}
 
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
-  filter(v == "V1") -> tmp.V1
+difs.list$FinalData.Both %>% 
+  filter(time.steps == difs.list$difs.1[idx, "time.step"]) %>% 
+  filter(v == "V0") -> tmp.V0
 
-FinalData.Both %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) %>% 
+difs.list$FinalData.Both %>% 
+  filter(time.steps == difs.list$difs.1[idx, "time.step"]) %>% 
   filter(v == "V2") -> tmp.V2
 
-# the first shift is missing in V1
-Data_Out.v2 %>% 
-  filter(time.steps == difs.1[idx, "time.step"]) 
+# tmp.V0 shows that there were at least 8 shifts for the day. Looking at the 
+# number of whales between V0 and V2, shifts don't match between V0 and V2.
 
-FF <- 39
+v0.correct.length <- difs.list$v0.out$CorrectLength
+v0.all.data <- difs.list$v0.out$Data_Out
+
+difs.list$Data_Out.v2 %>% 
+  filter(time.steps == difs.list$difs.1[idx, "time.step"]) -> Data_Out.v2.tmp
+
+FF <- Data_Out.v2.tmp[1, "ff"]
 data <- get.data("Data/", YEAR, ff = FF)
+
+V0.FF <- v0.all.data %>% filter(ff == FF)
+
+# Looking at V0.FF, i = 2 in V0 shows there was no data for that shift.
+data %>%  
+  filter(begin >= V0.FF[2,"begin"] & begin <= V0.FF[2, "end"]) -> data.FF.i
+# there were only two lines: V and E, which should have been part of the 
+# first shift. 
+
+# in Vers2.0
+out.shift.1 <- get.shift(YEAR, data, ff=FF, i=1)
+# The last two lines match with the 2nd shift from Ver1.0
+
+# The difference was caused by Ver1.0 dropping the 4th shift, where Bft and VS
+# were NAs.
+
+out.shift.4 <- get.shift(YEAR, data, ff=FF, i=4)
+
 # 2020-01-28, 
 # There were 7 shifts. Shifts 5, 6, and 7 are the same as shifts 1, 2 and 3 in 
-# V1. Shift 4 is missing from V1. The first three shifts were too short to be
+# V0. Shift 4 is missing from V0. The first three shifts were too short to be
 # included in analysis. 
-
-shift <- 4
-out.shift.4 <- get.shift(YEAR, data, ff=FF, i=shift)
 
 # Data were entered incorrectly for groups 12, 13, 14, and 15. This was also 
 # fixed in the _TE file. No BF and VS entries. 
 
-out.shift.4$data %>% group_by(V5) %>%
-  mutate(V9 = as.numeric(V9)) %>%
-  summarize(n = last(V9)) -> summary.39.4.v2
-  
-data %>%  
-  filter(begin >= tmp.V2[1,"begin"] & begin <= tmp.V2[1, "end"]) %>% 
-  filter(V2 == "S") %>% 
-  select(V5, V9) %>% 
-  mutate(V5 = as.numeric(V5), V9 = as.numeric(V9)) %>% 
-  group_by(V5) %>% 
-  summarize(n = last(V9)) 
-
-# There were 14 whales in there. V1 and V2 match in the numbers but why is there
-# one missing period? 
-
-data %>%  
-  filter(begin >= tmp.V2[1,"begin"] & begin <= tmp.V2[1, "end"])
-
-# I think this was dropped because of using hr and min only and didn't get 
-# quite 90 minutes (or 85 min with a 5 min grace period). Beginning time was 
-# 10:30 = 10.516667 and end time was 11:57 = 11.95. 11.95 - 10:30 = 85.9998 min.
-# So, that should have been included... So, I don't know why this was dropped...
 
 ```
 

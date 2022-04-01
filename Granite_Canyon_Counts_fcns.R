@@ -79,7 +79,8 @@ get.data <- function(dir, YEAR, ff){
 }
 
 # 
-# A function to extract one shift from a data file.
+# A function to extract one shift from a data file. Use get.data first and
+# use the output of get.data in this function. 
 get.shift <- function(YEAR, data, ff, i){
   # Each shift always begins with "P"
   Shifts.begin <- which(data$V2 %in% "P")
@@ -367,6 +368,7 @@ get.shift <- function(YEAR, data, ff, i){
   return( out.list )
 }
 
+# converts a fractional date into YMD and hms
 fractional_Day2YMDhms <- function(x, YEAR){
   n.days <- floor(x)
   dec.hr <- (x - n.days) * 24
@@ -383,3 +385,262 @@ fractional_Day2YMDhms <- function(x, YEAR){
                           ifelse(m < 10, paste0("0", m), m), 
                           ifelse(s < 10, paste0("0", s), s), sep = ":")))  
 }
+
+# This function compares Ver1.0 and Ver2.0 data extraction code for using
+# raw data files (starting the 2020 season). The raw data files should be 
+# analyzed using Formatting GC Data TE.R for Ver1.0 (saves in a .rds file)
+# and Extract_Data_All_v2.Rmd for Ver2.0 (saves in a .rds file).
+compare.V0.V2.raw <- function(YEAR, obs.list){
+  v0.out <- readRDS(paste0("RData/out_", YEAR, "_Joshs.rds"))
+  v2.out <- readRDS(paste0("RData/out_", YEAR, "_Tomo_v2.rds"))
+  
+  FinalData.v2 <- v2.out$FinalData %>% mutate(v = "V2") %>% select(-dur)
+  FinalData.v0 <- v0.out$FinalData %>% mutate(v = "V0") 
+  
+  FinalData.v2 <- v2.out$FinalData %>% 
+    mutate(v = "V2") %>% 
+    left_join(obs.list, by = "obs") 
+  
+  # find if there is NA in ID - not in the look up table  
+  ID.NA <- filter(FinalData.v2, is.na(ID))
+  
+  unique.ID.NA <- unique(ID.NA$obs)
+
+  if (length(unique.ID.NA) > 0){
+    new.obs <- data.frame(obs = NA, ID = NA)
+    for (k in 1:length(unique.ID.NA)){
+      FinalData.v2[FinalData.v2$obs == unique.ID.NA[k], "ID"] <- max(obs.list$ID) + k
+      new.obs[k,] <- c(unique.ID.NA[k], max(obs.list$ID)+k)
+    }
+    obs.list <- rbind(obs.list, new.obs)
+    
+  }
+  
+  
+  # replace column names
+  FinalData.v2 %>% select(-obs) %>%
+    mutate(obs = ID) %>%
+    select(-ID) -> FinalData.v2
+  
+  # rearrange the columns to match v0
+  FinalData.v2 <- FinalData.v2[, names(FinalData.v0)]
+  FinalData.Both <- rbind(FinalData.v2, FinalData.v0)
+  
+  min.begin <- min(floor(FinalData.Both$begin))
+  max.begin <- max(ceiling(FinalData.Both$begin))
+  
+  time.steps <- min.begin:max.begin
+  difs <- data.frame(begin = double(),
+                     end = double(),
+                     min.begin = double(), 
+                     max.end = double(), 
+                     n.periods = integer(), 
+                     max.bf = integer(), 
+                     max.vs = integer(), 
+                     total.whales = integer(),
+                     time.step = integer(),
+                     stringsAsFactors = F)
+  
+  c <- k <- 1
+  for (k in 1:(length(time.steps)-1)){
+    tmp <- filter(FinalData.Both, begin >= time.steps[k] & begin < time.steps[k+1])
+    if (nrow(tmp) > 0){
+      tmp %>% filter(v == "V0") -> tmp.1
+      tmp %>% filter(v == "V2") -> tmp.2
+      
+      difs[c,] <- c(min(tmp$begin), 
+                    max(tmp$end),
+                    min(tmp.1$begin) - min(tmp.2$begin), 
+                    max(tmp.1$end) - max(tmp.2$end),
+                    nrow(tmp.1) - nrow(tmp.2),
+                    max(tmp.1$bf) - max(tmp.1$bf),
+                    max(tmp.1$vs) - max(tmp.1$vs),
+                    sum(tmp.1$n) - sum(tmp.2$n),
+                    time.steps[k])
+      c <- c + 1
+      
+    }
+    
+  }  
+  
+  difs %>% filter(n.periods != 0 | total.whales != 0) -> difs.1
+  FinalData.Both %>% mutate(time.steps = floor(FinalData.Both$begin)) -> FinalData.Both
+  
+  v2.out$Data_Out %>% 
+    mutate(time.steps = floor(v2.out$Data_Out$begin)) -> Data_Out.v2 
+  
+  v2.out$CorrectLength %>%
+    mutate(time.steps = floor(v2.out$CorrectLength$begin)) -> CorrectLength.v2 
+  
+  return(out.list <- list(difs = difs,
+                          difs.1 = difs.1,
+                          FinalData.Both = FinalData.Both,
+                          Data_Out.v2 = Data_Out.v2,
+                          CorrectLength.v2 = CorrectLength.v2,
+                          v0.out = v0.out,
+                          v2.out = v2.out,
+                          obs.list = obs.list))
+}
+
+# This function compares outputs from data extraction codes. It uses BUGS input
+# data (for data before the 2020 season because the old version (Ver1.0) does not
+# work for old files) and Ver2.0. The raw data files should be 
+# analyzed using Extract_Data_All_v2.Rmd for Ver2.0 (saves in a .rds file).
+compare.V0.V2.BUGSinput <- function(YEAR, idx.yr, periods, obs.list){
+  
+  #Watch start times, as fraction of a day - stored in a different file
+  begin <- as.matrix(read.table("Data/begin.txt", 
+                                header=T, 
+                                nrows = max(periods)))
+  
+  #watch end times
+  end <- as.matrix(read.table("Data/end.txt", 
+                              header=T,
+                              nrows = max(periods)))
+  
+  
+  # this file contains all input data for WinBUGS.
+  V0.out <- readRDS("RData/2006-2019_GC_Formatted_Data.RDS")
+  
+  # Pull out the information for 2015
+  periods.2015 <- V0.out$periods[idx.yr]
+  n.2015 <- V0.out$n[1:periods.2015,,idx.yr]
+  n.com.2015 <- V0.out$n.com[1:periods.2015,,idx.yr]
+  n.sp.2015 <- V0.out$n.sp[1:periods.2015,,idx.yr]
+  obs.2015 <- V0.out$obs[1:periods.2015,,idx.yr]
+  
+  vs.2015 <- V0.out$vs[1:periods.2015,idx.yr]
+  bf.2015 <- V0.out$bf[1:periods.2015,idx.yr]
+  day.2015 <- V0.out$day[1:periods.2015,idx.yr]
+  
+  FinalData.V0 <- data.frame(begin = begin[1:periods[idx.yr], idx.yr],
+                             end = end[1:periods[idx.yr], idx.yr],
+                             bf = bf.2015,
+                             vs = vs.2015,
+                             n = n.2015[,1],
+                             obs = obs.2015[,1],
+                             BeginDay = day.2015,
+                             v = "V0")
+  
+  # This contains the results from my version
+  v2.out <- readRDS(paste0("RData/out_", YEAR, "_Tomo_v2.rds"))
+  FinalData.v2 <- v2.out$FinalData %>% 
+    mutate(v = "V2") %>% 
+    left_join(obs.list, by = "obs") %>%
+    select(-c(dur, ff, i, BeginHr)) 
+  
+  # find if there is NA in ID - not in the look up table  
+  ID.NA <- filter(FinalData.v2, is.na(ID))
+  
+  unique.ID.NA <- unique(ID.NA$obs)
+  
+  if (length(unique.ID.NA) > 0){
+    new.obs <- data.frame(obs = NA, ID = NA)
+    
+    for (k in 1:length(unique.ID.NA)){
+      FinalData.v2[FinalData.v2$obs == unique.ID.NA[k], "ID"] <- max(obs.list$ID) + k
+      new.obs[k,] <- c(unique.ID.NA[k], as.numeric(max(obs.list$ID)+k))
+    }
+    obs.list <- rbind(obs.list, new.obs)
+    
+  }
+  
+  # replace column names
+  FinalData.v2 %>% 
+    select(-obs) %>%
+    mutate(obs = ID) %>%
+    select(-ID) -> FinalData.v2
+  
+  # rearrange the columns to match V0
+  FinalData.v2 <- FinalData.v2[, names(FinalData.V0)]
+  FinalData.Both <- rbind(FinalData.v2, FinalData.V0)
+  
+  v2.out$Data_Out %>% 
+    mutate(time.steps = floor(v2.out$Data_Out$begin)) -> Data_Out.v2 
+  
+  v2.out$CorrectLength %>%
+    mutate(time.steps = floor(v2.out$CorrectLength$begin)) -> CorrectLength.v2 
+  
+  min.begin <- min(floor(FinalData.Both$begin))
+  max.begin <- max(ceiling(FinalData.Both$begin))
+  
+  time.steps <- min.begin:max.begin
+  difs <- data.frame(begin = double(),
+                     end = double(),
+                     min.begin = double(), 
+                     max.end = double(), 
+                     n.periods = integer(), 
+                     max.bf = integer(), 
+                     max.vs = integer(), 
+                     total.whales = integer(),
+                     time.step = integer(),
+                     stringsAsFactors = F)
+  
+  c <- k <- 1
+  for (k in 1:(length(time.steps)-1)){
+    tmp <- filter(FinalData.Both, begin >= time.steps[k] & begin < time.steps[k+1])
+    if (nrow(tmp) > 0){
+      tmp %>% filter(v == "V0") -> tmp.1
+      tmp %>% filter(v == "V2") -> tmp.2
+      
+      difs[c,] <- c(min(tmp$begin), 
+                    max(tmp$end),
+                    min(tmp.1$begin) - min(tmp.2$begin), 
+                    max(tmp.1$end) - max(tmp.2$end),
+                    nrow(tmp.1) - nrow(tmp.2),
+                    max(tmp.1$bf) - max(tmp.1$bf),
+                    max(tmp.1$vs) - max(tmp.1$vs),
+                    sum(tmp.1$n) - sum(tmp.2$n),
+                    time.steps[k])
+      c <- c + 1
+      
+    }
+    
+  }
+  
+  
+  difs %>% filter(n.periods != 0 | total.whales != 0) -> difs.1
+  FinalData.Both %>% mutate(time.steps = floor(FinalData.Both$begin)) -> FinalData.Both
+  
+  return(out.list <- list(difs = difs,
+                          difs.1 = difs.1,
+                          FinalData.Both = FinalData.Both,
+                          FinalData.V0 = FinalData.V0,
+                          Data_Out.v2 = Data_Out.v2,
+                          CorrectLength.v2 = CorrectLength.v2,
+                          v0.out = V0.out,
+                          v2.out = v2.out,
+                          obs.list = obs.list))
+  
+}
+
+# This function compares whale counts, Beaufort, and visibility for
+# all shifts that were recorded by Ver1.0 and Ver2.0 and creates
+# a table that is sorted by the beginning time of each shift. 
+# The table is returned. 2022-04-01
+n.comparison <- function(FinalData.Both, difs.1, idx){
+  FinalData.Both %>% 
+    filter(time.steps == difs.1[idx, "time.step"]) %>% 
+    mutate(time = fractional_Day2YMDhms(begin, YEAR)$hms) %>%
+    select(time, n, bf, vs, v) -> tmp
+  
+  tmp %>%
+    filter(v == "V0") -> tmp.0
+  tmp %>%
+    filter(v == "V2") -> tmp.2
+  
+  tmp.0 %>% 
+    full_join(tmp.2, by = "time") %>%
+    arrange(time) %>%
+    transmute(begin.time = time,
+              n.Ver1.0 = n.x,
+              n.Ver2.0 = n.y,
+              vs.Ver1.0 = vs.x,
+              vs.Ver2.0 = vs.y,
+              Bf.Ver1.0 = bf.x,
+              Bf.Ver2.0 = bf.y) -> tmp.0.2
+  
+  return(tmp.0.2)  
+}
+
+
