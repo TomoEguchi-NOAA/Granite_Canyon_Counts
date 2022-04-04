@@ -618,11 +618,12 @@ compare.V0.V2.BUGSinput <- function(YEAR, idx.yr, periods, obs.list){
 # all shifts that were recorded by Ver1.0 and Ver2.0 and creates
 # a table that is sorted by the beginning time of each shift. 
 # The table is returned. 2022-04-01
-n.comparison <- function(FinalData.Both, difs.1, idx){
+n.comparison <- function(FinalData.Both, difs.1, idx, YEAR){
   FinalData.Both %>% 
-    filter(time.steps == difs.1[idx, "time.step"]) %>% 
-    mutate(time = fractional_Day2YMDhms(begin, YEAR)$hms) %>%
-    select(time, n, bf, vs, v) -> tmp
+    filter(time.steps == difs.1[idx, "time.step"]) %>%
+    mutate(begin.time = fractional_Day2YMDhms(begin, YEAR)$hms,
+           end.time = fractional_Day2YMDhms(end, YEAR)$hms) %>% 
+    select(begin.time, end.time, n, bf, vs, v) -> tmp
   
   tmp %>%
     filter(v == "V0") -> tmp.0
@@ -630,9 +631,11 @@ n.comparison <- function(FinalData.Both, difs.1, idx){
     filter(v == "V2") -> tmp.2
   
   tmp.0 %>% 
-    full_join(tmp.2, by = "time") %>%
-    arrange(time) %>%
-    transmute(begin.time = time,
+    full_join(tmp.2, by = "begin.time") %>%
+    arrange(begin.time) %>%
+    transmute(begin.time = begin.time,
+              end.time.Ver1.0 = end.time.x,
+              end.time.Ver2.0 = end.time.y,
               n.Ver1.0 = n.x,
               n.Ver2.0 = n.y,
               vs.Ver1.0 = vs.x,
@@ -640,7 +643,12 @@ n.comparison <- function(FinalData.Both, difs.1, idx){
               Bf.Ver1.0 = bf.x,
               Bf.Ver2.0 = bf.y) -> tmp.0.2
   
-  return(tmp.0.2)  
+  total <- c(NA, NA, "Total", 
+           sum(tmp.0.2$n.Ver1.0, na.rm = T), 
+           sum(tmp.0.2$n.Ver2.0, na.rm = T), 
+           NA, NA, NA, NA)
+  
+  return(rbind(tmp.0.2, total))  
 }
 
 
