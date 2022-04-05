@@ -34,34 +34,77 @@ data.0 <- readRDS("RData/2006-2019_GC_Formatted_Data.RDS")
 out.V1.2020 <- readRDS("RData/out_2020_Joshs.rds")
 out.V1.2022 <- readRDS("RData/out_2022_Joshs.rds")
 
-# #Number of watch periods in each year's survey - before the 2019/2020 season
-periods <-c(136, 135, 164, 178, 179, 151)
+begin.2020 <- data.frame(begin.2020 = out.V1.2020$FinalData$begin) %>%
+  rownames_to_column(var = "rowname") %>%
+  mutate(rowname = as.integer(rowname))
+
+begin.2022 <- data.frame(begin.2022 = out.V1.2022$FinalData$begin) %>%
+  rownames_to_column(var = "rowname") %>%
+  mutate(rowname = as.integer(rowname))
+
+end.2020 <- data.frame(begin.2020 = out.V1.2020$FinalData$end) %>%
+  rownames_to_column(var = "rowname") %>%
+  mutate(rowname = as.integer(rowname))
+
+end.2022 <- data.frame(begin.2022 = out.V1.2022$FinalData$end) %>%
+  rownames_to_column(var = "rowname") %>%
+  mutate(rowname = as.integer(rowname))
+
+# Number of watch periods in each year's survey - before the 2019/2020 season
+# plus the new ones
+periods <-c(136, 135, 164, 178, 179, 151, length(begin.2020), length(begin.2022))
 
 # begin and end need to be brought in - only 6 columns. So, the 2019/2020 season
 # needs to be added. 
 # #Watch start times, as fraction of a day
-begin <- as.matrix(read.table("Data/begin.txt",
-                              header=T,
-                              nrows = max(periods)))
+# TE changed begin.txt to begin_a.txt; modified headers from begin[,i] to begin.YEAR
+# and removed END at the end of the file. 2022-04-05
+begin <- read.table("Data/begin_a.txt",
+                    header=T) %>%
+  rownames_to_column(var = "rowname") %>%
+  mutate(rowname = as.integer(rowname))
 
-# this does not do well because of differnet lengths:
-begin <- cbind(begin, 
-               out.V1.2020$FinalData$begin,
-               out.V1.2022$FinalData$begin)
+# Use merge to combine different lengths dataframes
+begin <- merge(begin,
+               begin.2020, by = "rowname",
+               all = TRUE)
 
-#watch end times
-end <- as.matrix(read.table("Data/end.txt",
-                            header=T,
-                            nrows = max(periods)))
-end <- cbind(end,
-             out.V1.2020$FinalData$end,
-             out.V1.2022$FinalData$end)
+begin <- merge(begin, 
+               begin.2022, by = "rowname",
+               all = TRUE) %>%
+  select(-rowname)
 
-periods <- c(periods, 
-             length(out.V1.2020$FinalData$begin),
-             length(out.V1.2022$FinalData$begin))
+# watch end times - same modificaitons made here as begin.
+end <- read.table("Data/end_a.txt",
+                    header=T) %>%
+  rownames_to_column(var = "rowname") %>%
+  mutate(rowname = as.integer(rowname))
+
+end <- merge(end,
+             end.2020, by = "rowname",
+             all = TRUE)
+
+end <- merge(end, 
+             end.2022, by = "rowname",
+             all = TRUE) %>% 
+  select(-rowname)
+
+
 # 
 # #whale counts
+n <- data.0$n
+# this has 7 years worth. 
+n.2020 <- n[,,7]
+
+# those from Ver1.0 extraction:
+n.2020a <- out.V1.2020$FinalData$n # slightly different but mostly the same...
+
+n.2022a <- out.V1.2022$FinalData$n
+
+# use abind for combining multi-dimensional arrays
+n <- abind(n, cbind(c(n.2022a, rep(0, times = (dim(n)[1] - length(n.2022a)))), 
+                      rep(0, times = dim(n)[1])))
+
 # n <- as.matrix(read.table("Data/n.txt",
 #                           header=T,
 #                           nrows = max(periods)))
@@ -70,6 +113,17 @@ periods <- c(periods,
 # #n <- abind(n,array(0,dim=c(2,2,6)), along=1) #add two trailing 0s to the end of the sightings array (this is for the day 1 and day 90 zero-whale anchor points)
 # 
 # 
+
+# the u data is whether there were observers on watch. 
+# 0 counts are often associated with years/shifts with 
+# no second observer. So if u=0, it will fix observation probability at 0
+# the second column for each year is for the second station - not the second
+# observer. 
+u <- abind(data.0$u, 
+           cbind(c(rep(1, times = length(n.2022a)), 
+                   rep(0, times = (dim(n)[1] - length(n.2022a)))), 
+                 rep(0, times = dim(n)[1])))
+
 # u <- as.matrix(read.table("Data/u.txt",
 #                           header=T,
 #                           nrows = max(periods)))
@@ -81,18 +135,39 @@ periods <- c(periods,
 # 
 # 
 # #visibility
+vs <- cbind(data.0$vs,
+            c(out.V1.2022$FinalData$vs, 
+              rep(NA, 
+                  times = nrow(data.0$vs) - length(out.V1.2022$FinalData$vs))))
 # vs <- as.matrix(read.table("Data/vs.txt",
 #                            header=T,
 #                           nrows = max(periods)))
 # #vs <- rbind(vs,matrix(NA,nrow=2,ncol=6)) #Add two trailing NAs (this is for the day 1 and day 90 zero-whale anchor points)
 # 
 # #beaufort
+bf <- cbind(data.0$bf,
+            c(out.V1.2022$FinalData$vs, 
+              rep(NA, 
+                  times = nrow(data.0$vs) - length(out.V1.2022$FinalData$vs))))
 # bf <- as.matrix(read.table("Data/bf.txt",
 #                            header=T,
 #                           nrows = max(periods)))
 # #bf <- rbind(bf,matrix(NA,nrow=2,ncol=6)) #Add two trailing NAs (this is for the day 1 and day 90 zero-whale anchor points)
 # 
 # #observer numbers
+obs <- data.0$obs
+
+# need to convert observer initials into numbers for 2022
+obs.2022 <- data.frame(obs = out.V1.2022$FinalData$obs)
+obs.list <- read.csv(file = "Data/Observer list 2022.csv")
+
+obs.2022 %>% left_join(obs.list, by = "obs") -> obs.2022.ID
+
+obs <- abind(data.0$obs, 
+             cbind(c(obs.2022.ID$ID, 
+                     rep(36, times = (dim(data.0$obs)[1] - nrow(obs.2022.ID)))),
+                   rep(36, times = dim(data.0$obs)[1])))
+
 # obs <- as.matrix(read.table("Data/obs.txt",
 #                             header=T,
 #                           nrows = max(periods)))
@@ -102,16 +177,19 @@ periods <- c(periods,
 # #  obs[(periods[i]+1):(periods[i]+2),,i] <- 36 #this will force it to the mean observation probability with no observer effect
 # #}
 
-N_inits <- as.matrix(read.table("Data/Initial Values/N_inits.txt",
-                                header=T))
+#we're going to make N a partially observed data object with anchor points at day 1 and 90
+# TE: I don't know how these numbers were created... 
+# N_inits <- as.matrix(read.table("Data/Initial Values/N_inits.txt",
+#                                 header=T))
 
+N_inits <- matrix(data = NA, nrow = (max(periods)+2), ncol = length(periods))
 for(i in 1:length(periods)){
-  N_inits[(periods[i]+1):(periods[i]+2),i] <- NA #we're going to make N a partially observed data object with anchor points at day 1 and 90
+  N_inits[(periods[i]+1):(periods[i]+2),i] <- NA 
 }
 
 #The 'data' has to be the inverse of the inits, 
 # with NAs for all of the estimated Ns, and 0s for the days 1 and 90
-N <- matrix(NA,nrow=181,ncol=6) 
+N <- matrix(NA, nrow=max(periods)+2, ncol=length(periods)) 
 
 for(i in 1:length(periods)){
   N[(periods[i]+1):(periods[i]+2),i] <- 0 #True number of whales passing fixed at 0 for day 1 and 90
@@ -126,12 +204,12 @@ Set up BUGS:
 day <- floor(begin)
 t <- round((begin+end)/2)
 #Add a couple of extra rows of NAs to the end of the day index reference to match up with the fixed 0s in N (above), assigning them to days 1 and 90
-day <- rbind(as.matrix(day),matrix(NA,nrow=2,ncol=6))
+day <- rbind(as.matrix(day), matrix(NA, nrow=2, ncol=length(periods)))
 for(i in 1:length(periods)){ #Set the anchor points: days 1 and 90
   day[(periods[i]+1):(periods[i]+2),i] <- c(1,90)
 }
 
-t <- rbind(as.matrix(t),matrix(NA,nrow=2,ncol=6))
+t <- rbind(as.matrix(t),matrix(NA,nrow=2,ncol=length(periods)))
 for(i in 1:length(periods)){ #Set the anchor points: days 1 and 90
   t[(periods[i]+1):(periods[i]+2),i] <- c(1,90)
 }
@@ -153,7 +231,9 @@ for(i in 1:length(periods)){ #Set the anchor points: days 1 and 90
 # N.short <- N[,1:4]
 # N_inits.short <- N_inits[,1:4]
 
-Watch.Length <- rbind(end,matrix(NA,nrow=2,ncol=6)) - rbind(begin,matrix(NA,nrow=2,ncol=6))
+Watch.Length <- rbind(as.matrix(end),
+                      matrix(NA,nrow=2,ncol=length(periods))) - 
+  rbind(as.matrix(begin), matrix(NA,nrow=2,ncol=length(periods)))
 for(i in 1:length(periods)){ #Place 36s for 'no observer' for the two periods following the end of true watches (this is for the day 1 and day 90 zero-whale anchor points)
   Watch.Length[(periods[i]+1):(periods[i]+2),i] <- 1 #this will force it to the mean observation probability with no observer effect
 }
@@ -242,7 +322,7 @@ nc <- 3
 Run WinBUGS if it hasn't been run..
 
 ```{r}
-if (!file.exists("RData/GW BUGS 7yr 100k.RData")){
+if (!file.exists("RData/GW BUGS 8yr 100k.RData")){
   
   #Run time: 
   Start_Time<-Sys.time()
@@ -259,10 +339,10 @@ if (!file.exists("RData/GW BUGS 7yr 100k.RData")){
                   bugs.directory = "C:/Users/tomo.eguchi/Documents/WinBUGS14")
   
   Run_Time <- Sys.time() - Start_Time
-  save.image("RData/GW BUGS 7yr 100k.RData")
+  save.image("RData/GW BUGS 8yr 100k.RData")
   
 } else {
-  load("RData/GW BUGS 7yr 100k.RData")
+  load("RData/GW BUGS 8yr 100k.RData")
 }
 ```
 
