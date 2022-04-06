@@ -38,21 +38,24 @@ out.V1.2022 <- readRDS("RData/out_2022_Joshs.rds")
 #   rownames_to_column(var = "rowname") %>%
 #   mutate(rowname = as.integer(rowname))
 
-begin.2022 <- data.frame(begin.2022 = out.V1.2022$FinalData$begin) %>%
-  rownames_to_column(var = "rowname") %>%
-  mutate(rowname = as.integer(rowname))
-
-# end.2020 <- data.frame(begin.2020 = out.V1.2020$FinalData$end) %>%
+# begin.2022 <- data.frame(begin.2022 = out.V1.2022$FinalData$begin) %>%
 #   rownames_to_column(var = "rowname") %>%
 #   mutate(rowname = as.integer(rowname))
 
-end.2022 <- data.frame(begin.2022 = out.V1.2022$FinalData$end) %>%
-  rownames_to_column(var = "rowname") %>%
-  mutate(rowname = as.integer(rowname))
+begin.2022 <- out.V1.2022$FinalData$begin
+# end.2020 <- data.frame(end.2020 = out.V1.2020$FinalData$end) %>%
+#   rownames_to_column(var = "rowname") %>%
+#   mutate(rowname = as.integer(rowname))
+
+# end.2022 <- data.frame(end.2022 = out.V1.2022$FinalData$end) %>%
+#   rownames_to_column(var = "rowname") %>%
+#   mutate(rowname = as.integer(rowname))
+
+end.2022 <- out.V1.2022$FinalData$end
 
 # Number of watch periods in each year's survey - before the 2019/2020 season
 # plus the new ones
-periods <-c(136, 135, 164, 178, 179, 151, dim(data.0$n)[1], nrow(begin.2022))
+periods <-c(136, 135, 164, 178, 179, 151, dim(data.0$n)[1], length(begin.2022))
 
 # begin and end need to be brought in - only 6 columns. So, the 2019/2020 season
 # needs to be added. 
@@ -91,22 +94,23 @@ periods <-c(136, 135, 164, 178, 179, 151, dim(data.0$n)[1], nrow(begin.2022))
 #              all = TRUE) %>% 
 #   select(-rowname)
 
-Watch.Length.2022 <- end.2022[,2] - begin.2022[,2]
+Watch.Length.2022 <- end.2022 - begin.2022
 
 # 
 # #whale counts
-n <- data.0$n
+n <- labelled::remove_attributes(data.0$n, "dimnames")
 # this has 7 years worth. 
-n.2020 <- n[,,7]
-
-# those from Ver1.0 extraction:
-n.2020a <- out.V1.2020$FinalData$n # slightly different but mostly the same...
+# n.2020 <- n[,,7]
+# 
+# # those from Ver1.0 extraction:
+# n.2020a <- out.V1.2020$FinalData$n # slightly different but mostly the same...
 
 n.2022a <- out.V1.2022$FinalData$n
 
 # use abind for combining multi-dimensional arrays
 n <- abind(n, cbind(c(n.2022a, rep(0, times = (dim(n)[1] - length(n.2022a)))), 
-                      rep(0, times = dim(n)[1])))
+                      rep(0, times = dim(n)[1]))) %>%
+  labelled::remove_attributes("dimnames")
 
 # n <- as.matrix(read.table("Data/n.txt",
 #                           header=T,
@@ -181,14 +185,16 @@ obs <- abind(data.0$obs,
 # #}
 
 #we're going to make N a partially observed data object with anchor points at day 1 and 90
-# TE: I don't know how these numbers were created... 
+# TE: I don't know how these numbers were created... they are generally 2x n (not all)
 # N_inits <- as.matrix(read.table("Data/Initial Values/N_inits.txt",
 #                                 header=T))
+N_inits <- rbind(n[,1,] * 2 + 2, 
+                 matrix(data = NA, nrow = 2, ncol = length(periods)))
 
-N_inits <- matrix(data = NA, nrow = (max(periods)+2), ncol = length(periods))
-for(i in 1:length(periods)){
-  N_inits[(periods[i]+1):(periods[i]+2),i] <- NA 
-}
+#N_inits <- matrix(data = NA, nrow = (max(periods)+2), ncol = length(periods))
+# for(i in 1:length(periods)){
+#   N_inits[(periods[i]+1):(periods[i]+2),i] <- NA 
+# }
 
 #The 'data' has to be the inverse of the inits, 
 # with NAs for all of the estimated Ns, and 0s for the days 1 and 90
@@ -205,12 +211,13 @@ Set up BUGS:
 Watch.Length <- cbind(data.0$Watch.Length, 
                       c(Watch.Length.2022, 
                         rep(NA, 
-                            times = nrow(data.0$Watch.Length) - length(Watch.Length.2022))))
+                            times = nrow(data.0$Watch.Length) - length(Watch.Length.2022)))) %>%
+  labelled::remove_attributes("dimnames")
 
 #specify survey days associated with each watch period
 day <- cbind(data.0$day, 
-             c(floor(begin.2022[,2]), 
-               rep(NA, times = nrow(data.0$day) - nrow(begin.2022))))
+             c(floor(begin.2022), 
+               rep(NA, times = nrow(data.0$day) - length(begin.2022))))
 
 # #Add a couple of extra rows of NAs to the end of the day index reference to match up with the fixed 0s in N (above), assigning them to days 1 and 90
 # day <- rbind(as.matrix(day), matrix(NA, nrow=2, ncol=length(periods)))
@@ -230,27 +237,29 @@ for(i in 1:length(periods)){ #Set the anchor points: days 1 and 90
   t[(periods[i]+1):(periods[i]+2),i] <- c(1,90)
 }
 
-#### Two separate models each fit to data, 
-# and then a third replicate of data to select
-# 'best fit' (same structure as Durban et al)
-
-# Shorten data to first 4 years only to replicate 
-# the analysis in Durban et al 2016:
-# n.short <- n[,,1:4]
-# obs.short <- obs[,,1:4]
-# periods.short <- periods[1:4]
-# u.short <- u[,,1:4]
-# vs.short <- vs[,1:4]
-# bf.short <- bf[,1:4]
-# day.short <-day[,1:4]
-# t.short <- t[,1:4]
-# N.short <- N[,1:4]
-# N_inits.short <- N_inits[,1:4]
 #Place 36s for 'no observer' for the two periods following the end of true watches (this is for the day 1 and day 90 zero-whale anchor points)
 #this will force it to the mean observation probability with no observer effect
 for(i in 1:length(periods)){ 
   Watch.Length[(periods[i]+1):(periods[i]+2),i] <- 1 
 }
+
+#### Two separate models each fit to data, 
+# and then a third replicate of data to select
+# 'best fit' (same structure as Durban et al)
+
+# Shorten data to first x years only to replicate 
+# the analysis in Durban et al 2016:
+x <- 7
+n <- n[,,1:x]
+obs <- obs[,,1:x]
+periods <- periods[1:x]
+u <- u[,,1:x]
+vs <- vs[,1:x]
+bf <- bf[,1:x]
+day <-day[,1:x]
+t <- t[,1:x]
+N <- N[,1:x]
+N_inits <- N_inits[,1:x]
 
 jags.data <- list(n = n,
                   n.com = n,
@@ -275,7 +284,8 @@ jags.data <- list(n = n,
                   n.knots=14,
                   #begin=begin,
                   #end=end,
-                  Watch.Length=Watch.Length)
+                  Watch.Length=Watch.Length,
+                  z = matrix(1, nrow=90, ncol=length(periods)))
 
 jags.inits <- function() list(mean.prob = 0.5,
                               BF.Fixed = 0,
@@ -304,9 +314,9 @@ jags.inits <- function() list(mean.prob = 0.5,
                               N.com = N_inits,
                               N.sp = N_inits,
                               #z = matrix(1,nrow=90,ncol=6),
-                              beta.sp = array(data=0,dim=c(2,length(periods))),
-                              sd.b.sp = rep(1, times = length(periods)), #c(1,1,1,1,1,1),
-                              z=matrix(1,nrow=90,ncol=length(periods)))
+                              beta.sp = array(data=0, dim=c(2,length(periods))),
+                              sd.b.sp = rep(1, times = length(periods))) #c(1,1,1,1,1,1),
+                              #z = matrix(1, nrow=90, ncol=length(periods)))
 
 #### To run 2006-2019 data, load .RDS object and name it jags.data, 
 # then update intitial values:
@@ -326,9 +336,9 @@ parameters <- c("lambda","OBS.RF","OBS.Switch",
                 "com","sp","Daily.Est","mean.beta",
                 "beta.sigma","beta","beta.sp","b.sp","sd.b.sp")
 
-ni <- 100000
-nt <- 80
-nb <- 60000
+ni <- 100
+nt <- 2
+nb <- 60
 nc <- 3
 
 ```

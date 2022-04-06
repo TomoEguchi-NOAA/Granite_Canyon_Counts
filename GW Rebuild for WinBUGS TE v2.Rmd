@@ -227,11 +227,15 @@ parameters <- c("lambda","OBS.RF","OBS.Switch",
                 "com","sp","Daily.Est","mean.beta",
                 "beta.sigma","beta","beta.sp","b.sp","sd.b.sp")
 
-ni <- 100000
-nt <- 80
-nb <- 60000
-nc <- 3
+# ni <- 100000
+# nt <- 80
+# nb <- 60000
+# nc <- 3
 
+ni <- 100
+nt <- 2
+nb <- 60
+nc <- 3
 ```
 
 Run WinBUGS if it hasn't been run..
