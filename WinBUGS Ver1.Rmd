@@ -52,7 +52,7 @@ end.2022 <- data.frame(begin.2022 = out.V1.2022$FinalData$end) %>%
 
 # Number of watch periods in each year's survey - before the 2019/2020 season
 # plus the new ones
-periods <-c(136, 135, 164, 178, 179, 151, length(begin.2020), length(begin.2022))
+periods <-c(136, 135, 164, 178, 179, 151, nrow(begin.2020), nrow(begin.2022))
 
 # begin and end need to be brought in - only 6 columns. So, the 2019/2020 season
 # needs to be added. 
@@ -238,24 +238,24 @@ for(i in 1:length(periods)){ #Place 36s for 'no observer' for the two periods fo
   Watch.Length[(periods[i]+1):(periods[i]+2),i] <- 1 #this will force it to the mean observation probability with no observer effect
 }
 
-jags.data <- list(n=data.0$n,
-                  n.com=data.0$n,
-                  n.sp=data.0$n,
-                  n.station = dim(data.0$n)[2],
-                  n.year = dim(data.0$n)[3],
-                  n.obs = max(data.0$obs),
-                  periods = data.0$periods,
-                  obs=data.0$obs,
+jags.data <- list(n = n,
+                  n.com = n,
+                  n.sp = n,
+                  n.station = dim(n)[2],
+                  n.year = dim(n)[3],
+                  n.obs = max(obs),
+                  periods = periods,
+                  obs = obs,
                   #Watch.Length = 0.0625,
-                  u=data.0$u,
-                  vs=data.0$vs,
-                  bf=data.0$bf,
+                  u = u,
+                  vs = vs,
+                  bf = bf,
                   #day=day,
-                  day=t,
-                  N=N,
-                  N.com=N,
-                  N.sp=N,
-                  knot=c(-1.46,-1.26,-1.02,-0.78,
+                  day = t,
+                  N = N,
+                  N.com = N,
+                  N.sp = N,
+                  knot = c(-1.46,-1.26,-1.02,-0.78,
                          -0.58,-0.34,-0.10,0.10,
                          0.34,0.57,0.78,1.02,1.26,1.46),
                   n.knots=14,
@@ -290,9 +290,9 @@ jags.inits <- function() list(mean.prob = 0.5,
                               N.com = N_inits,
                               N.sp = N_inits,
                               #z = matrix(1,nrow=90,ncol=6),
-                              beta.sp = array(data=0,dim=c(2,6)),
-                              sd.b.sp = c(1,1,1,1,1,1),
-                              z=matrix(1,nrow=90,ncol=6))
+                              beta.sp = array(data=0,dim=c(2,length(periods))),
+                              sd.b.sp = rep(1, times = length(periods)), #c(1,1,1,1,1,1),
+                              z=matrix(1,nrow=90,ncol=length(periods)))
 
 #### To run 2006-2019 data, load .RDS object and name it jags.data, 
 # then update intitial values:
@@ -335,7 +335,7 @@ if (!file.exists("RData/GW BUGS 8yr 100k.RData")){
                   n.iter = ni, 
                   n.burnin = nb, 
                   n.thin = nt,
-                  debug=F,
+                  debug=T,
                   bugs.directory = "C:/Users/tomo.eguchi/Documents/WinBUGS14")
   
   Run_Time <- Sys.time() - Start_Time

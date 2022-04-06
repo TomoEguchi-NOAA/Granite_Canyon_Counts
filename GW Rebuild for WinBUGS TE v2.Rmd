@@ -32,7 +32,7 @@ Get data:
 
 ```{r}
 #Number of watch periods in each year's survey
-periods <-dat$periods
+periods <-dat$periods[1:6]
 
 #Watch start times, as fraction of a day
 begin <- as.matrix(read.table("Data/begin.txt", 
@@ -237,7 +237,7 @@ nc <- 3
 Run WinBUGS if it hasn't been run..
 
 ```{r}
-if (!file.exists("RData/GW BUGS 7yr 100k.RData")){
+if (!file.exists("RData/GW BUGS 7yr 100ka.RData")){
   
   #Run time: 
   Start_Time<-Sys.time()
@@ -254,10 +254,10 @@ if (!file.exists("RData/GW BUGS 7yr 100k.RData")){
                   bugs.directory = "C:/Users/tomo.eguchi/Documents/WinBUGS14")
   
   Run_Time <- Sys.time() - Start_Time
-  save.image("RData/GW BUGS 7yr 100k.RData")
+  save.image("RData/GW BUGS 7yr 100ka.RData")
   
 } else {
-  load("RData/GW BUGS 7yr 100k.RData")
+  load("RData/GW BUGS 7yr 100ka.RData")
 }
 ```
 
