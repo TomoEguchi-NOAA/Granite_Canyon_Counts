@@ -34,17 +34,17 @@ data.0 <- readRDS("RData/2006-2019_GC_Formatted_Data.RDS")
 out.V1.2020 <- readRDS("RData/out_2020_Joshs.rds")
 out.V1.2022 <- readRDS("RData/out_2022_Joshs.rds")
 
-begin.2020 <- data.frame(begin.2020 = out.V1.2020$FinalData$begin) %>%
-  rownames_to_column(var = "rowname") %>%
-  mutate(rowname = as.integer(rowname))
+# begin.2020 <- data.frame(begin.2020 = out.V1.2020$FinalData$begin) %>%
+#   rownames_to_column(var = "rowname") %>%
+#   mutate(rowname = as.integer(rowname))
 
 begin.2022 <- data.frame(begin.2022 = out.V1.2022$FinalData$begin) %>%
   rownames_to_column(var = "rowname") %>%
   mutate(rowname = as.integer(rowname))
 
-end.2020 <- data.frame(begin.2020 = out.V1.2020$FinalData$end) %>%
-  rownames_to_column(var = "rowname") %>%
-  mutate(rowname = as.integer(rowname))
+# end.2020 <- data.frame(begin.2020 = out.V1.2020$FinalData$end) %>%
+#   rownames_to_column(var = "rowname") %>%
+#   mutate(rowname = as.integer(rowname))
 
 end.2022 <- data.frame(begin.2022 = out.V1.2022$FinalData$end) %>%
   rownames_to_column(var = "rowname") %>%
@@ -52,43 +52,46 @@ end.2022 <- data.frame(begin.2022 = out.V1.2022$FinalData$end) %>%
 
 # Number of watch periods in each year's survey - before the 2019/2020 season
 # plus the new ones
-periods <-c(136, 135, 164, 178, 179, 151, nrow(begin.2020), nrow(begin.2022))
+periods <-c(136, 135, 164, 178, 179, 151, dim(data.0$n)[1], nrow(begin.2022))
 
 # begin and end need to be brought in - only 6 columns. So, the 2019/2020 season
 # needs to be added. 
 # #Watch start times, as fraction of a day
 # TE changed begin.txt to begin_a.txt; modified headers from begin[,i] to begin.YEAR
 # and removed END at the end of the file. 2022-04-05
-begin <- read.table("Data/begin_a.txt",
-                    header=T) %>%
-  rownames_to_column(var = "rowname") %>%
-  mutate(rowname = as.integer(rowname))
+# This file only contains 6 columns... it's okay because this is used to compute
+# Watch.Length only. So, no need to bring this in here. 
+# begin <- read.table("Data/begin_a.txt",
+#                     header=T) %>%
+#   rownames_to_column(var = "rowname") %>%
+#   mutate(rowname = as.integer(rowname))
 
 # Use merge to combine different lengths dataframes
-begin <- merge(begin,
-               begin.2020, by = "rowname",
-               all = TRUE)
+# begin <- merge(begin,
+#                begin.2020, by = "rowname",
+#                all = TRUE)
 
-begin <- merge(begin, 
-               begin.2022, by = "rowname",
-               all = TRUE) %>%
-  select(-rowname)
+# begin <- merge(begin, 
+#                begin.2022, by = "rowname",
+#                all = TRUE) %>%
+#   select(-rowname)
 
 # watch end times - same modificaitons made here as begin.
-end <- read.table("Data/end_a.txt",
-                    header=T) %>%
-  rownames_to_column(var = "rowname") %>%
-  mutate(rowname = as.integer(rowname))
+# end <- read.table("Data/end_a.txt",
+#                     header=T) %>%
+#   rownames_to_column(var = "rowname") %>%
+#   mutate(rowname = as.integer(rowname))
 
-end <- merge(end,
-             end.2020, by = "rowname",
-             all = TRUE)
+# end <- merge(end,
+#              end.2020, by = "rowname",
+#              all = TRUE)
 
-end <- merge(end, 
-             end.2022, by = "rowname",
-             all = TRUE) %>% 
-  select(-rowname)
+# end <- merge(end, 
+#              end.2022, by = "rowname",
+#              all = TRUE) %>% 
+#   select(-rowname)
 
+Watch.Length.2022 <- end.2022[,2] - begin.2022[,2]
 
 # 
 # #whale counts
@@ -199,17 +202,30 @@ for(i in 1:length(periods)){
 Set up BUGS:
 
 ```{r}
+Watch.Length <- cbind(data.0$Watch.Length, 
+                      c(Watch.Length.2022, 
+                        rep(NA, 
+                            times = nrow(data.0$Watch.Length) - length(Watch.Length.2022))))
 
 #specify survey days associated with each watch period
-day <- floor(begin)
-t <- round((begin+end)/2)
-#Add a couple of extra rows of NAs to the end of the day index reference to match up with the fixed 0s in N (above), assigning them to days 1 and 90
-day <- rbind(as.matrix(day), matrix(NA, nrow=2, ncol=length(periods)))
-for(i in 1:length(periods)){ #Set the anchor points: days 1 and 90
-  day[(periods[i]+1):(periods[i]+2),i] <- c(1,90)
-}
+day <- cbind(data.0$day, 
+             c(floor(begin.2022[,2]), 
+               rep(NA, times = nrow(data.0$day) - nrow(begin.2022))))
 
-t <- rbind(as.matrix(t),matrix(NA,nrow=2,ncol=length(periods)))
+# #Add a couple of extra rows of NAs to the end of the day index reference to match up with the fixed 0s in N (above), assigning them to days 1 and 90
+# day <- rbind(as.matrix(day), matrix(NA, nrow=2, ncol=length(periods)))
+# 
+# 
+# for(i in 1:length(periods)){ #Set the anchor points: days 1 and 90
+#   day[(periods[i]+1):(periods[i]+2),i] <- c(1,90)
+# }
+
+end <- Watch.Length + day
+#t <- round((begin+end)/2)
+t <- round((day+end)/2)
+
+t <- rbind(as.matrix(t),
+           matrix(NA,nrow=2,ncol=length(periods)))
 for(i in 1:length(periods)){ #Set the anchor points: days 1 and 90
   t[(periods[i]+1):(periods[i]+2),i] <- c(1,90)
 }
@@ -230,12 +246,10 @@ for(i in 1:length(periods)){ #Set the anchor points: days 1 and 90
 # t.short <- t[,1:4]
 # N.short <- N[,1:4]
 # N_inits.short <- N_inits[,1:4]
-
-Watch.Length <- rbind(as.matrix(end),
-                      matrix(NA,nrow=2,ncol=length(periods))) - 
-  rbind(as.matrix(begin), matrix(NA,nrow=2,ncol=length(periods)))
-for(i in 1:length(periods)){ #Place 36s for 'no observer' for the two periods following the end of true watches (this is for the day 1 and day 90 zero-whale anchor points)
-  Watch.Length[(periods[i]+1):(periods[i]+2),i] <- 1 #this will force it to the mean observation probability with no observer effect
+#Place 36s for 'no observer' for the two periods following the end of true watches (this is for the day 1 and day 90 zero-whale anchor points)
+#this will force it to the mean observation probability with no observer effect
+for(i in 1:length(periods)){ 
+  Watch.Length[(periods[i]+1):(periods[i]+2),i] <- 1 
 }
 
 jags.data <- list(n = n,
