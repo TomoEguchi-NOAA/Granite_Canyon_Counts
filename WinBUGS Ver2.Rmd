@@ -412,7 +412,7 @@ MCMCparams <- list(n.iter = 100000,
 Run WinBUGS if it hasn't been run..
 
 ```{r}
-if (!file.exists(paste0("RData/WinBUGS_", x, "yr_100k_v2.rds"))){
+if (!file.exists(paste0("RData/WinBUGS_", x, "yr_v2.rds"))){
   
   #Run time: 
   Start_Time<-Sys.time()
@@ -432,10 +432,10 @@ if (!file.exists(paste0("RData/WinBUGS_", x, "yr_100k_v2.rds"))){
   saveRDS(list(jags.data = jags.data,
                N_inits = N_inits,
                BUGS_out = BUGS_out), 
-          paste0("RData/WinBUGS_", x, "yr_100k_v2.rds"))
+          paste0("RData/WinBUGS_", x, "yr_v2.rds"))
   
 } else {
-  Ver2.results <- readRDS(paste0("RData/WinBUGS_", x, "yr_100k_v2.rds"))
+  Ver2.results <- readRDS(paste0("RData/WinBUGS_", x, "yr_v2.rds"))
 }
 ```
 
