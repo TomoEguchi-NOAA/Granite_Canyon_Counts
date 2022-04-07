@@ -209,6 +209,8 @@ jags.inits <- function() list(mean.prob = 0.5,
                               sd.b.sp = c(1,1,1,1,1,1),
                               z=matrix(1,nrow=90,ncol=6))
 
+out.inits <- list(fun = jags.inits,
+                  N_inits = N_inits)
 #### To run 2006-2019 data, load .RDS object and name it jags.data, 
 # then update intitial values:
 # Files are 2006-2019_GC_Formatted_Data and 2006-2019_GC_N_inits
