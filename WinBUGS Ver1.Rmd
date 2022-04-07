@@ -188,7 +188,13 @@ obs <- abind(data.0$obs,
 # TE: I don't know how these numbers were created... they are generally 2x n (not all)
 # N_inits <- as.matrix(read.table("Data/Initial Values/N_inits.txt",
 #                                 header=T))
-N_inits <- rbind(n[,1,] * 2 + 2, 
+N_inits1 <- n[, 1,] * 2 + 2
+N_inits2 <- n[, 2,] * 2 + 2 
+            
+N_inits <- N_inits1
+N_inits[N_inits1 < N_inits2] <- N_inits2[N_inits1 < N_inits2]
+
+N_inits <- rbind(N_inits,
                  matrix(data = NA, nrow = 2, ncol = length(periods)))
 
 #N_inits <- matrix(data = NA, nrow = (max(periods)+2), ncol = length(periods))
@@ -249,17 +255,31 @@ for(i in 1:length(periods)){
 
 # Shorten data to first x years only to replicate 
 # the analysis in Durban et al 2016:
-x <- 7
-n <- n[,,1:x]
-obs <- obs[,,1:x]
-periods <- periods[1:x]
-u <- u[,,1:x]
-vs <- vs[,1:x]
-bf <- bf[,1:x]
-day <-day[,1:x]
-t <- t[,1:x]
-N <- N[,1:x]
-N_inits <- N_inits[,1:x]
+# as of 2022-04-06, 8 is maximum.
+x <- 8
+# periods <- periods[1:x]
+# n <- n[1:max(periods),,1:x]
+# obs <- obs[1:max(periods),,1:x]
+# 
+# u <- u[1:max(periods),,1:x]
+# vs <- vs[1:max(periods),1:x]
+# bf <- bf[1:max(periods),1:x]
+# 
+# day <-day[1:(max(periods)+2),1:x]
+# t <- t[1:(max(periods)+2),1:x]
+# N <- N[1:(max(periods)+2),1:x]
+# N_inits <- rbind(N_inits[1:(max(periods)), 1:x],  
+#                  matrix(data = NA, 
+#                         nrow = 2, 
+#                         ncol = length(periods)))
+                 
+for (k in 1:length(periods)){
+  N_inits[(periods[k]+1):(nrow(N_inits)), k] <- NA
+}
+
+# WinBUGS gives errors when N inits are set to 0. 
+# Try setting them to 1 instead (seems to work):
+N_inits[which(N_inits==0,arr.ind = T)] <- 1
 
 jags.data <- list(n = n,
                   n.com = n,
@@ -284,9 +304,9 @@ jags.data <- list(n = n,
                   n.knots=14,
                   #begin=begin,
                   #end=end,
-                  Watch.Length=Watch.Length,
-                  z = matrix(1, nrow=90, ncol=length(periods)))
-
+                  Watch.Length=Watch.Length)
+                  
+# Make sure to change the array sizes below; beta.sp, sd.b.sp, and z
 jags.inits <- function() list(mean.prob = 0.5,
                               BF.Fixed = 0,
                               VS.Fixed = 0,
@@ -314,17 +334,14 @@ jags.inits <- function() list(mean.prob = 0.5,
                               N.com = N_inits,
                               N.sp = N_inits,
                               #z = matrix(1,nrow=90,ncol=6),
-                              beta.sp = array(data=0, dim=c(2,length(periods))),
-                              sd.b.sp = rep(1, times = length(periods))) #c(1,1,1,1,1,1),
-                              #z = matrix(1, nrow=90, ncol=length(periods)))
+                              beta.sp = array(data=0, dim=c(2, x)),
+                              sd.b.sp = rep(1, times = x), #c(1,1,1,1,1,1),
+                              z = matrix(1, nrow=90, ncol=x))
 
 #### To run 2006-2019 data, load .RDS object and name it jags.data, 
 # then update intitial values:
 # Files are 2006-2019_GC_Formatted_Data and 2006-2019_GC_N_inits
 
-# WinBUGS gives errors when N inits are set to 0. 
-# Try setting them to 1 instead (seems to work):
-N_inits[which(N_inits==0,arr.ind = T)] <- 1
 
 parameters <- c("lambda","OBS.RF","OBS.Switch",
                 "BF.Switch","BF.Fixed","VS.Switch",
@@ -336,17 +353,31 @@ parameters <- c("lambda","OBS.RF","OBS.Switch",
                 "com","sp","Daily.Est","mean.beta",
                 "beta.sigma","beta","beta.sp","b.sp","sd.b.sp")
 
-ni <- 100
-nt <- 2
-nb <- 60
-nc <- 3
+# ni <- 100
+# nt <- 2
+# nb <- 60
+# nc <- 3
 
+MCMC.params <- list(n.iter = 100000,
+                    n.thin = 80,
+                    n.burnin = 60000,
+                    n.chains = 3)
+# ni <- 100000
+# nt <- 80
+# nb <- 60000
+# nc <- 3
 ```
 
 Run WinBUGS if it hasn't been run..
 
 ```{r}
-if (!file.exists("RData/GW BUGS 8yr 100k.RData")){
+# These are outputs of GW Rebuild for WinBUGS TE v2.Rmd, which worked fine.
+# Change the bugs call below to use these. 
+#jags.data <- read_rds("RData/jags_data.rds")
+#list.inits <- read_rds("RData/jags_inits.rds")
+#N_inits0 <- list.inits$N_inits
+
+if (!file.exists(paste0("RData/WinBUGS_", x, "yr_v1.rds"))){
   
   #Run time: 
   Start_Time<-Sys.time()
@@ -355,18 +386,26 @@ if (!file.exists("RData/GW BUGS 8yr 100k.RData")){
                   inits = jags.inits,
                   parameters = parameters,
                   model.file="GW_Nmix_Orig.bugs",
-                  n.chains = nc,
-                  n.iter = ni, 
-                  n.burnin = nb, 
-                  n.thin = nt,
-                  debug=T,
+                  n.chains = MCMC.params$n.chains,
+                  n.iter = MCMC.params$n.iter, 
+                  n.burnin = MCMC.params$n.burnin, 
+                  n.thin = MCMC.params$n.thin,
+                  debug = T,
                   bugs.directory = "C:/Users/tomo.eguchi/Documents/WinBUGS14")
   
+  
   Run_Time <- Sys.time() - Start_Time
-  save.image("RData/GW BUGS 8yr 100k.RData")
+  
+  saveRDS(list(data = jags.data, 
+               N_inits = N_inits, 
+               BUGS_out = GW_Nmix,
+               Run_Time = Run_Time,
+               Run_Date = Sys.Date(),
+               Sys_info = Sys.info()),
+          file = paste0("RData/WinBUGS_", x, "yr_v1.rds"))
   
 } else {
-  load("RData/GW BUGS 8yr 100k.RData")
+  readRDS(paste0("RData/WinBUGS_", x, "yr_v1.rds"))
 }
 ```
 
