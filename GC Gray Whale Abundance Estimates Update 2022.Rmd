@@ -1507,8 +1507,8 @@ whale.counts.v2.df <- data.frame(Season = seasons,
 
 whale.counts.df <- data.frame(Season = seasons,
                               Periods.v1 = Ver1.results$data$periods,
-                              Periods.v2 = Ver2.results$jags.data$periods,
                               Counts.v1 = apply(n.v1[,1,], MARGIN = 2, FUN = sum),
+                              Periods.v2 = Ver2.results$jags.data$periods,
                               Counts.V2 = apply(n.v2[,1,], MARGIN = 2, FUN = sum))
 
 # Extract estimated counts
@@ -1564,6 +1564,27 @@ abundance.df.v2 <- data.frame(Season = seasons,
                                              MARGIN = 2, 
                                              FUN = quantile, 0.975))
 
+abundance.df.v1.v2 <- data.frame(Season = seasons,
+                                 Median.v1 = apply(Corrected.Est.v1, 
+                                                FUN = median, 
+                                                MARGIN = 2),
+                                 Median.v2 = apply(Corrected.Est.v2, 
+                                                FUN = median, 
+                                                MARGIN = 2),
+                                 LCL.v1 = floor(apply(Corrected.Est.v1, 
+                                             MARGIN = 2, 
+                                             FUN = quantile, 0.025)),
+                                 
+                                 LCL.v2 = floor(apply(Corrected.Est.v2, 
+                                                MARGIN = 2, 
+                                                FUN = quantile, 0.025)),
+                                 UCL.v1 = ceiling(apply(Corrected.Est.v1, 
+                                                MARGIN = 2, 
+                                                FUN = quantile, 0.975)),
+                                 UCL.v2 = ceiling(apply(Corrected.Est.v2, 
+                                                        MARGIN = 2, 
+                                                FUN = quantile, 0.975)))
+
 p.Nhat.v1 <- ggplot(data = abundance.df.v1) + 
   geom_point(aes(x = Season, y = Median)) + 
   geom_errorbar(aes(x = Season, ymin = LCL, ymax = UCL)) +
@@ -1614,27 +1635,27 @@ if (save.fig)
 
 ```
 
-The output of Ver1.0 included `r min(whale.counts.v1.df$Periods)` to `r max(whale.counts.v1.df$Periods)` survey periods, where a survey period is between 85 and 95 minutes with some exceptions described above (Table \@ref(tab:Table-effort-v1)). The observed number of whales ranged from `r min(whale.counts.v1.df$Counts)` in the `r whale.counts.v1.df[whale.counts.v1.df$Counts == min(whale.counts.v1.df$Counts), "Season"]` season to `r max(whale.counts.v1.df$Counts)` in the `r whale.counts.v1.df[whale.counts.v1.df$Counts == max(whale.counts.v1.df$Counts), "Season"]` season. 
+The output of Ver1.0 included `r min(whale.counts.v1.df$Periods)` to `r max(whale.counts.v1.df$Periods)` survey periods, where a survey period is between 85 and 95 minutes with some exceptions described above (Table \@ref(tab:Table-effort-v1-v2)). The observed number of whales ranged from `r min(whale.counts.v1.df$Counts)` in the `r whale.counts.v1.df[whale.counts.v1.df$Counts == min(whale.counts.v1.df$Counts), "Season"]` season to `r max(whale.counts.v1.df$Counts)` in the `r whale.counts.v1.df[whale.counts.v1.df$Counts == max(whale.counts.v1.df$Counts), "Season"]` season. 
 
 
-```{r Table-effort-v1, echo=FALSE}
-flextable(whale.counts.v1.df) %>% 
-  set_caption(paste0("Survey effort between the 2006/2007 and 2021/2022 seasons when Ver1.0 extraction code was used. Periods are the number of suvey periods (minimum of 85 and maximum of 95 minutes, and the total numbers of observed whales are in Counts."))  %>%
+```{r Table-effort-v1-v2, echo=FALSE}
+flextable(whale.counts.df) %>% 
+  set_caption(paste0("Survey effort between the 2006/2007 and 2021/2022 seasons. v1 indicates the output from Ver1.0 extraction code and v2 indicates the output from Ver2.0 extraction code. Periods are the number of suvey periods, minimum of 85 and maximum of 95 minutes, and the total numbers of observed whales during these periods are in Counts."))  %>%
   set_table_properties(width = 0.5, layout = "autofit")
 ```
 
 
-Using Ver1.0 extraction code, the abundance of gray whales during the 2021/2022 season was `r format(abundance.df.v1[nrow(abundance.df.v1), "Median"], scientific=F, digits = 6)` (95% CI: `r format(abundance.df.v1[nrow(abundance.df.v1), "LCL"], scientific=F, digits = 6)` - `r format(abundance.df.v1[nrow(abundance.df.v1), "UCL"], scientific=F, digits = 6)`). This estimate includes the multiplicative correction factor for the nighttime passage (mean = 1.0875, SD = 0.03625). This estimate was `r signif((abundance.df.v1[nrow(abundance.df.v1), "Median"] - abundance.df.v1[(nrow(abundance.df.v1)-1), "Median"])/abundance.df.v1[(nrow(abundance.df.v1)-1), "Median"], 3) * 100`% decline from the previous survey season (2019/2020, Figure \@ref(fig:Figure-nhats-v1), Table \@ref(tab:Table-nhats-v1)). 
+Using Ver1.0 extraction code, the abundance of gray whales during the 2021/2022 season was `r format(abundance.df.v1[nrow(abundance.df.v1), "Median"], scientific=F, digits = 6)` (95% CI: `r format(abundance.df.v1[nrow(abundance.df.v1), "LCL"], scientific=F, digits = 6)` - `r format(abundance.df.v1[nrow(abundance.df.v1), "UCL"], scientific=F, digits = 6)`). This estimate includes the multiplicative correction factor for the nighttime passage (mean = 1.0875, SD = 0.03625). This estimate was `r signif((abundance.df.v1[nrow(abundance.df.v1), "Median"] - abundance.df.v1[(nrow(abundance.df.v1)-1), "Median"])/abundance.df.v1[(nrow(abundance.df.v1)-1), "Median"], 3) * 100`% decline from the previous survey season (2019/2020, Figure \@ref(fig:Figure-nhats-v1), Table \@ref(tab:Table-nhats-v1-v2)). 
 
 
-```{r Table-nhats-v1, echo=FALSE, warning=FALSE}
-flextable(abundance.df.v1) %>% 
-  set_caption(paste0("Estimated abundance (Median) and 95% lower (LCL) and upper (UCL) credible intervals of gray whales from the visual surveys off Granite Canyon, CA, between the 2006/2007 and 2021/2022 seasons and Ver2.0 extraction code."))  %>%
+```{r Table-nhats-v1-v2, echo=FALSE, warning=FALSE}
+flextable(abundance.df.v1.v2) %>% 
+  set_caption(paste0("Estimated abundance (Median) and 95% lower (LCL) and upper (UCL) credible intervals of gray whales from the visual surveys off Granite Canyon, CA, between the 2006/2007 and 2021/2022 seasons. v1 and v2 indicate whether Ver1.0 or Ver2.0 extraction code was used to extract data from raw daat files, respectively."))  %>%
   set_table_properties(width = 0.5, layout = "autofit")
 ```
 
 
-```{r Figure-nhats-v1, echo=FALSE, message=FALSE, fig.cap="Estimated abundance and 95% credible intervals of gray whales from the visual surveys off Granite Canyon, CA, between the 2006/2007 and 2021/2022 seasons."}
+```{r Figure-nhats-v1, echo=FALSE, message=FALSE, fig.cap="Estimated abundance and 95% credible intervals of gray whales from the visual surveys off Granite Canyon, CA, between the 2006/2007 and 2021/2022 seasons and Ver1.0 extration code."}
 
 knitr::include_graphics("figures/nhats_v1.png")
 
@@ -1644,7 +1665,6 @@ knitr::include_graphics("figures/nhats_v1.png")
 ### Using outputs from Ver2.0 {-}
 
 ```{r Ver2-data, echo=FALSE, warning=FALSE, message= FALSE}
-
 
 p.Nhat.v2 <- ggplot(data = abundance.df.v2) + 
   geom_point(aes(x = Season, y = Median)) + 
@@ -1696,26 +1716,10 @@ if (save.fig)
 
 ```
 
-The output of Ver2.0 included `r min(whale.counts.v2.df$Periods)` to `r max(whale.counts.v2.df$Periods)` survey periods, where a survey period is between 85 and 95 minutes with some exceptions described above (Table \@ref(tab:Table-effort-v2)). The observed number of whales ranged from `r min(whale.counts.v2.df$Counts)` in the `r whale.counts.v2.df[whale.counts.v2.df$Counts == min(whale.counts.v2.df$Counts), "Season"]` season to `r max(whale.counts.v2.df$Counts)` in the `r whale.counts.v2.df[whale.counts.v2.df$Counts == max(whale.counts.v2.df$Counts), "Season"]` season. 
+The output of Ver2.0 included `r min(whale.counts.v2.df$Periods)` to `r max(whale.counts.v2.df$Periods)` survey periods, where a survey period is between 85 and 95 minutes with some exceptions described above (Table \@ref(tab:Table-effort-v1-v2)). The observed number of whales ranged from `r min(whale.counts.v2.df$Counts)` in the `r whale.counts.v2.df[whale.counts.v2.df$Counts == min(whale.counts.v2.df$Counts), "Season"]` season to `r max(whale.counts.v2.df$Counts)` in the `r whale.counts.v2.df[whale.counts.v2.df$Counts == max(whale.counts.v2.df$Counts), "Season"]` season. 
 
+Using Ver2.0 extraction code, the abundance of gray whales during the 2021/2022 season was `r format(abundance.df.v2[nrow(abundance.df.v2), "Median"], scientific=F, digits = 6)` (95% CI: `r format(abundance.df.v2[nrow(abundance.df.v2), "LCL"], scientific=F, digits = 6)` - `r format(abundance.df.v2[nrow(abundance.df.v2), "UCL"], scientific=F, digits = 6)`). This estimate includes the multiplicative correction factor for the nighttime passage (mean = 1.0875, SD = 0.03625). This estimate was `r signif((abundance.df.v2[nrow(abundance.df.v2), "Median"] - abundance.df.v2[(nrow(abundance.df.v2)-1), "Median"])/abundance.df.v2[(nrow(abundance.df.v2)-1), "Median"], 3) * 100`% decline from the previous survey season (2019/2020, Figure \@ref(fig:Figure-nhats-v2), Table \@ref(tab:Table-nhats-v1-v2)). 
 
-```{r Table-effort-v2, echo=FALSE}
-flextable(whale.counts.v2.df) %>% 
-  set_caption(paste0("Survey effort between the 2006/2007 and 2021/2022 seasons when Ver2.0 extraction code was used. Periods are the number of suvey periods (minimum of 85 and maximum of 95 minutes, and the total numbers of observed whales are in Counts."))  %>%
-  set_table_properties(width = 0.5, layout = "autofit")
-```
-
-
-Using Ver2.0 extraction code, the abundance of gray whales during the 2021/2022 season was `r format(abundance.df.v2[nrow(abundance.df.v2), "Median"], scientific=F, digits = 6)` (95% CI: `r format(abundance.df.v2[nrow(abundance.df.v2), "LCL"], scientific=F, digits = 6)` - `r format(abundance.df.v2[nrow(abundance.df.v2), "UCL"], scientific=F, digits = 6)`). This estimate includes the multiplicative correction factor for the nighttime passage (mean = 1.0875, SD = 0.03625). This estimate was `r signif((abundance.df.v2[nrow(abundance.df.v2), "Median"] - abundance.df.v2[(nrow(abundance.df.v2)-1), "Median"])/abundance.df.v2[(nrow(abundance.df.v2)-1), "Median"], 3) * 100`% decline from the previous survey season (2019/2020, Figure \@ref(fig:Figure-nhats-v2), Table \@ref(tab:Table-nhats-v2)). 
-
-
-```{r Table-nhats-v2, echo=FALSE, warning=FALSE}
-flextable(abundance.df.v2) %>% 
-  set_caption(paste0("Estimated abundance (Median) and 95% lower (LCL) and upper (UCL) credible intervals of gray whales from the visual surveys off Granite Canyon, CA, between the 2006/2007 and 2021/2022 seasons and Ver2.0 extraction code."))  %>%
-  set_table_properties(width = 0.5, layout = "autofit")
-```
-
-\newline
 
 ```{r Figure-nhats-v2, echo=FALSE, message=FALSE, fig.cap="Estimated abundance and 95% credible intervals of gray whales from the visual surveys off Granite Canyon, CA, between the 2006/2007 and 2021/2022 seasons and Ver2.0 extraction code."}
 
