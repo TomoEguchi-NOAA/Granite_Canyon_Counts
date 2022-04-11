@@ -26,7 +26,7 @@ periods <-c(136, 135, 164, 178, 179, 151)
 obs.list <- read.csv("Data/Observer list.csv", header = T) 
 colnames(obs.list) <- c("obs", "ID")
 
-
+ADD MEDIAN MIGRATION DATE FOR EACH YEAR
 ```
 
 ## Introduction {-}
