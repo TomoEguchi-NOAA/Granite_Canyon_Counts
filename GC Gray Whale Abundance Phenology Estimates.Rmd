@@ -78,26 +78,26 @@ for (k in 1:dim(Daily.Est.v2)[3]){
   # com.list[[k]] <- com[,,k]
   
   stats.list.v2[[k]] <- data.frame(Daily.Est.median = apply(Daily.Est.v2[,,k], 2,
-                                                         median),
-                                Daily.Est.LCL = apply(Daily.Est.v2[,,k], 2,
-                                                      quantile,0.275),
-                                Daily.Est.UCL = apply(Daily.Est.v2[,,k], 2,
-                                                      quantile,0.975),
-                                sp.median = apply(exp(sp.v2[,,k]), 2,
-                                                  median),
-                                sp.LCL = apply(exp(sp.v2[,,k]), 2,
-                                               quantile,0.025),
-                                sp.UCL = apply(exp(sp.v2[,,k]), 2,
-                                               quantile,0.975),
-                                com.median = apply(exp(com.v2[,,k]), 2,
-                                                   median),
-                                com.LCL = apply(exp(com.v2[,,k]), 2,
-                                                quantile,0.025),
-                                com.UCL = apply(exp(com.v2[,,k]), 2,
-                                                quantile,0.975),
-                                #total.median = apply(exp(sp[,,k]), 1, sum),
-                                days = 1:dim(Daily.Est.v2)[2],
-                                year = seasons[k])
+                                                            median),
+                                   Daily.Est.LCL = apply(Daily.Est.v2[,,k], 2,
+                                                         quantile,0.275),
+                                   Daily.Est.UCL = apply(Daily.Est.v2[,,k], 2,
+                                                         quantile,0.975),
+                                   sp.median = apply(exp(sp.v2[,,k]), 2,
+                                                     median),
+                                   sp.LCL = apply(exp(sp.v2[,,k]), 2,
+                                                  quantile,0.025),
+                                   sp.UCL = apply(exp(sp.v2[,,k]), 2,
+                                                  quantile,0.975),
+                                   com.median = apply(exp(com.v2[,,k]), 2,
+                                                      median),
+                                   com.LCL = apply(exp(com.v2[,,k]), 2,
+                                                   quantile,0.025),
+                                   com.UCL = apply(exp(com.v2[,,k]), 2,
+                                                   quantile,0.975),
+                                   #total.median = apply(exp(sp[,,k]), 1, sum),
+                                   days = 1:dim(Daily.Est.v2)[2],
+                                   year = seasons[k])
 }
 
 all.stats.v2 <- do.call("rbind", stats.list.v2) %>% group_by(year)
@@ -228,7 +228,10 @@ for (k in 1:x){
 median.idx.df <- data.frame(Season = seasons,
                             median.idx = median.idx)
 obsd.n.df <- data.frame(obsd.n)
+
+obsd.n.cumsum.df <- apply(obsd.n, MARGIN = 2, cumsum) %>% data.frame()
 colnames(obsd.n.df) <- seasons
+colnames(obsd.n.cumsum.df) <- seasons
 #obsd.n.df$days <- idx.vec
 obsd.n.df.long <- pivot_longer(obsd.n.df, everything(),
                                names_to = "Season", 
@@ -236,6 +239,13 @@ obsd.n.df.long <- pivot_longer(obsd.n.df, everything(),
   arrange(Season)
 
 obsd.n.df.long$days <- rep(1:nrow(obsd.n), times = x)
+
+obsd.n.cumsum.df.long <- pivot_longer(obsd.n.cumsum.df, everything(),
+                               names_to = "Season", 
+                               values_to = "Counts") %>%  
+  arrange(Season)
+
+obsd.n.cumsum.df.long$days <- rep(1:nrow(obsd.n), times = x)
 
 p.obsd.n <- ggplot(obsd.n.df.long) +
   geom_path(aes(x = days, y = Counts)) +
@@ -246,6 +256,18 @@ p.obsd.n <- ggplot(obsd.n.df.long) +
 
 if (save.fig)
   ggsave(filename = "figures/phenology.png",
+         device = "png", dpi = 600)
+
+p.obsd.n.cumu <- ggplot(obsd.n.cumsum.df.long) +
+  geom_path(aes(x = days, y = Counts)) +
+  facet_wrap(vars(Season)) + 
+  geom_vline(data = median.idx.df,
+             aes(xintercept = median.idx),
+             color = "red", size = 1) +
+  ylab("Cumulative counts")
+
+if (save.fig)
+  ggsave(filename = "figures/phenology_cumsum.png",
          device = "png", dpi = 600)
 
 ```
