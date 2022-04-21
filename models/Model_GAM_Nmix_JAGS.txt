@@ -1,0 +1,165 @@
+# N mixture gray whale model in jags 
+# In this version, I try to replace normal/spline models to 
+# GAM. 
+
+# Tomo Eguchi
+# 2022-04-21
+
+
+model{ 
+  
+  # count i
+  # station (Trailer) s
+  # year t
+    
+  ### Linking Lambda from N Mixture to Common Model
+   
+  # Below mirrors John's code, indexing lambda by periods instead of by days, with the reference vector to link it to the appropriate model day
+  for(t in 1:n.year){
+    for(j in 1:(periods[t]+2)){
+                      
+        # the gam model:
+        log(lambda[j,t]) <- log(Watch.Length[j,t]) + gam.fit[day[j,t],t] 
+
+    }#j
+  }#t
+  
+  ### N Mixture process
+  
+  for(t in 1:n.year){
+    for(j in 1:periods[t]){ # NOT periods + 2 because those day 1 & 90 anchor points are fixed, 
+                            # so N shouldn't be estimated for those, only for the days with true watch periods
+      for(s in 1:n.station){
+      
+        # N mixture model - two observations of 'true' N (passing whales), with different observation probabilities
+        n[j,s,t] ~ dbin(obs.prob[j,s,t], N[j,t]) 
+
+      }#s    
+    }#j
+  }#t
+
+  for(t in 1:n.year){
+    for(j in 1:(periods[t]+2)){ #periods + 2 to include the added anchor points of 0 whales at days 1 and 90
+
+      # Replicate John's code:
+      # Then, the 'true' N's for each period is distributed around a poisson mean whales per watch (lambda)
+      
+      N[j,t] ~ dpois(lambda[j,t]) 
+
+    }#j
+  }#t
+  
+  ### Observation probability
+  for(t in 1:n.year){
+    for(j in 1:periods[t]){
+      for(s in 1:n.station){
+
+        # Final obs prob = observer 1/0 * 
+        #                (base obs prob + BF on/off * Fixed effect of BF * BF + 
+        #                 VS on/off * Fixed effect of VS * VS    + 
+        #                Obs effect on/off * Random effect of observer)
+
+        # The below replicates Durban et al 2016 code:
+        logit(prob[j,s,t]) <- logit(mean.prob) + (BF.Switch * BF.Fixed * bf[j,t]) + (VS.Switch * VS.Fixed * vs[j,t]) + (OBS.Switch * OBS.RF[obs[j,s,t]])
+
+        # the u data is whether there were observers on watch. 
+        # 0 counts are often associated with years/shifts with 
+        # no second observer. So if u=0, it will fix observation probability at 0
+        obs.prob[j,s,t] <- u[j,s,t] * prob[j,s,t]
+                
+      }#s
+    }#j
+  }#t
+  
+  # Flat prior for mean.prob
+  mean.prob ~ dunif(0,1)
+  
+  ### Specification of terms within observation probability linear model
+  
+  ## Observer random effect
+  # SLECTED MODEL
+
+  for(o in 1:n.obs){
+    OBS.RF[o] ~ dnorm(0,tau.Obs)
+  }#o
+  
+  #Uninformative prior for tau.Obs
+  sigma.Obs ~ dunif(0,2)
+  tau.Obs <- pow(sigma.Obs,-2)
+       
+  OBS.Switch ~ dbern(0.5)
+  
+  ## Beaufort
+  BF.Switch ~ dbern(0.5) #uninformative prior for the BF.Switch, which determines whether to include the effect of beaufort conditions (multiply by 0 or 1)
+  
+  #Below is the single fixed effect multiplied by BF rating in the updated obs prob equation:
+  BF.Fixed ~ dnorm(0,0.01)
+  
+  ## Visibility
+  VS.Switch ~ dbern(0.5) #uninformative prior for the VS.Switch
+    
+  #Below is the single fixed effect multiplied by VS rating in the updated obs prob equation:
+  VS.Fixed ~ dnorm(0,0.01)
+  
+  ### Seasonal Curve (GAM)  
+  # Calculate the seasonal migration curve effect using gam:
+
+  ## output from jagam (variable names need to be changed here):
+  mu <- X %*% b ## expected response
+  for (i in 1:n) { 
+    y[i] ~ dnorm(mu[i], tau.y) 
+  } ## response 
+  
+  scale.y <- 1/tau.y ## convert tau to standard GLM scale
+  tau.y ~ dgamma(.05,.005) ## precision parameter prior 
+  
+  ## Parametric effect priors CHECK tau=1/2200^2 is appropriate!
+  for (i in 1:1) { b[i] ~ dnorm(0,2e-07) }
+  
+  ## prior for s(days):year1... 
+  K1 <- S1[1:9,1:9] * omega[1]  + S1[1:9,10:18] * omega[2]
+  b[2:10] ~ dmnorm(zero[2:10],K1) 
+  
+  ## prior for s(days):year2... 
+  K2 <- S2[1:9,1:9] * omega[3]  + S2[1:9,10:18] * omega[4]
+  b[11:19] ~ dmnorm(zero[11:19],K2) 
+
+  ## prior for s(days):year3... 
+  K3 <- S3[1:9,1:9] * omega[5]  + S3[1:9,10:18] * omega[6]  
+  b[20:28] ~ dmnorm(zero[20:28],K3) 
+
+  ## prior for s(days):year4... 
+  K4 <- S4[1:9,1:9] * omega[7]  + S4[1:9,10:18] * omega[8]
+  b[29:37] ~ dmnorm(zero[29:37],K4) 
+  
+  ## prior for s(days):year5... 
+  K5 <- S5[1:9,1:9] * omega[9]  + S5[1:9,10:18] * omega[10]
+  b[38:46] ~ dmnorm(zero[38:46],K5) 
+  
+  ## prior for s(days):year6... 
+  K6 <- S6[1:9,1:9] * omega[11]  + S6[1:9,10:18] * omega[12]
+  b[47:55] ~ dmnorm(zero[47:55],K6) 
+  
+  ## prior for s(days):year7... 
+  K7 <- S7[1:9,1:9] * omega[13]  + S7[1:9,10:18] * omega[14]
+  b[56:64] ~ dmnorm(zero[56:64],K7) 
+  
+  ## prior for s(days):year8... 
+  K8 <- S8[1:9,1:9] * omega[15]  + S8[1:9,10:18] * omega[16]
+  b[65:73] ~ dmnorm(zero[65:73],K8) 
+  
+  ## smoothing parameter priors CHECK...
+  for (i in 1:16) {
+    omega[i] ~ dgamma(.05,.005)
+    rho[i] <- log(omega[i])
+  }  ### End of output from jagam
+  # mu's are available only for days with observations. I need to 
+  # predict the days without observations...  This is not easy! 
+  
+  for (t in 1:n.year){
+    t.start <- (90 * (t-1)) + 1
+    gam.fit[,, t] <- Xp[t.start:(t.start + 89), col.idx[,t]] %*% b[col.idx[,t]]
+    
+  }  
+}#model
+    
