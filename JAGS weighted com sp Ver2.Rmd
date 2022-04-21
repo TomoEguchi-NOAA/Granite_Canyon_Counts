@@ -43,10 +43,6 @@ x <- length(seasons)
 #Ver2.results <- readRDS(paste0("RData/WinBUGS_", x, "yr_v2.rds"))
 Ver2.results <- readRDS(paste0("RData/WinBUGS_", x, "yr_100k_v2.rds"))
 
-```
-
-Get data prior to the 2021/2022 season:
-```{r}
 jags.data <- Ver2.results$jags.data
 jags.params <- c("lambda","OBS.RF","OBS.Switch",
                 "BF.Switch","BF.Fixed","VS.Switch",
