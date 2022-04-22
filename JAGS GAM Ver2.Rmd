@@ -43,9 +43,9 @@ jags.params <- c("lambda","OBS.RF","OBS.Switch",
                 "com","sp","Daily.Est","mean.beta",
                 "beta.sigma","beta","beta.sp","b.sp","sd.b.sp")
 
-MCMC.params <- list(n.samples = 20000,
-                   n.thin = 50,
-                   n.burnin = 5000,
+MCMC.params <- list(n.samples = 100000,
+                   n.thin = 80,
+                   n.burnin = 60000,
                    n.chains = 5)
 
 ```
@@ -168,7 +168,8 @@ ggplot() +
              aes(x = days, y = N)) +
   facet_wrap(vars(year))
 
-ggsave(filename = paste0("figures/GAM_fit_k", basis.dim, "_", family, ".png"),
+ggsave(filename = paste0("figures/GAM_fit_k", 
+                         basis.dim, "_", family, ".png"),
        device = "png", dpi = 600)
 ```
 

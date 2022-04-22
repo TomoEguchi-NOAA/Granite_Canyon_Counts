@@ -169,51 +169,97 @@ seasons <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011",
 # com <- Ver2.results$JAGS_out$sims.list$com
 Corrected.Est <- Ver2.results$JAGS_out$sims.list$Corrected.Est
 
-# Each one of them is (# samples) x (90 days) x (# years)
-# To plot them using ggplot's facet, I need to convert
-# these into 2D dataframes of statistics (upper and lower 
-# CIs, median, etc.)
-# Daily.Est.list <- sp.list <- com.list <- vector(mode = "list", 
-#                                                 length = dim(Daily.Est)[3])
-# 
-# Daily.Est.UCIs <- Daily.Est.LCIs <- vector(mode = "list",
-#                                            length = dim(Daily.Est)[3])
+Corrected.Est.Summary <- data.frame(median = apply(Corrected.Est, 
+                                                   MARGIN = 2, 
+                                                   FUN = median),
+                                    LCL = apply(Corrected.Est, 
+                                                MARGIN = 2,
+                                                FUN = quantile, 0.025),
+                                    UCL = apply(Corrected.Est, 
+                                                MARGIN = 2,
+                                                FUN = quantile, 0.975),
+                                    year = seasons)
 
-stats.list <- vector(mode = "list",
-                     length = dim(Corrected.Est)[3])
+ggplot(Corrected.Est.Summary) +
+  geom_point(aes(x = year, y = median)) +
+  geom_errorbar(aes(x = year, ymin = LCL, ymax = UCL))
+```
 
-for (k in 1:dim(Daily.Est)[3]){
-  # Daily.Est.list[[k]] <- Daily.Est[,,k]
-  # Daily.Est.UCIs[[k]] <- apply(Daily.Est[,,k],2,quantile,0.975)
-  # Daily.Est.LCIs[[k]] <- apply(Daily.Est[,,k],2,quantile,0.275)
-  # 
-  # sp.list[[k]] <- sp[,,k]
-  # com.list[[k]] <- com[,,k]
-  
-  stats.list[[k]] <- data.frame(Corrected.Est.median = apply(Daily.Est[,,k], 2,
-                                                         median),
-                                Corrected.Est.LCL = apply(Daily.Est[,,k], 2,
-                                                      quantile,0.275),
-                                Corrected.Est.UCL = apply(Daily.Est[,,k], 2,
-                                                      quantile,0.975),
-                                #total.median = apply(exp(sp[,,k]), 1, sum),
-                                days = 1:dim(Daily.Est)[2],
-                                year = seasons[k])
+
+```{r}
+
+gam.fit <- Ver2.results$JAGS_out$sims.list$gam.fit
+
+median.daily <- apply(gam.fit, MARGIN = 2:3, FUN = median) %>%
+  data.frame() 
+colnames(median.daily) <- seasons
+median.daily %>% pivot_longer(cols = everything(),
+                              names_to = "Season",
+                              values_to = "Median") %>%
+  arrange(Season) -> median.df
+
+LCL.daily <- apply(gam.fit, MARGIN = 2:3, FUN = quantile, 0.025) %>%
+  data.frame()
+colnames(LCL.daily) <- seasons
+LCL.daily %>% pivot_longer(cols = everything(),
+                              names_to = "Season",
+                              values_to = "LCL") %>%
+  arrange(Season) -> LCL.df
+
+UCL.daily <- apply(gam.fit, MARGIN = 2:3, FUN = quantile, 0.975) %>%
+  data.frame()
+colnames(UCL.daily) <- seasons
+UCL.daily %>% pivot_longer(cols = everything(),
+                              names_to = "Season",
+                              values_to = "UCL") %>%
+  arrange(Season) -> UCL.df
+
+gam.daily <- data.frame(Season = median.df$Season,
+                        median = median.df$Median,
+                        LCL = LCL.df$LCL,
+                        UCL = UCL.df$UCL,
+                        days = rep(1:90, times = x))
+
+# put together observed n -> total N per day
+daily.effort <- daily.counts <- daily.N <- matrix(nrow = 90, ncol = x)
+Watch.Length <- Ver2.results$jags.data$Watch.Length
+day.mat <- Ver2.results$jags.data$day
+ns <- rbind(Ver2.results$jags.data$n[,1,], matrix(NA, nrow = 2, ncol = x))
+
+for (y in 1:x){
+  for (j in 1:90){
+    if (j == 1 | j == 90){
+      daily.effort[j,y] <- 0
+      daily.counts[j,y] <- 0
+      daily.N[j,y] <- 0
+    } else {
+      daily.effort[j, y] <- sum(Watch.Length[day.mat[,y] == j, y], na.rm = T)
+      daily.counts[j, y] <- sum(ns[day.mat[,y] == j, y], na.rm = T)
+      daily.N[j, y] <- ceiling(daily.counts[j,y]/daily.effort[j,y])
+      
+    }
+  }
 }
+  
+daily.N.df <- data.frame(daily.N) 
+colnames(daily.N.df) <- seasons
+daily.N.df %>% pivot_longer(everything(),
+                            names_to = "Season", 
+                            values_to = "N") %>%  
+  arrange(Season) -> daily.N.df.long
 
-all.stats <- do.call("rbind", stats.list) %>% group_by(year)
+daily.N.df.long$days <- rep(1:90, times = x)
 
-ggplot(data = all.stats) + 
-  geom_line(aes(x = days, y = sp.median)) + 
-  geom_line(aes(x = days, y = com.median)) +
+ggplot(data = gam.daily) + 
+  geom_line(aes(x = days, y = median)) + 
   geom_ribbon(aes(x = days, 
-                  ymin = sp.LCL, 
-                  ymax = sp.UCL),
+                  ymin = LCL, 
+                  ymax = UCL),
               fill = "orange", 
               alpha = 0.5) +
-  geom_line(aes(x = days, y = com.median),
-            color = "red") +
-  facet_wrap(vars(year)) +
+  geom_point(data = daily.N.df.long,
+             aes(x = days, y = N)) +
+  facet_wrap(vars(Season)) +
   xlab("Days since December 1") + 
   ylab("Whales per day")
 

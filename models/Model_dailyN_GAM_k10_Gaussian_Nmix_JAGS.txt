@@ -1,6 +1,6 @@
 # N mixture gray whale model in jags 
 # In this version, I try to replace normal/spline models to 
-# GAM with the gamma family and basis dimension (k) = 10. 
+# GAM. 
 
 # Tomo Eguchi
 # 2022-04-21
