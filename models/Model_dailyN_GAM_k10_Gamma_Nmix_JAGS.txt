@@ -101,30 +101,84 @@ model{
   #Below is the single fixed effect multiplied by VS rating in the updated obs prob equation:
   VS.Fixed ~ dnorm(0,0.01)
   
-  ### Seasonal Curve (GAM)  - Done outside. The only problem is that the uncertainty in 
-  # estimated b's is not brought in... Currently, just the mean values. 
-  
-  # b, Xp, t.start, and col.idx enter through data.
-  for (t in 1:n.year){
-    gam.fit[1:90, t] <- Xp[t.start[t]:(t.start[t]+89), col.idx[,t]] %*% b[col.idx[,t]]
-    
+  ### Seasonal Curve (GAM)  - output of jagam
+  # This section is run outside of this script first to create
+  # the design matrix and a new predictor matrix that include
+  # all dates for all years. 
+
+  # X is the design matrix for y ~ s(days, by = year, k) with Gaussian family
+  # y is the 'observed' daily counts = counts/effort (in unit of days)
+  mu <- X %*% b ## expected response
+
+  # n.data is the number of data points - no NAs.
+  ## response
+  for (i in 1:n.data) { 
+    #y[i] ~ dnorm(mu[i], tau.daily.N)
+    y[i] ~ dgamma(r,r/mu[i])
+    #y[i] ~ dpois(mu[i])   # doesn't work (maybe put them in log scale) 
   }  
+  
+  r ~ dgamma(.05,.005) ## scale parameter prior 
+  scale.daily.N <- 1/r ## convert r to standard GLM scale
+
+  #scale.daily.N <- 1/tau.daily.N ## convert tau to standard GLM scale
+  #tau.daily.N ~ dgamma(.05,.005) ## precision parameter prior 
+
+  ## Parametric effect priors CHECK tau=1/2200^2 is appropriate!
+  for (i in 1:1) { b[i] ~ dnorm(0,2e-07) }
+  ## prior for s(days):year1... 
+  K1 <- S1[1:9,1:9] * omega[1]  + S1[1:9,10:18] * omega[2]
+  b[2:10] ~ dmnorm(zero[2:10],K1) 
+
+  ## prior for s(days):year2... 
+  K2 <- S2[1:9,1:9] * omega[3]  + S2[1:9,10:18] * omega[4]
+  b[11:19] ~ dmnorm(zero[11:19],K2) 
+  
+  ## prior for s(days):year3... 
+  K3 <- S3[1:9,1:9] * omega[5]  + S3[1:9,10:18] * omega[6]
+  b[20:28] ~ dmnorm(zero[20:28],K3) 
+  
+  ## prior for s(days):year4... 
+  K4 <- S4[1:9,1:9] * omega[7]  + S4[1:9,10:18] * omega[8]
+  b[29:37] ~ dmnorm(zero[29:37],K4) 
+  
+  ## prior for s(days):year5... 
+  K5 <- S5[1:9,1:9] * omega[9]  + S5[1:9,10:18] * omega[10]
+  b[38:46] ~ dmnorm(zero[38:46],K5) 
+  
+  ## prior for s(days):year6... 
+  K6 <- S6[1:9,1:9] * omega[11]  + S6[1:9,10:18] * omega[12]
+  b[47:55] ~ dmnorm(zero[47:55],K6) 
+  
+  ## prior for s(days):year7... 
+  K7 <- S7[1:9,1:9] * omega[13]  + S7[1:9,10:18] * omega[14]
+  b[56:64] ~ dmnorm(zero[56:64],K7) 
+  
+  ## prior for s(days):year8... 
+  K8 <- S8[1:9,1:9] * omega[15]  + S8[1:9,10:18] * omega[16]
+  b[65:73] ~ dmnorm(zero[65:73],K8) 
+  
+  ## smoothing parameter priors CHECK...
+  for (i in 1:16) {
+    omega[i] ~ dgamma(.05,.005)
+    rho[i] <- log(omega[i])
+  }
     
   ### Summaries, Abundance Estimates, and Other Derived Quantities
-  
+  # new.X, col.idx, and t.start are in data:
   ## Seasonal Abundance Estimate:
+  # I use the estimated b's above and the new data to 'predict' all data
   for(t in 1:n.year){
-    for(d in 1:90){
-      # Daily estimate, based on gam
-      Daily.Est[d,t] <- gam.fit[d,t] 
+    gam.fit[1:90, t] <- new.X[t.start[t]:(t.start[t]+89), col.idx[,t]] %*% b[col.idx[,t]]  
 
-    }#d
-    raw.unrounded[t] <- sum(Daily.Est[1:90,t])
-    Raw.Est[t] <- round(raw.unrounded[t])
-    #Raw.Est[t] <- sum(Daily.Est[1:90,t])
-    Corrected.Est[t] <- Raw.Est[t]*corr.factor # multiply raw estimates by correction factor for nighttime passage rates (below)
   }#t
-  
+
+  for (t in 1:n.year){
+    raw.unrounded[t] <- sum(gam.fit[1:90,t])
+    Raw.Est[t] <- round(raw.unrounded[t])
+    Corrected.Est[t] <- Raw.Est[t]*corr.factor # multiply raw estimates by correction factor for nighttime passage rates (below)
+
+  } 
   # Correction factor for nighttime passage rates:
   corr.factor~dnorm(mean.corr,tau.corr)
   mean.corr<-1.0875

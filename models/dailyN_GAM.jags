@@ -1,0 +1,37 @@
+model {
+  mu <- X %*% b ## expected response
+  for (i in 1:n) { y[i] ~ dnorm(mu[i],tau) } ## response 
+  scale <- 1/tau ## convert tau to standard GLM scale
+  tau ~ dgamma(.05,.005) ## precision parameter prior 
+  ## Parametric effect priors CHECK tau=1/2300^2 is appropriate!
+  for (i in 1:1) { b[i] ~ dnorm(0,1.9e-07) }
+  ## prior for s(days):year1... 
+  K1 <- S1[1:9,1:9] * lambda[1]  + S1[1:9,10:18] * lambda[2]
+  b[2:10] ~ dmnorm(zero[2:10],K1) 
+  ## prior for s(days):year2... 
+  K2 <- S2[1:9,1:9] * lambda[3]  + S2[1:9,10:18] * lambda[4]
+  b[11:19] ~ dmnorm(zero[11:19],K2) 
+  ## prior for s(days):year3... 
+  K3 <- S3[1:9,1:9] * lambda[5]  + S3[1:9,10:18] * lambda[6]
+  b[20:28] ~ dmnorm(zero[20:28],K3) 
+  ## prior for s(days):year4... 
+  K4 <- S4[1:9,1:9] * lambda[7]  + S4[1:9,10:18] * lambda[8]
+  b[29:37] ~ dmnorm(zero[29:37],K4) 
+  ## prior for s(days):year5... 
+  K5 <- S5[1:9,1:9] * lambda[9]  + S5[1:9,10:18] * lambda[10]
+  b[38:46] ~ dmnorm(zero[38:46],K5) 
+  ## prior for s(days):year6... 
+  K6 <- S6[1:9,1:9] * lambda[11]  + S6[1:9,10:18] * lambda[12]
+  b[47:55] ~ dmnorm(zero[47:55],K6) 
+  ## prior for s(days):year7... 
+  K7 <- S7[1:9,1:9] * lambda[13]  + S7[1:9,10:18] * lambda[14]
+  b[56:64] ~ dmnorm(zero[56:64],K7) 
+  ## prior for s(days):year8... 
+  K8 <- S8[1:9,1:9] * lambda[15]  + S8[1:9,10:18] * lambda[16]
+  b[65:73] ~ dmnorm(zero[65:73],K8) 
+  ## smoothing parameter priors CHECK...
+  for (i in 1:16) {
+    lambda[i] ~ dgamma(.05,.005)
+    rho[i] <- log(lambda[i])
+  }
+}

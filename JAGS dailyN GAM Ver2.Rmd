@@ -1,0 +1,294 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This notebook describes abundance estimation of gray whales using a modified version of Durban's WinBUGS code and Ver2.0 data extraction method. In this version, I replace the normal/spline curves with GAMs. 
+
+
+Set up libraries
+
+```{r}
+rm(list=ls())
+library(abind)
+library(jagsUI)
+library(tidyverse)
+library(bayesplot)
+library(mgcv)
+
+# # periods for the 6 survey years
+periods <-c(136, 135, 164, 178, 179, 151)
+
+# Observer list gets updated as new observers are added. 
+obs.list <- read.csv("Data/Observer list.csv", header = T) 
+colnames(obs.list) <- c("obs", "ID")
+seasons <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011", 
+             "2014/2015", "2015/2016", "2019/2020", "2021/2022")
+
+x <- length(seasons)
+
+# basis dimension - changes the jags script
+basis.dim <- 10
+#family <- "gaussian"
+family <- "gamma"
+
+# CHANGE THIS LINE BACK
+#Ver2.results <- readRDS(paste0("RData/WinBUGS_", x, "yr_v2.rds"))
+Ver2.results <- readRDS(paste0("RData/WinBUGS_", x, "yr_100k_v2.rds"))
+jagam.out <- readRDS(paste0("RData/jagam_dailyN_k", basis.dim, "_", family, ".rds"))
+jags.fit <- readRDS(paste0("RData/jagam_dailyN_k", basis.dim, "_", family, "_jags.rds"))
+
+jam <- sim2jam(jags.fit$jm.gam, jagam.out$jags.gam$pregam)
+
+#plot(jam)
+pred.data <- data.frame(days = rep(1:90, x),
+                        year = rep(1:x, each = 90))
+
+Xp <- predict(jam, newdata = pred.data, type = "lpmatrix")
+
+# original data
+jags.data.v2 <- Ver2.results$jags.data 
+
+# select data that are needed:
+jags.data <- list(n = jags.data.v2$n,
+                  n.station = jags.data.v2$n.station,
+                  n.year = jags.data.v2$n.year,
+                  n.obs = jags.data.v2$n.obs,
+                  periods = jags.data.v2$periods,
+                  obs = jags.data.v2$obs,
+                  u = jags.data.v2$u,
+                  vs = jags.data.v2$vs,
+                  bf = jags.data.v2$bf,
+                  day = jags.data.v2$day,
+                  N = jags.data.v2$N,
+                  Watch.Length = jags.data.v2$Watch.Length,
+                  X = jagam.out$jags.gam$jags.data$X,
+                  y = jagam.out$jags.gam$jags.data$y,
+                  n.data = jagam.out$jags.gam$jags.data$n,
+                  zero = jagam.out$jags.gam$jags.data$zero,
+                  S1 = jagam.out$jags.gam$jags.data$S1,
+                  S2 = jagam.out$jags.gam$jags.data$S2,
+                  S3 = jagam.out$jags.gam$jags.data$S3,
+                  S4 = jagam.out$jags.gam$jags.data$S4,
+                  S5 = jagam.out$jags.gam$jags.data$S5,
+                  S6 = jagam.out$jags.gam$jags.data$S6,
+                  S7 = jagam.out$jags.gam$jags.data$S7,
+                  S8 = jagam.out$jags.gam$jags.data$S8,
+                  t.start = (((1:x)-1) * 90) + 1,
+                  col.idx = rbind(rep(1, times = x), 
+                                  matrix(2:73, ncol = x)),
+                  new.X = Xp)
+
+
+jags.params <- c("lambda", "OBS.RF", "OBS.Switch",
+                "BF.Switch", "BF.Fixed", "VS.Switch",
+                "VS.Fixed", "mean.prob", "mean.prob.com",
+                "Corrected.Est", "Raw.Est",
+                "gam.fit", "mean.beta",
+                "beta.sigma","beta", "scale.daily.N",
+                "b")
+
+MCMC.params <- list(n.samples = 10000,
+                   n.thin = 50,
+                   n.burnin = 5000,
+                   n.chains = 5)
+
+# ni <- 100000
+# nt <- 80
+# nb <- 60000
+# nc <- 3
+
+inits.list <- list(mean.prob = 0.5,
+                   BF.Fixed = 0,
+                   VS.Fixed = 0,
+                   mean.beta = c(0,0,0), #mean.beta = c(5,0.14,-3.5),
+                   beta.sigma = c(1,1,1),#beta.sigma = c(7,7,7),
+                   BF.Switch = 1,
+                   VS.Switch = 1,
+                   OBS.Switch = 1,
+                   sigma.Obs = 1,
+                   N = Ver2.results$N_inits,
+                   b = jagam.out$jags.gam$jags.ini$b,
+                   omega = jagam.out$jags.gam$jags.ini$lambda)
+                   #z = matrix(1,nrow=90,ncol=6),
+
+  
+```
+
+
+For the seasonal curves, a separate analysis was done in JAGS GAM Ver2.Rmd, where GAM was fitted to the observed numbers of whales per day. The 'jagam' function from mgcv was used to create a jags GAM script and a data list. The script was incorporated into the script that fits counts from search periods (1.5 hr shifts). 
+
+Run jags if it hasn't been run..
+
+```{r}
+if (!file.exists(paste0("RData/JAGS_dailyN_GAM_k", 
+                        basis.dim, "_", family, 
+                        "_Nmix_", x, "yr_v2.rds"))){
+  
+  #Run time: 
+  Start_Time<-Sys.time()
+  jm <- jags(jags.data,
+             inits = rep(list(inits.list), MCMC.params$n.chains),
+             parameters.to.save= jags.params,
+             model.file = paste0("models/Model_dailyN_GAM_k", 
+                                 basis.dim, "_", family, "_Nmix_JAGS.txt"),
+             n.chains = MCMC.params$n.chains,
+             n.burnin = MCMC.params$n.burnin,
+             n.thin = MCMC.params$n.thin,
+             n.iter = MCMC.params$n.samples,
+             DIC = T, parallel=T)
+    
+  Run_Time <- Sys.time() - Start_Time
+  Ver2.results <- list(jags.data = jags.data,
+                       inits = inits.list,
+                       JAGS_out = jm,
+                       Run_Time = Run_Time,
+                       Run_Date = Sys.Date())
+  saveRDS(Ver2.results, 
+          paste0("RData/JAGS_dailyN_GAM_k",
+                 basis.dim, "_", family, "_Nmix_", x, "yr_v2.rds"))
+  
+} else {
+  Ver2.results <- readRDS(paste0("RData/JAGS_dailyN_GAM_k", 
+                                 basis.dim, "_", family, 
+                                 "_Nmix_", x, "yr_v2.rds"))
+  
+}
+```
+
+
+Make some plots:
+
+```{r}
+seasons <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011", 
+             "2014/2015", "2015/2016", "2019/2020", "2021/2022")
+
+# Extract estimated counts
+# Daily.Est <- Ver2.results$JAGS_out$sims.list$Daily.Est
+# sp <- Ver2.results$JAGS_out$sims.list$sp
+# com <- Ver2.results$JAGS_out$sims.list$com
+Corrected.Est <- Ver2.results$JAGS_out$sims.list$Corrected.Est
+
+# Each one of them is (# samples) x (90 days) x (# years)
+# To plot them using ggplot's facet, I need to convert
+# these into 2D dataframes of statistics (upper and lower 
+# CIs, median, etc.)
+# Daily.Est.list <- sp.list <- com.list <- vector(mode = "list", 
+#                                                 length = dim(Daily.Est)[3])
+# 
+# Daily.Est.UCIs <- Daily.Est.LCIs <- vector(mode = "list",
+#                                            length = dim(Daily.Est)[3])
+
+stats.list <- vector(mode = "list",
+                     length = dim(Corrected.Est)[3])
+
+for (k in 1:dim(Daily.Est)[3]){
+  # Daily.Est.list[[k]] <- Daily.Est[,,k]
+  # Daily.Est.UCIs[[k]] <- apply(Daily.Est[,,k],2,quantile,0.975)
+  # Daily.Est.LCIs[[k]] <- apply(Daily.Est[,,k],2,quantile,0.275)
+  # 
+  # sp.list[[k]] <- sp[,,k]
+  # com.list[[k]] <- com[,,k]
+  
+  stats.list[[k]] <- data.frame(Corrected.Est.median = apply(Daily.Est[,,k], 2,
+                                                         median),
+                                Corrected.Est.LCL = apply(Daily.Est[,,k], 2,
+                                                      quantile,0.275),
+                                Corrected.Est.UCL = apply(Daily.Est[,,k], 2,
+                                                      quantile,0.975),
+                                #total.median = apply(exp(sp[,,k]), 1, sum),
+                                days = 1:dim(Daily.Est)[2],
+                                year = seasons[k])
+}
+
+all.stats <- do.call("rbind", stats.list) %>% group_by(year)
+
+ggplot(data = all.stats) + 
+  geom_line(aes(x = days, y = sp.median)) + 
+  geom_line(aes(x = days, y = com.median)) +
+  geom_ribbon(aes(x = days, 
+                  ymin = sp.LCL, 
+                  ymax = sp.UCL),
+              fill = "orange", 
+              alpha = 0.5) +
+  geom_line(aes(x = days, y = com.median),
+            color = "red") +
+  facet_wrap(vars(year)) +
+  xlab("Days since December 1") + 
+  ylab("Whales per day")
+
+```
+
+
+
+```{r}
+
+#Com vs Sp
+ggplot(data = all.stats) +
+  geom_line(aes(x = days, y = sp.median)) +
+  geom_ribbon(aes(x = days, 
+                  ymin = sp.LCL, 
+                  ymax = sp.UCL),
+              fill = "orange", alpha = 0.5) + 
+  facet_wrap(vars(year))+
+  xlab("Days since December 1") + 
+  ylab("Whales per day (spline)")
+
+
+
+```
+
+
+```{r}
+
+ggplot(data = all.stats) +
+  geom_line(aes(x = days, y = com.median)) +
+  geom_ribbon(aes(x = days, 
+                  ymin = com.LCL, 
+                  ymax = com.UCL),
+              fill = "orange", alpha = 0.5) + 
+  facet_wrap(vars(year))+
+  xlab("Days since December 1") + 
+  ylab("Whales per day (Normal)")
+
+```
+
+
+```{r}
+
+ggplot(data = all.stats) +
+  geom_line(aes(x = days, y = Daily.Est.median)) +
+  geom_ribbon(aes(x = days, 
+                  ymin = Daily.Est.LCL, 
+                  ymax = Daily.Est.UCL),
+              fill = "orange", 
+              alpha = 0.5) + 
+  facet_wrap(vars(year))+
+  xlab("Days since December 1") + 
+  ylab("Whales per day")
+
+
+```
+
+Total abundance
+```{r}
+abundance.df <- data.frame(total.median = apply(Corrected.Est, 
+                                                FUN = median, 
+                                                MARGIN = 2),
+                           total.LCL = apply(Corrected.Est, 
+                                             MARGIN = 2, 
+                                             FUN = quantile, 0.025),
+                           total.UCL = apply(Corrected.Est, 
+                                             MARGIN = 2, 
+                                             FUN = quantile, 0.975),
+                           Season = seasons)
+
+
+ggplot(data = abundance.df) + 
+  geom_point(aes(x = Season, y = total.median)) + 
+  geom_errorbar(aes(x = Season, ymin = total.LCL, ymax = total.UCL))
+
+#median(apply(exp(sp[,,4]),1,sum))
+
+```
+
