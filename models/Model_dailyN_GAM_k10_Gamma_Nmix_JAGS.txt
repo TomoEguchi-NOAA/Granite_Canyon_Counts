@@ -77,8 +77,6 @@ model{
   ### Specification of terms within observation probability linear model
   
   ## Observer random effect
-  # SLECTED MODEL
-
   for(o in 1:n.obs){
     OBS.RF[o] ~ dnorm(0,tau.Obs)
   }#o
@@ -108,7 +106,8 @@ model{
 
   # X is the design matrix for y ~ s(days, by = year, k) with Gaussian family
   # y is the 'observed' daily counts = counts/effort (in unit of days)
-  mu <- X %*% b ## expected response
+  ## expected response
+  mu <- X %*% b 
 
   # n.data is the number of data points - no NAs.
   ## response
@@ -165,7 +164,9 @@ model{
   }
     
   ### Summaries, Abundance Estimates, and Other Derived Quantities
-  # new.X, col.idx, and t.start are in data:
+  # new.X, col.idx, and t.start are in data. If I could figure out how to create
+  # new.X within here, that'd make things a lot cleaner. 
+  
   ## Seasonal Abundance Estimate:
   # I use the estimated b's above and the new data to 'predict' all data
   # gamma link is inverse. So, we have to anti-inverse
