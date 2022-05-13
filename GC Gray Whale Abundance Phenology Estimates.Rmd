@@ -1,5 +1,5 @@
 ---
-title: "Gray whale abundance estimates update (2022)"
+title: "ABUNDANCE OF EASTERN NORTH PACIFIC GRAY WHALES 2021/2022"
 author: "Tomo Eguchi"
 date: "`r Sys.Date()`"
 output: 
@@ -36,13 +36,24 @@ x <- length(seasons)
 
 In this document, I provide the estimated abundance and migration phenology of gray whales from the data collected at Granite Canyon, CA. I used the same statistical model (N-mixture model; Durban et al. 2016) as in the previous years (e.g., Stewart and Weller 2021). 
 
-## Abundance estimates {-}
+The Southwest Fisheries Science Center (SWFSC) regularly conducts shore-based surveys of eastern North Pacific (ENP) gray whales (Eschrichtius robustus) to estimate abundance. These estimates are obtained from visual survey data collected off central California between December and February during the gray whale southward migration, and provide regular updates to a time series of estimates that began in 1967 (see Laake et al. 2012, Durban et al. 2015; 2017). Surveys have recorded a generally increasing trend in ENP gray whale abundance, with the most recent estimate from 2016 of 26,960 whales, indicating that the population has roughly doubled since 1967 when it was estimated at 13,426 whales (Fig. 1). This report presents a new estimate of abundance for ENP gray whales migrating southward off the central California coast between December 2021 and February 2022.
 
-In this section I provide summary statistics for the output from Ver2.0 and abundance estimates of gray whales for the 2006/2007 (2007 data), 2007/2008 (2008 data), 2009/2010 (2010 data), 2010/2011 (2011 data), 2014/2015 (2015 data), 2015/2016 (2016 data), 2019/2020 (2020 data), and 2021/2022 (2022 data) seasons. WinBUGS code (Stewart and Weller 2021) was used to fit the N-mixture model (Durban et al. 2016) to the data from the 8 surveys.
+## Methods {-}
 
-NEED TO USE THE MOST RECENT OUTPUT FILE IN THE DESKTOP COMPTUER
+Data for this updated abundance estimate were collected during the 2021-2022 southward ENP gray whale migration between X and Y. Counts were made from a shore-based watch station at Granite Canyon, California, by teams of observer pairs rotating from a larger pool. These surveys are designed to target the main migration period from late December to mid-February and do not typically cover the early onset or late offset of the migration when few whales are observed. Sampling and analytical methods are described in Durban et al. (2015; 2017; Fig. 1).  
 
-```{r Ver2-data, echo=FALSE, warning=FALSE, message= FALSE}
+The estimate of abundance reported here was generated using the N-mixture modeling approach used previously by SWFSC for surveys conducted between 2006 and 2020 (Durban et al. 2015; 2017). In this approach, the sighting probability of shore-based observers is estimated by using data from replicate surveys (i.e., data collected simultaneously by two independent observer teams) that were completed in 2009/10 and 2010/11. These sighting probability estimates allow the total number of whales passing through the survey area during a watch period to be estimated from the observed number of whales, even in years when replicate surveys are not conducted.
+
+In the analysis of data, the start date of the southward migration for the Granite Canyon study site is set as 1 December and the end date as 28 February by fixing the number of whales passing the watch station on those two dates to zero. The model fits two possible migration curves based on the observed number of whales, including: (a) a normal distribution where the peak in the number of whales passing daily occurs at the model-estimated midpoint of the migration, and (b) a spline fit that allows the overall migration curve to flexibly match the observed sightings without expectations about the shape of the curve. The model then internally selects which of these two candidate migration curves best matches the daily number of observed whales. The final abundance estimate is the sum of the total number of whales passing the survey area each day (i.e., both observed whales and the estimated number of unobserved whales), with a correction factor applied to account for a small number of whales that may pass too far offshore to be observed by shore-based observers. The modeling approach is described in detail in Durban et al. (2015; 2017).
+
+## Results {-}
+
+### Abundance estimates {-}
+
+From D1 through D2, N trained observers completed Z hours of survey effort over ZZ survey days. A total of X gray whales were counted, with the highest daily count of Y whales on DATE. 
+
+
+```{r Ver1-data, echo=FALSE, warning=FALSE, message= FALSE}
 
 # CHANGE THIS LINE BACK
 #Ver2.results <- readRDS(paste0("RData/WinBUGS_", x, "yr_v2.rds"))
