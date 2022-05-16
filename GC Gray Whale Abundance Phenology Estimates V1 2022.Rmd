@@ -15,9 +15,26 @@ source("Granite_Canyon_Counts_fcns.R")
 library(tidyverse)
 library(lubridate)
 library(flextable)
+library(readr)
 
 set_flextable_defaults(font.size = 9,
                        font.family = "Cambria")
+
+# Estimates from Laake et al. are here:
+col.defs <- cols(Year = col_character(),
+                 Nhat = col_double(),
+                 CV = col_double())
+
+Laake.estimates <- read_csv(file = "Data/Laake et al 2012 Table 9 Nhats.csv",
+                            col_types = col.defs) %>% 
+  mutate(SE = CV * Nhat,
+         LCL = Nhat - 1.96 * SE,
+         UCL = Nhat + 1.96 * SE,
+         Season = lapply(strsplit(Year, "_"), 
+                         FUN = function(x) paste0(x[1], "/", x[2])) %>% 
+           unlist) %>% 
+  select(Season, Nhat, SE, LCL, UCL)
+
 # some constants here:
 # # periods for the 6 survey years
 periods <-c(136, 135, 164, 178, 179, 151)
@@ -57,6 +74,22 @@ survey.hrs <- 24 * (tmp.E$begin - tmp.B$begin)
 
 data.all %>% select(V3) %>%
   mutate(Date = as.Date(V3, format = "%m/%d/%Y")) -> survey.dates 
+
+# sightings
+data.all %>% filter(V2 == "S") %>%
+  mutate(Date = as.Date(V3, format = "%m/%d/%Y"),
+         GroupID = as.numeric(V5), 
+         n = as.numeric(V9)) %>%
+  select(Date, GroupID, n) %>%
+  group_by(Date, GroupID) %>% #group by the whale group number
+  #summarize(N = max(as.numeric(V9), na.rm = T)) %>% 
+  summarize(N = last(n)) -> whale.groups
+
+# daily counts
+whale.groups %>%
+  group_by(Date) %>%
+  summarize(N = sum(N)) -> whale.groups.daily
+
 ```
 
 ## Introduction {-}
@@ -67,20 +100,24 @@ The Southwest Fisheries Science Center (SWFSC) regularly conducts shore-based su
 
 Data for this updated abundance estimate were collected during the 2021-2022 southward ENP gray whale migration between `r min(as.Date(data.first.2022$V3, format = "%m/%d/%Y"))` and `r max(as.Date(data.last.2022$V3, format = "%m/%d/%Y"))`. Counts were made from a shore-based watch station at Granite Canyon, California, by teams of observer pairs rotating from a larger pool. These surveys are designed to target the main migration period from late December to mid-February and do not typically cover the early onset or late offset of the migration when few whales are observed. Sampling and analytical methods are described in Durban et al. (2015; 2017; Fig. 1).  
 
+
 The estimate of abundance reported here was generated using the N-mixture modeling approach used previously by SWFSC for surveys conducted between 2006 and 2020 (Durban et al. 2015; 2017, Stewart and Weller 2021). In this approach, the sighting probability of shore-based observers is estimated by using data from replicate surveys (i.e., data collected simultaneously by two independent observer teams) that were completed in 2009/10 and 2010/11. These sighting probability estimates allow the total number of whales passing through the survey area during a watch period to be estimated from the observed number of whales, even in years when replicate surveys are not conducted.
 
+
 In the analysis of data, the start date of the southward migration for the Granite Canyon study site is fixed at 1 December and the end date at 28 February, where the number of whales passing the watch station on those two dates is assumed zero. The approach is based on the assumption that the observed daily counts are random deviate from binomial distributions with the estimated sighting probability from replicate surveys and the true abundance, which is assumed to change as a function of days since 1 December. The model fits two possible functions to the daily counts of whales and select the best fit function. These functions are (a) a normal distribution with the peak in the number of whales passing daily occurs at the model-estimated midpoint of the migration and (b) a spline fit that allows the overall migration curve to flexibly match the observed daily counts without expectations about the shape of the curve. The model then internally selects which of these two candidate migration curves best matches the daily number of observed whales. The final abundance estimate is the sum of the total number of whales passing the survey area each day (i.e., both observed whales and the estimated number of unobserved whales), with a correction factor applied to account for a small number of whales that may pass too far offshore to be observed by shore-based observers and those that migrates through the study area at night. The modeling approach is described in detail in Durban et al. (2015; 2017).
+
+
+Because the N-mixture modeling approach uses all data since 2006/2007 to estimate parameters that are shared among yearly datasets, annual estimates change slightly as more data are added to the analysis. Consequently, the estimates for the seasons 2006/2007 to 2020/2021 are different from what were provided in the previous reports. The differences, however, should be negligible.   
 
 ## Results {-}
 
 ### Abundance estimates {-}
 
-From `r min(as.Date(data.first.2022$V3, format = "%m/%d/%Y"))` to `r max(as.Date(data.last.2022$V3, format = "%m/%d/%Y"))`, `r length(unique.obs)` trained observers completed `r signif(sum(survey.hrs),3)` hours of survey effort over `r length(unique(survey.dates))` survey days. A total of X gray whales were counted, with the highest daily count of Y whales on DATE. 
+From `r min(as.Date(data.first.2022$V3, format = "%m/%d/%Y"))` to `r max(as.Date(data.last.2022$V3, format = "%m/%d/%Y"))`, `r length(unique.obs)` trained observers completed `r signif(sum(survey.hrs),3)` hours of survey effort over `r length(unique(survey.dates))` survey days. A total of `r nrow(whale.groups)` groups of `r sum(whale.groups$N)` gray whales were counted, with the highest daily count of `r max(whale.groups.daily$N)` whales on `r whale.groups.daily[whale.groups.daily$N == max(whale.groups.daily$N), "Date"]`. 
 
 
 ```{r Ver1-data, echo=FALSE, warning=FALSE, message= FALSE}
 
-# CHANGE THIS LINE BACK
 Ver1.results <- readRDS(paste0("RData/WinBUGS_", x, "yr_v1.rds"))
 
 # observed counts:
@@ -137,7 +174,7 @@ for (k in 1:dim(Daily.Est.v1)[3]){
                                    Season = seasons[k])
 }
 
-# find daily effort:
+# find daily effort: there are 90 days, where 1st and 90th are zeros.
 daily.effort <- daily.counts <- daily.N <- matrix(nrow = 88, ncol = x)
 Watch.Length <- Ver1.results$data$Watch.Length
 day.mat <- Ver1.results$data$day
@@ -172,14 +209,25 @@ abundance.df.v1 <- data.frame(Season = seasons,
                                           FUN = quantile, 0.025),
                               UCL = apply(Corrected.Est.v1, 
                                           MARGIN = 2, 
-                                          FUN = quantile, 0.975))
+                                          FUN = quantile, 0.975),
+                              Method = "Durban")
 
-p.Nhat.v1 <- ggplot(data = abundance.df.v1) + 
-  geom_point(aes(x = Season, y = Median)) + 
-  geom_errorbar(aes(x = Season, ymin = LCL, ymax = UCL)) +
+Laake.estimates %>% 
+  select(Season, Nhat, LCL, UCL) %>%
+  mutate(Method = "Laake") %>%
+  rbind(abundance.df.v1 %>%
+          transmute(Season = Season, 
+                    Nhat = Median,
+                    LCL =LCL, 
+                    UCL = UCL,
+                    Method = Method)) -> all.estimates
+
+p.Nhat.v1 <- ggplot(data = all.estimates) + 
+  geom_point(aes(x = Season, y = Nhat, color = Method)) + 
+  geom_errorbar(aes(x = Season, ymin = LCL, ymax = UCL, color = Method)) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
   xlab("") +
-  ylab("Median abundance + 95% CI")
+  ylab("Abundance + 95% CI")
 
 if (save.fig)
   ggsave(filename = "figures/nhats_v1.png", plot = p.Nhat.v1,
