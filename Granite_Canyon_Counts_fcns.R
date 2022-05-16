@@ -3,6 +3,8 @@
 
 # define some functions
 # A function to get one data file from selected directory
+# Inputs are data directory name, year of survey (2021/2022 is 2022), and
+# which file to be extracted (sequential number from 1 to length(files)).
 get.data <- function(dir, YEAR, ff){
   FILES <- list.files(paste0(dir, "/", YEAR))
   all.lines <- read_lines(file = paste0(dir, "/", YEAR, "/", FILES[ff]))
