@@ -10,7 +10,7 @@ Get data and start looking at them:
 rm(list = ls())
 source("Granite_Canyon_Counts_fcns.R")
 library(tidyverse)
-library(lubtidate)
+library(lubridate)
 
 YEAR <- 2022
 
@@ -49,6 +49,8 @@ v1.summary %>% left_join(v2.summary, by = "ff") %>%
 
 ```
 
+
+ff = 12 has different numbers between 1vs2 and 2vs 3, meaning 2 is different from 1 and 3. CHECK THIS DISCREPANCY! 2022-05-16
 
 Seems like they are identical in the number of rows. 
 
