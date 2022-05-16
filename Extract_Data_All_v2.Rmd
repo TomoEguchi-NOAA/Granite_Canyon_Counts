@@ -74,16 +74,21 @@ Data_Out[which((Data_Out$end - Data_Out$begin) > (shift_dur_min + grace_min)/(24
 
 #Entries more than 1.5 hrs +/- 10 min
 grace_min <- 10
-Data_Out[which(Data_Out$end - Data_Out$begin < (shift_dur_min - grace_min)/(24*60)),]
-Data_Out[which(Data_Out$end-Data_Out$begin > (shift_dur_min + grace_min)/(24*60)),] 
+Data_Out[which(Data_Out$end - Data_Out$begin < 
+                 (shift_dur_min - grace_min)/(24*60)),]
+Data_Out[which(Data_Out$end-Data_Out$begin > 
+                 (shift_dur_min + grace_min)/(24*60)),] 
 
 # Final data
 # Remove watches that were less than 85 minutes or greater than 95 minutes:
 grace_min <- 5
-CorrectLength <- Data_Out[which(Data_Out$end-Data_Out$begin > (shift_dur_min - grace_min)/(24*60) & 
-                                  Data_Out$end-Data_Out$begin < (shift_dur_min + grace_min)/(24*60)),]
+CorrectLength <- Data_Out[which(Data_Out$end-Data_Out$begin > 
+                                  (shift_dur_min - grace_min)/(24*60) & 
+                                  Data_Out$end-Data_Out$begin < 
+                                  (shift_dur_min + grace_min)/(24*60)),]
 
-Chaff <- Data_Out[which(Data_Out$end-Data_Out$begin < (shift_dur_min - grace_min)/(24*60)),]
+Chaff <- Data_Out[which(Data_Out$end-Data_Out$begin < 
+                          (shift_dur_min - grace_min)/(24*60)),]
 
 
 FinalData <- CorrectLength %>%
@@ -129,7 +134,9 @@ TotalWhales <- sum(Complete_Data$n)
 
 WPH <- Complete_Data %>%
   group_by(floor(Complete_Data$begin)) %>%
-  summarize(TotalWhales = sum(n), TotalEffort = sum(Eff), WPH = sum(n)/(sum(Eff)*24)) 
+  summarize(TotalWhales = sum(n), 
+            TotalEffort = sum(Eff), 
+            WPH = sum(n)/(sum(Eff)*24)) 
 
 out.obj <- list(WPH = WPH,
                 FinalData = FinalData,
