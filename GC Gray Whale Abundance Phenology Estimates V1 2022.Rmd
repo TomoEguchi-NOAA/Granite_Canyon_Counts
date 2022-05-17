@@ -98,7 +98,7 @@ The Southwest Fisheries Science Center (SWFSC) regularly conducts shore-based su
 
 ## Methods {-}
 
-Data for this updated abundance estimate were collected during the 2021-2022 southward ENP gray whale migration between `r min(as.Date(data.first.2022$V3, format = "%m/%d/%Y"))` and `r max(as.Date(data.last.2022$V3, format = "%m/%d/%Y"))`. Counts were made from a shore-based watch station at Granite Canyon, California, by teams of observer pairs rotating from a larger pool. These surveys are designed to target the main migration period from late December to mid-February and do not typically cover the early onset or late offset of the migration when few whales are observed. Sampling and analytical methods are described in Durban et al. (2015; 2017; Fig. 1).  
+Data for this updated abundance estimate were collected during the 2021-2022 southward ENP gray whale migration between `r min(as.Date(data.first.2022$V3, format = "%m/%d/%Y"))` and `r max(as.Date(data.last.2022$V3, format = "%m/%d/%Y"))`. Counts were made from a shore-based watch station at Granite Canyon, California, by teams of observer pairs rotating from a larger pool. These surveys are designed to target the main migration period from late December to mid-February and do not typically cover the early onset or late offset of the migration when few whales are observed. Sampling and analytical methods are described in Durban et al. (2015; 2017; Figure \@ref(fig:Figure-nhats-v1)).  
 
 
 The estimate of abundance reported here was generated using the N-mixture modeling approach used previously by SWFSC for surveys conducted between 2006 and 2020 (Durban et al. 2015; 2017, Stewart and Weller 2021). In this approach, the sighting probability of shore-based observers is estimated by using data from replicate surveys (i.e., data collected simultaneously by two independent observer teams) that were completed in 2009/10 and 2010/11. These sighting probability estimates allow the total number of whales passing through the survey area during a watch period to be estimated from the observed number of whales, even in years when replicate surveys are not conducted.
@@ -230,7 +230,8 @@ p.Nhat.v1 <- ggplot(data = all.estimates) +
   ylab("Abundance + 95% CI")
 
 if (save.fig)
-  ggsave(filename = "figures/nhats_v1.png", plot = p.Nhat.v1,
+  ggsave(filename = "figures/nhats_v1.png", 
+         plot = p.Nhat.v1,
          device = "png", dpi = 600)
 
 p.v1.both <- ggplot(data = all.stats.v1) + 
@@ -301,12 +302,12 @@ if (save.fig)
 ```
 
 
-Using Ver1.0 extraction code, the abundance of gray whales during the 2021/2022 season was `r format(abundance.df.v1[nrow(abundance.df.v1), "Median"], scientific=F, digits = 6)` (95% CI: `r format(abundance.df.v1[nrow(abundance.df.v1), "LCL"], scientific=F, digits = 6)` - `r format(abundance.df.v1[nrow(abundance.df.v1), "UCL"], scientific=F, digits = 6)`). This estimate includes the multiplicative correction factor for the nighttime passage (mean = 1.0875, SD = 0.03625). This estimate was `r signif((abundance.df.v1[nrow(abundance.df.v1), "Median"] - abundance.df.v1[(nrow(abundance.df.v1)-1), "Median"])/abundance.df.v1[(nrow(abundance.df.v1)-1), "Median"], 3) * 100`% decline from the previous survey season (2019/2020, Figure \@ref(fig:Figure-nhats-v1), Table \@ref(tab:Table-nhats-v1)). 
+Estimated abundance of gray whales during the 2021/2022 season was `r format(abundance.df.v1[nrow(abundance.df.v1), "Median"], scientific=F, digits = 6)` (95% CI: `r format(abundance.df.v1[nrow(abundance.df.v1), "LCL"], scientific=F, digits = 6)` - `r format(abundance.df.v1[nrow(abundance.df.v1), "UCL"], scientific=F, digits = 6)`). This estimate includes the multiplicative correction factor for the nighttime passage (mean = 1.0875, SD = 0.03625). This estimate was `r signif((abundance.df.v1[nrow(abundance.df.v1), "Median"] - abundance.df.v1[(nrow(abundance.df.v1)-1), "Median"])/abundance.df.v1[(nrow(abundance.df.v1)-1), "Median"], 3) * 100`% decline from the previous survey season (2019/2020, Figure \@ref(fig:Figure-nhats-v1), Table \@ref(tab:Table-nhats-v1)). 
 
 
 ```{r Table-nhats-v1, echo=FALSE, warning=FALSE}
-flextable(abundance.df.v1) %>% 
-  set_caption(paste0("Estimated abundance (Median) and 95% lower (LCL) and upper (UCL) credible intervals of gray whales from the visual surveys off Granite Canyon, CA, between the 2006/2007 and 2021/2022 seasons."))  %>%
+flextable(all.estimates) %>% 
+  set_caption(paste0("Estimated abundance and 95% lower (LCL) and upper (UCL) confidence intervals of gray whales from the visual surveys off Granite Canyon, CA. Estimates prior to the 2006/2007 season are from Laake et al. (2012), where confidence limits were computed using SE * 1.96. For the 2006/2007 through 2021/2022 seasons, the method of Durban et al. (2016) was used."))  %>%
   set_table_properties(width = 0.5, layout = "autofit")
 ```
 

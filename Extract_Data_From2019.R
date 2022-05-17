@@ -17,7 +17,7 @@ FILES <- list.files(paste0("Data/", YEAR, "/"))
 #                            "/GRANITE CANYON 2019_2020_RAW AND EDITED DATA FILES (for Josh Stewart)/Granite Canyon 2020 Visual Data-EDITED"))
 # YEAR <- 2019 #Enter the year of the data files
 
-ff <- 10
+ff <- 12
 for(ff in 1:length(FILES)){ 
   
   #Comment lines create formatting problems because each word is interpreted as a column

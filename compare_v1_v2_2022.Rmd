@@ -31,7 +31,6 @@ FinalData.v1 %>%
   group_by(ff) %>% 
   summarize(nrow = n()) -> v1.summary
 
-
 FinalData.v2 %>% 
   group_by(ff) %>% 
   summarize(nrow = n()) -> v2.summary
@@ -40,7 +39,8 @@ FinalData.v3 %>%
   group_by(ff) %>% 
   summarize(nrow = n()) -> v3.summary
 
-v1.summary %>% left_join(v2.summary, by = "ff") %>% 
+v1.summary %>% 
+  left_join(v2.summary, by = "ff") %>% 
   left_join(v3.summary, by = "ff") %>%
   mutate(dif_1vs2 = nrow.x - nrow.y,
          dif_1vs3 = nrow.x - nrow,
@@ -50,9 +50,18 @@ v1.summary %>% left_join(v2.summary, by = "ff") %>%
 ```
 
 
-ff = 12 has different numbers between 1vs2 and 2vs 3, meaning 2 is different from 1 and 3. CHECK THIS DISCREPANCY! 2022-05-16
+ff = 12 has different numbers between 1vs2 and 2vs 3, meaning 2 is different from 1 and 3. Looking at the vX.summary objects, there were 6 rows (shifts) in ff=12 according to v1 and v3. v2 returned only 5 rows. ff = 12 is for 2022-01-12. Using FinalData.all %>% filter(ff = 12) revealed that v2 missed the second shift that started at 9. 
 
-Seems like they are identical in the number of rows. 
+```{r}
+
+data.12 <- get.data("Data/", YEAR = 2022, ff = 12)
+data.12.2 <- get.shift(2022, data.12, ff = 12, i = 2)
+
+```
+
+These two functions return the right set of shifts, even the second shift that started at 9. The difference is that in the old version (Josh's and V1), visibility code was taken only from sightings (Column 13), whereas the new version takes it from the visibility lines (event = V). This does not affect too many but for this instance, VS was 5 at the beginning of the shift, which was changed to 4 at 9:29:55. The first sighting happened at 9:35:47. So, using the old method, VS was always 4. I'm not sure which is the right way to do it. 
+
+In my opinion, first 30 min should be removed from the analysis and the shift starts at 9:29:55. 
 
 ```{r}
 obs.list <- read.csv("Data/Observer list.csv", header = T) 

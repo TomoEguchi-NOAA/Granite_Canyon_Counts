@@ -65,19 +65,19 @@ Data_Out <- do.call("rbind", Data_Out.list)
 #If it's less than 10 minutes over the 1.5hrs, I'm also counting it (guessing that they forgot to log off or something)
 
 #Entries that are less than 1.5hrs (5 minute grace period)
-shift_dur_min <- 90   # 90 minutes - 5 minutes
-grace_min <- 5
-Data_Out[which((Data_Out$end - Data_Out$begin) < (shift_dur_min - grace_min)/(24*60)),]
-
-#Entries more than 1.5hrs (5 minute grace period)
-Data_Out[which((Data_Out$end - Data_Out$begin) > (shift_dur_min + grace_min)/(24*60)),] 
-
-#Entries more than 1.5 hrs +/- 10 min
-grace_min <- 10
-Data_Out[which(Data_Out$end - Data_Out$begin < 
-                 (shift_dur_min - grace_min)/(24*60)),]
-Data_Out[which(Data_Out$end-Data_Out$begin > 
-                 (shift_dur_min + grace_min)/(24*60)),] 
+# shift_dur_min <- 90   # 90 minutes - 5 minutes
+# grace_min <- 5
+# Data_Out[which((Data_Out$end - Data_Out$begin) < (shift_dur_min - grace_min)/(24*60)),]
+# 
+# #Entries more than 1.5hrs (5 minute grace period)
+# Data_Out[which((Data_Out$end - Data_Out$begin) > (shift_dur_min + grace_min)/(24*60)),] 
+# 
+# #Entries more than 1.5 hrs +/- 10 min
+# grace_min <- 10
+# Data_Out[which(Data_Out$end - Data_Out$begin < 
+#                  (shift_dur_min - grace_min)/(24*60)),]
+# Data_Out[which(Data_Out$end-Data_Out$begin > 
+#                  (shift_dur_min + grace_min)/(24*60)),] 
 
 # Final data
 # Remove watches that were less than 85 minutes or greater than 95 minutes:
