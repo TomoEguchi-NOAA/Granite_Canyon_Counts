@@ -9,7 +9,7 @@ output:
 ```{r setup, include=FALSE}
 rm(list = ls())
 knitr::opts_chunk$set(echo = TRUE)
-save.fig <- T
+save.fig <- F
 
 source("Granite_Canyon_Counts_fcns.R")
 library(tidyverse)
@@ -225,7 +225,8 @@ Laake.estimates %>%
 p.Nhat.v1 <- ggplot(data = all.estimates) + 
   geom_point(aes(x = Season, y = Nhat, color = Method)) + 
   geom_errorbar(aes(x = Season, ymin = LCL, ymax = UCL, color = Method)) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5),
+        legend.position = "top") +
   xlab("") +
   ylab("Abundance + 95% CI")
 
@@ -308,11 +309,14 @@ Estimated abundance of gray whales during the 2021/2022 season was `r format(abu
 ```{r Table-nhats-v1, echo=FALSE, warning=FALSE}
 flextable(all.estimates) %>% 
   set_caption(paste0("Estimated abundance and 95% lower (LCL) and upper (UCL) confidence intervals of gray whales from the visual surveys off Granite Canyon, CA. Estimates prior to the 2006/2007 season are from Laake et al. (2012), where confidence limits were computed using SE * 1.96. For the 2006/2007 through 2021/2022 seasons, the method of Durban et al. (2016) was used."))  %>%
+  colformat_double(j = c("LCL", "UCL"), digits = 1) %>%
   set_table_properties(width = 0.5, layout = "autofit")
 ```
 
+The time series indicated that estimated abundance for the last two survey seasons has declined since the 2015/2016 season (Figure \@ref(fig:Figure-nhats-v1)), when the abundance reached one of the highest over the study. The most recent estimated abundance was comparable to those from 2000/2001 and 2001/2002. 
 
-```{r Figure-nhats-v1, echo=FALSE, message=FALSE, fig.cap="Estimated abundance and 95% credible intervals of gray whales from the visual surveys off Granite Canyon, CA, between the 2006/2007 and 2021/2022 seasons and Ver1.0 extraction code."}
+
+```{r Figure-nhats-v1, echo=FALSE, message=FALSE, fig.cap="Estimated abundance and 95% confidence intervals of gray whales from the visual surveys off Granite Canyon, CA, between the 2006/2007 and 2021/2022 seasons."}
 
 knitr::include_graphics("figures/nhats_v1.png")
 
