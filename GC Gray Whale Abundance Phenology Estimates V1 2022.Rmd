@@ -40,7 +40,7 @@ Laake.estimates <- read_csv(file = "Data/Laake et al 2012 Table 9 Nhats.csv",
            unlist) %>%
   dplyr::select(Season, Nhat, SE, LCL, UCL)  %>%
   mutate(Year = lapply(str_split(Season, "/"), 
-                       FUN = function(x) x[1]) %>% 
+                       FUN = function(x) x[2]) %>% 
            unlist() %>% 
            as.numeric())
 
@@ -49,7 +49,7 @@ Rugh.data <- read_csv(file = "Data/Rugh et al 2001 Table 1 Median Date.txt",
                       col_types = cols(Season = col_character(),
                                        Median_Date = col_date(format = "%Y-%m-%d"))) %>%
   mutate(Year = lapply(str_split(Season, "/"), 
-                       FUN = function(x) x[1]) %>% 
+                       FUN = function(x) x[2]) %>% 
            unlist() %>% 
            as.numeric(),
          median.idx = (Median_Date - as.Date(paste0(Year, "-12-01"))) %>%
@@ -61,7 +61,7 @@ UMEs <- data.frame(Season = c("1999/2000", "2019/2020",
                    Year = c(1999, 2019, 2020, 2021))
 
 # This is for the 2022 analysis. Change it accordingly:
-end.year <- 2021
+end.year <- 2022
 all.years <- data.frame(Year = seq(from = min(Laake.estimates$Year), 
                                   to = end.year))
 
@@ -258,7 +258,7 @@ abundance.df.v1 <- data.frame(Season = seasons,
                                           FUN = quantile, 0.975),
                               Method = "Durban") %>%
   mutate(Year = lapply(str_split(Season, "/"), 
-                       FUN = function(x) x[1]) %>% 
+                       FUN = function(x) x[2]) %>% 
            unlist() %>% 
            as.numeric())
 
@@ -273,9 +273,9 @@ Laake.estimates %>%
                     UCL = UCL,
                     Method = Method)) %>%
   right_join(all.years, by = "Year") %>% 
-  mutate(Season = paste0(Year, "/", Year+1)) -> all.estimates
+  mutate(Season = paste0(Year-1, "/", Year)) -> all.estimates
 
-# write.csv(all.estimates, file = "Data/all_estimates_2022.csv")
+#write.csv(all.estimates, file = "Data/all_estimates_2022.csv")
 
 p.Nhat.v1 <- ggplot(data = all.estimates) + 
   geom_point(aes(x = Season, y = Nhat, color = Method)) + 
