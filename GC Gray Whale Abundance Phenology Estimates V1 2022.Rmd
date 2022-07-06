@@ -4,6 +4,9 @@ author: "Tomo Eguchi, Aimee Lang, David Weller"
 date: "`r Sys.Date()`"
 output: 
   bookdown::word_document2: default
+  header-includes:
+  - \usepackage{ragged2e}
+  - \renewcommand{\footnotesize}{\10 \justify}
 ---
 
 ```{r setup, include=FALSE}
@@ -49,7 +52,7 @@ Rugh.data <- read_csv(file = "Data/Rugh et al 2001 Table 1 Median Date.txt",
                       col_types = cols(Season = col_character(),
                                        Median_Date = col_date(format = "%Y-%m-%d"))) %>%
   mutate(Year = lapply(str_split(Season, "/"), 
-                       FUN = function(x) x[2]) %>% 
+                       FUN = function(x) x[1]) %>% 
            unlist() %>% 
            as.numeric(),
          median.idx = (Median_Date - as.Date(paste0(Year, "-12-01"))) %>%
@@ -129,7 +132,7 @@ The Southwest Fisheries Science Center (SWFSC) regularly conducts shore-based su
 
 ## Methods {-}
 
-Data for this updated abundance estimate were collected during the 2021-2022 southward ENP gray whale migration between `r min(as.Date(data.first.2022$V3, format = "%m/%d/%Y"))` and `r max(as.Date(data.last.2022$V3, format = "%m/%d/%Y"))`. Counts were made from a shore-based watch station at Granite Canyon, California, by teams of observer pairs rotating from a larger pool. These surveys are designed to target the main migration period from late December to mid-February and do not typically cover the early onset or late offset of the migration when few whales are observed. Sampling and analytical methods are described in Durban et al. (2015, 2017).  
+Data for this updated abundance estimate were collected during the 2021-2022 southward ENP gray whale migration between `r min(as.Date(data.first.2022$V3, format = "%m/%d/%Y")) %>%format("%d %B %Y")` and `r max(as.Date(data.last.2022$V3, format = "%m/%d/%Y")) %>%format("%d %B %Y")`. Counts were made from a shore-based watch station at Granite Canyon, California, by teams of observer pairs rotating from a larger pool. These surveys are designed to target the main migration period from late December to mid-February and do not typically cover the early onset or late offset of the migration when few whales are observed. Sampling and analytical methods are described in Durban et al. (2015, 2017).  
 
 
 The estimate of abundance reported here was generated using the N-mixture modeling approach used previously by SWFSC for surveys conducted between 2006 and 2020 (Durban et al. 2015; 2017, Stewart and Weller 2021). In this approach, the sighting probability of shore-based observers is estimated by using data from replicate surveys (i.e., data collected simultaneously by two independent observer teams) that were completed in 2009/10 and 2010/11. These sighting probability estimates allowed the total number of whales passing through the survey area during a watch period to be estimated from the observed number of whales, even in years when replicate surveys were not conducted.
@@ -148,18 +151,6 @@ Linear models were fitted to the relationship between median dates and year. In 
 
 
 ## Results and Discussion {-}
-
-### Abundance estimates {-}
-
-From `r min(as.Date(data.first.2022$V3, format = "%m/%d/%Y"))` to `r max(as.Date(data.last.2022$V3, format = "%m/%d/%Y"))`, `r nrow(unique.obs)` trained observers completed `r signif(sum(survey.hrs),3)` hours of survey effort over `r nrow(unique(survey.dates))` survey days. A total of `r nrow(whale.groups)` groups of `r sum(whale.groups$N)` gray whales were counted, with the highest daily count of `r max(whale.groups.daily$N)` whales on `r whale.groups.daily[whale.groups.daily$N == max(whale.groups.daily$N), "Date"]` (Figure \@ref(fig:Figure-daily-fit)). 
-
-
-
-```{r Figure-daily-fit, echo=FALSE, message=FALSE, fig.cap="Daily estimated numbers of gray whales migrating through the sampling area off Granite Canyon. Black lines are medians and orange bands indicate 95% credible intervals. Solid circles indicate observed counts."}
-
-knitr::include_graphics("figures/daily_estimates_v1.png")
-
-```
 
 
 ```{r Ver1-data, echo=FALSE, warning=FALSE, message= FALSE}
@@ -361,28 +352,7 @@ if (save.fig)
 
 ```
 
-
-Estimated abundance of gray whales during the 2021/2022 season was `r format.big.number(abundance.df.v1[nrow(abundance.df.v1), "Median"])` (95% CI: `r format.big.number(abundance.df.v1[nrow(abundance.df.v1), "LCL"])` - `r format.big.number(abundance.df.v1[nrow(abundance.df.v1), "UCL"])`). This estimate includes the multiplicative correction factor for the nighttime passage (mean = 1.0875, SD = 0.03625). This estimate was `r signif((abundance.df.v1[nrow(abundance.df.v1), "Median"] - abundance.df.v1[(nrow(abundance.df.v1)-1), "Median"])/abundance.df.v1[(nrow(abundance.df.v1)-1), "Median"], 3) * 100`% decline from the previous survey season (2019/2020, Table \@ref(tab:Table-nhats-v1), Figure \@ref(fig:Figure-nhats-v1)). 
-
-
-```{r Table-nhats-v1, echo=FALSE, warning=FALSE}
-flextable(all.estimates %>% na.omit() %>% dplyr::select(-Year)) %>% 
-  set_caption(paste0("Estimated abundance (Nhat) and 95% lower (LCL) and upper (UCL) confidence limits of gray whales from the visual surveys off Granite Canyon, CA. Estimates prior to the 2006/2007 season are from Laake et al. (2012), where confidence limits were computed using SE * 1.96. For the 2006/2007 through 2021/2022 seasons, the method of Durban et al. (2016) was used."))  %>%
-  colformat_double(j = c("LCL", "UCL"), digits = 1) %>%
-  set_table_properties(width = 0.5, layout = "autofit")
-```
-
-The time series indicated that estimated abundances for the last two survey seasons have declined since the 2015/2016 season (Figure \@ref(fig:Figure-nhats-v1)), when the abundance reached one of the highest over the study period (`r format.big.number(as.numeric(all.estimates[all.estimates$Year == 2015, "Nhat"]))`, 95% CI = `r format.big.number(as.numeric(all.estimates[all.estimates$Year == 2015, "LCL"]))` - `r format.big.number(as.numeric(all.estimates[all.estimates$Year == 2015, "UCL"]))`). The most recent estimate was comparable to those from 2000/2001 and 2001/2002 (Table \@ref(tab:Table-nhats-v1)). 
-
-
-```{r Figure-nhats-v1, echo=FALSE, message=FALSE, fig.cap="Estimated abundance and 95% confidence intervals of gray whales from the visual surveys off Granite Canyon, CA, between the 1967/1968 and 2021/2022 seasons. Estimates in green indicate those from Laake et al. (2012). Estimates in red (from the 2006/2007 season) indicate those obtained using the method in Durban et al. (2016). Yello boxes represent unusual mortality events."}
-
-knitr::include_graphics("figures/nhats_v1.png")
-
-```
-
-
-## Migration phenology {-}
+### Migration phenology {-}
 
 ```{r timing1, echo=FALSE, message=FALSE, warning=FALSE}
 total.n <- colSums(daily.counts)
@@ -424,7 +394,7 @@ lm.1.seg.1 <- segmented(lm.1,
                         seg.Z = ~Year,
                         psi = list(Year = c(1980, 2006)))
 
-slopes <- slope(lm.1.seg.1)
+slopes <- slope(lm.1.seg.1, conf.level = 0.95)
 
 fitted <- predict(lm.1.seg.1, se.fit = T)
 seg.1.fitted <- data.frame(fitted = fitted$fit,
@@ -531,14 +501,53 @@ p.median.date <- ggplot(median.idx.all.df) +
   geom_point(aes(x = Year.shifted, y = median.idx))
 ```
 
-Timing of migration, measured by the median migration date, changed significantly over the survey period (Figure \@ref(fig:Figure-phenology)). From the beginning of the survey (1967) through 1970s, they were generally earlier than 10 January (Day 40). They linearly increased over the 1980s, 1990s, and early 2000s. Since the mid 2000s, there was a linear decline. Estimated change points were `r signif(lm.1.seg.1$psi[1,2], 5)` (SE = `r signif(lm.1.seg.1$psi[1,3], 3)`) and `r signif(lm.1.seg.1$psi[2,2], 5)` (SE = `r signif(lm.1.seg.1$psi[2,3], 3)`). The estimated slopes for the three segments were `r signif(slopes$Year[1,1], 3)` (SE = `r signif(slopes$Year[1,2], 3)`), `r signif(slopes$Year[2,1], 3)` (SE = `r signif(slopes$Year[2,2], 3)`), and `r signif(slopes$Year[3,1], 3)` (SE = `r signif(slopes$Year[3,2], 3)`).    
+Timing of migration, measured by the median migration date, changed significantly over the survey period (Figure \@ref(fig:Figure-phenology)). From the beginning of the survey (1967) through 1970s, they were generally earlier than 10 January (Day 40). They linearly increased over the 1980s, 1990s, and early 2000s. Since the mid 2000s, there was a linear decline. Estimated change points were `r signif(lm.1.seg.1$psi[1,2], 5)` (SE = `r signif(lm.1.seg.1$psi[1,3], 3)`) and `r signif(lm.1.seg.1$psi[2,2], 5)` (SE = `r signif(lm.1.seg.1$psi[2,3], 3)`). The estimated slopes for the three segments were `r signif(slopes$Year[1,1], 3)` (SE = `r signif(slopes$Year[1,2], 3)`), `r signif(slopes$Year[2,1], 3)` (SE = `r signif(slopes$Year[2,2], 3)`), and `r signif(slopes$Year[3,1], 3)` (SE = `r signif(slopes$Year[3,2], 3)`). ). The linear decline in the median southbound migration date since 2007 was not apparent in the median northbound migration date of mother-calf pairs, which increased by approximately one week when recent data (through 2016) was compared to that collected in the mid-1990s (Perryman et al. 2020).    
 
-```{r Figure-phenology, echo=FALSE, message=FALSE, fig.cap="Changes in median date of gray whale migration at the sampling area off Granite Canyon, CA (the date when 50% of the whale sightings had been recorded). December 1 of each year is 0 and January 10 is 40. Data before the 2006/2007 sampling season are from Rugh et al. (2001, Table 1).  Regression lines are linear models with change points."}
+```{r Figure-phenology, echo=FALSE, message=FALSE, fig.cap="Changes in median date of gray whale migration at the sampling area off Granite Canyon, CA (the date when 50% of the whale sightings had been recorded). December 1 of each year is 0 and January 10 is 40. Data before the 2006/2007 sampling season are from Rugh et al. (2001, Table 1).  Regression lines are linear models with change points. Yellow vertical bars indicate the designated UME."}
 
 knitr::include_graphics("figures/Median_date_2022.png")
 
 
 ```
+
+### Abundance estimates {-}
+
+From `r min(as.Date(data.first.2022$V3, format = "%m/%d/%Y")) %>% format("%d %B %Y")` to `r max(as.Date(data.last.2022$V3, format = "%m/%d/%Y")) %>% format("%d %B %Y")`, `r nrow(unique.obs)` trained observers completed `r signif(sum(survey.hrs),3)` hours of survey effort over `r nrow(unique(survey.dates))` survey days. A total of `r nrow(whale.groups)` groups of `r sum(whale.groups$N)` gray whales were counted, with the highest daily count of `r max(whale.groups.daily$N)` whales on `r whale.groups.daily %>% filter(N == max(N))%>% dplyr::select("Date")%>%pull()%>%format("%d %B %Y")` (Figure \@ref(fig:Figure-daily-fit)). 
+
+
+```{r Figure-daily-fit, echo=FALSE, message=FALSE, fig.cap="Daily estimated numbers of gray whales migrating through the sampling area off Granite Canyon. Black lines are medians and orange bands indicate 95% credible intervals. Solid circles indicate observed counts."}
+
+knitr::include_graphics("figures/daily_estimates_v1.png")
+
+```
+
+
+Estimated abundance of gray whales during the 2021/2022 season was `r format.big.number(abundance.df.v1[nrow(abundance.df.v1), "Median"])` (95% CI: `r format.big.number(abundance.df.v1[nrow(abundance.df.v1), "LCL"])` - `r format.big.number(abundance.df.v1[nrow(abundance.df.v1), "UCL"])`). This estimate includes the multiplicative correction factor for the nighttime passage (mean = 1.0875, SD = 0.03625). This estimate was `r signif((abundance.df.v1[nrow(abundance.df.v1), "Median"] - abundance.df.v1[(nrow(abundance.df.v1)-1), "Median"])/abundance.df.v1[(nrow(abundance.df.v1)-1), "Median"], 3) * 100`% decline from the previous survey season (2019/2020, Table \@ref(tab:Table-nhats-v1), Figure \@ref(fig:Figure-nhats-v1)). 
+
+
+```{r Table-nhats-v1, echo=FALSE, warning=FALSE}
+flextable(all.estimates %>% na.omit() %>% dplyr::select(-Year)) %>% 
+  set_caption(paste0("Estimated abundance (Nhat) and 95% lower (LCL) and upper (UCL) confidence limits of gray whales from the visual surveys off Granite Canyon, CA. Estimates prior to the 2006/2007 season are from Laake et al. (2012), where confidence limits were computed using SE * 1.96. For the 2006/2007 through 2021/2022 seasons, the method of Durban et al. (2016) was used."))  %>%
+  colformat_double(j = c("LCL", "UCL"), digits = 1) %>%
+  set_table_properties(width = 0.5, layout = "autofit")
+```
+
+The time series indicated that estimated abundances for the last two survey seasons have declined since the 2015/2016 season (Figure \@ref(fig:Figure-nhats-v1)), when the abundance reached one of the highest over the study period (`r format.big.number(as.numeric(all.estimates[all.estimates$Year == 2015, "Nhat"]))`, 95% CI = `r format.big.number(as.numeric(all.estimates[all.estimates$Year == 2015, "LCL"]))` - `r format.big.number(as.numeric(all.estimates[all.estimates$Year == 2015, "UCL"]))`). The most recent estimate was comparable to those from 2000/2001 and 2001/2002 (Table \@ref(tab:Table-nhats-v1)). 
+
+Those survey years coincided with an unusual mortality event (UME)^[Under the Marine Mammal Protection Act (MMPA), an unusual mortality event (UME) is defined as "a stranding that is unexpected; involves a significant die-off of any marine mammal population; and demands immediate response"]  that occurred in 1999 and 2000 when higher than usual strandings and deaths of gray whales were observed along the west coast of the United States, Mexico, and Canada. In total, 651 dead gray whales were reported, where 283 observed in 1999 and 368 in 2000 (Gulland et al. 2005). While the cause of this UME was not determined, some stranded whales were in poor body condition leading to questions about whether the population of approximately 21,000 ENP gray whales had reached the limit of what the Arctic feeding ground habitat could support (Moore et al. 2001). However, the population subsequently recovered from decline, and in 2016 the abundance was estimated at nearly its all-time high of 27,000 whales. This increase in abundance suggests that limit had either increased following the 1999-2000 UME or was never reached earlier and the decline was due to other, unknown cause(s). 
+
+In 2019, NOAA’s National Marine Fisheries Service declared the most recent UME for ENP gray whales^[https://www.fisheries.noaa.gov/national/marine-life-distress/2019-2022-gray-whale-unusual-mortality-event-along-west-coast-and]. As of June 3, 2022, 578 stranded whales were recorded with 216 in 2019, 172 in 2020, 114 in 2021, and 76 in 2022. While this UME appears to be at a slightly reduced level compared to the 1999-2000 UME, it overlaps with the observed 23.7% decline in abundance from 2016 to 2020 and then the 19.6% decline in abundance that occurred between 2020 and 2022. Given the increased number of strandings in 2019 that triggered the designation of a UME and the lower number of reported strandings since that time, it is likely that the majority of this decline occurred in 2019. This decline is comparable to that seen between 1987/1988, when the population reached what was then its highest estimated abundance (26,916 whales) of the time series, and 1992/1993, when the estimated abundance had fallen approximately 40% over the course of four years. Based on the available records, this decline was not associated with a marked increase in the number of stranded whales, as was the case in 1999-2000 and 2019-present. However, by 1993/1994 the estimate had increased to over 20,000, and the estimated abundance remained stable at near that level until the 1999-2000 UME. 
+
+The pattern of population growth and decline represented in the time series of abundance estimates for ENP gray whales suggests that large-scale fluctuations of this nature are not rare. The observed declines in abundance appear to represent short-term events that have not resulted in any detectable longer-term impacts on the population. That is, despite occasional declines in abundance since the time-series of data began in 1967, the overall trend has remained positive and neared peak numbers as recently as 2016 when the population was estimated at about 27,000 whales. 
+
+While ENP gray whales have shown long-term resilience to population fluctuations for which a direct cause has yet to be determined, NOAA/NMFS continue to closely monitor the population with regular surveys to estimate abundance, calf production and body condition (e.g., Perryman and Lynn 2002, Durban et al. 2015; 2017, Perryman et al. 2020). The results of these research efforts will continue to provide the best scientific information available regarding the status of the population.
+
+```{r Figure-nhats-v1, echo=FALSE, message=FALSE, fig.cap="Estimated abundance and 95% confidence intervals of gray whales from the visual surveys off Granite Canyon, CA, between the 1967/1968 and 2021/2022 seasons. Estimates in green indicate those from Laake et al. (2012). Estimates in red (from the 2006/2007 season) indicate those obtained using the method in Durban et al. (2016). Yello boxes represent unusual mortality events."}
+
+knitr::include_graphics("figures/nhats_v1.png")
+
+```
+
 
 
 ## Acknowledgements {-}
@@ -552,9 +561,17 @@ Durban, J., Weller, D., Lang, A. and Perryman, W. (2015). Estimating gray whale 
 
 Durban, J., Weller, D. and Perryman, W. (2017). Gray whale abundance estimates from shore-based counts off California in 2014/15 and 2015/16. Paper SC/A17/GW/06 presented to the International Whaling Commission, Scientific Committee, Bled, Slovenia.
 
+Gulland, F.M.D., Perez-Cortes, H. Urban, R., Rojas-Bracho, L., Ylitalo, G., Weir, J., Norman, S.A., Muto, M.M., Rugh, D.J., Kreuder, C. and Rowles, T. (2005). Eastern North Pacific gray whale (Eschrichtius robustus) unusual mortality event, 1999–2000 (NOAA Technical Memorandum NMFS-AFSC- 150-150). Washington, DC: U.S. Department of Commerce.
+
 Laake, J.L., Punt, A.E., Hobbs, R., Ferguson, M., Rugh, D. and Breiwick, J. (2012). Gray whale southbound migration surveys 1967-2006: An integrated re-analysis. Journal of Cetacean Research and Management, 12, 287-306.
 
+Moore, S. E., Urban, R. J., Perryman, W.L., Gulland, F., Perez-Cortes, M.H., Wade, P.R., Rojas-Bracho, L. and Rowles, T. (2001). Are gray whales hitting “K” hard? Marine Mammal Science, 17: 954-958.
+
 Muggeo, V. M. R. (2017). Interval estimation for the breakpoint in segmented regression: a smoothed score-based approach. Australian & New Zealand Journal of Statistics, 59, 311-322.
+
+Perryman, W. L., and Lynn, M.S. (2002). Evaluation of nutritive condition and reproductive status of migrating gray whales (Eschrichtius robustus) based on analysis of photogrammetric data. Journal of Cetacean Research and Management, 2, 155–164. 
+
+Perryman, W.L., Joyce, T., Weller, D.W. and Durban, J.W. (2020). Environmental factors influencing eastern North Pacific gray whale calf production 1994-2016. Marine Mammal Science 2020: 1-15. DOI: 10.1111/mms.12755
 
 Rugh, D.J., Shelden K.E.W, Schulman-Janiger, A. (2001) Timing of the gray whale southbound migration. Journal of Cetacean Research and Management 3, 31-39.
 
