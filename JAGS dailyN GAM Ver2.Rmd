@@ -6,6 +6,8 @@ output: html_notebook
 This notebook describes abundance estimation of gray whales using a modified version of Durban's WinBUGS code and Ver2.0 data extraction method. In this version, I replace the normal/spline curves with GAMs. 
 
 
+START HERE... THIS REQUIRES RUNNING TWO DIFFERENT SCRIPTS; ONE TO RUN JAGAM, THEN USE THE OUTPUT OF IT TO RUN THIS SCRIPT TO COMPLETE THE ANALYSIS. THIS SEEMS TO BE A BIT CONVOLUTED. MAKE ALL OF THEM RUN IN ONE SCRIPT. LOOK AT JAGS GAM VER2.RMD AND THIS ONE TOGETHER. 2022-07-12. 
+
 Set up libraries
 
 ```{r}
@@ -121,37 +123,53 @@ For the seasonal curves, a separate analysis was done in JAGS GAM Ver2.Rmd, wher
 Run jags if it hasn't been run..
 
 ```{r}
-if (!file.exists(paste0("RData/JAGS_dailyN_GAM_k", 
-                        basis.dim, "_", family, 
-                        "_Nmix_", x, "yr_v2.rds"))){
+#jagam.out.file <- paste0("RData/jagam_dailyN_k", basis.dim,"_", family, ".rds")
+jags.out.file <- paste0("RData/JAGS_dailyN_GAM_k",
+                        basis.dim, "_", family, "_Nmix_", x, "yr_v2.rds")
+if (!file.exists(jags.out.file)){
+
+  # USE JAGAM:
+#   jagam.model <- paste0("models/jagam_dailyN_k", basis.dim, "_", family, ".jags")
+# #  jags.out.file <- paste0("RData/jagam_dailyN_k", basis.dim, "_", family, "_jags.rds")
+#   
+#   jags.gam <- jagam(Nplus1 ~ s(days, by = year, k = basis.dim), 
+#                     family = family,
+#                     data = daily.N.df.long.noNA,
+#                     file = jagam.model)
+#   
+#   gam.out <- gam(Nplus1 ~ s(days, by = year, k = basis.dim), 
+#                  family = family,
+#                  data = daily.N.df.long.noNA)
+#   
+#   saveRDS(list(jags.gam = jags.gam,
+#                run.date = Sys.Date()),
+#           file = jagam.out.file)
   
+  
+  # Or use jags directly by setting up the model in jags format.
   #Run time: 
   Start_Time<-Sys.time()
   jm <- jags(jags.data,
              inits = rep(list(inits.list), MCMC.params$n.chains),
              parameters.to.save= jags.params,
-             model.file = paste0("models/Model_dailyN_GAM_k", 
+             model.file = paste0("models/Model_dailyN_GAM_k",
                                  basis.dim, "_", family, "_Nmix_JAGS.txt"),
              n.chains = MCMC.params$n.chains,
              n.burnin = MCMC.params$n.burnin,
              n.thin = MCMC.params$n.thin,
              n.iter = MCMC.params$n.samples,
              DIC = T, parallel=T)
-    
+
   Run_Time <- Sys.time() - Start_Time
   Ver2.results <- list(jags.data = jags.data,
                        inits = inits.list,
                        JAGS_out = jm,
                        Run_Time = Run_Time,
                        Run_Date = Sys.Date())
-  saveRDS(Ver2.results, 
-          paste0("RData/JAGS_dailyN_GAM_k",
-                 basis.dim, "_", family, "_Nmix_", x, "yr_v2.rds"))
+  saveRDS(Ver2.results, jags.out.file)
   
 } else {
-  Ver2.results <- readRDS(paste0("RData/JAGS_dailyN_GAM_k", 
-                                 basis.dim, "_", family, 
-                                 "_Nmix_", x, "yr_v2.rds"))
+  Ver2.results <- readRDS(jags.out.file)
   
 }
 ```
@@ -260,6 +278,7 @@ ggplot(data = gam.daily) +
   geom_point(data = daily.N.df.long,
              aes(x = days, y = N)) +
   facet_wrap(vars(Season)) +
+  ylim(0, 750)+
   xlab("Days since December 1") + 
   ylab("Whales per day")
 
