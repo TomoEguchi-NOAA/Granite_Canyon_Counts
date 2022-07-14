@@ -1,5 +1,5 @@
 # N mixture gray whale model in jags 
-# In this version, I try to replace normal/spline models to 
+# In this version, I try to replace normal/spline models with 
 # GAM. 
 
 # Tomo Eguchi
@@ -77,20 +77,20 @@ model{
   ### Specification of terms within observation probability linear model
   
   ## Observer random effect
-  # SLECTED MODEL
-
   for(o in 1:n.obs){
     OBS.RF[o] ~ dnorm(0,tau.Obs)
   }#o
   
-  #Uninformative prior for tau.Obs
+  # prior for tau.Obs. Durban/Stewart claimed this was uninformative
+  # It's quite informative... 
   sigma.Obs ~ dunif(0,2)
   tau.Obs <- pow(sigma.Obs,-2)
        
   OBS.Switch ~ dbern(0.5)
   
   ## Beaufort
-  BF.Switch ~ dbern(0.5) #uninformative prior for the BF.Switch, which determines whether to include the effect of beaufort conditions (multiply by 0 or 1)
+  #uninformative prior for the BF.Switch, which determines whether to include the effect of beaufort conditions (multiply by 0 or 1)
+  BF.Switch ~ dbern(0.5) 
   
   #Below is the single fixed effect multiplied by BF rating in the updated obs prob equation:
   BF.Fixed ~ dnorm(0,0.01)
@@ -101,8 +101,8 @@ model{
   #Below is the single fixed effect multiplied by VS rating in the updated obs prob equation:
   VS.Fixed ~ dnorm(0,0.01)
   
-  ### Seasonal Curve (GAM)  - output of jagam
-  # This section is run outside of this script first to create
+  ### Seasonal Curve (GAM) 
+  # This section is used to create
   # the design matrix and a new predictor matrix that include
   # all dates for all years. 
 
@@ -111,19 +111,20 @@ model{
   mu <- X %*% b ## expected response
 
   # n.data is the number of data points - no NAs.
-  ## response
+  ## response - Poisson did not work... 
   for (i in 1:n.data) { 
     y[i] ~ dnorm(mu[i], tau.daily.N)
-    #y[i] ~ dpois(mu[i])   # doesn't work (maybe put them in log scale) 
+
   }  
   
   scale.daily.N <- 1/tau.daily.N ## convert tau to standard GLM scale
   tau.daily.N ~ dgamma(.05,.005) ## precision parameter prior 
 
   ## Parametric effect priors CHECK tau=1/2200^2 is appropriate!
-  for (i in 1:1) { b[i] ~ dnorm(0,2e-07) }
+  b[1] ~ dnorm(0,2e-07) 
+  
   ## prior for s(days):year1... 
-  K1 <- S1[1:9,1:9] * omega[1]  + S1[1:9,10:18] * omega[2]
+  K1 <- S1[1:9,1:9] * omega[1]  + S1[1:9, 10:18] * omega[2]
   b[2:10] ~ dmnorm(zero[2:10],K1) 
 
   ## prior for s(days):year2... 
