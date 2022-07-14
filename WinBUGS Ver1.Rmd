@@ -256,7 +256,8 @@ for(i in 1:length(periods)){
 # Shorten data to first x years only to replicate 
 # the analysis in Durban et al 2016:
 # as of 2022-04-06, 8 is maximum.
-x <- 8
+#x <- 8
+x <- 7
 # periods <- periods[1:x]
 # n <- n[1:max(periods),,1:x]
 # obs <- obs[1:max(periods),,1:x]
