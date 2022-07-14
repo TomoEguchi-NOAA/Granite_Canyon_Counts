@@ -1,7 +1,8 @@
 
 rm(list=ls())
-library(R2jags)
+#library(R2jags)
 library(abind)
+library(R2WinBUGS)
 
 #Number of watch periods in each year's survey
 periods <-c(136, 135, 164, 178, 179, 151)
@@ -244,11 +245,11 @@ nt <- 80
 nb <- 60000
 nc <- 3
 
-ni <- 5000
-nb <- 1000
-nt <- 20
+# ni <- 5000
+# nb <- 1000
+# nt <- 20
 
-library(R2WinBUGS)
+
 
 #Run time: 
 Start_Time<-Sys.time()
