@@ -244,6 +244,10 @@ nt <- 80
 nb <- 60000
 nc <- 3
 
+ni <- 5000
+nb <- 1000
+nt <- 20
+
 library(R2WinBUGS)
 
 #Run time: 
@@ -259,7 +263,7 @@ GW_Nmix <- bugs(data = jags.data,
                 bugs.directory = "C:/Users/tomo.eguchi/Documents/WinBUGS14")
 
 Run_Time <- Sys.time() - Start_Time
-save.image("GW BUGS 7yr 100k.RData")
+save.image("T:/Eguchi/R_out/GW BUGS 7yr 100k.RData")
 
 # library(R2jags)
 # 
