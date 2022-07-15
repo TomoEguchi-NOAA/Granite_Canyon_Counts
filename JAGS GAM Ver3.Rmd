@@ -5,6 +5,7 @@ output: html_notebook
 
 This notebook includes the part that a GAM is fitted to the observed daily counts of gray whales. In this version (Ver3), I use jagam function in mgcv to create the input data but they are used to run Model_DailyN_GAM_kx_Nmix_JAGS.txt. 
 
+THIS IS STILL INCOMPLETE. I DON'T KNOW HOW TO PREDICT COUNTS ONCE BETAS ARE ESTIMATED, WITHOUT USING THE PREDICT.GAM FUNCTION IN MGCV. I WANT TO DO THAT IN THE JAGS CODE DIRECTLY USING THE POSTERIORS OF BETAS. I PROBABLY HAVE TO READ SIMON WOOD'S BOOK TO FIGURE OUT THE NUTS AND BOLTS... 2022-07-15
 
 Set up libraries
 
@@ -26,11 +27,12 @@ periods <-c(136, 135, 164, 178, 179, 151)
 seasons <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011", 
              "2014/2015", "2015/2016", "2019/2020", "2021/2022")
 
-x <- length(seasons)
+n.seasons <- length(seasons)
 
 # CHANGE THIS LINE BACK
 #Ver2.results <- readRDS(paste0("RData/WinBUGS_", x, "yr_v2.rds"))
-Ver2.results <- readRDS(paste0("RData/WinBUGS_", x, "yr_100k_v2.rds"))
+Ver2.results <- readRDS(paste0("RData/WinBUGS_", 
+                               n.seasons, "yr_100k_v2.rds"))
 
 #jags.data <- Ver2.results$jags.data
 jags.params <- c("lambda","OBS.RF","OBS.Switch",
@@ -52,13 +54,13 @@ MCMC.params <- list(n.samples = 100000,
 
 The daily mean is a smooth function of days (1:90)
 
-```{r}
-daily.effort <- daily.counts <- daily.N <- matrix(nrow = 90, ncol = x)
+```{r setup-data}
+daily.effort <- daily.counts <- daily.N <- matrix(nrow = 90, ncol = n.seasons)
 Watch.Length <- Ver2.results$jags.data$Watch.Length
 day.mat <- Ver2.results$jags.data$day
-ns <- rbind(Ver2.results$jags.data$n[,1,], matrix(NA, nrow = 2, ncol = x))
+ns <- rbind(Ver2.results$jags.data$n[,1,], matrix(NA, nrow = 2, ncol = n.seasons))
 
-for (y in 1:x){
+for (y in 1:n.seasons){
   for (j in 1:90){
     if (j == 1 | j == 90){
       daily.effort[j,y] <- 0
@@ -81,8 +83,8 @@ daily.N.df %>%
                values_to = "N") %>%  
   arrange(Season) -> daily.N.df.long
 
-daily.N.df.long$days <- rep(1:90, times = x)
-daily.N.df.long$year <- factor(rep(1:x, each = 90))
+daily.N.df.long$days <- rep(1:90, times = n.seasons)
+daily.N.df.long$year <- factor(rep(1:n.seasons, each = 90))
 
 daily.N.df.long %>% 
   select(-Season) %>%
@@ -90,37 +92,141 @@ daily.N.df.long %>%
 
 # To use non-Gaussian family, I add 1 to all counts:
 daily.N.df.long.noNA$Nplus1 <- daily.N.df.long.noNA$N + 1  
+```
 
+
+
+```{r run-jags}
 basis.dim <- 10
 #family <- "gaussian"
 family <- "Gamma"
+# This is the output file name
 jagam.model <- paste0("models/jagam_dailyN_k", 
                       basis.dim, "_", family, ".jags")
 
-# Use jagam function 
-jags.gam <- jagam(Nplus1 ~ s(days, by = year, k = basis.dim), 
-                  family = family,
-                  data = daily.N.df.long.noNA,
-                  file = jagam.model)
+jags.out.file <- paste0("RData/jagam_dailyN_k", 
+                        basis.dim, "_", family, "_jags.rds")
 
-jm <- rjags::jags.model(file = jagam.model,
-                        data = jags.gam$jags.data,
-                        inits = rep(list(jags.gam$jags.ini), 
-                                    MCMC.params$n.chains),
-                        n.chains = MCMC.params$n.chains,
-                        n.adapt = MCMC.params$n.burnin)
+jags.data.v2 <- Ver2.results$jags.data
+if (!file.exists(jags.out.file)){
+  
+  # Use jagam function to create a model file and input data list
+  jags.gam <- jagam(Nplus1 ~ s(days, by = year, k = basis.dim), 
+                    family = family,
+                    data = daily.N.df.long.noNA,
+                    file = jagam.model)
+  
+  # Run short chains to get what I need for now
+  jm.jagam <- rjags::jags.model(file = jagam.model,
+                                data = jags.gam$jags.data,
+                                inits = rep(list(jags.gam$jags.ini), 
+                                            MCMC.params$n.chains),
+                                n.chains = MCMC.params$n.chains,
+                                n.adapt = 500)
+  
+  jm.jagam.samples <- rjags::jags.samples(jm.jagam, 
+                                          c("mu", "b", "scale", "rho"),
+                                          n.iter = 1000, 
+                                          n.thin = 5)
+  
+  jam <- sim2jam(jm.jagam.samples, jags.gam$pregam)
+  
+  pred.data <- data.frame(days = rep(1:90, n.seasons),
+                          year = rep(1:n.seasons, each = 90))
+  
+  # prediciton by jagam
+  Xp.matrix <- predict(jam, newdata = pred.data, type = "lpmatrix")
+  Xp.link <- predict(jam, newdata = pred.data, se.fit = T)
+  
+  # I stack all S's into an array in Model_dailyN_GAM_kx_Nmix_JAGS.txt
+  jags.data.1 <- jags.gam$jags.data
+  all.S <- jags.data.1[grepl("S", names(jags.data.1))] 
+  S.df <- do.call("rbind", all.S)
+  	#b.start.idx[k] <- S.start.idx[k] + 1  #(k-1) * (x-1) + 2
+	#b.end.idx[k] <- S.end.idx[k] + 1      # k * (x-1) + 1
 
-jm.gam <- rjags::jags.samples(jm, c("mu", "b", "scale", "rho"),
-                              n.iter = MCMC.params$n.samples, 
-                              n.thin = MCMC.params$n.thin)
+  jags.data <- list(x = basis.dim,
+                    n = jags.data.v2$n,
+                    n.station = jags.data.v2$n.station,
+                    n.year = jags.data.v2$n.year,
+                    n.obs = jags.data.v2$n.obs,
+                    periods = jags.data.v2$periods,
+                    obs = jags.data.v2$obs,
+                    u = jags.data.v2$u,
+                    vs = jags.data.v2$vs,
+                    bf = jags.data.v2$bf,
+                    day = jags.data.v2$day,
+                    N = jags.data.v2$N,
+                    Watch.Length = jags.data.v2$Watch.Length,
+                    X = jags.data.1$X,
+                    y = jags.data.1$y,
+                    n.data = jags.data.1$n,
+                    zero = jags.data.1$zero,
+                    S = S.df,
+                    t.start = (((1:n.seasons)-1) * 90) + 1,
+                    col.idx = rbind(rep(1, times = n.seasons), 
+                                    matrix(2:73, ncol = n.seasons)),
+                    new.X = pred.data,
+                    S.start.idx = seq(from = 1, 
+                                      to = (n.seasons-1) * (basis.dim-1) + 1,
+                                      by = basis.dim - 1),
+                    S.end.idx = seq(from = 9, 
+                                    to = n.seasons * (basis.dim-1), 
+                                    by = basis.dim-1))
+  
+  inits.list <- list(mean.prob = 0.5,
+                     BF.Fixed = 0,
+                     VS.Fixed = 0,
+                     mean.beta = c(0,0,0), #mean.beta = c(5,0.14,-3.5),
+                     beta.sigma = c(1,1,1),#beta.sigma = c(7,7,7),
+                     BF.Switch = 1,
+                     VS.Switch = 1,
+                     OBS.Switch = 1,
+                     sigma.Obs = 1,
+                     N = Ver2.results$N_inits,
+                     b = jags.gam$jags.ini$b,
+                     omega = jags.gam$jags.ini$lambda)
+  
+  Start_Time<-Sys.time()
+  jm.all <- jags(jags.data,
+                 inits = rep(list(inits.list), 
+                             MCMC.params$n.chains),
+                 parameters.to.save= jags.params,
+                 model.file = "models/Model_dailyN_GAM_kx_Nmix_JAGS.txt",
+                 n.chains = MCMC.params$n.chains,
+                 n.burnin = MCMC.params$n.burnin,
+                 n.thin = MCMC.params$n.thin,
+                 n.iter = MCMC.params$n.samples,
+                 DIC = T, parallel=T)
 
-jam <- sim2jam(jm.gam, jags.gam$pregam)
+  Run_Time <- Sys.time() - Start_Time
+  Ver2.results <- list(jags.data = jags.data,
+                       inits = inits.list,
+                       JAGS_out = jm,
+                       Run_Time = Run_Time,
+                       Run_Date = Sys.Date())
+  saveRDS(Ver2.results, jags.out.file)
+    
+  jags.all <- list(jags.gam = jags.gam,
+                   jm = jm, 
+                   jm.samples = jm.samples,
+                   run.date = Sys.Date(),
+                   MCMC.params = MCMC.params)
+  
+  saveRDS(jags.all,
+          file = jags.out.file)
+  
+} else {
+  
+  jags.all <- readRDS(jags.out.file)
+}
+
 
 #plot(jam)
-pred.data <- data.frame(days = rep(1:90, x),
-                        year = rep(1:x, each = 90))
 
-Xp <- predict(jam, newdata = pred.data, type = "lpmatrix")
+
+
+  
 
 # original data
 #jags.data.v2 <- Ver2.results$jags.data 
@@ -158,36 +264,9 @@ jags.data <- list(n = jags.gam$jags.data$n,
 
 # 
 # jagam.out.file <- paste0("RData/jagam_dailyN_k", basis.dim,"_", family, ".rds")
-# jags.out.file <- paste0("RData/jagam_dailyN_k", basis.dim, "_", family, "_jags.rds")
-
-jags.data <- list()
-
-## Try running this code: runs fine. 
-jm.gam <- jags(data = jags.gam$jags.data,
-               inits = rep(list(jags.gam$jags.ini), 3),
-               parameters.to.save = c("mu", "b", "scale", "rho"),
-               model.file = "models/Model_dailyN_GAM_1_JAGS.txt",
-               n.chains = 3, n.thin = 10, n.burnin = 1000,
-               n.iter = 5000, DIC = T, parallel = T)
 
 
-jm <- rjags::jags.model(file = jagam.model,
-                        data = jags.gam$jags.data,
-                        inits = rep(list(jags.gam$jags.ini), 
-                                    MCMC.params$n.chains),
-                        n.chains = MCMC.params$n.chains,
-                        n.adapt = MCMC.params$n.burnin)
 
-jm.gam <- rjags::jags.samples(jm, c("mu", "b", "scale", "rho"),
-                              n.iter = MCMC.params$n.samples, 
-                              n.thin = MCMC.params$n.thin)
-
-saveRDS(list(jm = jm, 
-             jm.gam = jm.gam, 
-             jags.gam = jags.gam,
-             run.date = Sys.Date(),
-             MCMC.params = MCMC.params),
-        file = jags.out.file)
   
 ```
 

@@ -106,9 +106,9 @@ gam.out <- gam(Nplus1 ~ s(days, by = year, k = basis.dim),
                   family = family,
                   data = daily.N.df.long.noNA)
 
-saveRDS(list(jags.gam = jags.gam,
-             run.date = Sys.Date()),
-        file = jagam.out.file)
+# saveRDS(list(jags.gam = jags.gam,
+#              run.date = Sys.Date()),
+#         file = jagam.out.file)
 
 ## Try running this code: runs fine. 
 # jm.gam <- jags(data = jags.gam$jags.data,
@@ -122,11 +122,11 @@ jm <- rjags::jags.model(file = jagam.model,
                         inits = rep(list(jags.gam$jags.ini), 
                                     MCMC.params$n.chains),
                         n.chains = MCMC.params$n.chains,
-                        n.adapt = MCMC.params$n.burnin)
+                        n.adapt = 500)
 
 jm.gam <- rjags::jags.samples(jm, c("mu", "b", "scale", "rho"),
-                              n.iter = MCMC.params$n.samples, 
-                              n.thin = MCMC.params$n.thin)
+                              n.iter = 2000, 
+                              n.thin = 50)
 
 saveRDS(list(jm = jm, 
              jm.gam = jm.gam, 
