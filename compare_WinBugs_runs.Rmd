@@ -1,0 +1,129 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Compares output from WinBugs runs in January and July. Should we expect to see differences in estimates when we add another year's worth of data?
+
+
+```{r}
+rm(list=ls())
+library(tidyverse)
+# results from Jan 2022
+load("RData/GW BUGS 7yr 100k.Rdata")
+
+Daily.Est.Jan2022 <- GW_Nmix$sims.list$Daily.Est
+sp.Jan2022 <- GW_Nmix$sims.list$sp
+com.Jan2022 <- GW_Nmix$sims.list$com
+
+# Each one of them is (# samples) x (90 days) x (# years)
+# To plot them using ggplot's facet, I need to convert
+# these into 2D dataframes of statistics (upper and lower 
+# CIs, median, etc.)
+# Daily.Est.list <- sp.list <- com.list <- vector(mode = "list", 
+#                                                 length = dim(Daily.Est)[3])
+# 
+# Daily.Est.UCIs <- Daily.Est.LCIs <- vector(mode = "list",
+#                                            length = dim(Daily.Est)[3])
+
+stats.list.Jan2022 <- vector(mode = "list",
+                     length = dim(Daily.Est.Jan2022)[3])
+
+for (k in 1:dim(Daily.Est.Jan2022)[3]){
+  # Daily.Est.list[[k]] <- Daily.Est[,,k]
+  # Daily.Est.UCIs[[k]] <- apply(Daily.Est[,,k],2,quantile,0.975)
+  # Daily.Est.LCIs[[k]] <- apply(Daily.Est[,,k],2,quantile,0.275)
+  # 
+  # sp.list[[k]] <- sp[,,k]
+  # com.list[[k]] <- com[,,k]
+  
+  stats.list.Jan2022[[k]] <- data.frame(Daily.Est.median = apply(Daily.Est.Jan2022[,,k], 2,
+                                                         median),
+                                Daily.Est.LCL = apply(Daily.Est.Jan2022[,,k], 2,
+                                                      quantile,0.275),
+                                Daily.Est.UCL = apply(Daily.Est.Jan2022[,,k], 2,
+                                                      quantile,0.975),
+                                sp.median = apply(exp(sp.Jan2022[,,k]), 2,
+                                                  median),
+                                sp.LCL = apply(exp(sp.Jan2022[,,k]), 2,
+                                               quantile,0.025),
+                                sp.UCL = apply(exp(sp.Jan2022[,,k]), 2,
+                                               quantile,0.975),
+                                com.median = apply(exp(com.Jan2022[,,k]), 2,
+                                                   median),
+                                com.LCL = apply(exp(com.Jan2022[,,k]), 2,
+                                                quantile,0.025),
+                                com.UCL = apply(exp(com.Jan2022[,,k]), 2,
+                                                quantile,0.975),
+                                #total.median = apply(exp(sp[,,k]), 1, sum),
+                                days = 1:dim(Daily.Est.Jan2022)[2],
+                                year = k)
+}
+
+all.stats.Jan2022 <- do.call("rbind", stats.list.Jan2022) %>% group_by(year)
+
+```
+
+
+
+
+```{r}
+rm(list = ls()[!(ls() %in% c("all.stats.Jan2022"))])
+# results from July 2022
+load("RData/GW BUGS 7yr 100k July2022.Rdata")
+
+Daily.Est.Jul2022 <- GW_Nmix$sims.list$Daily.Est
+sp.Jul2022 <- GW_Nmix$sims.list$sp
+com.Jul2022 <- GW_Nmix$sims.list$com
+
+# Each one of them is (# samples) x (90 days) x (# years)
+# To plot them using ggplot's facet, I need to convert
+# these into 2D dataframes of statistics (upper and lower 
+# CIs, median, etc.)
+# Daily.Est.list <- sp.list <- com.list <- vector(mode = "list", 
+#                                                 length = dim(Daily.Est)[3])
+# 
+# Daily.Est.UCIs <- Daily.Est.LCIs <- vector(mode = "list",
+#                                            length = dim(Daily.Est)[3])
+
+stats.list.Jul2022 <- vector(mode = "list",
+                     length = dim(Daily.Est.Jul2022)[3])
+
+for (k in 1:dim(Daily.Est.Jul2022)[3]){
+  # Daily.Est.list[[k]] <- Daily.Est[,,k]
+  # Daily.Est.UCIs[[k]] <- apply(Daily.Est[,,k],2,quantile,0.975)
+  # Daily.Est.LCIs[[k]] <- apply(Daily.Est[,,k],2,quantile,0.275)
+  # 
+  # sp.list[[k]] <- sp[,,k]
+  # com.list[[k]] <- com[,,k]
+  
+  stats.list.Jul2022[[k]] <- data.frame(Daily.Est.median = apply(Daily.Est.Jul2022[,,k], 2,
+                                                         median),
+                                Daily.Est.LCL = apply(Daily.Est.Jul2022[,,k], 2,
+                                                      quantile,0.275),
+                                Daily.Est.UCL = apply(Daily.Est.Jul2022[,,k], 2,
+                                                      quantile,0.975),
+                                sp.median = apply(exp(sp.Jul2022[,,k]), 2,
+                                                  median),
+                                sp.LCL = apply(exp(sp.Jul2022[,,k]), 2,
+                                               quantile,0.025),
+                                sp.UCL = apply(exp(sp.Jul2022[,,k]), 2,
+                                               quantile,0.975),
+                                com.median = apply(exp(com.Jul2022[,,k]), 2,
+                                                   median),
+                                com.LCL = apply(exp(com.Jul2022[,,k]), 2,
+                                                quantile,0.025),
+                                com.UCL = apply(exp(com.Jul2022[,,k]), 2,
+                                                quantile,0.975),
+                                #total.median = apply(exp(sp[,,k]), 1, sum),
+                                days = 1:dim(Daily.Est.Jul2022)[2],
+                                year = k)
+}
+
+all.stats.Jul2022 <- do.call("rbind", stats.list.Jul2022) %>% group_by(year)
+
+```
+
+They are identical... these are for six years. 
+
+

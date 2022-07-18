@@ -1,0 +1,18 @@
+value of order of binomial n.sp[2,1,1] must be greater than zero -> Fixed by providing N_inits (2 x n + 2)
+value of bernoulli z[1,1] must be an integer -> moved z = matrix(1, nrow=90, ncol=length(periods)) to data from inits
+value of order of binomial n.sp[1,1,1] must be greater than zero (see https://stats.stackexchange.com/questions/22850/winbugs-error-with-zero-values-in-binomial-distribution-value-of-order-of-binom) 
+-> All to do with N_inits. 
+value of binomial n.sp[116,2,3] must be between zero and order of n.sp[116,2,3]
+-> N_inits values have to be greater than either values in n[j,1,t] or n[j,2,t]. I added the following lines to fix this problem. 
+
+N_inits1 <- n[, 1,] * 2 + 2
+N_inits2 <- n[, 2,] * 2 + 2 
+            
+N_inits <- N_inits1
+N_inits[N_inits1 < N_inits2] <- N_inits2[N_inits1 < N_inits2]
+
+N_inits <- rbind(N_inits,
+                 matrix(data = NA, nrow = 2, ncol = length(periods)))
+
+
+value of bernoulli z[1,1] must be an integer -> the dimensions of beta.sp, sd.b.sp, and z in jags.inits function need to be changed. I now use "x" to define the number of years to be analyzed. x is shared within the function so no need to change them individually. 2022-04-06
