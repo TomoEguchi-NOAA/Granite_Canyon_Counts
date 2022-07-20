@@ -10,7 +10,8 @@ Compares output from WinBugs runs in January and July. Should we expect to see d
 rm(list=ls())
 library(tidyverse)
 # results from Jan 2022
-load("RData/GW BUGS 7yr 100k.Rdata")
+# comes from GW Rebuild for WinBUGS TE.Rmd
+load("RData/GW BUGS 6yr 100k.Rdata")
 
 Daily.Est.Jan2022 <- GW_Nmix$sims.list$Daily.Est
 sp.Jan2022 <- GW_Nmix$sims.list$sp
@@ -30,12 +31,6 @@ stats.list.Jan2022 <- vector(mode = "list",
                      length = dim(Daily.Est.Jan2022)[3])
 
 for (k in 1:dim(Daily.Est.Jan2022)[3]){
-  # Daily.Est.list[[k]] <- Daily.Est[,,k]
-  # Daily.Est.UCIs[[k]] <- apply(Daily.Est[,,k],2,quantile,0.975)
-  # Daily.Est.LCIs[[k]] <- apply(Daily.Est[,,k],2,quantile,0.275)
-  # 
-  # sp.list[[k]] <- sp[,,k]
-  # com.list[[k]] <- com[,,k]
   
   stats.list.Jan2022[[k]] <- data.frame(Daily.Est.median = apply(Daily.Est.Jan2022[,,k], 2,
                                                          median),
@@ -70,7 +65,8 @@ all.stats.Jan2022 <- do.call("rbind", stats.list.Jan2022) %>% group_by(year)
 ```{r}
 rm(list = ls()[!(ls() %in% c("all.stats.Jan2022"))])
 # results from July 2022
-load("RData/GW BUGS 7yr 100k July2022.Rdata")
+# comes from GW Rebuild for WinBUGS TE.Rmd - ran in a different time
+load("RData/GW BUGS 6yr 100k July2022.Rdata")
 
 Daily.Est.Jul2022 <- GW_Nmix$sims.list$Daily.Est
 sp.Jul2022 <- GW_Nmix$sims.list$sp
@@ -125,5 +121,212 @@ all.stats.Jul2022 <- do.call("rbind", stats.list.Jul2022) %>% group_by(year)
 ```
 
 They are identical... these are for six years. 
+
+```{r}
+rm(list = ls()[!(ls() %in% c("all.stats.Jan2022", "all.stats.Jul2022"))])
+# results from July 2022
+# comes from GW Rebuild for WinBUGS TE v2.Rmd
+load("RData/GW BUGS 6yr 100ka.Rdata")
+
+Daily.Est.Apr2022 <- GW_Nmix$sims.list$Daily.Est
+sp.Apr2022 <- GW_Nmix$sims.list$sp
+com.Apr2022 <- GW_Nmix$sims.list$com
+
+# Each one of them is (# samples) x (90 days) x (# years)
+# To plot them using ggplot's facet, I need to convert
+# these into 2D dataframes of statistics (upper and lower 
+# CIs, median, etc.)
+# Daily.Est.list <- sp.list <- com.list <- vector(mode = "list", 
+#                                                 length = dim(Daily.Est)[3])
+# 
+# Daily.Est.UCIs <- Daily.Est.LCIs <- vector(mode = "list",
+#                                            length = dim(Daily.Est)[3])
+
+stats.list.Apr2022 <- vector(mode = "list",
+                     length = dim(Daily.Est.Apr2022)[3])
+
+for (k in 1:dim(Daily.Est.Apr2022)[3]){
+  # Daily.Est.list[[k]] <- Daily.Est[,,k]
+  # Daily.Est.UCIs[[k]] <- apply(Daily.Est[,,k],2,quantile,0.975)
+  # Daily.Est.LCIs[[k]] <- apply(Daily.Est[,,k],2,quantile,0.275)
+  # 
+  # sp.list[[k]] <- sp[,,k]
+  # com.list[[k]] <- com[,,k]
+  
+  stats.list.Apr2022[[k]] <- data.frame(Daily.Est.median = apply(Daily.Est.Apr2022[,,k], 2,
+                                                         median),
+                                Daily.Est.LCL = apply(Daily.Est.Apr2022[,,k], 2,
+                                                      quantile,0.275),
+                                Daily.Est.UCL = apply(Daily.Est.Apr2022[,,k], 2,
+                                                      quantile,0.975),
+                                sp.median = apply(exp(sp.Apr2022[,,k]), 2,
+                                                  median),
+                                sp.LCL = apply(exp(sp.Apr2022[,,k]), 2,
+                                               quantile,0.025),
+                                sp.UCL = apply(exp(sp.Apr2022[,,k]), 2,
+                                               quantile,0.975),
+                                com.median = apply(exp(com.Apr2022[,,k]), 2,
+                                                   median),
+                                com.LCL = apply(exp(com.Apr2022[,,k]), 2,
+                                                quantile,0.025),
+                                com.UCL = apply(exp(com.Apr2022[,,k]), 2,
+                                                quantile,0.975),
+                                #total.median = apply(exp(sp[,,k]), 1, sum),
+                                days = 1:dim(Daily.Est.Apr2022)[2],
+                                year = k)
+}
+
+all.stats.Apr2022 <- do.call("rbind", stats.list.Apr2022) %>% group_by(year)
+```
+
+They are all identical... 
+
+Move to 8-yr data
+
+```{r}
+rm(list = ls()[!(ls() %in% c("all.stats.Jan2022", 
+                             "all.stats.Jul2022",
+                             "all.stats.Apr2022"))])
+
+# Comes from WinBUGS Ver2.Rmd
+# the RDS file is a list and BUGS_out object in the list should be the same
+# structure as GW_Nmix object in the .RData objects above. 
+out.8yr.v1 <- readRDS("RData/WinBUGS_8yr_v1.rds")
+
+GW_Nmix <- out.8yr.v1$BUGS_out
+Daily.Est.8yr.v1 <- GW_Nmix$sims.list$Daily.Est
+sp.8yr.v1 <- GW_Nmix$sims.list$sp
+com.8yr.v1 <- GW_Nmix$sims.list$com
+
+stats.list.8yr.v1 <- vector(mode = "list",
+                            length = dim(Daily.Est.8yr.v1)[3])
+
+for (k in 1:dim(Daily.Est.8yr.v1)[3]){
+  
+  stats.list.8yr.v1[[k]] <- data.frame(Daily.Est.median = apply(Daily.Est.8yr.v1[,,k], 2,
+                                                         median),
+                                Daily.Est.LCL = apply(Daily.Est.8yr.v1[,,k], 2,
+                                                      quantile,0.275),
+                                Daily.Est.UCL = apply(Daily.Est.8yr.v1[,,k], 2,
+                                                      quantile,0.975),
+                                sp.median = apply(exp(sp.8yr.v1[,,k]), 2,
+                                                  median),
+                                sp.LCL = apply(exp(sp.8yr.v1[,,k]), 2,
+                                               quantile,0.025),
+                                sp.UCL = apply(exp(sp.8yr.v1[,,k]), 2,
+                                               quantile,0.975),
+                                com.median = apply(exp(com.8yr.v1[,,k]), 2,
+                                                   median),
+                                com.LCL = apply(exp(com.8yr.v1[,,k]), 2,
+                                                quantile,0.025),
+                                com.UCL = apply(exp(com.8yr.v1[,,k]), 2,
+                                                quantile,0.975),
+                                #total.median = apply(exp(sp[,,k]), 1, sum),
+                                days = 1:dim(Daily.Est.8yr.v1)[2],
+                                year = k)
+}
+
+all.stats.8yr.v1 <- do.call("rbind", stats.list.8yr.v1) %>% 
+  group_by(year)
+
+
+# all.stats.8yr.v2.Apr2022 <- data.frame(out.8yr.v2$BUGS_out$summary) %>% 
+#   rownames_to_column(var = "parameters")
+# 
+# Nhats <- all.stats.8yr.Apr2022[grep("Corrected.Est", all.stats.8yr.Apr2022$parameters),]
+
+```
+
+
+
+```{r}
+rm(list = ls()[!(ls() %in% c("all.stats.Jan2022", 
+                             "all.stats.Jul2022",
+                             "all.stats.Apr2022",
+                             "all.stats.8yr.v1"))])
+
+# Comes from WinBUGS Ver2.Rmd
+# the RDS file is a list and BUGS_out object in the list should be the same
+# structure as GW_Nmix object in the .RData objects above. 
+out.8yr.v2 <- readRDS("RData/WinBUGS_8yr_v2.rds")
+
+GW_Nmix <- out.8yr.v2$BUGS_out
+Daily.Est.8yr.v2 <- GW_Nmix$sims.list$Daily.Est
+sp.8yr.v2 <- GW_Nmix$sims.list$sp
+com.8yr.v2 <- GW_Nmix$sims.list$com
+
+stats.list.8yr.v2 <- vector(mode = "list",
+                            length = dim(Daily.Est.8yr.v2)[3])
+
+for (k in 1:dim(Daily.Est.8yr.v2)[3]){
+  
+  stats.list.8yr.v2[[k]] <- data.frame(Daily.Est.median = apply(Daily.Est.8yr.v2[,,k], 2,
+                                                         median),
+                                Daily.Est.LCL = apply(Daily.Est.8yr.v2[,,k], 2,
+                                                      quantile,0.275),
+                                Daily.Est.UCL = apply(Daily.Est.8yr.v2[,,k], 2,
+                                                      quantile,0.975),
+                                sp.median = apply(exp(sp.8yr.v2[,,k]), 2,
+                                                  median),
+                                sp.LCL = apply(exp(sp.8yr.v2[,,k]), 2,
+                                               quantile,0.025),
+                                sp.UCL = apply(exp(sp.8yr.v2[,,k]), 2,
+                                               quantile,0.975),
+                                com.median = apply(exp(com.8yr.v2[,,k]), 2,
+                                                   median),
+                                com.LCL = apply(exp(com.8yr.v2[,,k]), 2,
+                                                quantile,0.025),
+                                com.UCL = apply(exp(com.8yr.v2[,,k]), 2,
+                                                quantile,0.975),
+                                #total.median = apply(exp(sp[,,k]), 1, sum),
+                                days = 1:dim(Daily.Est.8yr.v2)[2],
+                                year = k)
+}
+
+all.stats.8yr.v2 <- do.call("rbind", stats.list.8yr.v2) %>% 
+  group_by(year)
+
+
+# all.stats.8yr.v2.Apr2022 <- data.frame(out.8yr.v2$BUGS_out$summary) %>% 
+#   rownames_to_column(var = "parameters")
+# 
+# Nhats <- all.stats.8yr.Apr2022[grep("Corrected.Est", all.stats.8yr.Apr2022$parameters),]
+
+```
+
+
+```{r}
+rm(list = ls()[!(ls() %in% c("all.stats.Jan2022", 
+                             "all.stats.Jul2022",
+                             "all.stats.Apr2022",
+                             "all.stats.8yr.v1",
+                             "all.stats.8yr.v2"))])
+
+summary.fcn <- function(x){
+  x %>% 
+  group_by(year) %>%
+  summarize(Nhat = sum(Daily.Est.median),
+            LCL = sum(Daily.Est.LCL),
+            UCL = sum(Daily.Est.UCL)) -> out.df
+  return(out.df)
+}
+
+annual.Nhat.Jan2022 <- summary.fcn(all.stats.Jan2022)
+annual.Nhat.Apr2022 <- summary.fcn(all.stats.Apr2022)
+annual.Nhat.Jul2022 <- summary.fcn(all.stats.Jul2022)
+annual.Nhat.8yr.v1 <- summary.fcn(all.stats.8yr.v1)
+annual.Nhat.8yr.v2 <- summary.fcn(all.stats.8yr.v2)
+
+```
+
+
+All 6-yr analysis results in the same results, as expected. Results from 8-yr analyses are different between v1 and v2, as well as from the 6-yr analysis. I need to compare 6-yr analysis and 7-yr analysis. 
+
+```{r}
+
+
+
+```
+
 
 

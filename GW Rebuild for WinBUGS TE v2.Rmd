@@ -25,14 +25,16 @@ library(tidyverse)
 
 dat <- readRDS("RData/2006-2019_GC_Formatted_Data.RDS")
 
-
+# the number of years to be included in the analysis.
+# maximum is 7. the dat object contains 7 years worth of data.
+x <- 7
 ```
 
 Get data:
 
 ```{r}
 #Number of watch periods in each year's survey
-periods <-dat$periods[1:6]
+periods <-dat$periods[1:x]
 
 #Watch start times, as fraction of a day
 begin <- as.matrix(read.table("Data/begin.txt", 
@@ -49,26 +51,26 @@ n <- as.matrix(read.table("Data/n.txt",
                           header=T,
                           nrows = max(periods)))
 
-dim(n) <- c(179,2,6) #convert this back to a 3D array
+dim(n) <- c(179,2,x) #convert this back to a 3D array
 #n <- abind(n,array(0,dim=c(2,2,6)), along=1) #add two trailing 0s to the end of the sightings array (this is for the day 1 and day 90 zero-whale anchor points)
 
 
 n1 <- as.matrix(read.table("Data/n1.txt",
                            header=T,
                           nrows = max(periods)))      #These aren't needed; used in the WinBUGS GUI version previously. Here we can just re-use n
-dim(n1) <- c(179,2,6) #convert this back to a 3D array
+dim(n1) <- c(179,2,x) #convert this back to a 3D array
 
 
 n2 <- as.matrix(read.table("Data/n2.txt",
                            header=T,
                           nrows = max(periods)))      #These aren't needed
-dim(n2) <- c(179,2,6) #convert this back to a 3D array
+dim(n2) <- c(179,2,x) #convert this back to a 3D array
 
 
 u <- as.matrix(read.table("Data/u.txt",
                           header=T,
                           nrows = max(periods)))
-dim(u) <- c(179,2,6) #convert this back to a 3D array
+dim(u) <- c(179,2,x) #convert this back to a 3D array
 #u <- abind(u,array(0,dim=c(2,2,6)), along=1) #add two trailing 0s to the end of the effort on/off array
 #for(i in 1:length(periods)){ #Place 1's for 'effort on' for the two periods following the end of true watches (this is for the day 1 and day 90 zero-whale anchor points)
 #  u[(periods[i]+1):(periods[i]+2),,i] <- 1
@@ -91,7 +93,7 @@ bf <- as.matrix(read.table("Data/bf.txt",
 obs <- as.matrix(read.table("Data/obs.txt",
                             header=T,
                           nrows = max(periods)))
-dim(obs) <- c(179,2,6) #convert this back to a 3D array
+dim(obs) <- c(179,2,x) #convert this back to a 3D array
 #obs <- abind(obs,array(0,dim=c(2,2,6)), along=1) #add two trailing 0s to the end of the effort on/off array
 #for(i in 1:length(periods)){ #Place 36s for 'no observer' for the two periods following the end of true watches (this is for the day 1 and day 90 zero-whale anchor points)
 #  obs[(periods[i]+1):(periods[i]+2),,i] <- 36 #this will force it to the mean observation probability with no observer effect
@@ -106,7 +108,7 @@ for(i in 1:length(periods)){
 
 #The 'data' has to be the inverse of the inits, 
 # with NAs for all of the estimated Ns, and 0s for the days 1 and 90
-N <- matrix(NA,nrow=181,ncol=6) 
+N <- matrix(NA,nrow=181,ncol=x) 
 
 for(i in 1:length(periods)){
   N[(periods[i]+1):(periods[i]+2),i] <- 0 #True number of whales passing fixed at 0 for day 1 and 90
@@ -121,12 +123,12 @@ Set up BUGS:
 day <- floor(begin)
 t <- round((begin+end)/2)
 #Add a couple of extra rows of NAs to the end of the day index reference to match up with the fixed 0s in N (above), assigning them to days 1 and 90
-day <- rbind(as.matrix(day),matrix(NA,nrow=2,ncol=6))
+day <- rbind(as.matrix(day),matrix(NA,nrow=2,ncol=x))
 for(i in 1:length(periods)){ #Set the anchor points: days 1 and 90
   day[(periods[i]+1):(periods[i]+2),i] <- c(1,90)
 }
 
-t <- rbind(as.matrix(t),matrix(NA,nrow=2,ncol=6))
+t <- rbind(as.matrix(t),matrix(NA,nrow=2,ncol=x))
 for(i in 1:length(periods)){ #Set the anchor points: days 1 and 90
   t[(periods[i]+1):(periods[i]+2),i] <- c(1,90)
 }
@@ -148,7 +150,7 @@ t.short <- t[,1:4]
 N.short <- N[,1:4]
 N_inits.short <- N_inits[,1:4]
 
-Watch.Length <- rbind(end,matrix(NA,nrow=2,ncol=6)) - rbind(begin,matrix(NA,nrow=2,ncol=6))
+Watch.Length <- rbind(end,matrix(NA,nrow=2,ncol=x)) - rbind(begin,matrix(NA,nrow=2,ncol=x))
 for(i in 1:length(periods)){ #Place 36s for 'no observer' for the two periods following the end of true watches (this is for the day 1 and day 90 zero-whale anchor points)
   Watch.Length[(periods[i]+1):(periods[i]+2),i] <- 1 #this will force it to the mean observation probability with no observer effect
 }
@@ -205,9 +207,9 @@ jags.inits <- function() list(mean.prob = 0.5,
                               N.com = N_inits,
                               N.sp = N_inits,
                               #z = matrix(1,nrow=90,ncol=6),
-                              beta.sp = array(data=0,dim=c(2,6)),
+                              beta.sp = array(data=0,dim=c(2,x)),
                               sd.b.sp = c(1,1,1,1,1,1),
-                              z=matrix(1,nrow=90,ncol=6))
+                              z=matrix(1,nrow=90,ncol=x))
 
 out.inits <- list(fun = jags.inits,
                   N_inits = N_inits)
@@ -229,21 +231,21 @@ parameters <- c("lambda","OBS.RF","OBS.Switch",
                 "com","sp","Daily.Est","mean.beta",
                 "beta.sigma","beta","beta.sp","b.sp","sd.b.sp")
 
-# ni <- 100000
-# nt <- 80
-# nb <- 60000
-# nc <- 3
-
-ni <- 100
-nt <- 2
-nb <- 60
+ni <- 100000
+nt <- 80
+nb <- 60000
 nc <- 3
+
+# ni <- 100
+# nt <- 2
+# nb <- 60
+# nc <- 3
 ```
 
 Run WinBUGS if it hasn't been run..
 
 ```{r}
-if (!file.exists("RData/GW BUGS 7yr 100ka.RData")){
+if (!file.exists(paste0("RData/GW BUGS ", x, "yr 100ka.RData"))){
   
   #Run time: 
   Start_Time<-Sys.time()
@@ -260,10 +262,10 @@ if (!file.exists("RData/GW BUGS 7yr 100ka.RData")){
                   bugs.directory = "C:/Users/tomo.eguchi/Documents/WinBUGS14")
   
   Run_Time <- Sys.time() - Start_Time
-  save.image("RData/GW BUGS 7yr 100ka.RData")
+  save.image(paste0("RData/GW BUGS ", x, "yr 100ka.RData"))
   
 } else {
-  load("RData/GW BUGS 7yr 100ka.RData")
+  load(paste0("RData/GW BUGS ", x, "yr 100ka.RData"))
 }
 ```
 
