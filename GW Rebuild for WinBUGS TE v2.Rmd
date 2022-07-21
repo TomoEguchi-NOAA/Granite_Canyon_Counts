@@ -27,7 +27,7 @@ dat <- readRDS("RData/2006-2019_GC_Formatted_Data.RDS")
 
 # the number of years to be included in the analysis.
 # maximum is 7. the dat object contains 7 years worth of data.
-x <- 7
+x <- 4
 ```
 
 Get data:

@@ -306,17 +306,18 @@ for(i in 1:length(periods)){
 
 # Shorten data to first x years only to replicate 
 # the analysis in Durban et al 2016:
-x <- 8
-# n <- n[,,1:x]
-# obs <- obs[,,1:x]
-# periods <- periods[1:x]
-# u <- u[,,1:x]
-# vs <- vs[,1:x]
-# bf <- bf[,1:x]
-# day <-day[,1:x]
-# t <- t[,1:x]
-# N <- N[,1:x]
-# N_inits <- N_inits[,1:x]
+x <- 7
+
+n <- n[,,1:x]
+obs <- obs[,,1:x]
+periods <- periods[1:x]
+u <- u[,,1:x]
+vs <- vs[,1:x]
+bf <- bf[,1:x]
+day <-day[,1:x]
+t <- t[,1:x]
+N <- N[,1:x]
+N_inits <- N_inits[,1:x]
 
 jags.data <- list(n = n,
                   n.com = n,
@@ -342,6 +343,37 @@ jags.data <- list(n = n,
                   #begin=begin,
                   #end=end,
                   Watch.Length=Watch.Length)
+
+# jags.inits <- function() list(mean.prob = 0.5,
+#                               BF.Fixed = 0,
+#                               VS.Fixed = 0,
+#                               mean.prob.sp = 0.5,
+#                               BF.Fixed.sp = 0,
+#                               VS.Fixed.sp = 0,
+#                               mean.prob.com = 0.5,
+#                               BF.Fixed.com = 0,
+#                               VS.Fixed.com = 0,
+#                               mean.beta = c(0,0,0), #mean.beta = c(5,0.14,-3.5),
+#                               beta.sigma = c(1,1,1),#beta.sigma = c(7,7,7),
+#                               BF.Switch = 1,
+#                               VS.Switch = 1,
+#                               OBS.Switch = 1,
+#                               sigma.Obs = 1,
+#                               BF.Switch.sp = 1,
+#                               VS.Switch.sp = 1,
+#                               OBS.Switch.sp = 1,
+#                               sigma.Obs.sp = 1,
+#                               BF.Switch.com = 1,
+#                               VS.Switch.com = 1,
+#                               OBS.Switch.com = 1,
+#                               sigma.Obs.com = 1,
+#                               N = N_inits,
+#                               N.com = N_inits,
+#                               N.sp = N_inits,
+#                               #z = matrix(1,nrow=90,ncol=6),
+#                               beta.sp = array(data=0, dim=c(2, x)),
+#                               sd.b.sp = rep(1, times = x), #c(1,1,1,1,1,1),
+#                               z = matrix(1, nrow=90, ncol=x))
 
 jags.inits <- function() list(mean.prob = 0.5,
                               BF.Fixed = 0,

@@ -1,0 +1,173 @@
+# N mixture gray whale model in jags 
+# In this version, I try to replace normal/spline models with 
+# GAM. 
+
+# Tomo Eguchi
+# 2022-04-21
+
+
+model{ 
+  
+  # count i
+  # station (Trailer) s
+  # year t
+    
+  ### Linking Lambda from N Mixture to Common Model
+   
+  # Below mirrors John's code, indexing lambda by periods instead of by days, with the reference vector to link it to the appropriate model day
+  for(t in 1:n.year){
+    for(j in 1:(periods[t]+2)){
+                      
+        # the gam model:
+        log(lambda[j,t]) <- log(Watch.Length[j,t]) + gam.fit[day[j,t],t] 
+
+    }#j
+  }#t
+  
+  ### N Mixture process
+  
+  for(t in 1:n.year){
+    for(j in 1:periods[t]){ # NOT periods + 2 because those day 1 & 90 anchor points are fixed, 
+                            # so N shouldn't be estimated for those, only for the days with true watch periods
+      for(s in 1:n.station){
+      
+        # N mixture model - two observations of 'true' N (passing whales), with different observation probabilities
+        n[j,s,t] ~ dbin(obs.prob[j,s,t], N[j,t]) 
+
+      }#s    
+    }#j
+  }#t
+
+  for(t in 1:n.year){
+    for(j in 1:(periods[t]+2)){ #periods + 2 to include the added anchor points of 0 whales at days 1 and 90
+
+      # Replicate John's code:
+      # Then, the 'true' N's for each period is distributed around a poisson mean whales per watch (lambda)
+      
+      N[j,t] ~ dpois(lambda[j,t]) 
+
+    }#j
+  }#t
+  
+  ### Observation probability
+  for(t in 1:n.year){
+    for(j in 1:periods[t]){
+      for(s in 1:n.station){
+
+        # Final obs prob = observer 1/0 * 
+        #                (base obs prob + BF on/off * Fixed effect of BF * BF + 
+        #                 VS on/off * Fixed effect of VS * VS    + 
+        #                Obs effect on/off * Random effect of observer)
+
+        # The below replicates Durban et al 2016 code:
+        logit(prob[j,s,t]) <- logit(mean.prob) + (BF.Switch * BF.Fixed * bf[j,t]) + (VS.Switch * VS.Fixed * vs[j,t]) + (OBS.Switch * OBS.RF[obs[j,s,t]])
+
+        # the u data is whether there were observers on watch. 
+        # 0 counts are often associated with years/shifts with 
+        # no second observer. So if u=0, it will fix observation probability at 0
+        obs.prob[j,s,t] <- u[j,s,t] * prob[j,s,t]
+                
+      }#s
+    }#j
+  }#t
+  
+  # Flat prior for mean.prob
+  mean.prob ~ dunif(0,1)
+  
+  ### Specification of terms within observation probability linear model
+  
+  ## Observer random effect
+  for(o in 1:n.obs){
+    OBS.RF[o] ~ dnorm(0,tau.Obs)
+  }#o
+  
+  # prior for tau.Obs. Durban/Stewart claimed this was uninformative
+  # It's quite informative... 
+  sigma.Obs ~ dunif(0,2)
+  tau.Obs <- pow(sigma.Obs,-2)
+       
+  OBS.Switch ~ dbern(0.5)
+  
+  ## Beaufort
+  #uninformative prior for the BF.Switch, which determines whether to include the effect of beaufort conditions (multiply by 0 or 1)
+  BF.Switch ~ dbern(0.5) 
+  
+  #Below is the single fixed effect multiplied by BF rating in the updated obs prob equation:
+  BF.Fixed ~ dnorm(0,0.01)
+  
+  ## Visibility
+  VS.Switch ~ dbern(0.5) #uninformative prior for the VS.Switch
+    
+  #Below is the single fixed effect multiplied by VS rating in the updated obs prob equation:
+  VS.Fixed ~ dnorm(0,0.01)
+  
+  ### Seasonal Curve (GAM) 
+  # This section is used to create
+  # the design matrix and a new predictor matrix that include
+  # all dates for all years. 
+
+  # X is the design matrix for y ~ s(days, by = year, k) with Gaussian family
+  # y is the 'observed' daily counts = counts/effort (in unit of days)
+  mu <- X %*% b ## expected response
+
+  # n.data is the number of data points - no NAs.
+  ## response - Poisson did not work... 
+  for (i in 1:n.data) { 
+    y[i] ~ dnorm(mu[i], tau.daily.N)
+
+  }  
+  
+  scale.daily.N <- 1/tau.daily.N ## convert tau to standard GLM scale
+  tau.daily.N ~ dgamma(.05,.005) ## precision parameter prior 
+
+  ## Parametric effect priors CHECK 
+  # tau=1/2200^2 is appropriate! - I don't know who stated this... 
+  
+  # The following section was extracted from jagam output. 
+  # depending on the "k" value, the S matrices change their 
+  # size. K_y <- S_y[1:(k-1),1:(k-1)] * omega[y]  + S_y[1:(k-1), k:(2k-2)] * omega[y+1]
+  # x is the order of k. Provide x in data.
+  b[1] ~ dnorm(0,2e-07) 
+  
+  for (k in 1:(n.year-2)){
+	K <- S[S.start.idx[k]:S.end.idx[k], 1:(x-1)] * omega[2*k - 1] + S[S.start.idx[k]:S.end.idx[k], x:(2*(x-1))] * omega[2*k]	
+	b[(S.start.idx[k] + 1) : (S.end.idx[k] + 1)] ~ dmnorm(zero[(S.start.idx[k] + 1):(S.end.idx[k] + 1)], K)
+
+  }
+  
+  ## smoothing parameter priors CHECK...
+  for (i in 1:(2 * (n.year-2))) {
+    omega[i] ~ dgamma(.05,.005)
+    rho[i] <- log(omega[i])
+  }
+    
+  ### Summaries, Abundance Estimates, and Other Derived Quantities
+  # new.X, col.idx, and t.start are in data:
+  ## Seasonal Abundance Estimate:
+  # I use the estimated b's above and the new data to 'predict' all data
+  # 90 is the number of days 
+  for(t in 1:n.year){
+    gam.fit[1:90, t] <- new.X[t.start[t]:(t.start[t]+89), col.idx[,t]] %*% b[col.idx[,t]]  
+    #raw.unrounded[t] <- sum(gam.fit[1:90,t])
+    #Raw.Est[t] <- round(raw.unrounded[t])
+	
+	# multiply raw estimates by correction factor for nighttime passage rates (below)
+    #Corrected.Est[t] <- Raw.Est[t] * corr.factor 
+  }#t
+  
+  for(t in 1:n.year){
+    raw.unrounded[t] <- sum(gam.fit[1:90,t])
+    Raw.Est[t] <- round(raw.unrounded[t])
+	
+	# multiply raw estimates by correction factor for nighttime passage rates (below)
+    Corrected.Est[t] <- Raw.Est[t] * corr.factor 
+  }#t
+
+  # Correction factor for nighttime passage rates:
+  corr.factor ~ dnorm(mean.corr, tau.corr)
+  mean.corr <- 1.0875
+  sd.corr <- 0.03625
+  tau.corr <- pow(sd.corr,-2)
+  
+}#model
+
