@@ -397,12 +397,13 @@ if (!file.exists(paste0("RData/WinBUGS_", x, "yr_v1.rds"))){
   
   Run_Time <- Sys.time() - Start_Time
   
-  saveRDS(list(data = jags.data, 
-               N_inits = N_inits, 
-               BUGS_out = GW_Nmix,
-               Run_Time = Run_Time,
-               Run_Date = Sys.Date(),
-               Sys_info = Sys.info()),
+  Ver1.results <- list(data = jags.data, 
+                       N_inits = N_inits, 
+                       BUGS_out = GW_Nmix,
+                       Run_Time = Run_Time,
+                       Run_Date = Sys.Date(),
+                       Sys_info = Sys.info())
+  saveRDS(Ver1.results,
           file = paste0("RData/WinBUGS_", x, "yr_v1.rds"))
   
 } else {
