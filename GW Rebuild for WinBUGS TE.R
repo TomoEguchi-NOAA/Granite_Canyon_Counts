@@ -254,8 +254,8 @@ nc <- 3
 #Run time: 
 Start_Time<-Sys.time()
 
-GW_Nmix <- bugs(data = jags.data,
-                inits = jags.inits,
+GW_Nmix <- bugs(data = jags.data.short,
+                inits = jags.inits.short,
                 parameters = parameters,
                 model.file="GW_Nmix_Orig.bugs",
                 n.chains = nc,
@@ -264,7 +264,8 @@ GW_Nmix <- bugs(data = jags.data,
                 bugs.directory = "C:/Users/tomo.eguchi/Documents/WinBUGS14")
 
 Run_Time <- Sys.time() - Start_Time
-save.image("T:/Eguchi/R_out/GW BUGS 7yr 100k.RData")
+#save.image("T:/Eguchi/R_out/GW BUGS 7yr 100k.RData")
+save.image("RData/GW BUGS 4yr 100k.RData")
 
 # library(R2jags)
 # 
