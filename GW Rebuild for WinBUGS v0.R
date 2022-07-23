@@ -9,25 +9,31 @@ WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
 periods <-c(136, 135, 164, 178, 179, 151)
 
 #Watch start times, as fraction of a day
-begin <- as.matrix(read.table("Data/begin.txt",header=T))
+begin <- as.matrix(read.table("Data/begin.txt",header=T, 
+                              nrows = max(periods)))
 #watch end times
-end <- as.matrix(read.table("Data/end.txt",header=T))
+end <- as.matrix(read.table("Data/end.txt",header=T, 
+                            nrows = max(periods)))
 
 #whale counts
-n <- as.matrix(read.table("Data/n.txt",header=T))
+n <- as.matrix(read.table("Data/n.txt",header=T, 
+                          nrows = max(periods)))
 dim(n) <- c(179,2,6) #convert this back to a 3D array
 #n <- abind(n,array(0,dim=c(2,2,6)), along=1) #add two trailing 0s to the end of the sightings array (this is for the day 1 and day 90 zero-whale anchor points)
 
 
-n1 <- as.matrix(read.table("Data/n1.txt",header=T))      #These aren't needed; used in the WinBUGS GUI version previously. Here we can just re-use n
+n1 <- as.matrix(read.table("Data/n1.txt",header=T, 
+                           nrows = max(periods)))      #These aren't needed; used in the WinBUGS GUI version previously. Here we can just re-use n
 dim(n1) <- c(179,2,6) #convert this back to a 3D array
 
 
-n2 <- as.matrix(read.table("Data/n2.txt",header=T))      #These aren't needed
+n2 <- as.matrix(read.table("Data/n2.txt",header=T, 
+                           nrows = max(periods)))      #These aren't needed
 dim(n2) <- c(179,2,6) #convert this back to a 3D array
 
 
-u <- as.matrix(read.table("Data/u.txt",header=T))
+u <- as.matrix(read.table("Data/u.txt",header=T, 
+                          nrows = max(periods)))
 dim(u) <- c(179,2,6) #convert this back to a 3D array
 #u <- abind(u,array(0,dim=c(2,2,6)), along=1) #add two trailing 0s to the end of the effort on/off array
 #for(i in 1:length(periods)){ #Place 1's for 'effort on' for the two periods following the end of true watches (this is for the day 1 and day 90 zero-whale anchor points)
@@ -36,15 +42,18 @@ dim(u) <- c(179,2,6) #convert this back to a 3D array
 
 
 #visibility
-vs <- as.matrix(read.table("Data/vs.txt",header=T))
+vs <- as.matrix(read.table("Data/vs.txt",header=T, 
+                           nrows = max(periods)))
 #vs <- rbind(vs,matrix(NA,nrow=2,ncol=6)) #Add two trailing NAs (this is for the day 1 and day 90 zero-whale anchor points)
 
 #beaufort
-bf <- as.matrix(read.table("Data/bf.txt",header=T))
+bf <- as.matrix(read.table("Data/bf.txt",header=T, 
+                           nrows = max(periods)))
 #bf <- rbind(bf,matrix(NA,nrow=2,ncol=6)) #Add two trailing NAs (this is for the day 1 and day 90 zero-whale anchor points)
 
 #observer numbers
-obs <- as.matrix(read.table("Data/obs.txt",header=T))
+obs <- as.matrix(read.table("Data/obs.txt",header=T, 
+                            nrows = max(periods)))
 dim(obs) <- c(179,2,6) #convert this back to a 3D array
 #obs <- abind(obs,array(0,dim=c(2,2,6)), along=1) #add two trailing 0s to the end of the effort on/off array
 #for(i in 1:length(periods)){ #Place 36s for 'no observer' for the two periods following the end of true watches (this is for the day 1 and day 90 zero-whale anchor points)
@@ -409,8 +418,10 @@ day.short <-day[,1:4]
 t.short <- t[,1:4]
 N.short <- N[,1:4]
 N_inits.short <- N_inits[,1:4]
+N_inits.short[which(N_inits.short == 0,arr.ind = T)] <- 1
 
-Watch.Length <- rbind(end,matrix(NA,nrow=2,ncol=6)) - rbind(begin,matrix(NA,nrow=2,ncol=6))
+Watch.Length <- rbind(end,matrix(NA,nrow=2,ncol=6)) - 
+  rbind(begin,matrix(NA,nrow=2,ncol=6))
 for(i in 1:length(periods)){ #Place 36s for 'no observer' for the two periods following the end of true watches (this is for the day 1 and day 90 zero-whale anchor points)
   Watch.Length[(periods[i]+1):(periods[i]+2),i] <- 1 #this will force it to the mean observation probability with no observer effect
 }
@@ -434,7 +445,9 @@ jags.data.short <- list(n=n.short,
                         N=N.short,
                         N.com=N.short,
                         N.sp=N.short,
-                        knot=c(-1.46,-1.26,-1.02,-0.78,-0.58,-0.34,-0.10,0.10,0.34,0.57,0.78,1.02,1.26,1.46),
+                        knot=c(-1.46,-1.26,-1.02,-0.78,-0.58,
+                               -0.34,-0.10,0.10,0.34,0.57,
+                               0.78,1.02,1.26,1.46),
                         n.knots=14,
                         Watch.Length=Watch.Length.short)
 
@@ -469,59 +482,59 @@ jags.inits.short <- function() list(mean.prob = 0.5,
                                     sd.b.sp = c(1,1,1,1),
                                     z=matrix(1,nrow=90,ncol=4))
 
-jags.data <- list(n=n,
-                  n.com=n,
-                  n.sp=n,
-                  n.station = dim(n)[2],
-                  n.year = dim(n)[3],
-                  n.obs = max(obs),
-                  periods = periods,
-                  obs=obs,
-                  #Watch.Length = 0.0625,
-                  u=u,
-                  vs=vs,
-                  bf=bf,
-                  #day=day,
-                  day=t,
-                  N=N,
-                  N.com=N,
-                  N.sp=N,
-                  knot=c(-1.46,-1.26,-1.02,-0.78,-0.58,-0.34,-0.10,0.10,0.34,0.57,0.78,1.02,1.26,1.46),
-                  n.knots=14,
-                  #begin=begin,
-                  #end=end,
-                  Watch.Length=Watch.Length)
-
-jags.inits <- function() list(mean.prob = 0.5,
-                              BF.Fixed = 0,
-                              VS.Fixed = 0,
-                              mean.prob.sp = 0.5,
-                              BF.Fixed.sp = 0,
-                              VS.Fixed.sp = 0,
-                              mean.prob.com = 0.5,
-                              BF.Fixed.com = 0,
-                              VS.Fixed.com = 0,
-                              mean.beta = c(0,0,0), #mean.beta = c(5,0.14,-3.5),
-                              beta.sigma = c(1,1,1),#beta.sigma = c(7,7,7),
-                              BF.Switch = 1,
-                              VS.Switch = 1,
-                              OBS.Switch = 1,
-                              sigma.Obs = 1,
-                              BF.Switch.sp = 1,
-                              VS.Switch.sp = 1,
-                              OBS.Switch.sp = 1,
-                              sigma.Obs.sp = 1,
-                              BF.Switch.com = 1,
-                              VS.Switch.com = 1,
-                              OBS.Switch.com = 1,
-                              sigma.Obs.com = 1,
-                              N = N_inits,
-                              N.com = N_inits,
-                              N.sp = N_inits,
-                              #z = matrix(1,nrow=90,ncol=6),
-                              beta.sp = array(data=0,dim=c(2,6)),
-                              sd.b.sp = c(1,1,1,1,1,1),
-                              z=matrix(1,nrow=90,ncol=6))
+# jags.data <- list(n=n,
+#                   n.com=n,
+#                   n.sp=n,
+#                   n.station = dim(n)[2],
+#                   n.year = dim(n)[3],
+#                   n.obs = max(obs),
+#                   periods = periods,
+#                   obs=obs,
+#                   #Watch.Length = 0.0625,
+#                   u=u,
+#                   vs=vs,
+#                   bf=bf,
+#                   #day=day,
+#                   day=t,
+#                   N=N,
+#                   N.com=N,
+#                   N.sp=N,
+#                   knot=c(-1.46,-1.26,-1.02,-0.78,-0.58,-0.34,-0.10,0.10,0.34,0.57,0.78,1.02,1.26,1.46),
+#                   n.knots=14,
+#                   #begin=begin,
+#                   #end=end,
+#                   Watch.Length=Watch.Length)
+# 
+# jags.inits <- function() list(mean.prob = 0.5,
+#                               BF.Fixed = 0,
+#                               VS.Fixed = 0,
+#                               mean.prob.sp = 0.5,
+#                               BF.Fixed.sp = 0,
+#                               VS.Fixed.sp = 0,
+#                               mean.prob.com = 0.5,
+#                               BF.Fixed.com = 0,
+#                               VS.Fixed.com = 0,
+#                               mean.beta = c(0,0,0), #mean.beta = c(5,0.14,-3.5),
+#                               beta.sigma = c(1,1,1),#beta.sigma = c(7,7,7),
+#                               BF.Switch = 1,
+#                               VS.Switch = 1,
+#                               OBS.Switch = 1,
+#                               sigma.Obs = 1,
+#                               BF.Switch.sp = 1,
+#                               VS.Switch.sp = 1,
+#                               OBS.Switch.sp = 1,
+#                               sigma.Obs.sp = 1,
+#                               BF.Switch.com = 1,
+#                               VS.Switch.com = 1,
+#                               OBS.Switch.com = 1,
+#                               sigma.Obs.com = 1,
+#                               N = N_inits,
+#                               N.com = N_inits,
+#                               N.sp = N_inits,
+#                               #z = matrix(1,nrow=90,ncol=6),
+#                               beta.sp = array(data=0,dim=c(2,6)),
+#                               sd.b.sp = c(1,1,1,1,1,1),
+#                               z=matrix(1,nrow=90,ncol=6))
 
 
 
@@ -529,39 +542,40 @@ jags.inits <- function() list(mean.prob = 0.5,
 # Files are 2006-2019_GC_Formatted_Data and 2006-2019_GC_N_inits
 
 
-# WinBUGS gives errors when N inits are set to 0. Try setting them to 1 instead (seems to work):
-N_inits[which(N_inits==0,arr.ind = T)] <- 1
+# WinBUGS gives errors when N inits are set to 0. 
+#Try setting them to 1 instead (seems to work):
+#N_inits[which(N_inits==0,arr.ind = T)] <- 1
 
-jags.inits <- function() list(mean.prob = 0.5,
-                              BF.Fixed = 0,
-                              VS.Fixed = 0,
-                              mean.prob.sp = 0.5,
-                              BF.Fixed.sp = 0,
-                              VS.Fixed.sp = 0,
-                              mean.prob.com = 0.5,
-                              BF.Fixed.com = 0,
-                              VS.Fixed.com = 0,
-                              mean.beta = c(0,0,0), #mean.beta = c(5,0.14,-3.5),
-                              beta.sigma = c(1,1,1),#beta.sigma = c(7,7,7),
-                              BF.Switch = 1,
-                              VS.Switch = 1,
-                              OBS.Switch = 1,
-                              sigma.Obs = 1,
-                              BF.Switch.sp = 1,
-                              VS.Switch.sp = 1,
-                              OBS.Switch.sp = 1,
-                              sigma.Obs.sp = 1,
-                              BF.Switch.com = 1,
-                              VS.Switch.com = 1,
-                              OBS.Switch.com = 1,
-                              sigma.Obs.com = 1,
-                              N = N_inits,
-                              N.com = N_inits,
-                              N.sp = N_inits,
-                              #z = matrix(1,nrow=90,ncol=6),
-                              beta.sp = array(data=0,dim=c(2,7)),
-                              sd.b.sp = c(1,1,1,1,1,1,1),
-                              z=matrix(1,nrow=90,ncol=7))
+# jags.inits <- function() list(mean.prob = 0.5,
+#                               BF.Fixed = 0,
+#                               VS.Fixed = 0,
+#                               mean.prob.sp = 0.5,
+#                               BF.Fixed.sp = 0,
+#                               VS.Fixed.sp = 0,
+#                               mean.prob.com = 0.5,
+#                               BF.Fixed.com = 0,
+#                               VS.Fixed.com = 0,
+#                               mean.beta = c(0,0,0), #mean.beta = c(5,0.14,-3.5),
+#                               beta.sigma = c(1,1,1),#beta.sigma = c(7,7,7),
+#                               BF.Switch = 1,
+#                               VS.Switch = 1,
+#                               OBS.Switch = 1,
+#                               sigma.Obs = 1,
+#                               BF.Switch.sp = 1,
+#                               VS.Switch.sp = 1,
+#                               OBS.Switch.sp = 1,
+#                               sigma.Obs.sp = 1,
+#                               BF.Switch.com = 1,
+#                               VS.Switch.com = 1,
+#                               OBS.Switch.com = 1,
+#                               sigma.Obs.com = 1,
+#                               N = N_inits,
+#                               N.com = N_inits,
+#                               N.sp = N_inits,
+#                               #z = matrix(1,nrow=90,ncol=6),
+#                               beta.sp = array(data=0,dim=c(2,7)),
+#                               sd.b.sp = c(1,1,1,1,1,1,1),
+#                               z=matrix(1,nrow=90,ncol=7))
 
 
 
@@ -590,7 +604,7 @@ GW_Nmix <- bugs(data = jags.data.short,
                 model.file="GW_Nmix_Orig.bugs",
                 n.chains = nc,
                 n.iter = ni, n.burnin = nb, n.thin = nt,
-                debug=FALSE,
+                debug=T,
                 bugs.directory = WinBUGS.dir)
 #"C:/Users/joshua.stewart/Desktop/Gray Whale Abundance Estimates/WinBUGS14/")
 
