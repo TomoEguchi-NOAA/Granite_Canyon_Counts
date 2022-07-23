@@ -4,6 +4,7 @@ library(abind)
 library(R2WinBUGS)
 
 Data.dir <- "C:/Users/tomoe/OneDrive/Documents/R/Granite_Canyon_Counts/Formatted Data Files for 2019 Analysis/Data"
+Inits.dir <- "C:/Users/tomoe/OneDrive/Documents/R/Granite_Canyon_Counts/Formatted Data Files for 2019 Analysis/Initial values"
 WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
 
 #Number of watch periods in each year's survey
@@ -70,7 +71,7 @@ dim(obs) <- c(179,2,6) #convert this back to a 3D array
 #  obs[(periods[i]+1):(periods[i]+2),,i] <- 36 #this will force it to the mean observation probability with no observer effect
 #}
 
-N_inits <- as.matrix(read.table(paste0(Data.dir, "/N_inits.txt"),
+N_inits <- as.matrix(read.table(paste0(Inits.dir, "/N_inits.txt"),
                                 header=T,
                                 nrows = (max(periods)+2)))
 
