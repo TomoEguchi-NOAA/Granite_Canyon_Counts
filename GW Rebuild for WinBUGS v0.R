@@ -60,8 +60,8 @@ dim(obs) <- c(179,2,6) #convert this back to a 3D array
 #  obs[(periods[i]+1):(periods[i]+2),,i] <- 36 #this will force it to the mean observation probability with no observer effect
 #}
 
-N_inits <- as.matrix(read.table("Data/N_inits.txt",header=T, 
-                                nrows = max(periods)))
+N_inits <- as.matrix(read.table("Data/N_inits.txt",header=T,
+                                nrows = (max(periods)+2)))
 
 for(i in 1:length(periods)){
   N_inits[(periods[i]+1):(periods[i]+2),i] <- NA #we're going to make N a partially observed data object with anchor points at day 1 and 90
