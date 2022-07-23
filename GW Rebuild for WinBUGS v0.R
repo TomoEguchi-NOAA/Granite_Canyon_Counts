@@ -3,37 +3,43 @@
 library(abind)
 library(R2WinBUGS)
 
-Data.dir <- "C:\Users\tomoe\OneDrive\Documents\R\Granite_Canyon_Counts\Formatted Data Files for 2019 Analysis\Data"
+Data.dir <- "C:/Users/tomoe/OneDrive/Documents/R/Granite_Canyon_Counts/Formatted Data Files for 2019 Analysis/Data"
 WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
 
 #Number of watch periods in each year's survey
 periods <-c(136, 135, 164, 178, 179, 151)
 
 #Watch start times, as fraction of a day
-begin <- as.matrix(read.table("Data.dir/begin.txt",header=T, 
+begin <- as.matrix(read.table(paste0(Data.dir, "/begin.txt"),
+                              header=T, 
                               nrows = max(periods)))
 #watch end times
-end <- as.matrix(read.table("Data.dir/end.txt",header=T, 
+end <- as.matrix(read.table(paste0(Data.dir, "/end.txt"),
+                            header=T, 
                             nrows = max(periods)))
 
 #whale counts
-n <- as.matrix(read.table("Data.dir/n.txt",header=T, 
+n <- as.matrix(read.table(paste0(Data.dir, "/n.txt"),
+                          header=T, 
                           nrows = max(periods)))
 dim(n) <- c(179,2,6) #convert this back to a 3D array
 #n <- abind(n,array(0,dim=c(2,2,6)), along=1) #add two trailing 0s to the end of the sightings array (this is for the day 1 and day 90 zero-whale anchor points)
 
 
-n1 <- as.matrix(read.table("Data.dir/n1.txt",header=T, 
+n1 <- as.matrix(read.table(paste0(Data.dir, "/n1.txt"),
+                           header=T, 
                            nrows = max(periods)))      #These aren't needed; used in the WinBUGS GUI version previously. Here we can just re-use n
 dim(n1) <- c(179,2,6) #convert this back to a 3D array
 
 
-n2 <- as.matrix(read.table("Data.dir/n2.txt",header=T, 
+n2 <- as.matrix(read.table(paste0(Data.dir, "/n2.txt"),
+                           header=T, 
                            nrows = max(periods)))      #These aren't needed
 dim(n2) <- c(179,2,6) #convert this back to a 3D array
 
 
-u <- as.matrix(read.table("Data.dir/u.txt",header=T, 
+u <- as.matrix(read.table(paste0(Data.dir, "/u.txt"),
+                          header=T, 
                           nrows = max(periods)))
 dim(u) <- c(179,2,6) #convert this back to a 3D array
 #u <- abind(u,array(0,dim=c(2,2,6)), along=1) #add two trailing 0s to the end of the effort on/off array
@@ -43,17 +49,20 @@ dim(u) <- c(179,2,6) #convert this back to a 3D array
 
 
 #visibility
-vs <- as.matrix(read.table("Data.dir/vs.txt",header=T, 
+vs <- as.matrix(read.table(paste0(Data.dir, "/vs.txt"),
+                           header=T, 
                            nrows = max(periods)))
 #vs <- rbind(vs,matrix(NA,nrow=2,ncol=6)) #Add two trailing NAs (this is for the day 1 and day 90 zero-whale anchor points)
 
 #beaufort
-bf <- as.matrix(read.table("Data.dir/bf.txt",header=T, 
+bf <- as.matrix(read.table(paste0(Data.dir, "/bf.txt"),
+                           header=T, 
                            nrows = max(periods)))
 #bf <- rbind(bf,matrix(NA,nrow=2,ncol=6)) #Add two trailing NAs (this is for the day 1 and day 90 zero-whale anchor points)
 
 #observer numbers
-obs <- as.matrix(read.table("Data.dir/obs.txt",header=T, 
+obs <- as.matrix(read.table(paste0(Data.dir, "/obs.txt"),
+                            header=T, 
                             nrows = max(periods)))
 dim(obs) <- c(179,2,6) #convert this back to a 3D array
 #obs <- abind(obs,array(0,dim=c(2,2,6)), along=1) #add two trailing 0s to the end of the effort on/off array
@@ -61,7 +70,8 @@ dim(obs) <- c(179,2,6) #convert this back to a 3D array
 #  obs[(periods[i]+1):(periods[i]+2),,i] <- 36 #this will force it to the mean observation probability with no observer effect
 #}
 
-N_inits <- as.matrix(read.table("Data.dir/N_inits.txt",header=T,
+N_inits <- as.matrix(read.table(paste0(Data.dir, "/N_inits.txt"),
+                                header=T,
                                 nrows = (max(periods)+2)))
 
 for(i in 1:length(periods)){
