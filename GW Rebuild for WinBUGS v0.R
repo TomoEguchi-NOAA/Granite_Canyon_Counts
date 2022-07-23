@@ -495,59 +495,59 @@ jags.inits.short <- function() list(mean.prob = 0.5,
                                     sd.b.sp = c(1,1,1,1),
                                     z=matrix(1,nrow=90,ncol=4))
 
-# jags.data <- list(n=n,
-#                   n.com=n,
-#                   n.sp=n,
-#                   n.station = dim(n)[2],
-#                   n.year = dim(n)[3],
-#                   n.obs = max(obs),
-#                   periods = periods,
-#                   obs=obs,
-#                   #Watch.Length = 0.0625,
-#                   u=u,
-#                   vs=vs,
-#                   bf=bf,
-#                   #day=day,
-#                   day=t,
-#                   N=N,
-#                   N.com=N,
-#                   N.sp=N,
-#                   knot=c(-1.46,-1.26,-1.02,-0.78,-0.58,-0.34,-0.10,0.10,0.34,0.57,0.78,1.02,1.26,1.46),
-#                   n.knots=14,
-#                   #begin=begin,
-#                   #end=end,
-#                   Watch.Length=Watch.Length)
-# 
-# jags.inits <- function() list(mean.prob = 0.5,
-#                               BF.Fixed = 0,
-#                               VS.Fixed = 0,
-#                               mean.prob.sp = 0.5,
-#                               BF.Fixed.sp = 0,
-#                               VS.Fixed.sp = 0,
-#                               mean.prob.com = 0.5,
-#                               BF.Fixed.com = 0,
-#                               VS.Fixed.com = 0,
-#                               mean.beta = c(0,0,0), #mean.beta = c(5,0.14,-3.5),
-#                               beta.sigma = c(1,1,1),#beta.sigma = c(7,7,7),
-#                               BF.Switch = 1,
-#                               VS.Switch = 1,
-#                               OBS.Switch = 1,
-#                               sigma.Obs = 1,
-#                               BF.Switch.sp = 1,
-#                               VS.Switch.sp = 1,
-#                               OBS.Switch.sp = 1,
-#                               sigma.Obs.sp = 1,
-#                               BF.Switch.com = 1,
-#                               VS.Switch.com = 1,
-#                               OBS.Switch.com = 1,
-#                               sigma.Obs.com = 1,
-#                               N = N_inits,
-#                               N.com = N_inits,
-#                               N.sp = N_inits,
-#                               #z = matrix(1,nrow=90,ncol=6),
-#                               beta.sp = array(data=0,dim=c(2,6)),
-#                               sd.b.sp = c(1,1,1,1,1,1),
-#                               z=matrix(1,nrow=90,ncol=6))
+jags.data <- list(n=n,
+                  n.com=n,
+                  n.sp=n,
+                  n.station = dim(n)[2],
+                  n.year = dim(n)[3],
+                  n.obs = max(obs),
+                  periods = periods,
+                  obs=obs,
+                  #Watch.Length = 0.0625,
+                  u=u,
+                  vs=vs,
+                  bf=bf,
+                  #day=day,
+                  day=t,
+                  N=N,
+                  N.com=N,
+                  N.sp=N,
+                  knot=c(-1.46,-1.26,-1.02,-0.78,-0.58,-0.34,-0.10,0.10,0.34,0.57,0.78,1.02,1.26,1.46),
+                  n.knots=14,
+                  #begin=begin,
+                  #end=end,
+                  Watch.Length=Watch.Length)
+
+jags.inits <- function() list(mean.prob = 0.5,
+                              BF.Fixed = 0,
+                              VS.Fixed = 0,
+                              mean.prob.sp = 0.5,
+                              BF.Fixed.sp = 0,
+                              VS.Fixed.sp = 0,
+                              mean.prob.com = 0.5,
+                              BF.Fixed.com = 0,
+                              VS.Fixed.com = 0,
+                              mean.beta = c(0,0,0), #mean.beta = c(5,0.14,-3.5),
+                              beta.sigma = c(1,1,1),#beta.sigma = c(7,7,7),
+                              BF.Switch = 1,
+                              VS.Switch = 1,
+                              OBS.Switch = 1,
+                              sigma.Obs = 1,
+                              BF.Switch.sp = 1,
+                              VS.Switch.sp = 1,
+                              OBS.Switch.sp = 1,
+                              sigma.Obs.sp = 1,
+                              BF.Switch.com = 1,
+                              VS.Switch.com = 1,
+                              OBS.Switch.com = 1,
+                              sigma.Obs.com = 1,
+                              N = N_inits,
+                              N.com = N_inits,
+                              N.sp = N_inits,
+                              #z = matrix(1,nrow=90,ncol=6),
+                              beta.sp = array(data=0,dim=c(2,6)),
+                              sd.b.sp = c(1,1,1,1,1,1),
+                              z=matrix(1,nrow=90,ncol=6))
 
 
 
@@ -557,7 +557,7 @@ jags.inits.short <- function() list(mean.prob = 0.5,
 
 # WinBUGS gives errors when N inits are set to 0. 
 #Try setting them to 1 instead (seems to work):
-#N_inits[which(N_inits==0,arr.ind = T)] <- 1
+N_inits[which(N_inits==0,arr.ind = T)] <- 1
 
 # jags.inits <- function() list(mean.prob = 0.5,
 #                               BF.Fixed = 0,
@@ -612,7 +612,7 @@ nc <- 3
 #GW_Nmix_short <- jags(jags.data.short, inits=jags.inits.short, parameters, "GW_Nmix_Orig.jags", n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, working.directory = getwd())
 
 
-library(R2WinBUGS)
+#library(R2WinBUGS)
 
 #Run time: 
 Start_Time<-Sys.time()
@@ -623,13 +623,13 @@ GW_Nmix <- bugs(data = jags.data.short,
                 model.file="GW_Nmix_Orig.bugs",
                 n.chains = nc,
                 n.iter = ni, n.burnin = nb, n.thin = nt,
-                debug=T,
+                debug=F,
                 bugs.directory = WinBUGS.dir)
 #"C:/Users/joshua.stewart/Desktop/Gray Whale Abundance Estimates/WinBUGS14/")
 
 Run_Time <- Sys.time() - Start_Time
 #save.image("GW BUGS 7yr 100k.RData")
-save.image("RData/GW BUGS 4yr 100k v0.RData")
+save.image("RData/GW BUGS 6yr 100k v0.RData")
 
 # library(R2jags)
 # 
