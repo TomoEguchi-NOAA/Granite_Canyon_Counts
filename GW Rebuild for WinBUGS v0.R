@@ -60,7 +60,8 @@ dim(obs) <- c(179,2,6) #convert this back to a 3D array
 #  obs[(periods[i]+1):(periods[i]+2),,i] <- 36 #this will force it to the mean observation probability with no observer effect
 #}
 
-N_inits <- as.matrix(read.table("Data/N_inits.txt",header=T))
+N_inits <- as.matrix(read.table("Data/N_inits.txt",header=T, 
+                                nrows = max(periods)))
 
 for(i in 1:length(periods)){
   N_inits[(periods[i]+1):(periods[i]+2),i] <- NA #we're going to make N a partially observed data object with anchor points at day 1 and 90
@@ -579,8 +580,14 @@ jags.inits.short <- function() list(mean.prob = 0.5,
 
 
 
-parameters <- c("lambda","OBS.RF","OBS.Switch","BF.Switch","BF.Fixed","VS.Switch","VS.Fixed","mean.prob","mean.prob.com","mean.prob.sp","BF.Fixed.com","BF.Fixed.sp","VS.Fixed.com","VS.Fixed.sp",
-                "Corrected.Est","Raw.Est","z","com","sp","Daily.Est","mean.beta","beta.sigma","beta","beta.sp","b.sp","sd.b.sp")
+parameters <- c("lambda","OBS.RF","OBS.Switch",
+                "BF.Switch","BF.Fixed","VS.Switch",
+                "VS.Fixed","mean.prob","mean.prob.com",
+                "mean.prob.sp","BF.Fixed.com","BF.Fixed.sp",
+                "VS.Fixed.com","VS.Fixed.sp",
+                "Corrected.Est","Raw.Est","z","com","sp",
+                "Daily.Est","mean.beta","beta.sigma",
+                "beta","beta.sp","b.sp","sd.b.sp")
 
 ni <- 100000
 nt <- 80
