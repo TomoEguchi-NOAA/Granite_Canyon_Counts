@@ -141,11 +141,13 @@ rm(list = ls()[!(ls() %in% c("all.stats.6yr",
                              "all.stats.4yr.v2",
                              "compute.stats"))])
 
-load("RData/GW BUGS 4yr 100k.RData")
+load("RData/GW BUGS 4yr 100k v0.RData")
 all.stats.4yr.v0 <- compute.stats(GW_Nmix)
 
 
 ```
+
+
 
 ```{r}
 seasons <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011", 

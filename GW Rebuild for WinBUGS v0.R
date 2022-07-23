@@ -3,36 +3,37 @@
 library(abind)
 library(R2WinBUGS)
 
+Data.dir <- "C:\Users\tomoe\OneDrive\Documents\R\Granite_Canyon_Counts\Formatted Data Files for 2019 Analysis\Data"
 WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
 
 #Number of watch periods in each year's survey
 periods <-c(136, 135, 164, 178, 179, 151)
 
 #Watch start times, as fraction of a day
-begin <- as.matrix(read.table("Data/begin.txt",header=T, 
+begin <- as.matrix(read.table("Data.dir/begin.txt",header=T, 
                               nrows = max(periods)))
 #watch end times
-end <- as.matrix(read.table("Data/end.txt",header=T, 
+end <- as.matrix(read.table("Data.dir/end.txt",header=T, 
                             nrows = max(periods)))
 
 #whale counts
-n <- as.matrix(read.table("Data/n.txt",header=T, 
+n <- as.matrix(read.table("Data.dir/n.txt",header=T, 
                           nrows = max(periods)))
 dim(n) <- c(179,2,6) #convert this back to a 3D array
 #n <- abind(n,array(0,dim=c(2,2,6)), along=1) #add two trailing 0s to the end of the sightings array (this is for the day 1 and day 90 zero-whale anchor points)
 
 
-n1 <- as.matrix(read.table("Data/n1.txt",header=T, 
+n1 <- as.matrix(read.table("Data.dir/n1.txt",header=T, 
                            nrows = max(periods)))      #These aren't needed; used in the WinBUGS GUI version previously. Here we can just re-use n
 dim(n1) <- c(179,2,6) #convert this back to a 3D array
 
 
-n2 <- as.matrix(read.table("Data/n2.txt",header=T, 
+n2 <- as.matrix(read.table("Data.dir/n2.txt",header=T, 
                            nrows = max(periods)))      #These aren't needed
 dim(n2) <- c(179,2,6) #convert this back to a 3D array
 
 
-u <- as.matrix(read.table("Data/u.txt",header=T, 
+u <- as.matrix(read.table("Data.dir/u.txt",header=T, 
                           nrows = max(periods)))
 dim(u) <- c(179,2,6) #convert this back to a 3D array
 #u <- abind(u,array(0,dim=c(2,2,6)), along=1) #add two trailing 0s to the end of the effort on/off array
@@ -42,17 +43,17 @@ dim(u) <- c(179,2,6) #convert this back to a 3D array
 
 
 #visibility
-vs <- as.matrix(read.table("Data/vs.txt",header=T, 
+vs <- as.matrix(read.table("Data.dir/vs.txt",header=T, 
                            nrows = max(periods)))
 #vs <- rbind(vs,matrix(NA,nrow=2,ncol=6)) #Add two trailing NAs (this is for the day 1 and day 90 zero-whale anchor points)
 
 #beaufort
-bf <- as.matrix(read.table("Data/bf.txt",header=T, 
+bf <- as.matrix(read.table("Data.dir/bf.txt",header=T, 
                            nrows = max(periods)))
 #bf <- rbind(bf,matrix(NA,nrow=2,ncol=6)) #Add two trailing NAs (this is for the day 1 and day 90 zero-whale anchor points)
 
 #observer numbers
-obs <- as.matrix(read.table("Data/obs.txt",header=T, 
+obs <- as.matrix(read.table("Data.dir/obs.txt",header=T, 
                             nrows = max(periods)))
 dim(obs) <- c(179,2,6) #convert this back to a 3D array
 #obs <- abind(obs,array(0,dim=c(2,2,6)), along=1) #add two trailing 0s to the end of the effort on/off array
@@ -60,7 +61,7 @@ dim(obs) <- c(179,2,6) #convert this back to a 3D array
 #  obs[(periods[i]+1):(periods[i]+2),,i] <- 36 #this will force it to the mean observation probability with no observer effect
 #}
 
-N_inits <- as.matrix(read.table("Data/N_inits.txt",header=T,
+N_inits <- as.matrix(read.table("Data.dir/N_inits.txt",header=T,
                                 nrows = (max(periods)+2)))
 
 for(i in 1:length(periods)){
@@ -617,53 +618,54 @@ GW_Nmix <- bugs(data = jags.data.short,
 
 Run_Time <- Sys.time() - Start_Time
 #save.image("GW BUGS 7yr 100k.RData")
-save.image("GW BUGS 4yr 100k v0.RData")
-library(R2jags)
+save.image("RData/GW BUGS 4yr 100k v0.RData")
 
-GW_Nmix <- jags(jags.data.short, jags.inits.short, parameters, "GW_Nmix_Orig_noCUT.bugs", 
-                n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, working.directory = getwd())
-
-
-
-
-attach.jags(GW_Nmix_short)
-
-apply(Corrected.Est,2,median)
-
-
-par(mfrow=c(2,2))
-year <- 4
-
-#John's plots:
-
-UCIs <- apply(Daily.Est[,,year],2,quantile,0.975)
-LCIs <- apply(Daily.Est[,,year],2,quantile,0.025)
-plot(apply(exp(sp[,,year]),2,median),type='l',ylim=c(0,max(UCIs)+50), xlab="Days since 1 December", ylab = "Whales per day")
-lines(apply(exp(com[,,year]),2,median),type='l',lty=2)
-segments(x0=1:90,y0=LCIs,y1=UCIs)
-
-
-
-#Com vs Sp
-plot(apply(exp(sp[,,year]),2,quantile,0.975),type='l',lty=2)
-lines(apply(exp(sp[,,year]),2,median),type='l')
-lines(apply(exp(sp[,,year]),2,quantile,0.025),type='l',lty=2)
-
-plot(apply(exp(com[,,year]),2,quantile,0.975),type='l',lty=2)
-lines(apply(exp(com[,,year]),2,median),type='l')
-lines(apply(exp(com[,,year]),2,quantile,0.025),type='l',lty=2)
-
-plot(apply(Daily.Est[,,year],2,quantile,0.975),type='l',lty=2)
-lines(apply(Daily.Est[,,year],2,median),type='l')
-lines(apply(Daily.Est[,,year],2,quantile,0.025),type='l',lty=2)
-
-median(apply(exp(sp[,,4]),1,sum))
-
-# PARAMETER NAME TRANSFERS:
-
-# JOSH     JOHN
-#    Spline 
-# b.sp     b1 
-# beta.sp  beta1
-# X.sp     X1
-
+# library(R2jags)
+# 
+# GW_Nmix <- jags(jags.data.short, jags.inits.short, parameters, "GW_Nmix_Orig_noCUT.bugs", 
+#                 n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, working.directory = getwd())
+# 
+# 
+# 
+# 
+# attach.jags(GW_Nmix_short)
+# 
+# apply(Corrected.Est,2,median)
+# 
+# 
+# par(mfrow=c(2,2))
+# year <- 4
+# 
+# #John's plots:
+# 
+# UCIs <- apply(Daily.Est[,,year],2,quantile,0.975)
+# LCIs <- apply(Daily.Est[,,year],2,quantile,0.025)
+# plot(apply(exp(sp[,,year]),2,median),type='l',ylim=c(0,max(UCIs)+50), xlab="Days since 1 December", ylab = "Whales per day")
+# lines(apply(exp(com[,,year]),2,median),type='l',lty=2)
+# segments(x0=1:90,y0=LCIs,y1=UCIs)
+# 
+# 
+# 
+# #Com vs Sp
+# plot(apply(exp(sp[,,year]),2,quantile,0.975),type='l',lty=2)
+# lines(apply(exp(sp[,,year]),2,median),type='l')
+# lines(apply(exp(sp[,,year]),2,quantile,0.025),type='l',lty=2)
+# 
+# plot(apply(exp(com[,,year]),2,quantile,0.975),type='l',lty=2)
+# lines(apply(exp(com[,,year]),2,median),type='l')
+# lines(apply(exp(com[,,year]),2,quantile,0.025),type='l',lty=2)
+# 
+# plot(apply(Daily.Est[,,year],2,quantile,0.975),type='l',lty=2)
+# lines(apply(Daily.Est[,,year],2,median),type='l')
+# lines(apply(Daily.Est[,,year],2,quantile,0.025),type='l',lty=2)
+# 
+# median(apply(exp(sp[,,4]),1,sum))
+# 
+# # PARAMETER NAME TRANSFERS:
+# 
+# # JOSH     JOHN
+# #    Spline 
+# # b.sp     b1 
+# # beta.sp  beta1
+# # X.sp     X1
+# 
