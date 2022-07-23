@@ -4,6 +4,8 @@ rm(list=ls())
 library(abind)
 library(R2WinBUGS)
 
+WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
+
 #Number of watch periods in each year's survey
 periods <-c(136, 135, 164, 178, 179, 151)
 
@@ -261,7 +263,8 @@ GW_Nmix <- bugs(data = jags.data.short,
                 n.chains = nc,
                 n.iter = ni, n.burnin = nb, n.thin = nt,
                 debug=F,
-                bugs.directory = "C:/Users/tomo.eguchi/Documents/WinBUGS14")
+                bugs.directory = WinBUGS.dir) 
+# "C:/Users/tomo.eguchi/Documents/WinBUGS14")
 
 Run_Time <- Sys.time() - Start_Time
 #save.image("T:/Eguchi/R_out/GW BUGS 7yr 100k.RData")

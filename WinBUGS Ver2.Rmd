@@ -9,8 +9,8 @@ Set up libraries
 
 ```{r}
 rm(list=ls())
-library(R2jags)
-library(abind)
+#library(R2jags)
+#library(abind)
 library(R2WinBUGS)
 library(tidyverse)
 # PARAMETER NAME TRANSFERS:
@@ -21,6 +21,7 @@ library(tidyverse)
 # beta.sp  beta1
 # X.sp     X1
 
+WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
 
 ```
 
@@ -306,7 +307,8 @@ for(i in 1:length(periods)){
 
 # Shorten data to first x years only to replicate 
 # the analysis in Durban et al 2016:
-x <- 7
+#x <- 7
+x <- 4
 
 n <- n[,,1:x]
 obs <- obs[,,1:x]
@@ -458,12 +460,14 @@ if (!file.exists(paste0("RData/WinBUGS_", x, "yr_v2.rds"))){
                   n.burnin = MCMCparams$n.burnin, 
                   n.thin = MCMCparams$n.thin,
                   debug=T,
-                  bugs.directory = "C:/Users/tomo.eguchi/Documents/WinBUGS14")
+                  bugs.directory = WinBUGS.dir) #"C:/Users/tomo.eguchi/Documents/WinBUGS14")
   
   Run_Time <- Sys.time() - Start_Time
-  saveRDS(list(jags.data = jags.data,
+  
+  Ver2.results <- list(jags.data = jags.data,
                N_inits = N_inits,
-               BUGS_out = BUGS_out), 
+               BUGS_out = BUGS_out)
+  saveRDS(Ver2.results, 
           paste0("RData/WinBUGS_", x, "yr_v2.rds"))
   
 } else {
