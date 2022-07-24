@@ -144,6 +144,21 @@ rm(list = ls()[!(ls() %in% c("all.stats.6yr",
 load("RData/GW BUGS 4yr 100k v0.RData")
 all.stats.4yr.v0 <- compute.stats(GW_Nmix)
 
+```
+
+
+```{r}
+rm(list = ls()[!(ls() %in% c("all.stats.6yr",
+                             "all.stats.8yr.v1",
+                             "all.stats.8yr.v2",
+                             #"all.stats.7yr",
+                             "all.stats.4yr.v1",
+                             "all.stats.4yr.v2",
+                             "all.stats.4yr.v0",
+                             "compute.stats"))])
+
+load("RData/GW BUGS 6yr 100k v0.RData")
+all.stats.6yr.v0 <- compute.stats(GW_Nmix)
 
 ```
 
@@ -167,8 +182,9 @@ summary.fcn <- function(x, seasons){
 annual.Nhat.6yr.v1 <- summary.fcn(all.stats.6yr,
                                    seasons[1:max(all.stats.6yr$year)])%>%
   mutate(Data = "v1_6yr")
-# annual.Nhat.Apr2022 <- summary.fcn(all.stats.Apr2022)
-# annual.Nhat.Jul2022 <- summary.fcn(all.stats.Jul2022)
+annual.Nhat.6yr.v0 <- summary.fcn(all.stats.6yr.v0,
+                                   seasons[1:max(all.stats.6yr.v0$year)])%>%
+  mutate(Data = "v0_6yr")
 annual.Nhat.8yr.v1 <- summary.fcn(all.stats.8yr.v1,
                                    seasons[1:max(all.stats.8yr.v1$year)]) %>%
   mutate(Data = "v1_8yr")
@@ -204,6 +220,7 @@ All 6-yr analysis results in the same results, as expected. Results from 8-yr an
 annual.Nhat <- rbind(annual.Nhat.4yr.v0,
                     annual.Nhat.4yr.v1,
                     annual.Nhat.4yr.v2,
+                    annual.Nhat.6yr.v0,
                     annual.Nhat.6yr.v1,
                     annual.Nhat.8yr.v1,
                     annual.Nhat.8yr.v2, 
