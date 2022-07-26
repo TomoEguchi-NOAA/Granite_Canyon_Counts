@@ -19,6 +19,9 @@ compute.Nhat <- function(GW_Nmix, seasons, data.str){
 
   Corrected.Est <- GW_Nmix$sims.list$Corrected.Est
   abundance.df <- data.frame(Season = seasons, 
+                             Mean = apply(Corrected.Est,
+                                          FUN = mean,
+                                          MARGIN = 2),
                               Median = apply(Corrected.Est, 
                                              FUN = median, 
                                              MARGIN = 2),
@@ -224,13 +227,13 @@ durban.data <- data.frame(Season = c("2006/2007", "2007/2008",
 All 6-yr analysis results in the same results, as expected. Results from 8-yr analyses are different between v1 and v2, as well as from the 6-yr analysis. I need to compare 6-yr analysis and 7-yr analysis. 
 
 ```{r}
-abundance.df <- rbind(abundance.df.4yr.v0,
-                    abundance.df.4yr.v1,
-                    abundance.df.4yr.v2,
-                    abundance.df.6yr.v0,
-                    abundance.df.6yr.v1,
-                    abundance.df.8yr.v1,
-                    abundance.df.8yr.v2, 
+abundance.df <- rbind(abundance.df.4yr.v0 %>% dplyr::select(!Mean),
+                    abundance.df.4yr.v1 %>% dplyr::select(!Mean),
+                    abundance.df.4yr.v2 %>% dplyr::select(-Mean),
+                    abundance.df.6yr.v0 %>% dplyr::select(-Mean),
+                    abundance.df.6yr.v1 %>% dplyr::select(-Mean),
+                    abundance.df.8yr.v1 %>% dplyr::select(-Mean),
+                    abundance.df.8yr.v2 %>% dplyr::select(-Mean), 
                     durban.data)
 
 

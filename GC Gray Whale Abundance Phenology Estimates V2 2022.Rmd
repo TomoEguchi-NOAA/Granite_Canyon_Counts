@@ -143,10 +143,10 @@ abundance.df.v2 <- data.frame(Season = seasons,
                                              MARGIN = 2),
                               LCL = apply(Corrected.Est.v2, 
                                           MARGIN = 2, 
-                                          FUN = quantile, 0.025),
+                                          FUN = quantile, 0.025) %>% round(),
                               UCL = apply(Corrected.Est.v2, 
                                           MARGIN = 2, 
-                                          FUN = quantile, 0.975))
+                                          FUN = quantile, 0.975) %>% round)
 
 p.Nhat.v2 <- ggplot(data = abundance.df.v2) + 
   geom_point(aes(x = Season, y = Median)) + 
