@@ -3,7 +3,7 @@ title: "R Notebook"
 output: html_notebook
 ---
 
-This notebook includes the part that a GAM is fitted to the observed daily counts of gray whales. It uses the 'jagam' function in mgcv to create a Bayesian GAM model. The output of 'jagam' is saved as an RDS file, which is used in other scripts to estimate annual abundance. 
+This notebook includes the part that a GAM is fitted to the observed daily counts of gray whales. It uses the 'jagam' function in mgcv to create a Bayesian GAM model. The output of 'jagam' is saved as an RDS file. Gaussian and gamma families and three different basis dimensions (5, 7, and 10) are fit.  
 
 
 Set things up
@@ -15,6 +15,38 @@ library(jagsUI)
 library(tidyverse)
 library(bayesplot)
 library(mgcv)
+library(readtext)
+library(loo)
+
+compute.LOOIC <- function(loglik, data.vector, MCMC.params){
+  n.per.chain <- (MCMC.params$n.samples - MCMC.params$n.burnin)/MCMC.params$n.thin
+  
+  loglik.vec <- as.vector(loglik)
+  
+  # each column corresponds to a data point and rows are MCMC samples
+  loglik.mat <- matrix(loglik.vec, nrow = n.per.chain * MCMC.params$n.chains)
+  
+  # take out the columns that correspond to missing data points
+  loglik.mat <- loglik.mat[, !is.na(data.vector)]
+  # loglik.mat <- matrix(loglik.vec[!is.na(data.vector)], 
+  #                      nrow = MCMC.params$n.chains * n.per.chain)
+  
+  Reff <- relative_eff(exp(loglik.mat),
+                       chain_id = rep(1:MCMC.params$n.chains,
+                                      each = n.per.chain),
+                       cores = 4)
+  
+  #
+  loo.out <- loo(loglik.mat, 
+                 r_eff = Reff, 
+                 cores = 4, k_threshold = 0.7)
+  
+  out.list <- list(Reff = Reff,
+                   loo.out = loo.out)
+  
+  return(out.list)  
+}
+
 
 save.fig <- T
 # # periods for the 6 survey years
@@ -43,31 +75,24 @@ jags.params <- c("lambda","OBS.RF","OBS.Switch",
                 "com","sp","Daily.Est","mean.beta",
                 "beta.sigma","beta","beta.sp","b.sp","sd.b.sp")
 
-MCMC.params <- list(n.samples = 10000,
-                   n.thin = 8,
-                   n.burnin = 1500,
+# Ran with n.samples = 50000 and n.burnin = 1500, which resulted in
+# insufficient mixture for Gamma-k10 (adaptation incomplete). So, 
+# increased them to 51500/3000 just for that model. It seemed to work. 
+MCMC.params <- list(n.samples = 51500,
+                   n.thin = 10,
+                   n.burnin = 3000,
                    n.chains = 5)
 
-basis.dim <- 10
+basis.dims <- c(5, 7, 10)
+families <- c("gaussian", "Gamma") # case matters - g for gaussian and G for Gamma
 #family <- "gaussian"
-family <- "Gamma"
-
-if (family == "gaussian"){
-  lkhd.str <- "y\\[i\\] \\~ dnorm\\(mu\\[i\\],tau)"
-  log.dens.str <- "lkhd[i] <- logdensity.norm(y[i], mu[i], tau)"
-} else if (family == "Gamma"){
-  lkhd.str <- "y\\[i\\] \\~ dgamma\\(r,r/mu\\[i\\])"
-  log.dens.str <- "lkhd[i] <- logdensity.gamma(y[i], r, r/mu[i])"
-}
-
-jagam.model <- paste0("models/jagam_dailyN_k", basis.dim, "_", family, ".txt")
-jags.out.file <- paste0("RData/jagam_dailyN_k", basis.dim, "_", family, "_v2_jags.rds")
-
+#family <- "Gamma"
 ```
 
-Create GAM part using jagam function. The daily mean is a smooth function of days (1:90)
 
+Create data:
 ```{r}
+
 daily.effort <- daily.counts <- daily.N <- matrix(nrow = 90, ncol = x)
 Watch.Length <- Ver2.results$jags.data$Watch.Length
 day.mat <- Ver2.results$jags.data$day
@@ -104,70 +129,153 @@ daily.N.df.long %>%
 
 # To use non-Gaussian family, I add 1 to all counts:
 daily.N.df.long.noNA$Nplus1 <- daily.N.df.long.noNA$N + 1  
+```
 
 
-if (!file.exists(jags.out.file)){
-  jags.gam <- jagam(Nplus1 ~ s(days, by = year, k = basis.dim), 
-                    family = family,
-                    data = daily.N.df.long.noNA,
-                    file = jagam.model)
-  
-  model.text <- readtext(jagam.model)
-  lkhd.idx <- gregexpr(lkhd.str, model.text$text)
-  start.idx <- unlist(lkhd.idx)
-  stop.idx <- start.idx + attr(lkhd.idx[[1]], "match.length")
-  new.model <- paste(substr(model.text$text, 
-                            start = 1, 
-                            stop = stop.idx), "\n",
-                     log.dens.str, "\n", 
-                     substr(model.text$text, 
-                            start = stop.idx + 1, 
-                            stop = nchar(model.text$text)))
-  
-  write_lines(new.model, file = jagam.model)
-  
-  gam.out <- gam(Nplus1 ~ s(days, by = year, k = basis.dim), 
-                 family = family,
-                 data = daily.N.df.long.noNA)
-  
-  ## Try running this code: runs fine. 
-  jm.gam.2 <- jags(data = jags.gam$jags.data,
-                 inits = rep(list(jags.gam$jags.ini),
-                                      MCMC.params$n.chains),
-                 parameters.to.save = c("mu", "b", "scale", "rho", "lkhd"),
-                 model.file = jagam.model,
-                 n.chains = MCMC.params$n.chains,
-                 n.thin = MCMC.params$n.thin,
-                 n.burnin = MCMC.params$n.burnin,
-                 n.iter = MCMC.params$n.samples,
-                 DIC = T, parallel = T)
-
-  # jm <- rjags::jags.model(file = jagam.model,
-  #                         data = jags.gam$jags.data,
-  #                         inits = rep(list(jags.gam$jags.ini),
-  #                                     MCMC.params$n.chains),
-  #                         n.chains = MCMC.params$n.chains,
-  #                         n.adapt = MCMC.params$n.burnin)
-
-  jm.gam <- rjags::jags.samples(jm, c("mu", "b", "scale", "rho", "lkhd"),
-                                n.iter = MCMC.params$n.samples,
-                                n.thin = MCMC.params$n.thin)
-  
-  saveRDS(list(jm.gam = jm.gam,
-               jags.gam = jags.gam,
-               gam.out = gam.out,
-               run.date = Sys.Date(),
-               MCMC.params = MCMC.params),
-          file = jags.out.file)  
-  
-} else {
-  jags.out <- readRDS(jags.out.file)
-  #jm <- jags.out$jm
-  jm.gam <- jags.out$jm.gam
-  jags.gam <- jags.out$jags.gam
-  gam.out <- jags.out$gam.out
-  
+Run jags:
+```{r}
+jags.out <- list()
+jags.out.files <- list()
+c <- 1
+for (k1 in 1:length(basis.dims)){
+  basis.dim <- basis.dims[k1]
+  for (k2 in 1:length(families)){
+    family <- families[k2]
+    
+    # Add log-likelihood line to each model file
+    if (family == "gaussian"){
+      lkhd.str <- "y\\[i\\] \\~ dnorm\\(mu\\[i\\],tau)"
+      log.dens.str <- "lkhd[i] <- logdensity.norm(y[i], mu[i], tau)"
+    } else if (family == "Gamma"){
+      lkhd.str <- "y\\[i\\] \\~ dgamma\\(r,r/mu\\[i\\])"
+      log.dens.str <- "lkhd[i] <- logdensity.gamma(y[i], r, r/mu[i])"
+    }
+    
+    jagam.model <- paste0("models/jagam_dailyN_k", basis.dim, "_", family, ".txt")
+    jags.out.file <- paste0("RData/jagam_dailyN_k", basis.dim, "_", family, "_v2_jags.rds")
+    
+    if (!file.exists(jags.out.file)){
+      jags.gam <- jagam(Nplus1 ~ s(days, by = year, k = basis.dim), 
+                        family = family,
+                        data = daily.N.df.long.noNA,
+                        file = jagam.model)
+      
+      model.text <- readtext(jagam.model)
+      lkhd.idx <- gregexpr(lkhd.str, model.text$text)
+      start.idx <- unlist(lkhd.idx)
+      stop.idx <- start.idx + attr(lkhd.idx[[1]], "match.length")
+      new.model <- paste(substr(model.text$text, 
+                                start = 1, 
+                                stop = stop.idx), "\n",
+                         log.dens.str, "\n", 
+                         substr(model.text$text, 
+                                start = stop.idx + 1, 
+                                stop = nchar(model.text$text)))
+      
+      write_lines(new.model, file = jagam.model)
+      
+      gam.out <- gam(Nplus1 ~ s(days, by = year, k = basis.dim), 
+                     family = family,
+                     data = daily.N.df.long.noNA)
+      
+      ## Try running this code (jagsUI): runs fine but the output is not compatible
+      ## with predict.gam for predictions. 
+      jm.gam.2 <- jags(data = jags.gam$jags.data,
+                       inits = rep(list(jags.gam$jags.ini),
+                                   MCMC.params$n.chains),
+                       parameters.to.save = c("mu", "b", "scale", "rho", "lkhd"),
+                       model.file = jagam.model,
+                       n.chains = MCMC.params$n.chains,
+                       n.thin = MCMC.params$n.thin,
+                       n.burnin = MCMC.params$n.burnin,
+                       n.iter = MCMC.params$n.samples,
+                       DIC = T, parallel = T)
+      
+      jm <- rjags::jags.model(file = jagam.model,
+                              data = jags.gam$jags.data,
+                              inits = rep(list(jags.gam$jags.ini),
+                                          MCMC.params$n.chains),
+                              n.chains = MCMC.params$n.chains,
+                              n.adapt = MCMC.params$n.burnin)
+      
+      jm.gam <- rjags::jags.samples(jm, c("mu", "b", "scale", "rho", "lkhd"),
+                                    n.iter = MCMC.params$n.samples,
+                                    thin = MCMC.params$n.thin)
+      
+      jags.out[[c]] <- list(jm.gam = jm.gam,
+                            jags.gam = jags.gam,
+                            gam.out = gam.out,
+                            run.date = Sys.Date(),
+                            MCMC.params = MCMC.params)
+      saveRDS(jags.out[[c]],
+              file = jags.out.file)  
+    
+      
+    } else {
+      jags.out[[c]] <- readRDS(jags.out.file)
+    
+      
+    }
+    jags.out.files[[c]] <- jags.out.file
+    c <- c + 1
+  }
 }
+
+
+
+```
+
+
+Model comparison
+
+```{r}
+LOOIC <- DIC <- vector(mode = "numeric", length = length(models))
+k <- 1
+for (k in 1:length(jags.out.files)){
+  LOOIC.file <- paste0(unlist(strsplit(jags.out.files[[k]], ".rds")),
+                       "_loo.rds")
+  if (!file.exists(LOOIC.file)){
+    jm.out <- jags.out[[k]]$jm.gam
+    
+    Reff <- relative_eff(exp(jm.out$lkhd),
+                         cores = 5)
+
+    loo.out <- compute.LOOIC(loglik = jm.out$jm.out$sims.list$loglik,
+                             data.vector = as.vector(jm.out$data$H1),
+                             MCMC.params = jm.out$params)
+    
+    saveRDS(loo.out, paste0("RData/LO_", model.names[[k]], 
+                            "_loo_out_June2022.rds") ) 
+  } else {
+    loo.out <- readRDS(paste0("RData/LO_", model.names[[k]],
+                              "_loo_out_June2022.rds"))
+  }
+
+}
+ DIC[k] <- jm.out$jm.out$DIC
+  LOOIC[k] <- loo.out$loo.out$estimates["looic","Estimate"]
+  
+
+
+```
+
+
+
+
+
+```{r}
+      #jm <- jags.out$jm
+      jm.gam <- jags.out$jm.gam
+      jags.gam <- jags.out$jags.gam
+      gam.out <- jags.out$gam.out
+
+```
+
+
+Create GAM part using jagam function. The daily mean is a smooth function of days (1:90)
+
+```{r}
+
 
   
 ```

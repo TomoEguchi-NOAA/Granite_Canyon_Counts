@@ -258,21 +258,21 @@ for(i in 1:length(periods)){
 # as of 2022-04-06, 8 is maximum.
 #x <- 8
 x <- 7
-# periods <- periods[1:x]
-# n <- n[1:max(periods),,1:x]
-# obs <- obs[1:max(periods),,1:x]
-# 
-# u <- u[1:max(periods),,1:x]
-# vs <- vs[1:max(periods),1:x]
-# bf <- bf[1:max(periods),1:x]
-# 
-# day <-day[1:(max(periods)+2),1:x]
-# t <- t[1:(max(periods)+2),1:x]
-# N <- N[1:(max(periods)+2),1:x]
-# N_inits <- rbind(N_inits[1:(max(periods)), 1:x],  
-#                  matrix(data = NA, 
-#                         nrow = 2, 
-#                         ncol = length(periods)))
+periods <- periods[1:x]
+n <- n[1:max(periods),,1:x]
+obs <- obs[1:max(periods),,1:x]
+
+u <- u[1:max(periods),,1:x]
+vs <- vs[1:max(periods),1:x]
+bf <- bf[1:max(periods),1:x]
+
+day <-day[1:(max(periods)+2),1:x]
+t <- t[1:(max(periods)+2),1:x]
+N <- N[1:(max(periods)+2),1:x]
+N_inits <- rbind(N_inits[1:(max(periods)), 1:x],
+                 matrix(data = NA,
+                        nrow = 2,
+                        ncol = length(periods)))
                  
 for (k in 1:length(periods)){
   N_inits[(periods[k]+1):(nrow(N_inits)), k] <- NA
