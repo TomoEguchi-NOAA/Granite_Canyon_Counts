@@ -22,19 +22,26 @@ compute.Nhat <- function(GW_Nmix, seasons, data.str){
                              Mean = apply(Corrected.Est,
                                           FUN = mean,
                                           MARGIN = 2),
-                              Median = apply(Corrected.Est, 
-                                             FUN = median, 
-                                             MARGIN = 2),
-                              LCL = apply(Corrected.Est, 
-                                          MARGIN = 2, 
-                                          FUN = quantile, 0.025),
-                              UCL = apply(Corrected.Est, 
-                                          MARGIN = 2, 
-                                          FUN = quantile, 0.975),
+                             Median = apply(Corrected.Est, 
+                                            FUN = median, 
+                                            MARGIN = 2),
+                             LCL = apply(Corrected.Est, 
+                                         MARGIN = 2, 
+                                         FUN = quantile, 0.025),
+                             UCL = apply(Corrected.Est, 
+                                         MARGIN = 2, 
+                                         FUN = quantile, 0.975),
+                             Lower20 = apply(Corrected.Est, 
+                                             MARGIN = 2, 
+                                             FUN = quantile, 0.20) %>% round(),
+                             Var = apply(Corrected.Est, 
+                                         MARGIN = 2, 
+                                         FUN = var) %>% round(),
                              year = seq(1, length(seasons)),
-                             Data = data.str)
+                             Data = data.str) %>%
+    mutate(CV = sqrt(Var)/Mean)
   return(abundance.df)
-
+  
   # stats.list <- vector(mode = "list",
   #                          length = dim(Daily.Est)[3])
   # 
@@ -82,9 +89,22 @@ abundance.df.6yr.v1 <- compute.Nhat(GW_Nmix, seasons = seasons[1:6], data.str = 
 ```{r}
 rm(list = ls()[!(ls() %in% c("abundance.df.6yr.v1", "compute.Nhat", "seasons"))])
 
-load("RData/GW BUGS 7yr 100k.Rdata")
+out.7yr.v1 <- readRDS("RData/WinBUGS_7yr_v1.rds")
+GW_Nmix <- out.7yr.v1$BUGS_out
+abundance.df.7yr.v1 <- compute.Nhat(GW_Nmix, seasons = seasons[1:7], data.str = "v1_7yr")
 
-abundance.df.7yr.v0 <- compute.Nhat(GW_Nmix, seasons = seasons[1:7], data.str = "v0_7yr")
+
+```
+
+
+```{r}
+rm(list = ls()[!(ls() %in% c("abundance.df.6yr.v1", 
+                             "abundance.df.7yr.v1", 
+                             "compute.Nhat", "seasons"))])
+
+out.7yr.v2 <- readRDS("RData/WinBUGS_7yr_v2.rds")
+GW_Nmix <- out.7yr.v2$BUGS_out
+abundance.df.7yr.v2 <- compute.Nhat(GW_Nmix, seasons = seasons[1:7], data.str = "v2_7yr")
 
 
 ```
@@ -94,7 +114,8 @@ Move to 8-yr data
 
 ```{r}
 rm(list = ls()[!(ls() %in% c("abundance.df.6yr.v1", 
-                             "abundance.df.7yr.v0",
+                             "abundance.df.7yr.v1",
+                             "abundance.df.7yr.v2",
                              "compute.Nhat", "seasons"))])
 
 # Comes from WinBUGS Ver2.Rmd
@@ -111,7 +132,9 @@ abundance.df.8yr.v1 <- compute.Nhat(GW_Nmix, seasons, data.str = "v1_8yr")
 
 
 ```{r}
-rm(list = ls()[!(ls() %in% c("abundance.df.6yr.v1", "abundance.df.7yr.v0",
+rm(list = ls()[!(ls() %in% c("abundance.df.6yr.v1", 
+                             "abundance.df.7yr.v1",
+                             "abundance.df.7yr.v2",
                              "abundance.df.8yr.v1", "compute.Nhat", "seasons"))])
 
 # Comes from WinBUGS Ver2.Rmd
@@ -127,7 +150,9 @@ abundance.df.8yr.v2 <- compute.Nhat(GW_Nmix, seasons, data.str = "v2_8yr")
 7 yr - this is actually 6 years worth of data. 
 
 ```{r}
-rm(list = ls()[!(ls() %in% c("abundance.df.6yr.v1", "abundance.df.7yr.v0",
+rm(list = ls()[!(ls() %in% c("abundance.df.6yr.v1", 
+                             "abundance.df.7yr.v1",
+                             "abundance.df.7yr.v2",
                              "abundance.df.8yr.v1",
                              "abundance.df.8yr.v2", "compute.Nhat", "seasons"))])
 
@@ -142,7 +167,8 @@ abundance.df.4yr.v1 <- compute.Nhat(GW_Nmix, seasons[1:4], data.str = "v1_4yr")
 
 ```{r}
 rm(list = ls()[!(ls() %in% c("abundance.df.6yr.v1",
-                             "abundance.df.7yr.v0",
+                             "abundance.df.7yr.v1",
+                             "abundance.df.7yr.v2",
                              "abundance.df.8yr.v1",
                              "abundance.df.8yr.v2", 
                              "abundance.df.4yr.v1", 
@@ -160,7 +186,8 @@ abundance.df.4yr.v2 <- compute.Nhat(GW_Nmix, seasons[1:4], data.str = "v2_4yr")
 rm(list = ls()[!(ls() %in% c("abundance.df.6yr.v1",
                              "abundance.df.8yr.v1",
                              "abundance.df.8yr.v2",
-                             #"abundance.df.7yr",
+                             "abundance.df.7yr.v1",
+                             "abundance.df.7yr.v2",
                              "abundance.df.4yr.v1",
                              "abundance.df.4yr.v2",
                              "compute.Nhat", "seasons"))])
@@ -174,10 +201,10 @@ abundance.df.4yr.v0 <- compute.Nhat(GW_Nmix, seasons[1:4], data.str = "v0_4yr")
 
 ```{r}
 rm(list = ls()[!(ls() %in% c("abundance.df.6yr.v1",
-                             "abundance.df.7yr.v0",
+                             "abundance.df.7yr.v1",
+                             "abundance.df.7yr.v2",
                              "abundance.df.8yr.v1",
                              "abundance.df.8yr.v2",
-                             #"abundance.df.7yr",
                              "abundance.df.4yr.v1",
                              "abundance.df.4yr.v2",
                              "abundance.df.4yr.v0",
@@ -243,13 +270,15 @@ durban.data <- data.frame(Season = c("2006/2007", "2007/2008",
 All 6-yr analysis results in the same results, as expected. Results from 8-yr analyses are different between v1 and v2, as well as from the 6-yr analysis. I need to compare 6-yr analysis and 7-yr analysis. 
 
 ```{r}
-abundance.df <- rbind(abundance.df.4yr.v0 %>% dplyr::select(!Mean),
-                    abundance.df.4yr.v1 %>% dplyr::select(!Mean),
-                    abundance.df.4yr.v2 %>% dplyr::select(-Mean),
-                    abundance.df.6yr.v0 %>% dplyr::select(-Mean),
-                    abundance.df.6yr.v1 %>% dplyr::select(-Mean),
-                    abundance.df.8yr.v1 %>% dplyr::select(-Mean),
-                    abundance.df.8yr.v2 %>% dplyr::select(-Mean), 
+abundance.df <- rbind(abundance.df.4yr.v0 %>% dplyr::select(-c(Mean, Var, CV, Lower20)),
+                    abundance.df.4yr.v1 %>% dplyr::select(-c(Mean, Var, CV, Lower20)),
+                    abundance.df.4yr.v2 %>% dplyr::select(-c(Mean, Var, CV, Lower20)),
+                    abundance.df.6yr.v0 %>% dplyr::select(-c(Mean, Var, CV, Lower20)),
+                    abundance.df.6yr.v1 %>% dplyr::select(-c(Mean, Var, CV, Lower20)),
+                    abundance.df.7yr.v1 %>% dplyr::select(-c(Mean, Var, CV, Lower20)),
+                    abundance.df.7yr.v2 %>% dplyr::select(-c(Mean, Var, CV, Lower20)),  
+                    abundance.df.8yr.v1 %>% dplyr::select(-c(Mean, Var, CV, Lower20)),
+                    abundance.df.8yr.v2 %>% dplyr::select(-c(Mean, Var, CV, Lower20)), 
                     durban.data)
 
 
