@@ -12,7 +12,7 @@ output:
 ```{r setup, include=FALSE}
 rm(list = ls())
 knitr::opts_chunk$set(echo = TRUE)
-save.fig <- T
+save.fig <- F
 
 source("Granite_Canyon_Counts_fcns.R")
 library(tidyverse)
@@ -257,11 +257,26 @@ abundance.df.v1 <- data.frame(Season = seasons,
                               UCL = apply(Corrected.Est.v1, 
                                           MARGIN = 2, 
                                           FUN = quantile, 0.975) %>% round(),
+                              Lower20 = apply(Corrected.Est.v1, 
+                                          MARGIN = 2, 
+                                          FUN = quantile, 0.20) %>% round(),
+                              Var = apply(Corrected.Est.v1, 
+                                          MARGIN = 2, 
+                                          FUN = var) %>% round(),
+                              Mean  = apply(Corrected.Est.v1, 
+                                          MARGIN = 2, 
+                                          FUN = mean) %>% round(),
                               Method = "Durban") %>%
   mutate(Year = lapply(str_split(Season, "/"), 
                        FUN = function(x) x[2]) %>% 
            unlist() %>% 
-           as.numeric())
+           as.numeric(),
+         CV = sqrt(Var)/Mean)
+
+# Note that all.estiamtes is not used for making plots etc. This is because the numbers 
+# change with additional data AND how I fixed the input data for previous years. The
+# numbers are hard-coded in the Durban.estimates above. For 2021/2022 the numbers, i.e.,
+# median (Nhat), LCL, and UCL should match with v1 results. 
 
 # Laake.estimates %>% 
 #   dplyr::select(Year, Season, Nhat, LCL, UCL) %>%
@@ -366,6 +381,23 @@ if (save.fig)
 
 
 ```
+
+### Abundance estimates {-}
+
+NEED TO FIX DATES AND NUMBERS IN THIS SECTION AS R CODE. 
+
+From 28 December 2021 to 18 February 2022, 13 trained observers completed 255 hours of survey effort over 39 survey days. A total of 853 groups of 1689 gray whales were counted, with the highest daily count of 112 whales on 03 January 2022 (Fig. 1). Estimated total abundance of gray whales during the 2021/2022 southbound migration was 16,650 (95% Credible Interval: 15,170 - 18,335, CV = 0.0485, 20-percentile = 16,050). This estimate includes the multiplicative correction factor for nighttime passage (mean = 1.0875, SD = 0.03625). This estimate represents a 19.6% decline from the previous survey in 2019/2020 when abundance was estimated at 20,580 (Table 1, Fig. 2). Considering the 23.7% decline in abundance from 2016 to 2020 (Stewart and Weller 2021a), a striking decrease in the numbers of ENP gray whales occurred since 2016; 26,960 whales in 2015/2016, 20,580 in 2019/2020 and 16,650 in 2021/2022 (Fig. 2). 
+
+
+The most recent estimate of 16,650 in 2021/2022 is comparable to those from 2000/2001 and 2001/2002 (Fig. 2). Those earlier survey years coincided with an unusual mortality event (UME)  that occurred in 1999 and 2000 when higher than usual strandings and deaths of gray whales were observed along the west coast of Mexico, the United States, and Canada. In total, 651 dead gray whales were reported, with 283 observed in 1999 and 368 in 2000 (Gulland et al. 2005). While the cause of this UME was not determined, some stranded whales were in poor body condition leading to questions about whether the population of ENP gray whales had reached the limit of what the Arctic feeding ground habitat could support (Moore et al. 2001). However, the population subsequently increased and in 2016 the abundance was estimated at its all-time high of nearly 27,000 whales. 
+
+
+In 2019, NOAA’s National Marine Fisheries Service declared the most recent UME for ENP gray whales . As of June 3, 2022, 578 stranded whales were recorded with 216 in 2019, 172 in 2020, 114 in 2021 and 76 in 2022. While this UME appears to be at a slightly reduced level compared to the 1999-2000 UME, it overlaps with the observed 23.7% decline in abundance from 2016 to 2020 and then the 19.6% decline in abundance that occurred between 2020 and 2022. Given the increased number of strandings in 2019 that triggered the designation of a UME and the lower number of reported strandings since that time, it is likely that the majority of this decline occurred in 2019. This decline is comparable to that seen between 1987/1988, when the ENP gray whale population reached what was then its highest estimated abundance (26,916 whales) of the time series, and 1992/1993, when the estimated abundance had fallen approximately 40% over the course of four years. Based on the available records, this decline was not associated with a marked increase in the number of stranded whales, as was the case in 1999-2000 and 2019-present. However, by 1993/1994 abundance had increased to over 20,000, and remained stable at near that level until the 1999-2000 UME.
+
+
+The pattern of population growth and decline represented in the time series of abundance estimates for ENP gray whales suggests that large-scale fluctuations of this nature are not rare. The observed declines in abundance appear to represent short-term events that have not resulted in any detectable longer-term impacts on the population. That is, despite occasional declines in abundance since the time-series of data began in 1967, the overall trend had remained positive. That being said, the year over year decline in abundance between 2016 and 2022 represents a pattern that requires further regular monitoring to determine when the population trajectory levels off and, in turn, again becomes positive.
+While ENP gray whales have shown long-term resilience to population fluctuations for which a direct cause has yet to be determined, NOAA/NMFS continue to closely monitor the population with regular surveys to estimate abundance, calf production and body condition (e.g., Perryman and Lynn 2002, Durban et al. 2015; 2017, Perryman et al. 2020, Stewart and Weller 2021a, Stewart and Weller 2021b). The results of these research efforts will continue to provide the best scientific information available regarding the status of the population.
+
 
 ### Migration phenology {-}
 
