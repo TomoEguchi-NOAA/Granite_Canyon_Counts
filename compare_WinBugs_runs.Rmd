@@ -271,22 +271,28 @@ All 6-yr analysis results in the same results, as expected. Results from 8-yr an
 
 ```{r}
 abundance.df <- rbind(abundance.df.4yr.v0 %>% dplyr::select(-c(Mean, Var, CV, Lower20)),
-                    abundance.df.4yr.v1 %>% dplyr::select(-c(Mean, Var, CV, Lower20)),
-                    abundance.df.4yr.v2 %>% dplyr::select(-c(Mean, Var, CV, Lower20)),
-                    abundance.df.6yr.v0 %>% dplyr::select(-c(Mean, Var, CV, Lower20)),
-                    abundance.df.6yr.v1 %>% dplyr::select(-c(Mean, Var, CV, Lower20)),
-                    abundance.df.7yr.v1 %>% dplyr::select(-c(Mean, Var, CV, Lower20)),
-                    abundance.df.7yr.v2 %>% dplyr::select(-c(Mean, Var, CV, Lower20)),  
-                    abundance.df.8yr.v1 %>% dplyr::select(-c(Mean, Var, CV, Lower20)),
-                    abundance.df.8yr.v2 %>% dplyr::select(-c(Mean, Var, CV, Lower20)), 
-                    durban.data)
+                      abundance.df.4yr.v1 %>% dplyr::select(-c(Mean, Var, CV, Lower20)),
+                      abundance.df.4yr.v2 %>% dplyr::select(-c(Mean, Var, CV, Lower20)),
+                      abundance.df.6yr.v0 %>% dplyr::select(-c(Mean, Var, CV, Lower20)),
+                      abundance.df.6yr.v1 %>% dplyr::select(-c(Mean, Var, CV, Lower20)),
+                      abundance.df.7yr.v1 %>% dplyr::select(-c(Mean, Var, CV, Lower20)),
+                      abundance.df.7yr.v2 %>% dplyr::select(-c(Mean, Var, CV, Lower20)),  
+                      abundance.df.8yr.v1 %>% dplyr::select(-c(Mean, Var, CV, Lower20)),
+                      abundance.df.8yr.v2 %>% dplyr::select(-c(Mean, Var, CV, Lower20)), 
+                      durban.data)
 
 
 ggplot(data = abundance.df, 
-       aes(x = Season, y = Median, color = Data, group = Data)) +
+       aes(x = Season, 
+           y = Median, 
+           color = Data, 
+           group = Data)) +
   geom_point() +
   geom_line() +
-  geom_errorbar(aes(x = Season, ymin = LCL, ymax = UCL, color = Data)) 
+  geom_errorbar(aes(x = Season, 
+                    ymin = LCL, 
+                    ymax = UCL, 
+                    color = Data)) 
 
 ```
 
