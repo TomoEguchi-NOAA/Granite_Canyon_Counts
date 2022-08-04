@@ -21,7 +21,7 @@ library(tidyverse)
 # beta.sp  beta1
 # X.sp     X1
 
-
+ 
 ```
 
 Get data prior to the 2021/2022 season:
