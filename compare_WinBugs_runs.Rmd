@@ -77,11 +77,25 @@ abundance.df.6yr.v1 <- compute.Nhat(GW_Nmix, seasons = seasons[1:6], data.str = 
 ```
 
 
+7 year data
+
+```{r}
+rm(list = ls()[!(ls() %in% c("abundance.df.6yr.v1", "compute.Nhat", "seasons"))])
+
+load("RData/GW BUGS 7yr 100k.Rdata")
+
+abundance.df.7yr.v0 <- compute.Nhat(GW_Nmix, seasons = seasons[1:7], data.str = "v0_7yr")
+
+
+```
+
 
 Move to 8-yr data
 
 ```{r}
-rm(list = ls()[!(ls() %in% c("abundance.df.6yr.v1", "compute.Nhat", "seasons"))])
+rm(list = ls()[!(ls() %in% c("abundance.df.6yr.v1", 
+                             "abundance.df.7yr.v0",
+                             "compute.Nhat", "seasons"))])
 
 # Comes from WinBUGS Ver2.Rmd
 # the RDS file is a list and BUGS_out object in the list should be the same
@@ -97,7 +111,7 @@ abundance.df.8yr.v1 <- compute.Nhat(GW_Nmix, seasons, data.str = "v1_8yr")
 
 
 ```{r}
-rm(list = ls()[!(ls() %in% c("abundance.df.6yr.v1",
+rm(list = ls()[!(ls() %in% c("abundance.df.6yr.v1", "abundance.df.7yr.v0",
                              "abundance.df.8yr.v1", "compute.Nhat", "seasons"))])
 
 # Comes from WinBUGS Ver2.Rmd
@@ -113,7 +127,7 @@ abundance.df.8yr.v2 <- compute.Nhat(GW_Nmix, seasons, data.str = "v2_8yr")
 7 yr - this is actually 6 years worth of data. 
 
 ```{r}
-rm(list = ls()[!(ls() %in% c("abundance.df.6yr.v1",
+rm(list = ls()[!(ls() %in% c("abundance.df.6yr.v1", "abundance.df.7yr.v0",
                              "abundance.df.8yr.v1",
                              "abundance.df.8yr.v2", "compute.Nhat", "seasons"))])
 
@@ -128,6 +142,7 @@ abundance.df.4yr.v1 <- compute.Nhat(GW_Nmix, seasons[1:4], data.str = "v1_4yr")
 
 ```{r}
 rm(list = ls()[!(ls() %in% c("abundance.df.6yr.v1",
+                             "abundance.df.7yr.v0",
                              "abundance.df.8yr.v1",
                              "abundance.df.8yr.v2", 
                              "abundance.df.4yr.v1", 
@@ -159,6 +174,7 @@ abundance.df.4yr.v0 <- compute.Nhat(GW_Nmix, seasons[1:4], data.str = "v0_4yr")
 
 ```{r}
 rm(list = ls()[!(ls() %in% c("abundance.df.6yr.v1",
+                             "abundance.df.7yr.v0",
                              "abundance.df.8yr.v1",
                              "abundance.df.8yr.v2",
                              #"abundance.df.7yr",
