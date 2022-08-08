@@ -12,7 +12,7 @@ output:
 ```{r setup, include=FALSE}
 rm(list = ls())
 knitr::opts_chunk$set(echo = TRUE)
-save.fig <- F
+save.fig <- T
 
 source("Granite_Canyon_Counts_fcns.R")
 library(tidyverse)
@@ -52,10 +52,10 @@ Rugh.data <- read_csv(file = "Data/Rugh et al 2001 Table 1 Median Date.txt",
                       col_types = cols(Season = col_character(),
                                        Median_Date = col_date(format = "%Y-%m-%d"))) %>%
   mutate(Year = lapply(str_split(Season, "/"), 
-                       FUN = function(x) x[1]) %>% 
+                       FUN = function(x) x[2]) %>% 
            unlist() %>% 
            as.numeric(),
-         median.idx = (Median_Date - as.Date(paste0(Year, "-12-01"))) %>%
+         median.idx = (Median_Date - as.Date(paste0((Year-1), "-12-01"))) %>%
            as.numeric())
 
 # Durban estimates:
@@ -69,9 +69,10 @@ Durban.estimates <- data.frame(Year = c(2007, 2008, 2010, 2011, 2015, 2016, 2020
                                Method = "Durban")
 
 # UMEs
-UMEs <- data.frame(Season = c("1999/2000", "2019/2020", 
+UMEs <- data.frame(Season = c("1999/2000", "2000/2001", 
+                              "2019/2020", 
                               "2020/2021", "2021/2022"),
-                   Year = c(1999, 2019, 2020, 2021))
+                   Year = c(1999, 2000, 2019, 2020, 2021))
 
 # This is for the 2022 analysis. Change it accordingly:
 end.year <- 2022
@@ -418,7 +419,7 @@ for (k in 1:x){
 median.idx.df <- data.frame(Season = seasons,
                             median.idx = median.idx) %>%
   mutate(Year = lapply(str_split(Season, "/"), 
-                       FUN = function(x) x[1]) %>% 
+                       FUN = function(x) x[2]) %>% 
            unlist() %>% 
            as.numeric())
 
