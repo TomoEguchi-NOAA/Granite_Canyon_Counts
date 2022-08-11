@@ -65,15 +65,15 @@ Data_Out <- do.call("rbind", Data_Out.list)
 #If it's less than 10 minutes over the 1.5hrs, I'm also counting it (guessing that they forgot to log off or something)
 
 #Entries that are less than 1.5hrs (5 minute grace period)
-# shift_dur_min <- 90   # 90 minutes - 5 minutes
-# grace_min <- 5
+shift_dur_min <- 90   # 90 minutes - 5 minutes
+#grace_min <- 5
 # Data_Out[which((Data_Out$end - Data_Out$begin) < (shift_dur_min - grace_min)/(24*60)),]
 # 
 # #Entries more than 1.5hrs (5 minute grace period)
 # Data_Out[which((Data_Out$end - Data_Out$begin) > (shift_dur_min + grace_min)/(24*60)),] 
 # 
 # #Entries more than 1.5 hrs +/- 10 min
-# grace_min <- 10
+#grace_min <- 10
 # Data_Out[which(Data_Out$end - Data_Out$begin < 
 #                  (shift_dur_min - grace_min)/(24*60)),]
 # Data_Out[which(Data_Out$end-Data_Out$begin > 
@@ -82,19 +82,18 @@ Data_Out <- do.call("rbind", Data_Out.list)
 # Final data
 # Remove watches that were less than 85 minutes or greater than 95 minutes:
 grace_min <- 5
-CorrectLength <- Data_Out[which(Data_Out$end-Data_Out$begin > 
-                                  (shift_dur_min - grace_min)/(24*60) & 
-                                  Data_Out$end-Data_Out$begin < 
-                                  (shift_dur_min + grace_min)/(24*60)),]
+
+Data_Out %>% 
+  filter(dur > (shift_dur_min - grace_min)/(24*60) & 
+           dur < (shift_dur_min + grace_min)/(24*60)) -> Correct_Length
 
 Chaff <- Data_Out[which(Data_Out$end-Data_Out$begin < 
                           (shift_dur_min - grace_min)/(24*60)),]
 
-
-FinalData <- CorrectLength %>%
+Final_Data <- Correct_Length %>%
   filter(bf < 5, vs < 5)
 
-WhalesDays <- FinalData %>%
+WhalesDays <- Final_Data %>%
   group_by(BeginDay) %>%
   mutate(PropDay = end-begin) %>%
   summarize(TotalWatch = sum(PropDay), TotalWhales=sum(n))
@@ -103,7 +102,7 @@ ggplot(data = WhalesDays) +
   geom_point(aes(x = as.numeric(BeginDay), y = TotalWhales/TotalWatch))
 #plot(x=WhalesDays$BeginDay,y=WhalesDays$TotalWhales/WhalesDays$TotalWatch)
 
-ShiftsPerDay <- FinalData %>%
+ShiftsPerDay <- Final_Data %>%
   group_by(BeginDay) %>%
   summarize(Watches = n())
 
@@ -115,7 +114,7 @@ ShiftsPerDay <- FinalData %>%
 
 #Check shifts that passed muster to confirm the compiled data is correct
 # set.seed(1199)
-# FinalData[sample(1:196,20,replace=F),]
+# Final_Data[sample(1:196,20,replace=F),]
 # 
 # #Check shifts that were thrown out to make sure they deserved it
 # set.seed(1200)
@@ -123,29 +122,28 @@ ShiftsPerDay <- FinalData %>%
 
 
 #Summary Stats for Report
-Complete_Data <- Data_Out[complete.cases(Data_Out),]
-Complete_Data$Eff <- Complete_Data$end-Complete_Data$begin
+Complete_Data <- Final_Data[complete.cases(Final_Data),]
+Complete_Data$Eff <- Complete_Data$end - Complete_Data$begin
 
 TotalHrs <- sum(Complete_Data$Eff)*24
 TotalDays <- length(unique(floor(Complete_Data$begin)))
 TotalObservers <- length(unique(Complete_Data$obs))
 TotalWhales <- sum(Complete_Data$n)
 
-
 WPH <- Complete_Data %>%
-  group_by(floor(Complete_Data$begin)) %>%
+  mutate(DaysSinceDec1 = as.numeric(BeginDay)) %>%
+  group_by(DaysSinceDec1) %>%
   summarize(TotalWhales = sum(n), 
             TotalEffort = sum(Eff), 
             WPH = sum(n)/(sum(Eff)*24)) 
 
-out.obj <- list(WPH = WPH,
-                FinalData = FinalData,
-                Data_Out = Data_Out,
-                WhalesDays = WhalesDays,
+out.obj <- list(Data_Out = Data_Out,
+                Correct_Length = Correct_Length,
+                Final_Data = Final_Data,
                 Complete_Data = Complete_Data,
-                CorrectLength = CorrectLength)
+                WPH = WPH)
 
-saveRDS(out.obj, file = paste0("RData/out_", YEAR, "_Tomo_v2.rds"))
+saveRDS(out.obj, file = paste0("RData/Final_Test_Aug2022/out_", YEAR, "_Tomo_v2.rds"))
 
 ```
 

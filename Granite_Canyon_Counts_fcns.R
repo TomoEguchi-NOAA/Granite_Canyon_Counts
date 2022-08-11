@@ -8,9 +8,14 @@
 get.data <- function(dir, YEAR, ff){
   FILES <- list.files(paste0(dir, "/", YEAR))
   all.lines <- read_lines(file = paste0(dir, "/", YEAR, "/", FILES[ff]))
+  
+  # look at all event code
   event.code <- str_sub(all.lines, start = 5, end = 5)
+  
+  # are there any comments?
   COMMENTS <- which(event.code == "C")
   
+  # if there were comments, remove them
   if(length(COMMENTS)>0){
     data <- read.table(text = all.lines[-COMMENTS],
                        fill=T,
@@ -26,6 +31,8 @@ get.data <- function(dir, YEAR, ff){
     
   }
   
+  #data <- data[, colSums(is.na(data)) < nrow(data)]
+  
   # Files with extensive comments in sightings are problematic because they get split into multiple lines. 
   # We need to pull out lines that contain only numeric V1 (when they are converted into numeric)
   
@@ -34,7 +41,8 @@ get.data <- function(dir, YEAR, ff){
   Starts <- which(data$V2=="B") #Find all start times
   Ends <- which(data$V2=="E") #Find all end times
   
-  # if there is no "E" at the end
+  # if there is no "E" at the end, Add "E" with time equal to 5 seconds after
+  # the last entry.
   if (length(Ends) == 0 | max(Ends) != nrow(data)){
     row.num <- as.numeric(data[nrow(data), 1])
     row.num.char <- ifelse(row.num < 100, 
@@ -76,7 +84,9 @@ get.data <- function(dir, YEAR, ff){
   # Decimal hour of shift start time
   BeginHr <- hour(hms(data$V4)) + minute(hms(data$V4))/60 + second(hms(data$V4))/3600
   
-  data %>% mutate(begin = as.numeric(BeginDay) + BeginHr/24) -> data
+  data %>% 
+    mutate(begin = as.numeric(BeginDay) + BeginHr/24,
+           shift = cumsum(V2=="P")) -> data
   return(data)
 }
 
