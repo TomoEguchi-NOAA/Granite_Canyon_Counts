@@ -31,6 +31,8 @@ For the estimation process, I use the same model as in Durban et al. (2015). An 
 
 ## Data Extraction {-}
 
+This description only pertains to data from 2015, 2016, 2020 and 2022. I don't have original data files for previous years. The previous years' data need to be examined. 
+
 Data extraction is conducted using a script file ("Extract_Data_All_v2.Rmd"). It was named with the v2 suffix because I considered Josh Stewart's extraction code to be the first version. Josh created two functions for extracting past data; one for datasets before 2016 and another for those since 2016. I modified his functions so that one script file can be used for all data sets. 
 
 It is expected that all data files (one file per day) for one season are stored in one directory that is named with the year of survey (e.g., "Data/2015" if a relative path to the current working directory; also see below for the naming convention for year). The directory should contain nothing but the data files and all the files have the same naming convention. A common convention is "GWyymmdd_hhmmss EDITED.dat" where yy is 2-digit year, mm is month, dd is date, hh is hours, mm is minutes, and ss is seconds of the beginning of the survey day. The time is recorded as the local time (PST). Because a survey usually extends over two calendar years, it is defined that a season is the second of the two calendar years. For example, the 2019/2020 season is for year 2020. 
@@ -147,3 +149,4 @@ When running "Extract_Data_All_v2.Rmd", the following warning will show up on th
 
 ## Estimation {-}
 
+The analysis is done in "WinBUGS Ver2.Rmd". 

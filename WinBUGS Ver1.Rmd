@@ -21,6 +21,7 @@ library(tidyverse)
 # beta.sp  beta1
 # X.sp     X1
 
+WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
  
 ```
 
@@ -392,7 +393,7 @@ if (!file.exists(paste0("RData/WinBUGS_", x, "yr_v1.rds"))){
                   n.burnin = MCMC.params$n.burnin, 
                   n.thin = MCMC.params$n.thin,
                   debug = T,
-                  bugs.directory = "C:/Users/tomo.eguchi/Documents/WinBUGS14")
+                  bugs.directory = WinBUGS.dir)
   
   
   Run_Time <- Sys.time() - Start_Time

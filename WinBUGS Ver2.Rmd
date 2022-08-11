@@ -21,6 +21,7 @@ library(tidyverse)
 # beta.sp  beta1
 # X.sp     X1
 
+WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
 
 ```
 
@@ -344,37 +345,6 @@ jags.data <- list(n = n,
                   #end=end,
                   Watch.Length=Watch.Length)
 
-# jags.inits <- function() list(mean.prob = 0.5,
-#                               BF.Fixed = 0,
-#                               VS.Fixed = 0,
-#                               mean.prob.sp = 0.5,
-#                               BF.Fixed.sp = 0,
-#                               VS.Fixed.sp = 0,
-#                               mean.prob.com = 0.5,
-#                               BF.Fixed.com = 0,
-#                               VS.Fixed.com = 0,
-#                               mean.beta = c(0,0,0), #mean.beta = c(5,0.14,-3.5),
-#                               beta.sigma = c(1,1,1),#beta.sigma = c(7,7,7),
-#                               BF.Switch = 1,
-#                               VS.Switch = 1,
-#                               OBS.Switch = 1,
-#                               sigma.Obs = 1,
-#                               BF.Switch.sp = 1,
-#                               VS.Switch.sp = 1,
-#                               OBS.Switch.sp = 1,
-#                               sigma.Obs.sp = 1,
-#                               BF.Switch.com = 1,
-#                               VS.Switch.com = 1,
-#                               OBS.Switch.com = 1,
-#                               sigma.Obs.com = 1,
-#                               N = N_inits,
-#                               N.com = N_inits,
-#                               N.sp = N_inits,
-#                               #z = matrix(1,nrow=90,ncol=6),
-#                               beta.sp = array(data=0, dim=c(2, x)),
-#                               sd.b.sp = rep(1, times = x), #c(1,1,1,1,1,1),
-#                               z = matrix(1, nrow=90, ncol=x))
-
 jags.inits <- function() list(mean.prob = 0.5,
                               BF.Fixed = 0,
                               VS.Fixed = 0,
@@ -407,7 +377,7 @@ jags.inits <- function() list(mean.prob = 0.5,
                               z = matrix(1, nrow=90, ncol= x))
 
 #### To run 2006-2019 data, load .RDS object and name it jags.data, 
-# then update intitial values:
+# then update initial values:
 # Files are 2006-2019_GC_Formatted_Data and 2006-2019_GC_N_inits
 
 # WinBUGS gives errors when N inits are set to 0. 
@@ -429,15 +399,6 @@ MCMCparams <- list(n.iter = 100000,
                    n.burnin = 60000,
                    n.chains = 3)
 
-# ni <- 100000
-# nt <- 80
-# nb <- 60000
-# nc <- 3
-
-# ni <- 100
-# nt <- 2
-# nb <- 60
-# nc <- 3
 
 ```
 
@@ -458,7 +419,7 @@ if (!file.exists(paste0("RData/WinBUGS_", x, "yr_v2.rds"))){
                   n.burnin = MCMCparams$n.burnin, 
                   n.thin = MCMCparams$n.thin,
                   debug=T,
-                  bugs.directory = "C:/Users/tomo.eguchi/Documents/WinBUGS14")
+                  bugs.directory = WinBUGS.dir)
   
   Run_Time <- Sys.time() - Start_Time
   saveRDS(list(jags.data = jags.data,
