@@ -3,9 +3,8 @@ title: "R Notebook"
 output: html_notebook
 ---
 
-This notebook includes the part that a GAM is fitted to the observed daily counts of gray whales. In this version (Ver3), I use jagam function in mgcv to create the input data but they are used to run Model_DailyN_GAM_kx_Nmix_JAGS.txt. 
+This notebook includes the part that a GAM is fitted to the observed daily counts of gray whales. In this version (Ver4), I treat unobserved data points as "parameters" or missing values. 
 
-THIS IS STILL INCOMPLETE. I DON'T KNOW HOW TO PREDICT COUNTS ONCE BETAS ARE ESTIMATED, WITHOUT USING THE PREDICT.GAM FUNCTION IN MGCV. I WANT TO DO THAT IN THE JAGS CODE DIRECTLY USING THE POSTERIORS OF BETAS. I PROBABLY HAVE TO READ SIMON WOOD'S BOOK TO FIGURE OUT THE NUTS AND BOLTS... 2022-07-15
 
 Set up libraries
 
@@ -55,10 +54,13 @@ MCMC.params <- list(n.samples = 100000,
 The daily mean is a smooth function of days (1:90)
 
 ```{r setup-data}
-daily.effort <- daily.counts <- daily.N <- matrix(nrow = 90, ncol = n.seasons)
+daily.effort <- daily.counts <- daily.N <- daily.obs <- matrix(nrow = 90, ncol = n.seasons)
 Watch.Length <- Ver2.results$jags.data$Watch.Length
 day.mat <- Ver2.results$jags.data$day
-ns <- rbind(Ver2.results$jags.data$n[,1,], matrix(NA, nrow = 2, ncol = n.seasons))
+ns <- rbind(Ver2.results$jags.data$n[,1,], 
+            matrix(NA, nrow = 2, ncol = n.seasons))
+obs <- rbind(Ver2.results$jags.data$obs[,1,], 
+              matrix(NA, nrow = 2, ncol = n.seasons))
 
 for (y in 1:n.seasons){
   for (j in 1:90){
@@ -66,32 +68,52 @@ for (y in 1:n.seasons){
       daily.effort[j,y] <- 0
       daily.counts[j,y] <- 0
       daily.N[j,y] <- 0
+     
     } else {
       daily.effort[j, y] <- sum(Watch.Length[day.mat[,y] == j, y], na.rm = T)
       daily.counts[j, y] <- sum(ns[day.mat[,y] == j, y], na.rm = T)
       daily.N[j, y] <- ceiling(daily.counts[j,y]/daily.effort[j,y])
-      
+      daily.obs[j,y] <- first(obs[day.mat[,y] == j, y])
     }
   }
 }
   
-daily.N.df <- data.frame(daily.N) 
-colnames(daily.N.df) <- seasons
-daily.N.df %>% 
+daily.counts.df <- data.frame(daily.counts) 
+colnames(daily.counts.df) <- seasons
+daily.counts.df %>% 
   pivot_longer(everything(),
                names_to = "Season", 
-               values_to = "N") %>%  
-  arrange(Season) -> daily.N.df.long
+               values_to = "n") %>%  
+  arrange(Season) -> daily.counts.df.long
 
-daily.N.df.long$days <- rep(1:90, times = n.seasons)
-daily.N.df.long$year <- factor(rep(1:n.seasons, each = 90))
+daily.effort.df <- data.frame(daily.effort) 
+colnames(daily.effort.df) <- seasons
+daily.effort.df %>% 
+  pivot_longer(everything(),
+               names_to = "Season", 
+               values_to = "effort") %>%  
+  arrange(Season) -> daily.effort.df.long
 
-daily.N.df.long %>% 
-  select(-Season) %>%
-  na.omit() -> daily.N.df.long.noNA
+daily.obs.df <- data.frame(daily.obs) 
+colnames(daily.obs.df) <- seasons
+daily.obs.df %>% 
+  pivot_longer(everything(),
+               names_to = "Season", 
+               values_to = "obs") %>%  
+  arrange(Season) -> daily.obs.df.long
+
+daily.counts.df.long$days <- rep(1:90, times = n.seasons)
+daily.counts.df.long$year <- factor(rep(1:n.seasons, each = 90))
+daily.counts.df.long$obs <- daily.obs.df.long$obs
+daily.counts.df.long$effort <- daily.effort.df.long$effort
+
+daily.counts.df.long %>% mutate(n.1 = ifelse(effort == 0, NA, n)) -> daily.counts.df.long
 
 # To use non-Gaussian family, I add 1 to all counts:
-daily.N.df.long.noNA$Nplus1 <- daily.N.df.long.noNA$N + 1  
+daily.counts.df.long %>% 
+  select(-Season) %>%
+  mutate(Nplus1 = n.1 + 1) -> daily.counts.df.long.noSeason
+
 ```
 
 
@@ -107,13 +129,15 @@ jagam.model <- paste0("models/jagam_dailyN_k",
 jags.out.file <- paste0("RData/jagam_dailyN_k", 
                         basis.dim, "_", family, "_jags.rds")
 
-jags.data.v2 <- Ver2.results$jags.data
+#jags.data.v2 <- Ver2.results$jags.data
+
+
 if (!file.exists(jags.out.file)){
   
   # Use jagam function to create a model file and input data list
-  jags.gam <- jagam(Nplus1 ~ s(days, by = year, k = basis.dim), 
+  jags.gam <- jagam(Nplus1 ~ s(days, by = year, k = basis.dim) + s(effort), 
                     family = family,
-                    data = daily.N.df.long.noNA,
+                    data = daily.counts.df.long.noSeason,
                     file = jagam.model)
   
   # Run short chains to get what I need for now
