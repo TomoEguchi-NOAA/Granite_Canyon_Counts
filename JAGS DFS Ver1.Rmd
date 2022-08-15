@@ -3,9 +3,8 @@ title: "R Notebook"
 output: html_notebook
 ---
 
-This notebook includes the part that a GAM is fitted to the observed daily counts of gray whales. In this version (Ver3), I use jagam function in mgcv to create the input data but they are used to run Model_DailyN_GAM_kx_Nmix_JAGS.txt. 
+This notebook contains an effort to impute unobserved gray whale counts using the discrete Fourier series (DFS). This approach has been tried for imputation of the numbers of nesting leatherback turtles and green turtle hatchlings before (although unpublished as of Aug 2022).
 
-THIS IS STILL INCOMPLETE. I DON'T KNOW HOW TO PREDICT COUNTS ONCE BETAS ARE ESTIMATED, WITHOUT USING THE PREDICT.GAM FUNCTION IN MGCV. I WANT TO DO THAT IN THE JAGS CODE DIRECTLY USING THE POSTERIORS OF BETAS. I PROBABLY HAVE TO READ SIMON WOOD'S BOOK TO FIGURE OUT THE NUTS AND BOLTS... 2022-07-15
 
 Set up libraries
 
