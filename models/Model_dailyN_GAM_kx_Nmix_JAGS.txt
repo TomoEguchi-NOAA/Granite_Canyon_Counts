@@ -150,14 +150,13 @@ model{
   }
     
 
-  ### Summaries, Abundance Estimates, and OtheThanbkr Derived Quantities
+  ### Summaries, Abundance Estimates, and Other Derived Quantities
   # new.X, col.idx, and t.start are in data:
   ## Seasonal Abundance Estimate:
   # I use the estimated b's above and the new data to 'predict' all data
   # 90 is the number of days 
   for(t in 1:n.year){
 
-	#Index out of range taking subset of  b  
     gam.fit[1:90, t] <- new.X[t.start[t]:(t.start[t]+89), col.idx[,t]] %*% b[col.idx[,t]]  
 	
 	# For Gamma family, the link is inverse. We have to invert the vector to 
