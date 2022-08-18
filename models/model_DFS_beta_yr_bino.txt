@@ -9,58 +9,76 @@ model{
 
   for (yr in 1:n.years){
 		# Initial states     
-		N0[yr] ~ dnorm(mu.N0[yr], 1.0)  #tau.X0[j])
-		N[yr, 1] <- c[yr, day[1]] + N0[yr]  # day 1 should be 12/1
+		N[1,yr] <- 0.01  # day 1 should be 12/1
+		N.exp[1,yr] <- 0
 		# observation
-		y[yr,1] ~ dbin(obs.prob[yr,1], N[yr,1])  #dnorm(N[yr,1], tau.y)
+		y[1,yr] ~ dnorm(N[1, yr] * obs.prob[1, yr], tau.y) #dbin(obs.prob[1, yr], N[1, yr])  #
 
-		logit(prob[yr,1]) <- logit(mean.prob) + (BF.Switch*BF.Fixed*bf[yr,1]) + (VS.Switch*VS.Fixed*vs[yr,1]) + (OBS.Switch*OBS.RF[obs[yr,1]])
+		logit(prob[1,yr]) <- logit(mean.prob) + (BF.Fixed*bf[1,yr]) + (VS.Fixed*vs[1,yr]) + (OBS.RF[obs[1,yr]])
 
         # the u data is whether there were observers on watch. 
-        # 0 counts are often associated with years/shifts with 
-        # no second observer. So if u=0, it will fix observation probability at 0
-        obs.prob[yr,1] <- u[yr,t]*prob[yr,1]
+        # If there were no observers, obs.prob == 0.
+        obs.prob[1,yr] <- u[1,yr] * prob[1,yr]
 
 		for (t in 2:n.steps){
 			# state
-			N[yr,t] <-  c[yr, day[t]] + N[yr, t-1]
+			N[t,yr] <- c[t,yr] + N[t-1,yr]
+			N.exp[t,yr] <- exp(N[t,yr])
 
 			# observation
-			y[yr, t] ~ dbin(obs.prob[yr,1], N[yr,1])  #dnorm(N[yr,1], tau.y)
+			y[t, yr] ~ dnorm(N[t, yr] * obs.prob[t, yr], tau.y) #dbin(obs.prob[t, yr], round(N[t, yr]))  #
 
-			logit(prob[yr,t]) <- logit(mean.prob) + (BF.Switch*BF.Fixed*bf[yr,t]) + (VS.Switch*VS.Fixed*vs[yr,t]) + (OBS.Switch*OBS.RF[obs[yr,t]])
+			logit(prob[t, yr]) <- logit(mean.prob) + (BF.Fixed*bf[t,yr]) + (VS.Fixed*vs[t,yr]) + (OBS.RF[obs[t,yr]])
 
-			# the u data is whether there were observers on watch. 
-			# 0 counts are often associated with years/shifts with 
-			# no second observer. So if u=0, it will fix observation probability at 0
-			obs.prob[yr,t] <- u[yr,t]*prob[yr,t]
+        	# the u data is whether there were observers on watch. 
+        	# If there were no observers, obs.prob == 0.
+        	obs.prob[t,yr] <- u[t,yr] * prob[t,yr]
               
 		}
   }  
   
   # c parameter defined here with a discrete Fourier function
-  # n.days = from 12/21 to 4/30. Provide it through jags.data
+  # n.days = from 12/1. Provide it through jags.data
   # also provide period (should be same as n.days) through jags.data
 
   for (yr in 1:n.years){
-    for (j in 1:n.sectors){
       for (t in 1:n.steps){
         
-        c[yr, j, t] <- beta.cos[yr, j] * cos(2 * pi * t / period) + beta.sin[yr, j] * sin(2 * pi * t / period)
+        c[t,yr] <- beta.cos[yr] * cos(2 * pi * t / period) + beta.sin[yr] * sin(2 * pi * t / period)
       }  
-    }
   }
     
+  for (yr in 1:n.years){
+    raw.unrounded[yr] <- sum(N.exp[1:n.steps, yr])
+    Raw.Est[yr] <- raw.unrounded[yr] * corr.factor # multiply raw estimates by correction factor for nighttime passage rates (below)
+    Corrected.Est[yr] <- round(Raw.Est[yr])
+
+  } 
+  
+  # Correction factor for nighttime passage rates:
+  corr.factor~dnorm(mean.corr,tau.corr)
+  mean.corr<-1.0875
+  sd.corr<-0.03625
+  tau.corr<-pow(sd.corr,-2)
+
+
   # priors
   for (yr in 1:n.years){
-    for (j in 1:n.sectors){
-      beta.cos[yr, j] ~ dnorm(0, tau.cos)
-      beta.sin[yr, j] ~ dnorm(0, tau.sin)
-
-    }
+    beta.cos[yr] ~ dnorm(0, tau.cos)
+    beta.sin[yr] ~ dnorm(0, tau.sin)    
   }
   
-   sigma.cos ~ dgamma(1, 0.1)
+  for(o in 1:n.obs){
+    OBS.RF[o] ~ dnorm(0, tau.Obs)
+  }#o
+
+  sigma.Obs ~ dgamma(1, 0.1)
+  tau.Obs <- 1/(sigma.Obs * sigma.Obs)
+
+  BF.Fixed ~ dnorm(0, 0.01)
+  VS.Fixed ~ dnorm(0, 0.01)
+
+  sigma.cos ~ dgamma(1, 0.1)
   sigma.sin ~ dgamma(1, 0.1)
   
   tau.cos <- 1/(sigma.cos * sigma.cos)
@@ -69,15 +87,5 @@ model{
   sigma.y ~ dgamma(1, 0.1)
   tau.y <- 1/(sigma.y * sigma.y)
 
-  #for (j in 1:n.sectors){
-    # observation SD and precision - needs to be petty tight 
-    # for convergence because data are so limited
-    #sigma.y[j] ~ dgamma(1, 0.1)
-    #tau.y[j] <- 1/(sigma.y[j] * sigma.y[j])
-
-    # sigma.X is the SD of the process (X)
-    #sigma.X[j] ~ dgamma(1, 0.1)
-    #tau.X[j] <- 1/(sigma.X[j] * sigma.X[j])    
-        
-  #}
+  mean.prob ~ dbeta(1, 1)
 }
