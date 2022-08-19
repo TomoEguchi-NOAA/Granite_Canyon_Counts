@@ -3,7 +3,7 @@
 # GAM. 
 
 # Tomo Eguchi
-# 2022-04-21
+# 2022-04-21 started
 
 
 model{ 
@@ -12,19 +12,8 @@ model{
   # station (Trailer) s
   # year t
     
-  ### Linking Lambda from N Mixture to Common Model
-   
-  # Below mirrors John's code, indexing lambda by periods instead of by days, 
-  # with the reference vector to link it to the appropriate model day
-  for(t in 1:n.year){
-    for(j in 1:(periods[t]+2)){
-                      
-        # the gam model:
-        log(lambda[j,t]) <- log(Watch.Length[j,t]) + gam.fit[day[j,t],t] 
-
-    }#j
-  }#t
-  
+  ### Linking Lambda from N Mixture to GAM
+     
   ### N Mixture process
   
   for(t in 1:n.year){
@@ -35,27 +24,24 @@ model{
       for(s in 1:n.station){
       
         # N mixture model - two observations of 'true' N (passing whales), 
-		# with different observation probabilities
+		    # with different observation probabilities
         n[j,s,t] ~ dbin(obs.prob[j,s,t], N[j,t]) 
 
       }#s    
     }#j
   }#t
 
+  # The Poisson mean is modeled with GAM, which is the true number of whales passing through the study area
   for(t in 1:n.year){
-	#periods + 2 to include the added anchor points of 0 whales at days 1 and 90
+	  #periods + 2 to include the added anchor points of 0 whales at days 1 and 90
     for(j in 1:(periods[t]+2)){ 
-
-      # Replicate John's code:
-      # Then, the 'true' N's for each period is distributed around a poisson 
-	  # mean whales per watch (lambda)
       
-      N[j,t] ~ dpois(lambda[j,t]) 
+      N[j,t] ~ dpois(exp(gam.fit[day[j,t],t])) 
 
     }#j
   }#t
   
-  ### Observation probability
+  ### Observation probability - include the watch period durations
   for(t in 1:n.year){
     for(j in 1:periods[t]){
       for(s in 1:n.station){
@@ -71,7 +57,9 @@ model{
         # the u data is whether there were observers on watch. 
         # 0 counts are often associated with years/shifts with 
         # no second observer. So if u=0, it will fix observation probability at 0
-        obs.prob[j,s,t] <- u[j,s,t] * prob[j,s,t]
+        # watch.prop is the proportion of supposed watch period (180 minutes) that
+        # was actually observed. 90 minutes = 0.5, which would half the probability
+        obs.prob[j,s,t] <- u[j,s,t] * prob[j,s,t] * watch.prop[j,s,t]
                 
       }#s
     }#j
@@ -87,9 +75,7 @@ model{
     OBS.RF[o] ~ dnorm(0,tau.Obs)
   }#o
   
-  # prior for tau.Obs. Durban/Stewart claimed this was uninformative
-  # It's quite informative... 
-  sigma.Obs ~ dunif(0,2)
+  sigma.Obs ~ dgamma(1, 0.1)
   tau.Obs <- pow(sigma.Obs,-2)
        
   OBS.Switch ~ dbern(0.5)
@@ -127,18 +113,20 @@ model{
   tau.daily.N ~ dgamma(.05,.005) ## precision parameter prior 
 
   ## Parametric effect priors CHECK 
-  # tau=1/2200^2 is appropriate! - I don't know who stated this... 
+  # tau=1/2200^2 is appropriate! 
   
-  # The following section was extracted from jagam output. 
+  # The following section was extracted from a jagam output. 
   # depending on the "k" value, the S matrices change their 
-  # size. K_y <- S_y[1:(k-1),1:(k-1)] * omega[y]  + S_y[1:(k-1), k:(2k-2)] * omega[y+1]
+  # size: K_y <- S_y[1:(k-1),1:(k-1)] * omega[y]  + S_y[1:(k-1), k:(2k-2)] * omega[y+1]
   # x is the order of k. Provide x in data.
   b[1] ~ dnorm(0,2e-07) 
   
   #for (k in 1:(n.year-2)){
   for (k in 1:n.year){
-	K[S.start.idx[k]:S.end.idx[k], 1:(x-1)] <- S[S.start.idx[k]:S.end.idx[k], 1:(x-1)] * omega[2*k - 1] + S[S.start.idx[k]:S.end.idx[k], x:(2*(x-1))] * omega[2*k]	
-	b[(S.start.idx[k] + 1) : (S.end.idx[k] + 1)] ~ dmnorm(zero[(S.start.idx[k] + 1):(S.end.idx[k] + 1)], K[S.start.idx[k]:S.end.idx[k], 1:(x-1)])
+	 K[S.start.idx[k]:S.end.idx[k], 1:(x-1)] <- S[S.start.idx[k]:S.end.idx[k], 1:(x-1)] * omega[2*k - 1] + 
+                                                S[S.start.idx[k]:S.end.idx[k], x:(2*(x-1))] * omega[2*k]	
+
+	 b[(S.start.idx[k] + 1) : (S.end.idx[k] + 1)] ~ dmnorm(zero[(S.start.idx[k] + 1):(S.end.idx[k] + 1)], K[S.start.idx[k]:S.end.idx[k], 1:(x-1)])
 
   }
   
@@ -149,6 +137,18 @@ model{
     rho[i] <- log(omega[i])
   }
     
+  # Create the projection matrix from K and b:
+  
+
+  ### Predict all ys
+  for (t in 1:n.year){
+    for (j in 1:periods[t]){
+
+
+    }
+  }
+
+
 
   ### Summaries, Abundance Estimates, and Other Derived Quantities
   # new.X, col.idx, and t.start are in data:

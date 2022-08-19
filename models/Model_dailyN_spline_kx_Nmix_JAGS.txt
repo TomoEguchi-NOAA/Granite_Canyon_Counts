@@ -1,0 +1,124 @@
+# N mixture gray whale model in jags 
+# In this version, I try to replace normal/spline models with 
+# GAM. 
+
+# Tomo Eguchi
+# 2022-04-21 started
+
+
+model{ 
+  
+  # count i
+  # station (Trailer) s
+  # year t
+    
+  ### Linking Lambda from N Mixture to GAM
+     
+  ### N Mixture process
+  
+  for(t in 1:n.year){
+	# NOT periods + 2 because those day 1 & 90 anchor points are fixed, 
+	# so N shouldn't be estimated for those, only for the days with true watch periods
+    for(j in 1:periods[t]){ 
+                            
+      for(s in 1:n.station){
+      
+        # N mixture model - two observations of 'true' N (passing whales), 
+		    # with different observation probabilities
+        n[j,s,t] ~ dbin(obs.prob[j,s,t], N[day[j, t], t]) 
+
+      }#s    
+    }#j
+  }#t
+
+  # The Poisson mean is modeled with polynomial, which is the true number of whales passing through the study area
+  # Provide X.j in the data
+  for(t in 1:n.year){
+
+    for(j in 1:90){ 
+
+      mu.N[j,t] <- inprod(X.j[j,], mu.N.beta[j,t,1:x]) 
+      N[j,t] ~ dpois(mu.N[j,t]) 
+
+    }#j
+  }#t
+  
+  # Provide the mean vector and covariance matrix in the data 
+  for (t in 1:n.year){
+    for (j in 1:90){
+      mu.N.beta[j,t,1:x] ~ dmnorm(mu.N.prior, mu.N.Cov)
+
+    }
+  }
+
+  ### Observation probability - include the watch period durations
+  for(t in 1:n.year){
+    for(j in 1:periods[t]){
+      for(s in 1:n.station){
+
+        # Final obs prob = observer 1/0 * 
+        #                (base obs prob + BF on/off * Fixed effect of BF * BF + 
+        #                 VS on/off * Fixed effect of VS * VS    + 
+        #                Obs effect on/off * Random effect of observer)
+
+        # The below replicates Durban et al 2016 code:
+        logit(prob[j,s,t]) <- logit(mean.prob) + (BF.Switch * BF.Fixed * bf[j,t]) + (VS.Switch * VS.Fixed * vs[j,t]) + (OBS.Switch * OBS.RF[obs[j,s,t]])
+
+        # the u data is whether there were observers on watch. 
+        # 0 counts are often associated with years/shifts with 
+        # no second observer. So if u=0, it will fix observation probability at 0
+        # watch.prop is the proportion of a supposed watch period (90 minutes) that
+        # was actually observed. 45 minutes = 0.5, which would half the probability
+        obs.prob[j,s,t] <- u[j,s,t] * prob[j,s,t] * watch.prop[j,t]
+                
+      }#s
+    }#j
+  }#t
+  
+  # Flat prior for mean.prob
+  mean.prob ~ dunif(0,1)
+  
+  ### Specification of terms within observation probability linear model
+  
+  ## Observer random effect
+  for(o in 1:n.obs){
+    OBS.RF[o] ~ dnorm(0,tau.Obs)
+  }#o
+  
+  sigma.Obs ~ dgamma(1, 0.1)
+  tau.Obs <- pow(sigma.Obs,-2)
+       
+  OBS.Switch ~ dbern(0.5)
+  
+  ## Beaufort
+  #uninformative prior for the BF.Switch, which determines whether to include the effect of beaufort conditions (multiply by 0 or 1)
+  BF.Switch ~ dbern(0.5) 
+  
+  #Below is the single fixed effect multiplied by BF rating in the updated obs prob equation:
+  BF.Fixed ~ dnorm(0,0.01)
+  
+  ## Visibility
+  VS.Switch ~ dbern(0.5) #uninformative prior for the VS.Switch
+    
+  #Below is the single fixed effect multiplied by VS rating in the updated obs prob equation:
+  VS.Fixed ~ dnorm(0,0.01)
+  
+  ### Summaries, Abundance Estimates, and Other Derived Quantities 
+  for(t in 1:n.year){
+	
+    raw.unrounded[t] <- sum(N[1:90,t])
+    Raw.Est[t] <- round(raw.unrounded[t])
+	
+	 # multiply raw estimates by correction factor for nighttime passage rates (below)
+    Corrected.Est[t] <- Raw.Est[t] * corr.factor 
+  }#t
+  
+
+  # Correction factor for nighttime passage rates:
+  corr.factor ~ dnorm(mean.corr, tau.corr)
+  mean.corr <- 1.0875
+  sd.corr <- 0.03625
+  tau.corr <- pow(sd.corr,-2)
+  
+}#model
+
