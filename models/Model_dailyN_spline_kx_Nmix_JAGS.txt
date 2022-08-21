@@ -17,36 +17,50 @@ model{
   ### N Mixture process
   
   for(t in 1:n.year){
-	# NOT periods + 2 because those day 1 & 90 anchor points are fixed, 
-	# so N shouldn't be estimated for those, only for the days with true watch periods
+	
     for(j in 1:periods[t]){ 
                             
-      for(s in 1:n.station){
+      for(s in 1:n.station[t]){
       
         # N mixture model - two observations of 'true' N (passing whales), 
-		    # with different observation probabilities
-        n[j,s,t] ~ dbin(obs.prob[j,s,t], N[day[j, t], t]) 
+		# with different observation probabilities when there are two stations
+		# Otherwise, zero counts from the second observation point
+		
+		 # Error in node n[30,1,1] Node inconsistent with parents 2022-08-19
+		 # n[30,1,1] is the first non zero data point. That must be the problem. 
+        #n[j,s,t] ~ dbin(obs.prob[j, s, t], N[day[j,t], t]) 
+		#n[j,s,t] ~ dpois(obs.prob[j, s, t] * N[day[j,t], t]) 
+		n[j,s,t] ~ dnorm(N[day[j,t],t], tau.n)
 
       }#s    
     }#j
   }#t
 
-  # The Poisson mean is modeled with polynomial, which is the true number of whales passing through the study area
+  # The Poisson mean is modeled with spline, which is the true number of whales passing through the study area
   # Provide X.j in the data
   for(t in 1:n.year){
 
-    for(j in 1:90){ 
+    for(d in 1:90){ 
 
-      mu.N[j,t] <- inprod(X.j[j,], mu.N.beta[j,t,1:x]) 
-      N[j,t] ~ dpois(mu.N[j,t]) 
+      mu.N[d,t] <- inprod(X.j[d,], mu.N.beta[,t]) 
+	  
+      #N[d,t] ~ dpois(mu.N[d,t]) 
+	  N[d,t] ~ dnorm(mu.N[d,t], tau.N)T(0,) 
 
-    }#j
+    }#d
   }#t
   
-  # Provide the mean vector and covariance matrix in the data 
+  sigma.N ~ dgamma(1, 0.1)
+  tau.N <- sigma.N^(-2)
+
+  sigma.n ~ dgamma(1, 0.1)
+  tau.n <- sigma.n^(-2)
+  
+  # Prior on N.beta
   for (t in 1:n.year){
-    for (j in 1:90){
-      mu.N.beta[j,t,1:x] ~ dmnorm(mu.N.prior, mu.N.Cov)
+	mu.N.beta[1, t] ~ dnorm(1000, 0.01)
+    for (i in 2:N_knots){
+      mu.N.beta[i,t] ~ dnorm(mu.N.beta[i-1, t], tau.N.beta)
 
     }
   }
@@ -54,22 +68,20 @@ model{
   ### Observation probability - include the watch period durations
   for(t in 1:n.year){
     for(j in 1:periods[t]){
-      for(s in 1:n.station){
+      for(s in 1:n.station[t]){
 
         # Final obs prob = observer 1/0 * 
         #                (base obs prob + BF on/off * Fixed effect of BF * BF + 
         #                 VS on/off * Fixed effect of VS * VS    + 
         #                Obs effect on/off * Random effect of observer)
 
-        # The below replicates Durban et al 2016 code:
-        logit(prob[j,s,t]) <- logit(mean.prob) + (BF.Switch * BF.Fixed * bf[j,t]) + (VS.Switch * VS.Fixed * vs[j,t]) + (OBS.Switch * OBS.RF[obs[j,s,t]])
-
-        # the u data is whether there were observers on watch. 
-        # 0 counts are often associated with years/shifts with 
-        # no second observer. So if u=0, it will fix observation probability at 0
-        # watch.prop is the proportion of a supposed watch period (90 minutes) that
-        # was actually observed. 45 minutes = 0.5, which would half the probability
-        obs.prob[j,s,t] <- u[j,s,t] * prob[j,s,t] * watch.prop[j,t]
+        logit(prob[j,s,t]) <- ifelse(watch.prop[j,t] > 0,
+						logit(mean.prob) + (BF.Switch * BF.Fixed * bf[j,t]) + (VS.Switch * VS.Fixed * vs[j,t]) + (OBS.Switch * OBS.RF[obs[j,s,t]]),
+						log(0))
+       
+        # watch.prop is the proportion of the total watch periods in a day (540 minutes) that
+        # was actually observed. 
+        obs.prob[j,s,t] <- prob[j,s,t] #* watch.prop[j,t]
                 
       }#s
     }#j
@@ -77,6 +89,9 @@ model{
   
   # Flat prior for mean.prob
   mean.prob ~ dunif(0,1)
+  
+  sigma.N.beta ~ dgamma(5, 0.5)
+  tau.N.beta <- sigma.N.beta^(-2)
   
   ### Specification of terms within observation probability linear model
   

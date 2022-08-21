@@ -4,8 +4,8 @@ model {
   for (i in 1:n) { y[i] ~ dgamma(r,r/mu[i]) } ## response 
   r ~ dgamma(.05,.005) ## scale parameter prior 
   scale <- 1/r ## convert r to standard GLM scale
-  ## Parametric effect priors CHECK tau=1/0.048^2 is appropriate!
-  for (i in 1:1) { b[i] ~ dnorm(0,430) }
+  ## Parametric effect priors CHECK tau=1/0.18^2 is appropriate!
+  for (i in 1:1) { b[i] ~ dnorm(0,31) }
   ## prior for s(days):year1... 
   K1 <- S1[1:9,1:9] * lambda[1]  + S1[1:9,10:18] * lambda[2]
   b[2:10] ~ dmnorm(zero[2:10],K1) 
@@ -30,8 +30,11 @@ model {
   ## prior for s(days):year8... 
   K8 <- S8[1:9,1:9] * lambda[15]  + S8[1:9,10:18] * lambda[16]
   b[65:73] ~ dmnorm(zero[65:73],K8) 
+  ## prior for s(effort)... 
+  K9 <- S9[1:9,1:9] * lambda[17]  + S9[1:9,10:18] * lambda[18]
+  b[74:82] ~ dmnorm(zero[74:82],K9) 
   ## smoothing parameter priors CHECK...
-  for (i in 1:16) {
+  for (i in 1:18) {
     lambda[i] ~ dgamma(.05,.005)
     rho[i] <- log(lambda[i])
   }
