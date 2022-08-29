@@ -174,7 +174,7 @@ n.per.day[is.na(n.per.day)] <- 0
 
 
 ```{r run-jags}
-nseg <- 30
+nseg <- 5
 
 # time steps (1:90). Create the basis matrix
 # bs_bbase is defined above.
@@ -205,7 +205,10 @@ jags.data <- list(  n = n.all,
                     N_knots = ncol(X.j))
 
 5 nodes produced errors; first error: Error in node N[63,4]
-Failure to calculate log density 2022-08-29
+Failure to calculate log density 
+Probably need to look at how nseg affects the outcome. Also,
+the variance of binomial distribution may be too small for the
+observed day-to-day variability. May try another distribution 2022-08-29
 
 jm <- jags(jags.data,
              inits = NULL,
