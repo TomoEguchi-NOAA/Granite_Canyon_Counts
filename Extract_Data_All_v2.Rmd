@@ -7,6 +7,10 @@ In this version, I use the new function that was used to compare Josh's and my r
 
 This fix may work for all years. At least, 2015 and 2016 files were processed without any errors. Results need to be compared with Josh's outputs. 
 
+
+The station information needs to be added. The data files that I have don't have that info... this needs to be fixed in the future. 
+
+
 ```{r}
 
 rm(list=ls())
@@ -82,10 +86,12 @@ shift_dur_min <- 90   # 90 minutes - 5 minutes
 # Final data
 # Remove watches that were less than 85 minutes or greater than 95 minutes:
 grace_min <- 5
+max_dur <- 90 + grace_min
+min_dur <- 90 - grace_min
 
 Data_Out %>% 
-  filter(dur > (shift_dur_min - grace_min)/(24*60) & 
-           dur < (shift_dur_min + grace_min)/(24*60)) -> Correct_Length
+  filter(dur > min_dur/(24*60) & 
+           dur < max_dur/(24*60)) -> Correct_Length
 
 Chaff <- Data_Out[which(Data_Out$end-Data_Out$begin < 
                           (shift_dur_min - grace_min)/(24*60)),]
@@ -143,7 +149,7 @@ out.obj <- list(Data_Out = Data_Out,
                 Complete_Data = Complete_Data,
                 WPH = WPH)
 
-saveRDS(out.obj, file = paste0("RData/Final_Test_Aug2022/out_", YEAR, "_Tomo_v2.rds"))
+saveRDS(out.obj, file = paste0("RData/V2_Aug2022/out_", YEAR, "_Tomo_v2.rds"))
 
 ```
 

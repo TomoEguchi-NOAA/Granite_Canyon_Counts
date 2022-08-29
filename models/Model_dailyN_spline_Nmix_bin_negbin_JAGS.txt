@@ -1,17 +1,11 @@
 # N mixture gray whale model in jags 
-# In this version, the observation is modeled with normal distribution (not binomial)
-# True N also is modeled with normal, where the mean of the normal distribution is 
-# fitted with spline. 
+# In this version, the observation is modeled with binomial distribution
+# True N is modeled with negative binomial distribuiton, where the mean of the 
+# negative binomial distribution is fitted with spline. 
 
-# When using Binomial-Poisson combination, an error returns:
-# Error in node n[30,1,1] Node inconsistent with parents
-# 30th day is the first non zero observation for this year (2015)
-# 
-# The same error does not return when using Normal-Normal combination
-# 
 
 # Tomo Eguchi
-# 2022-04-21 started
+# 2022-08-29 Modified from other spline models
 
 
 model{ 
@@ -33,13 +27,11 @@ model{
         # N mixture model - two observations of 'true' N (passing whales), 
 		# with different observation probabilities when there are two stations
 		# Otherwise, zero observation probability from the second observation point
+				
+        n[j,s,t] ~ dbin(obs.prob[j, s, t], N[day[j,t], t]) 
+		# 5 nodes produced errors; first error: Error in node log.lkhd[30,1,1]
+		log.lkhd[j,s,t] <- logdensity.bin(n[j,s,t], obs.prob[j,s,t], N[day[j,t], t])
 		
-		# Error in node n[30,1,1] Node inconsistent with parents 2022-08-19
-		# n[30,1,1] is the first non zero data point. That must be the problem. 
-        #n[j,s,t] ~ dbin(obs.prob[j, s, t], N[day[j,t], t]) 
-		#n[j,s,t] ~ dpois(obs.prob[j, s, t] * N[day[j,t], t]) 
-		n[j,s,t] ~ dnorm(N[day[j,t],t], tau.n)
-
       }#s    
     }#j
   }#t
@@ -51,10 +43,11 @@ model{
     for(d in 1:90){ 
 
       mu.N[d,t] <- inprod(X.j[d,], mu.N.beta[,t]) 
+	  alpha[d,t] <- dround((mu.N[d,t] * r[d,t])/(1 - r[d,t]), 0)	  
+	  	  
+	  N[d,t] ~ dnegbin(r[d,t], alpha[d,t])
+	  r[d,t] ~ dbeta(1,1)
 	  
-      #N[d,t] ~ dpois(mu.N[d,t]) 
-	  N[d,t] ~ dnorm(mu.N[d,t], tau.N)T(0,) 
-
     }#d
   }#t
   
@@ -85,11 +78,11 @@ model{
 
         logit(prob[j,s,t]) <- ifelse(watch.prop[j,t] > 0,
 						logit(mean.prob) + (BF.Switch * BF.Fixed * bf[j,t]) + (VS.Switch * VS.Fixed * vs[j,t]) + (OBS.Switch * OBS.RF[obs[j,s,t]]),
-						log(0))
+						0.0)
        
         # watch.prop is the proportion of the total watch periods in a day (540 minutes) that
         # was actually observed. 
-        obs.prob[j,s,t] <- prob[j,s,t] #* watch.prop[j,t]
+        obs.prob[j,s,t] <- prob[j,s,t] * watch.prop[j,t]
                 
       }#s
     }#j

@@ -6,6 +6,8 @@ output: html_notebook
 This notebook includes the part that a polynomial regression is used to model "true" N as a function of the day of the season. The  observed counts are binomial deviates with the "true" N and capture probabilities that are affected by covariates; Beaufort sea state, visibility, and observers.  
 
 
+The station information needs to be added. The data files that I have don't have that info... this needs to be fixed in the future. 
+
 Set up libraries
 
 ```{r}
@@ -16,6 +18,8 @@ library(tidyverse)
 library(bayesplot)
 library(mgcv)
 library(splines)
+
+jags.model <- paste0("models/Model_dailyN_spline_Nmix_bin_negbin_JAGS.txt")
 
 # from https://github.com/andrewcparnell/jags_examples/blob/master/R%20Code/jags_spline.R
 # A function that uses the bs() function to generate the B-spline basis functions
@@ -28,7 +32,10 @@ bs_bbase <- function(x, xl = min(x), xr = max(x), nseg = 10, deg = 3) {
   # Create equally spaced knots
   knots <- seq(xl - deg * dx, xr + deg * dx, by = dx)
   # Use bs() function to generate the B-spline basis
-  get_bs_matrix <- matrix(bs(x, knots = knots, degree = deg, Boundary.knots = c(knots[1], knots[length(knots)])), nrow = length(x))
+  get_bs_matrix <- matrix(bs(x, knots = knots, 
+                             degree = deg, 
+                             Boundary.knots = c(knots[1], knots[length(knots)])), 
+                          nrow = length(x))
   # Remove columns that contain zero only
   bs_matrix <- get_bs_matrix[, -c(1:deg, ncol(get_bs_matrix):(ncol(get_bs_matrix) - deg))]
 
@@ -36,23 +43,144 @@ bs_bbase <- function(x, xl = min(x), xr = max(x), nseg = 10, deg = 3) {
 }
 
 
-# # periods for the 6 survey years
-periods <-c(136, 135, 164, 178, 179, 151)
-
 # Observer list gets updated as new observers are added. 
 # obs.list <- read.csv("Data/Observer list.csv", header = T) 
 # colnames(obs.list) <- c("obs", "ID")
-seasons <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011", 
-             "2014/2015", "2015/2016", "2019/2020", "2021/2022")
+# seasons <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011", 
+#              "2014/2015", "2015/2016", "2019/2020", "2021/2022")
+
+seasons <- c("2014/2015", "2015/2016", "2019/2020", "2021/2022")
 
 n.seasons <- length(seasons)
 
-# CHANGE THIS LINE BACK
-#Ver2.results <- readRDS(paste0("RData/WinBUGS_", x, "yr_v2.rds"))
-Ver2.results <- readRDS(paste0("RData/WinBUGS_", 
-                               n.seasons, "yr_100k_v2.rds"))
+# Load the most recent data that were newly extracted for the last four surveys:
+Final_Data <- list()
+k <- 3
+for (k in 1:length(seasons)){
+  # tmp <- readRDS(paste0("RData/V2_Aug2022/out_",
+  #                       strsplit(seasons[k], "/")[[1]][2],
+  #                       "_Tomo_v2.rds"))
+  tmp <- readRDS(paste0("RData/out_",
+                        strsplit(seasons[k], "/")[[1]][2],
+                        "_Tomo_v2.rds"))
+  Final_Data[[k]] <- tmp$FinalData %>%
+    mutate(Year = as.numeric(strsplit(seasons[k], "/")[[1]][2]),
+           Day = as.numeric(BeginDay)) %>%
+    right_join(., data.frame(Day = 1:90,
+                             n = 0,
+                             Year = as.numeric(strsplit(seasons[k], "/")[[1]][2])), 
+               by = "Day") %>%
 
-#jags.data <- Ver2.results$jags.data
+    select(Year.y, Day, n.x, n.y, dur, bf, vs, obs, begin) %>%
+    mutate(n = ifelse(is.na(n.x), n.y, n.x),
+           effort = ifelse(is.na(dur), 0, dur),
+           Year = Year.y) %>%
+    select(-c(Year.y, n.x, n.y, dur)) %>%
+    arrange(Day) 
+    #complete(Day, i) %>%
+    #filter(!is.na(i))
+
+}
+
+Final_Data.all <- do.call(rbind, Final_Data)
+Final_Data.all$St <- 1            # for this one, we only have 1 station (2022-08-19)
+
+# Find all observers and change them into integer code:
+unique.obs <- unique(Final_Data.all$obs)
+unique.obs <- unique.obs[!is.na(unique.obs)]
+obs.ID.df <- data.frame(obs = unique.obs,
+                        obs.ID = 1:length(unique.obs))
+
+Final_Data.all %>% 
+  left_join(obs.ID.df, by = "obs") %>% 
+  select(-obs) -> Final_Data.all
+
+# figure out the number of periods
+Final_Data.all %>% 
+  group_by(Year) %>%
+  #filter(effort > 0) %>%
+  summarise(n = n()) -> periods
+
+years <- unique(Final_Data.all$Year)
+MCMC.params <- list(n.samples = 100000,
+                    n.thin = 80,
+                    n.burnin = 60000,
+                    n.chains = 5)
+
+```
+
+The daily mean is a smooth function of days (1:90)
+
+```{r data_setup}
+Final_Data.all %>% 
+  group_by(Year, Day) %>%
+  summarise(daily.effort = sum(effort, na.rm = T)) %>%
+  pivot_wider(values_from = daily.effort,
+              names_from = Year,
+              names_prefix = "Y")-> daily.effort
+
+Final_Data.all %>% 
+  group_by(Year, Day) %>%
+  summarise(daily.counts = sum(n, na.rm = T)) %>%
+  pivot_wider(values_from = daily.counts,
+              names_from = Year,
+              names_prefix = "Y")-> daily.counts
+
+Final_Data.all %>% 
+  group_by(Year, Day) %>%
+  summarise(daily.effort = sum(effort, na.rm = T),
+            daily.counts = sum(n, na.rm = T)) %>%
+  mutate(daily.N = daily.counts/daily.effort) %>%
+  select(-c(daily.effort, daily.counts)) %>%
+  pivot_wider(values_from = daily.N,
+              names_from = Year,
+              names_prefix = "Y")-> daily.N
+
+Final_Data.all %>% 
+  group_by(Year, Day) %>%
+  summarise(daily.obs = first(obs.ID)) %>%
+  pivot_wider(values_from = daily.obs,
+              names_from = Year,
+              names_prefix = "Y")-> daily.obs
+
+n.per.day <- obs.all <- n.all <- array(data = 0, 
+               dim = c(max(periods$n), 2, length(seasons)))
+days.all <- bf.all <- vs.all <- watch.prop <- matrix(data = 0,
+                                                     nrow = max(periods$n), 
+                                                     ncol = length(seasons))
+
+for (k in 1:length(seasons)){
+  n.all[1:periods$n[k],1, k] <- Final_Data[[k]]$n
+  n.per.day[1:periods$n[k],1, k] <- Final_Data[[k]]$n/Final_Data[[k]]$effort
+  bf.all[1:periods$n[k],k] <- Final_Data[[k]]$bf
+  vs.all[1:periods$n[k],k] <- Final_Data[[k]]$vs
+  # 540 minutes (maximum observation duration in a day) in unit of days
+  watch.prop[1:periods$n[k],k] <- Final_Data[[k]]$effort/(540/24/60)
+  days.all[1:periods$n[k],k] <- Final_Data[[k]]$Day
+  
+  obs.all[1:periods$n[k],1, k] <-   Final_Data.all %>% 
+    filter(Year == years[k]) %>%
+    select(obs.ID) %>% 
+    pull() 
+}
+
+bf.all[is.na(bf.all)] <- 0
+vs.all[is.na(vs.all)] <- 0
+obs.all[is.na(obs.all)] <- max(obs.ID.df$obs.ID) + 1
+n.per.day[is.na(n.per.day)] <- 0
+
+```
+
+
+
+```{r run-jags}
+nseg <- 5
+
+# time steps (1:90). Create the basis matrix
+# bs_bbase is defined above.
+
+X.j <- bs_bbase(1:90, nseg = nseg)
+
 jags.params <- c("lambda","OBS.RF","OBS.Switch",
                 "BF.Switch","BF.Fixed","VS.Switch",
                 "VS.Fixed","mean.prob",
@@ -60,112 +188,27 @@ jags.params <- c("lambda","OBS.RF","OBS.Switch",
                 "VS.Fixed",
                 "Corrected.Est","Raw.Est","N",
                 "Daily.Est",
-                "mu.N.beta")
+                "mu.N.beta", "sigma.N.beta",
+                "sigma.N", "alpha", "r", "log.lkhd")
 
-MCMC.params <- list(n.samples = 100000,
-                   n.thin = 80,
-                   n.burnin = 60000,
-                   n.chains = 5)
-
-```
-
-The daily mean is a smooth function of days (1:90)
-
-```{r setup-data}
-daily.effort <- daily.counts <- daily.N <- daily.obs <- matrix(nrow = 90, ncol = n.seasons)
-Watch.Length <- Ver2.results$jags.data$Watch.Length
-day.mat <- Ver2.results$jags.data$day
-ns <- rbind(Ver2.results$jags.data$n[,1,], 
-            matrix(NA, nrow = 2, ncol = n.seasons))
-obs <- rbind(Ver2.results$jags.data$obs[,1,], 
-              matrix(NA, nrow = 2, ncol = n.seasons))
-
-for (y in 1:n.seasons){
-  for (j in 1:90){
-    if (j == 1 | j == 90){
-      daily.effort[j,y] <- 0
-      daily.counts[j,y] <- 0
-      daily.N[j,y] <- 0
-     
-    } else {
-      daily.effort[j, y] <- sum(Watch.Length[day.mat[,y] == j, y], na.rm = T)
-      daily.counts[j, y] <- sum(ns[day.mat[,y] == j, y], na.rm = T)
-      daily.N[j, y] <- ceiling(daily.counts[j,y]/daily.effort[j,y])
-      daily.obs[j,y] <- first(obs[day.mat[,y] == j, y])
-    }
-  }
-}
-  
-daily.counts.df <- data.frame(daily.counts) 
-colnames(daily.counts.df) <- seasons
-daily.counts.df %>% 
-  pivot_longer(everything(),
-               names_to = "Season", 
-               values_to = "n") %>%  
-  arrange(Season) -> daily.counts.df.long
-
-daily.effort.df <- data.frame(daily.effort) 
-colnames(daily.effort.df) <- seasons
-daily.effort.df %>% 
-  pivot_longer(everything(),
-               names_to = "Season", 
-               values_to = "effort") %>%  
-  arrange(Season) -> daily.effort.df.long
-
-daily.obs.df <- data.frame(daily.obs) 
-colnames(daily.obs.df) <- seasons
-daily.obs.df %>% 
-  pivot_longer(everything(),
-               names_to = "Season", 
-               values_to = "obs") %>%  
-  arrange(Season) -> daily.obs.df.long
-
-daily.counts.df.long$days <- rep(1:90, times = n.seasons)
-daily.counts.df.long$year <- factor(rep(1:n.seasons, each = 90))
-daily.counts.df.long$obs <- daily.obs.df.long$obs
-daily.counts.df.long$effort <- daily.effort.df.long$effort
-
-daily.counts.df.long %>% mutate(n.1 = ifelse(effort == 0, NA, n)) -> daily.counts.df.long
-
-# To use non-Gaussian family, I add 1 to all counts:
-daily.counts.df.long %>% 
-  select(-Season) %>%
-  mutate(Nplus1 = n.1 + 1) -> daily.counts.df.long.noSeason
-
-```
-
-
-
-```{r run-jags}
-order <- 6
-#family <- "gaussian"
-#family <- "Gamma"
-
-jags.model <- paste0("models/Model_dailyN_spline_kx_Nmix_JAGS.txt")
-
-X.j <- bs_bbase(1:90, nseg = 30)
-
-mu.N.prior <- vector(mode = "numeric", length =  order+1)
-mu.N.Cov <- diag(x = 0.1, nrow = order+1, ncol = order+1)
-
-jags.data.v2 <- Ver2.results$jags.data
-jags.data <- list(  n = jags.data.v2$n,
-                    n.station = jags.data.v2$n.station,
-                    n.year = jags.data.v2$n.year,
-                    n.obs = jags.data.v2$n.obs,
-                    periods = jags.data.v2$periods,
-                    obs = jags.data.v2$obs,
-                    u = jags.data.v2$u,
-                    vs = jags.data.v2$vs,
-                    bf = jags.data.v2$bf,
-                    day = jags.data.v2$day,
-                    N = jags.data.v2$N,
-                    watch.prop = jags.data.v2$Watch.Length/(90/24/60), # 90 minutes in unit of days
-                    mu.N.prior = mu.N.prior,
-                    mu.N.Cov = mu.N.Cov,
+jags.data <- list(  n = n.all,
+                    n.station = c(1,1,1,1),
+                    n.year = length(seasons),
+                    n.obs = nrow(obs.ID.df)+1,
+                    periods = periods$n,
+                    obs = obs.all,
+                    vs = vs.all,
+                    bf = bf.all,
+                    watch.prop = watch.prop,
+                    day = days.all,
                     X.j = X.j,
-                    x = order + 1)
-  
+                    N_knots = ncol(X.j))
+
+5 nodes produced errors; first error: Error in node N[63,4]
+Failure to calculate log density 
+Probably need to look at how nseg affects the outcome. Also,
+the variance of binomial distribution may be too small for the
+observed day-to-day variability. May try another distribution 2022-08-29
 
 jm <- jags(jags.data,
              inits = NULL,
@@ -179,389 +222,15 @@ jm <- jags(jags.data,
 
 
 # This is the output file name
-jags.out.file <- paste0("RData/jagam_dailyN_k", 
-                        basis.dim, "_", family, "_jags.rds")
+# jags.out.file <- paste0("RData/jagam_dailyN_k", 
+#                         basis.dim, "_", family, "_jags.rds")
 
-#jags.data.v2 <- Ver2.results$jags.data
-
-jags.gam <- jagam(Nplus1 ~ s(days, by = year, k = basis.dim), 
-                  family = family,
-                  data = daily.counts.df.long.noSeason,
-                  file = jagam.model)
-
-if (!file.exists(jags.out.file)){
-  
-  # Use jagam function to create a model file and input data list
-  jags.gam <- jagam(Nplus1 ~ s(days, by = year, k = basis.dim) + s(effort), 
-                    family = family,
-                    data = daily.counts.df.long.noSeason,
-                    file = jagam.model)
-  
-  # Run short chains to get what I need for now
-  jm.jagam <- rjags::jags.model(file = jagam.model,
-                                data = jags.gam$jags.data,
-                                inits = rep(list(jags.gam$jags.ini), 
-                                            MCMC.params$n.chains),
-                                n.chains = MCMC.params$n.chains,
-                                n.adapt = MCMC.params$n.burnin)
-  
-  jm.jagam.samples <- rjags::jags.samples(jm.jagam, 
-                                          c("mu", "b", "scale", "rho"),
-                                          n.iter = MCMC.params$n.samples, 
-                                          n.thin = MCMC.params$n.thin)
-  
-  jam <- sim2jam(jm.jagam.samples, jags.gam$pregam)
-  
-  pred.data <- data.frame(days = rep(1:90, n.seasons),
-                          year = rep(1:n.seasons, each = 90))
-  
-  # prediciton by jagam
-  Xp.matrix <- predict(jam, newdata = pred.data, type = "lpmatrix")
-  Xp.link <- predict(jam, newdata = pred.data, se.fit = T)
-  
-  # I stack all S's into an array in Model_dailyN_GAM_kx_Nmix_JAGS.txt
-  jags.data.1 <- jags.gam$jags.data
-  all.S <- jags.data.1[grepl("S", names(jags.data.1))] 
-  S.df <- do.call("rbind", all.S)
-  	#b.start.idx[k] <- S.start.idx[k] + 1  #(k-1) * (x-1) + 2
-	#b.end.idx[k] <- S.end.idx[k] + 1      # k * (x-1) + 1
-
-  jags.data <- list(x = basis.dim,
-                    n = jags.data.v2$n,
-                    n.station = jags.data.v2$n.station,
-                    n.year = jags.data.v2$n.year,
-                    n.obs = jags.data.v2$n.obs,
-                    periods = jags.data.v2$periods,
-                    obs = jags.data.v2$obs,
-                    u = jags.data.v2$u,
-                    vs = jags.data.v2$vs,
-                    bf = jags.data.v2$bf,
-                    day = jags.data.v2$day,
-                    N = jags.data.v2$N,
-                    Watch.Length = jags.data.v2$Watch.Length,
-                    X = jags.data.1$X,
-                    y = jags.data.1$y,
-                    n.data = jags.data.1$n,
-                    zero = jags.data.1$zero,
-                    S = S.df,
-                    t.start = (((1:n.seasons)-1) * 90) + 1,
-                    col.idx = rbind(rep(1, times = n.seasons), 
-                                    matrix(2:73, ncol = n.seasons)),
-                    new.X = Xp.matrix,
-                    S.start.idx = seq(from = 1, 
-                                      to = (n.seasons-1) * (basis.dim-1) + 1,
-                                      by = basis.dim - 1),
-                    S.end.idx = seq(from = 9, 
-                                    to = n.seasons * (basis.dim-1), 
-                                    by = basis.dim-1))
-  
-  inits.list <- list(mean.prob = 0.5,
-                     BF.Fixed = 0,
-                     VS.Fixed = 0,
-                     mean.beta = c(0,0,0), #mean.beta = c(5,0.14,-3.5),
-                     beta.sigma = c(1,1,1),#beta.sigma = c(7,7,7),
-                     BF.Switch = 1,
-                     VS.Switch = 1,
-                     OBS.Switch = 1,
-                     sigma.Obs = 1,
-                     N = Ver2.results$N_inits,
-                     b = jags.gam$jags.ini$b,
-                     omega = jags.gam$jags.ini$lambda)
-  
-  Start_Time<-Sys.time()
-  jm.all <- jags(jags.data,
-                 inits = rep(list(inits.list), 
-                             MCMC.params$n.chains),
-                 parameters.to.save= jags.params,
-                 model.file = "models/Model_dailyN_GAM_kx_Nmix_JAGS.txt",
-                 n.chains = MCMC.params$n.chains,
-                 n.burnin = MCMC.params$n.burnin,
-                 n.thin = MCMC.params$n.thin,
-                 n.iter = MCMC.params$n.samples,
-                 DIC = T, parallel=T)
-
-  Run_Time <- Sys.time() - Start_Time
-
-  jags.all <- list(jags.data = jags.data,
-                   inits = inits.list,
-                   jags.gam = jags.gam,
-                   JAGS_out = jm.all,
-                   jagam.samples = jm.jagam.samples,
-                   Run_Time = Run_Time,
-                   Run_Date = Sys.Date(),
-                   MCMC.params = MCMC.params)
-  
-  saveRDS(jags.all,
-          file = jags.out.file)
-  
-} else {
-  
-  jags.all <- readRDS(jags.out.file)
-}
-
-
-#plot(jam)
-
-# 
-# 
-#   
-# 
-# # original data
-# #jags.data.v2 <- Ver2.results$jags.data 
-# 
-# # select data that are needed:
-# jags.data <- list(n = jags.gam$jags.data$n,
-#                   n.station = jags.data.v2$n.station,
-#                   n.year = jags.data.v2$n.year,
-#                   n.obs = jags.data.v2$n.obs,
-#                   periods = jags.data.v2$periods,
-#                   obs = jags.data.v2$obs,
-#                   u = jags.data.v2$u,
-#                   vs = jags.data.v2$vs,
-#                   bf = jags.data.v2$bf,
-#                   day = jags.data.v2$day,
-#                   N = jags.data.v2$N,
-#                   Watch.Length = jags.data.v2$Watch.Length,
-#                   X = jagam.out$jags.gam$jags.data$X,
-#                   y = jagam.out$jags.gam$jags.data$y,
-#                   n.data = jagam.out$jags.gam$jags.data$n,
-#                   zero = jagam.out$jags.gam$jags.data$zero,
-#                   S1 = jagam.out$jags.gam$jags.data$S1,
-#                   S2 = jagam.out$jags.gam$jags.data$S2,
-#                   S3 = jagam.out$jags.gam$jags.data$S3,
-#                   S4 = jagam.out$jags.gam$jags.data$S4,
-#                   S5 = jagam.out$jags.gam$jags.data$S5,
-#                   S6 = jagam.out$jags.gam$jags.data$S6,
-#                   S7 = jagam.out$jags.gam$jags.data$S7,
-#                   S8 = jagam.out$jags.gam$jags.data$S8,
-#                   t.start = (((1:x)-1) * 90) + 1,
-#                   col.idx = rbind(rep(1, times = x), 
-#                                   matrix(2:73, ncol = x)),
-#                   new.X = Xp)
-# 
-# 
-# # 
-# jagam.out.file <- paste0("RData/jagam_dailyN_k", basis.dim,"_", family, ".rds")
-
-
-
-  
 ```
 
 
-<!-- The following part is to see how GAM fit to the data: -->
+```{r}
+mcmc_trace(jm$samples, c("Corrected.Est[1]", "Corrected.Est[2]",
+                         "Corrected.Est[3]", "Corrected.Est[4]"))
 
-<!-- ```{r} -->
-<!-- #  -->
-<!-- jam <- sim2jam(jm.gam, jags.gam$pregam) -->
-<!-- #plot(jam) -->
-<!-- pred.data <- data.frame(days = rep(1:90, x), -->
-<!--                         year = rep(1:x, each = 90)) -->
-
-<!-- Xp <- predict(jam, newdata = pred.data, type = "lpmatrix") -->
-<!-- pred <- predict(jam, newdata = pred.data) -->
-<!-- pred.data$prediction <- 1/pred -->
-
-<!-- # # SEnd in the prediction values - they are now fixed -->
-<!-- # # this is kinda like using cut function, no?  -->
-<!-- # jags.data$Xp <- Xp -->
-<!-- # jags.data$col.idx <- rbind(rep(1, times = x),  -->
-<!-- #                            matrix(2:73, ncol = x)) -->
-<!-- # jags.data$b <- summary(jm.gam2$b, FUN = mean)$stat -->
-<!-- # jags.data$t.start <- (((1:x)-1) * 90) + 1 -->
-
-<!-- # For Gamma family, the link is invese, so we have to invert the vector -->
-<!-- # to get the right numbers.  -->
-<!-- ggplot() + -->
-<!--   geom_path(data = pred.data, -->
-<!--             aes(x = days, y = prediction)) + -->
-<!--   geom_point(data = daily.N.df.long, -->
-<!--              aes(x = days, y = N)) + -->
-<!--   facet_wrap(vars(year)) -->
-
-<!-- ggsave(filename = paste0("figures/GAM_fit_k",  -->
-<!--                          basis.dim, "_", family, ".png"), -->
-<!--        device = "png", dpi = 600) -->
-<!-- ``` -->
-
-
-<!-- Run jags if it hasn't been run.. -->
-
-<!-- ```{r} -->
-<!-- if (!file.exists(paste0("RData/JAGS_GAM_Nmix_", x, "yr_v2.rds"))){ -->
-
-<!--   #Run time:  -->
-<!--   Start_Time<-Sys.time() -->
-<!--   rjags::load.module("glm") # Simon Wood's example shows this but it doesn't work  -->
-<!--   jm <- jags(jags.data, -->
-<!--              inits = rep(list(inits.list), MCMC.params$n.chains), -->
-<!--              parameters.to.save= jags.params, -->
-<!--              model.file = 'models/Model_GAM_Nmix_JAGS.txt', -->
-<!--              n.chains = MCMC.params$n.chains, -->
-<!--              n.burnin = MCMC.params$n.burnin, -->
-<!--              n.thin = MCMC.params$n.thin, -->
-<!--              n.iter = MCMC.params$n.samples, -->
-<!--              DIC = T, parallel=T) -->
-
-<!--   Run_Time <- Sys.time() - Start_Time -->
-<!--   Ver2.results <- list(jags.data = jags.data, -->
-<!--                        N_inits = N_inits, -->
-<!--                        JAGS_out = jm, -->
-<!--                        Run_Time = Run_Time) -->
-<!--   saveRDS(Ver2.results,  -->
-<!--           paste0("RData/JAGS_GAM_Nmix_", x, "yr_v2.rds")) -->
-
-<!-- } else { -->
-<!--   Ver2.results <- readRDS(paste0("RData/JAGS_GAM_Nmix_", x, "yr_v2.rds")) -->
-
-<!-- } -->
-<!-- ``` -->
-
-
-<!-- Make some plots: -->
-
-<!-- ```{r} -->
-<!-- seasons <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011",  -->
-<!--              "2014/2015", "2015/2016", "2019/2020", "2021/2022") -->
-
-<!-- # Extract estimated counts -->
-<!-- Daily.Est <- Ver2.results$JAGS_out$sims.list$Daily.Est -->
-<!-- sp <- Ver2.results$JAGS_out$sims.list$sp -->
-<!-- com <- Ver2.results$JAGS_out$sims.list$com -->
-<!-- Corrected.Est <- Ver2.results$JAGS_out$sims.list$Corrected.Est -->
-
-<!-- # Each one of them is (# samples) x (90 days) x (# years) -->
-<!-- # To plot them using ggplot's facet, I need to convert -->
-<!-- # these into 2D dataframes of statistics (upper and lower  -->
-<!-- # CIs, median, etc.) -->
-<!-- # Daily.Est.list <- sp.list <- com.list <- vector(mode = "list",  -->
-<!-- #                                                 length = dim(Daily.Est)[3]) -->
-<!-- #  -->
-<!-- # Daily.Est.UCIs <- Daily.Est.LCIs <- vector(mode = "list", -->
-<!-- #                                            length = dim(Daily.Est)[3]) -->
-
-<!-- stats.list <- vector(mode = "list", -->
-<!--                      length = dim(Daily.Est)[3]) -->
-
-<!-- for (k in 1:dim(Daily.Est)[3]){ -->
-<!--   # Daily.Est.list[[k]] <- Daily.Est[,,k] -->
-<!--   # Daily.Est.UCIs[[k]] <- apply(Daily.Est[,,k],2,quantile,0.975) -->
-<!--   # Daily.Est.LCIs[[k]] <- apply(Daily.Est[,,k],2,quantile,0.275) -->
-<!--   #  -->
-<!--   # sp.list[[k]] <- sp[,,k] -->
-<!--   # com.list[[k]] <- com[,,k] -->
-
-<!--   stats.list[[k]] <- data.frame(Daily.Est.median = apply(Daily.Est[,,k], 2, -->
-<!--                                                          median), -->
-<!--                                 Daily.Est.LCL = apply(Daily.Est[,,k], 2, -->
-<!--                                                       quantile,0.275), -->
-<!--                                 Daily.Est.UCL = apply(Daily.Est[,,k], 2, -->
-<!--                                                       quantile,0.975), -->
-<!--                                 sp.median = apply(exp(sp[,,k]), 2, -->
-<!--                                                   median), -->
-<!--                                 sp.LCL = apply(exp(sp[,,k]), 2, -->
-<!--                                                quantile,0.025), -->
-<!--                                 sp.UCL = apply(exp(sp[,,k]), 2, -->
-<!--                                                quantile,0.975), -->
-<!--                                 com.median = apply(exp(com[,,k]), 2, -->
-<!--                                                    median), -->
-<!--                                 com.LCL = apply(exp(com[,,k]), 2, -->
-<!--                                                 quantile,0.025), -->
-<!--                                 com.UCL = apply(exp(com[,,k]), 2, -->
-<!--                                                 quantile,0.975), -->
-<!--                                 #total.median = apply(exp(sp[,,k]), 1, sum), -->
-<!--                                 days = 1:dim(Daily.Est)[2], -->
-<!--                                 year = seasons[k]) -->
-<!-- } -->
-
-<!-- all.stats <- do.call("rbind", stats.list) %>% group_by(year) -->
-
-<!-- ggplot(data = all.stats) +  -->
-<!--   geom_line(aes(x = days, y = sp.median)) +  -->
-<!--   geom_line(aes(x = days, y = com.median)) + -->
-<!--   geom_ribbon(aes(x = days,  -->
-<!--                   ymin = sp.LCL,  -->
-<!--                   ymax = sp.UCL), -->
-<!--               fill = "orange",  -->
-<!--               alpha = 0.5) + -->
-<!--   geom_line(aes(x = days, y = com.median), -->
-<!--             color = "red") + -->
-<!--   facet_wrap(vars(year)) + -->
-<!--   xlab("Days since December 1") +  -->
-<!--   ylab("Whales per day") -->
-
-<!-- ``` -->
-
-
-
-<!-- ```{r} -->
-
-<!-- #Com vs Sp -->
-<!-- ggplot(data = all.stats) + -->
-<!--   geom_line(aes(x = days, y = sp.median)) + -->
-<!--   geom_ribbon(aes(x = days,  -->
-<!--                   ymin = sp.LCL,  -->
-<!--                   ymax = sp.UCL), -->
-<!--               fill = "orange", alpha = 0.5) +  -->
-<!--   facet_wrap(vars(year))+ -->
-<!--   xlab("Days since December 1") +  -->
-<!--   ylab("Whales per day (spline)") -->
-
-
-
-<!-- ``` -->
-
-
-<!-- ```{r} -->
-
-<!-- ggplot(data = all.stats) + -->
-<!--   geom_line(aes(x = days, y = com.median)) + -->
-<!--   geom_ribbon(aes(x = days,  -->
-<!--                   ymin = com.LCL,  -->
-<!--                   ymax = com.UCL), -->
-<!--               fill = "orange", alpha = 0.5) +  -->
-<!--   facet_wrap(vars(year))+ -->
-<!--   xlab("Days since December 1") +  -->
-<!--   ylab("Whales per day (Normal)") -->
-
-<!-- ``` -->
-
-
-<!-- ```{r} -->
-
-<!-- ggplot(data = all.stats) + -->
-<!--   geom_line(aes(x = days, y = Daily.Est.median)) + -->
-<!--   geom_ribbon(aes(x = days,  -->
-<!--                   ymin = Daily.Est.LCL,  -->
-<!--                   ymax = Daily.Est.UCL), -->
-<!--               fill = "orange",  -->
-<!--               alpha = 0.5) +  -->
-<!--   facet_wrap(vars(year))+ -->
-<!--   xlab("Days since December 1") +  -->
-<!--   ylab("Whales per day") -->
-
-
-<!-- ``` -->
-
-<!-- Total abundance -->
-<!-- ```{r} -->
-<!-- abundance.df <- data.frame(total.median = apply(Corrected.Est,  -->
-<!--                                                 FUN = median,  -->
-<!--                                                 MARGIN = 2), -->
-<!--                            total.LCL = apply(Corrected.Est,  -->
-<!--                                              MARGIN = 2,  -->
-<!--                                              FUN = quantile, 0.025), -->
-<!--                            total.UCL = apply(Corrected.Est,  -->
-<!--                                              MARGIN = 2,  -->
-<!--                                              FUN = quantile, 0.975), -->
-<!--                            Season = seasons) -->
-
-
-<!-- ggplot(data = abundance.df) +  -->
-<!--   geom_point(aes(x = Season, y = total.median)) +  -->
-<!--   geom_errorbar(aes(x = Season, ymin = total.LCL, ymax = total.UCL)) -->
-
-<!-- #median(apply(exp(sp[,,4]),1,sum)) -->
-
-<!-- ``` -->
+```
 

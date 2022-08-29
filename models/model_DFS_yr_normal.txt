@@ -1,0 +1,92 @@
+# JAGS model for imputing missing gray whale counts at Granite Canyon, CA
+
+# The known cyclical nature of gray whale migration is modeled by the discrete 
+# Fourier series of one period per year. Gray whale migration starts
+# December 1 and ends February 28 each season. Observed counts are 
+# limited so they are used to determine amplitude of each season.  
+
+model{
+
+  for (yr in 1:n.years){
+		# Initial states     
+		log.N[1,yr] <- -10 # day 1 should be 12/1, and in the log scale
+		N[1,yr] <- exp(log.N[1,yr])   # anti-log scale. 
+		
+		# observation - it's in the log scale y = log(daily.N+0.01)
+		y[1,yr] ~ dnorm(log.N[1, yr] * obs.prob[1, yr], tau.y) #dbin(obs.prob[1, yr], N[1, yr])  #
+
+		logit(prob[1,yr]) <- logit(mean.prob) + (BF.Fixed*bf[1,yr]) + (VS.Fixed*vs[1,yr]) + (OBS.RF[obs[1,yr]])
+
+        # the u data is whether there were observers on watch. 
+        # If there were no observers, obs.prob == 0.
+        obs.prob[1,yr] <- u[1,yr] * prob[1,yr]
+
+		for (t in 2:n.steps){
+			# state
+			log.N[t,yr] <- c[t,yr] + N[t-1,yr]
+			N[t,yr] <- exp(log.N[t,yr])
+
+			# observation
+			y[t, yr] ~ dnorm(log.N[t, yr] * obs.prob[t, yr], tau.y) #dbin(obs.prob[t, yr], round(N[t, yr]))  #
+
+			logit(prob[t, yr]) <- logit(mean.prob) + (BF.Fixed*bf[t,yr]) + (VS.Fixed*vs[t,yr]) + (OBS.RF[obs[t,yr]])
+
+        	# the u data is whether there were observers on watch. 
+        	# If there were no observers, obs.prob == 0.
+        	obs.prob[t,yr] <- u[t,yr] * prob[t,yr]
+              
+		}
+  }  
+  
+  # c parameter defined here with a discrete Fourier function
+  # n.days = from 12/1. Provide it through jags.data
+  # also provide period (should be same as n.days) through jags.data
+
+  for (yr in 1:n.years){
+      for (t in 1:n.steps){
+        
+        c[t,yr] <- beta.cos[yr] * cos(2 * pi * t / period) + beta.sin[yr] * sin(2 * pi * t / period)
+      }  
+  }
+    
+  for (yr in 1:n.years){
+    raw.unrounded[yr] <- sum(N[1:n.steps, yr])
+    Raw.Est[yr] <- raw.unrounded[yr] * corr.factor # multiply raw estimates by correction factor for nighttime passage rates (below)
+    Corrected.Est[yr] <- round(Raw.Est[yr])
+
+  } 
+  
+  # Correction factor for nighttime passage rates:
+  corr.factor~dnorm(mean.corr,tau.corr)
+  mean.corr<-1.0875
+  sd.corr<-0.03625
+  tau.corr<-pow(sd.corr,-2)
+
+
+  # priors
+  for (yr in 1:n.years){
+    beta.cos[yr] ~ dnorm(0, tau.cos)
+    beta.sin[yr] ~ dnorm(0, tau.sin)    
+  }
+  
+  for(o in 1:n.obs){
+    OBS.RF[o] ~ dnorm(0, tau.Obs)
+  }#o
+
+  sigma.Obs ~ dgamma(1, 0.1)
+  tau.Obs <- 1/(sigma.Obs * sigma.Obs)
+
+  BF.Fixed ~ dnorm(0, 0.01)
+  VS.Fixed ~ dnorm(0, 0.01)
+
+  sigma.cos ~ dgamma(1, 0.1)
+  sigma.sin ~ dgamma(1, 0.1)
+  
+  tau.cos <- 1/(sigma.cos * sigma.cos)
+  tau.sin <- 1/(sigma.sin * sigma.sin)
+  
+  sigma.y ~ dgamma(1, 0.1)
+  tau.y <- 1/(sigma.y * sigma.y)
+
+  mean.prob ~ dbeta(1, 1)
+}
