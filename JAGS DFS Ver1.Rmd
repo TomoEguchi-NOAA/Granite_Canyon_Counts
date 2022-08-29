@@ -127,7 +127,7 @@ jags.params <- c("beta.cos", "beta.sin",
 
 ```{r run-jags}
 
-jags.model <- paste0("models/model_DFS_beta_yr_bino.txt")
+jags.model <- paste0("models/model_DFS_yr_normal.txt")
 
 jm <- jags(jags.data,
              inits = NULL,

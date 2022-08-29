@@ -19,6 +19,8 @@ library(bayesplot)
 library(mgcv)
 library(splines)
 
+jags.model <- paste0("models/Model_dailyN_spline_Nmix_bin_negbin_JAGS.txt")
+
 # from https://github.com/andrewcparnell/jags_examples/blob/master/R%20Code/jags_spline.R
 # A function that uses the bs() function to generate the B-spline basis functions
 # following Eilers and Marx 'Craft of smoothing' course. This bs_bbase() function
@@ -55,11 +57,13 @@ n.seasons <- length(seasons)
 Final_Data <- list()
 k <- 3
 for (k in 1:length(seasons)){
-  tmp <- readRDS(paste0("RData/V2_Aug2022/out_",
+  # tmp <- readRDS(paste0("RData/V2_Aug2022/out_",
+  #                       strsplit(seasons[k], "/")[[1]][2],
+  #                       "_Tomo_v2.rds"))
+  tmp <- readRDS(paste0("RData/out_",
                         strsplit(seasons[k], "/")[[1]][2],
                         "_Tomo_v2.rds"))
-  
-  Final_Data[[k]] <- tmp$Final_Data %>%
+  Final_Data[[k]] <- tmp$FinalData %>%
     mutate(Year = as.numeric(strsplit(seasons[k], "/")[[1]][2]),
            Day = as.numeric(BeginDay)) %>%
     right_join(., data.frame(Day = 1:90,
@@ -171,12 +175,10 @@ n.per.day[is.na(n.per.day)] <- 0
 
 ```{r run-jags}
 nseg <- 30
-#family <- "gaussian"
-#family <- "Gamma"
-
-jags.model <- paste0("models/Model_dailyN_spline_kx_Nmix_JAGS.txt")
 
 # time steps (1:90). Create the basis matrix
+# bs_bbase is defined above.
+
 X.j <- bs_bbase(1:90, nseg = nseg)
 
 jags.params <- c("lambda","OBS.RF","OBS.Switch",
@@ -187,9 +189,9 @@ jags.params <- c("lambda","OBS.RF","OBS.Switch",
                 "Corrected.Est","Raw.Est","N",
                 "Daily.Est",
                 "mu.N.beta", "sigma.N.beta",
-                "sigma.N")
+                "sigma.N", "alpha", "r", "log.lkhd")
 
-jags.data <- list(  n = n.per.day,
+jags.data <- list(  n = n.all,
                     n.station = c(1,1,1,1),
                     n.year = length(seasons),
                     n.obs = nrow(obs.ID.df)+1,
@@ -201,6 +203,9 @@ jags.data <- list(  n = n.per.day,
                     day = days.all,
                     X.j = X.j,
                     N_knots = ncol(X.j))
+
+5 nodes produced errors; first error: Error in node N[63,4]
+Failure to calculate log density 2022-08-29
 
 jm <- jags(jags.data,
              inits = NULL,
@@ -214,9 +219,15 @@ jm <- jags(jags.data,
 
 
 # This is the output file name
-jags.out.file <- paste0("RData/jagam_dailyN_k", 
-                        basis.dim, "_", family, "_jags.rds")
+# jags.out.file <- paste0("RData/jagam_dailyN_k", 
+#                         basis.dim, "_", family, "_jags.rds")
 
 ```
 
+
+```{r}
+mcmc_trace(jm$samples, c("Corrected.Est[1]", "Corrected.Est[2]",
+                         "Corrected.Est[3]", "Corrected.Est[4]"))
+
+```
 
