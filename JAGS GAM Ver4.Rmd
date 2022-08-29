@@ -3,7 +3,7 @@ title: "R Notebook"
 output: html_notebook
 ---
 
-This notebook includes the part that a GAM is fitted to the observed daily counts of gray whales. In this version (Ver4), I treat unobserved data points as "parameters" or missing values. 
+This notebook includes the part that a GAM is fitted to the observed daily counts of gray whales. In this version (Ver4), GAM is used to model "true" N as a function of the day of the season. The  observed counts are binomial deviates with the "true" N and capture probabilities that are affected by covariates; Beaufort sea state, visibility, and observers.  
 
 
 Set up libraries
@@ -131,6 +131,10 @@ jags.out.file <- paste0("RData/jagam_dailyN_k",
 
 #jags.data.v2 <- Ver2.results$jags.data
 
+jags.gam <- jagam(Nplus1 ~ s(days, by = year, k = basis.dim), 
+                  family = family,
+                  data = daily.counts.df.long.noSeason,
+                  file = jagam.model)
 
 if (!file.exists(jags.out.file)){
   
