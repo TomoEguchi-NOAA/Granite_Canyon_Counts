@@ -43,10 +43,15 @@ model{
     for(d in 1:90){ 
 
       mu.N[d,t] <- inprod(X.j[d,], mu.N.beta[,t]) 
-	  alpha[d,t] <- dround((mu.N[d,t] * r[d,t])/(1 - r[d,t]), 0)	  
+	  N.0[d,t] ~ dnorm(mu.N[d,t], 0.01)T(0,)  # These two lines work
+	  N[d,t] <- round(N.0[d,t])               # using normal distribution
+
+	  # maybe I should try round, instead of dround. If round works,
+      # then try removing ifelse. 	  
+	  #alpha[d,t] <- ifelse(mu.N[d,t] < 0, 0, round((mu.N[d,t] * r[d,t])/(1 - r[d,t])))	  
 	  	  
-	  N[d,t] ~ dnegbin(r[d,t], alpha[d,t])
-	  r[d,t] ~ dbeta(1,1)
+	  #N[d,t] ~ dnegbin(r[d,t], alpha[d,t])
+	  #r[d,t] ~ dbeta(1,1)
 	  
     }#d
   }#t
@@ -82,7 +87,7 @@ model{
        
         # watch.prop is the proportion of the total watch periods in a day (540 minutes) that
         # was actually observed. 
-        obs.prob[j,s,t] <- prob[j,s,t] * watch.prop[j,t]
+        obs.prob[j,s,t] <- watch.prop[j,t] # * prob[j,s,t] 
                 
       }#s
     }#j

@@ -57,13 +57,11 @@ n.seasons <- length(seasons)
 Final_Data <- list()
 k <- 3
 for (k in 1:length(seasons)){
-  # tmp <- readRDS(paste0("RData/V2_Aug2022/out_",
-  #                       strsplit(seasons[k], "/")[[1]][2],
-  #                       "_Tomo_v2.rds"))
-  tmp <- readRDS(paste0("RData/out_",
+  tmp <- readRDS(paste0("RData/V2.1_Aug2022/out_",
                         strsplit(seasons[k], "/")[[1]][2],
                         "_Tomo_v2.rds"))
-  Final_Data[[k]] <- tmp$FinalData %>%
+
+  Final_Data[[k]] <- tmp$Final_Data %>%
     mutate(Year = as.numeric(strsplit(seasons[k], "/")[[1]][2]),
            Day = as.numeric(BeginDay)) %>%
     right_join(., data.frame(Day = 1:90,
@@ -174,12 +172,12 @@ n.per.day[is.na(n.per.day)] <- 0
 
 
 ```{r run-jags}
-nseg <- 5
+nseg <- 30
 
 # time steps (1:90). Create the basis matrix
 # bs_bbase is defined above.
 
-X.j <- bs_bbase(1:90, nseg = nseg)
+X.j <- bs_bbase(1:90, nseg = nseg, deg = 3)
 
 jags.params <- c("lambda","OBS.RF","OBS.Switch",
                 "BF.Switch","BF.Fixed","VS.Switch",
@@ -204,11 +202,11 @@ jags.data <- list(  n = n.all,
                     X.j = X.j,
                     N_knots = ncol(X.j))
 
-5 nodes produced errors; first error: Error in node N[63,4]
-Failure to calculate log density 
-Probably need to look at how nseg affects the outcome. Also,
-the variance of binomial distribution may be too small for the
-observed day-to-day variability. May try another distribution 2022-08-29
+# 5 nodes produced errors; first error: Error in node N[63,4]
+# Failure to calculate log density 
+# Probably need to look at how nseg affects the outcome. Also,
+# the variance of binomial distribution may be too small for the
+# observed day-to-day variability. May try another distribution 2022-08-29
 
 jm <- jags(jags.data,
              inits = NULL,
