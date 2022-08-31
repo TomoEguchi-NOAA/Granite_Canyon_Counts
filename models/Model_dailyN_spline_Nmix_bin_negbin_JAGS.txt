@@ -42,16 +42,29 @@ model{
 
     for(d in 1:90){ 
 
-      mu.N[d,t] <- inprod(X.j[d,], mu.N.beta[,t]) 
-	  N.0[d,t] ~ dnorm(mu.N[d,t], 0.01)T(0,)  # These two lines work
-	  N[d,t] <- round(N.0[d,t])               # using normal distribution
+      mu.N[d,t] <- inprod(X.j[d,], mu.N.beta) 
+	  
+	  # The following two lines work, using normal distribution
+	  #N.0[d,t] ~ dnorm(mu.N[d,t], 0.01)T(0,)  
+	  #N[d,t] <- round(N.0[d,t])               
 
+	  # negativ binomial returns errors about failing to calculate
+	  # log density, which is a result of getting NaN. 
+	  # No error returns when alpha is fixed at 100. So, problem is 
+	  # the next line where I compute the alpha value. 
+	  # in JAGS, the negative binomial distribution is defined as the following:
+	  # y ~ dnegbin(p, alpha)
+	  # P(Y = y) = (y + alpha - 1 choose y) * (p^alpha) * (1 - p)^y
+	  # The mean of it is alpha*(1-p)/p. 
+	  
 	  # maybe I should try round, instead of dround. If round works,
       # then try removing ifelse. 	  
+	  alpha[d,t] <- round((mu.N[d,t] * r[d,t])/(1 - r[d,t]))
+	  
 	  #alpha[d,t] <- ifelse(mu.N[d,t] < 0, 0, round((mu.N[d,t] * r[d,t])/(1 - r[d,t])))	  
 	  	  
-	  #N[d,t] ~ dnegbin(r[d,t], alpha[d,t])
-	  #r[d,t] ~ dbeta(1,1)
+	  N[d,t] ~ dnegbin(r[d,t], alpha[d,t])  #
+	  r[d,t] ~ dbeta(1,1)
 	  
     }#d
   }#t
@@ -63,13 +76,13 @@ model{
   tau.n <- sigma.n^(-2)
   
   # Prior on N.beta
-  for (t in 1:n.year){
-	mu.N.beta[1, t] ~ dnorm(1000, 0.01)
+  #for (t in 1:n.year){
+	mu.N.beta[1] ~ dnorm(100, 0.01)I(0,)
     for (i in 2:N_knots){
-      mu.N.beta[i,t] ~ dnorm(mu.N.beta[i-1, t], tau.N.beta)
+      mu.N.beta[i] ~ dnorm(mu.N.beta[i-1], tau.N.beta)
 
     }
-  }
+  #}
 
   ### Observation probability - include the watch period durations
   for(t in 1:n.year){
@@ -87,7 +100,7 @@ model{
        
         # watch.prop is the proportion of the total watch periods in a day (540 minutes) that
         # was actually observed. 
-        obs.prob[j,s,t] <- watch.prop[j,t] # * prob[j,s,t] 
+        obs.prob[j,s,t] <- watch.prop[j,t] * prob[j,s,t] 
                 
       }#s
     }#j

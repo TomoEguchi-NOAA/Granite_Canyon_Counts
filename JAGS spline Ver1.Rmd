@@ -218,6 +218,9 @@ jm <- jags(jags.data,
              n.iter = MCMC.params$n.samples,
              DIC = T, parallel=T)
 
+# Check conversions
+mcmc_trace(jm$samples, c("Corrected.Est[1]", "Corrected.Est[2]"))
+
 
 # This is the output file name
 # jags.out.file <- paste0("RData/jagam_dailyN_k", 
