@@ -3,7 +3,7 @@ title: "R Notebook"
 output: html_notebook
 ---
 
-This notebook describes an attempt to use the state space modeling approach (AR(1)) to estimate the true N in the N-mixture model of Granite Canyon counts. The observed counts are binomial deviates with the "true" N and capture probabilities that are affected by covariates; Beaufort sea state, visibility, and observers.  
+This notebook describes an attempt to use Richards' function to estimate the true N in the N-mixture model of Granite Canyon counts. The observed counts are binomial deviates with the "true" N and capture probabilities that are affected by covariates; Beaufort sea state, visibility, and observers.  
 
 
 The station information needs to be added. The data files that I have don't have that info... this needs to be fixed in the future. 
@@ -19,7 +19,7 @@ library(bayesplot)
 library(mgcv)
 library(splines)
 
-jags.model <- paste0("models/Model_dailyN_StateSpace_Nmix_Norm_Binom_JAGS.txt")
+jags.model <- paste0("models/model_Richards_imputation_dnorm.txt")
 
 # Observer list gets updated as new observers are added. 
 # obs.list <- read.csv("Data/Observer list.csv", header = T) 
@@ -45,17 +45,20 @@ for (k in 1:length(seasons)){
   Final_Data[[k]] <- tmp$Final_Data %>%
     mutate(Year = as.numeric(strsplit(seasons[k], "/")[[1]][2]),
            Day = as.numeric(BeginDay)) %>%
-    right_join(., data.frame(Day = 1:90,
-                             n = NA,
-                             Year = as.numeric(strsplit(seasons[k], "/")[[1]][2])), 
-               by = "Day") %>%
-
-    select(Year.y, Day, n.x, n.y, dur, bf, vs, obs, begin) %>%
-    mutate(n = n.x,
-           effort = ifelse(is.na(dur), 0, dur),
-           Year = Year.y) %>%
-    select(-c(Year.y, n.x, n.y, dur)) %>%
-    arrange(Day) 
+    # right_join(., data.frame(Day = 1:90,
+    #                          n = NA,
+    #                          Year = as.numeric(strsplit(seasons[k], "/")[[1]][2])), 
+    #            by = "Day") %>%
+    # 
+    # select(Year.y, Day, n.x, n.y, dur, bf, vs, obs, begin) %>%
+    # mutate(n = n.x,
+    #        effort = ifelse(is.na(dur), 0, dur),
+    #        Year = Year.y) %>%
+    # select(-c(Year.y, n.x, n.y, dur)) %>%
+    # arrange(Day) 
+    mutate(effort = dur) %>%
+    select(Year, Day, effort, bf, vs, n, obs)
+  
     #complete(Day, i) %>%
     #filter(!is.na(i))
 
@@ -273,11 +276,11 @@ jags.params <- c("lambda","OBS.RF","OBS.Switch",
                 "BF.Fixed",
                 "VS.Fixed",
                 "Corrected.Est","Raw.Est","N",
-                "Daily.Est",
-                "theta", "N", "N.0",
+                "K", "S", "P",
+                "theta", "N.0",
                 "sigma.N", "log.lkhd")
 
-jags.data <- list(  n = obsd.n, #n.all,
+jags.data <- list(  n = n.all, #obsd.n, 
                     n.station = c(1,1,1,1),
                     n.year = length(seasons),
                     n.obs = nrow(obs.ID.df)+1,
@@ -287,12 +290,8 @@ jags.data <- list(  n = obsd.n, #n.all,
                     vs = vs.all,
                     bf = bf.all,
                     watch.prop = watch.prop,
-                    day = days.all)
-
-# Error in checkForRemoteErrors(val) : 
-#   5 nodes produced errors; first error: Error in node n[30,1,1]
-# Node inconsistent with parents
-#n[30,1,1] is the first non-NA value in the n array.
+                    day = days.all,
+                    max.vec = rep(1000, times = 4))
 
 jm <- jags(jags.data,
              inits = NULL,

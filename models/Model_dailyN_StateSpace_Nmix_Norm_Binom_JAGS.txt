@@ -18,7 +18,7 @@ model{
   # Observation model - binomial 
   for(t in 1:n.year){
 	
-    for(j in first.day[t]:periods[t]){ 
+    for(j in 1:periods[t]){ 
                             
       for(s in 1:n.station[t]){
       
@@ -27,7 +27,7 @@ model{
 		# Otherwise, zero observation probability from the second observation point
 				
         n[j,s,t] ~ dbin(obs.prob[j, s, t], N[day[j,t], t]) 
-		# 5 nodes produced errors; first error: Error in node log.lkhd[30,1,1]
+		# 5 nodes produced errors; first error: Error in node n[30,1,1]
 		# Node inconsistent with parents
 		
 		log.lkhd[j,s,t] <- logdensity.bin(n[j,s,t], obs.prob[j,s,t], N[day[j,t], t])
@@ -75,13 +75,17 @@ model{
         #                 VS on/off * Fixed effect of VS * VS    + 
         #                Obs effect on/off * Random effect of observer)
 
-        logit(prob[j,s,t]) <- ifelse(watch.prop[j,t] > 0,
-						logit(mean.prob) + (BF.Switch * BF.Fixed * bf[j,t]) + (VS.Switch * VS.Fixed * vs[j,t]) + (OBS.Switch * OBS.RF[obs[j,s,t]]),
-						0.0)
+        logit(prob[j,s,t]) <- logit(mean.prob) + 
+								(BF.Switch * BF.Fixed * bf[j,t]) + 
+								(VS.Switch * VS.Fixed * vs[j,t]) + 
+								(OBS.Switch * OBS.RF[obs[j,s,t]])
+						
        
         # watch.prop is the proportion of the total watch periods in a day (540 minutes) that
         # was actually observed. 
-        obs.prob[j,s,t] <- watch.prop[j,t] * prob[j,s,t] 
+        obs.prob[j,s,t] <- ifelse(watch.prop[j,t] > 0,
+									watch.prop[j,t] * prob[j,s,t],
+									0)
                 
       }#s
     }#j
