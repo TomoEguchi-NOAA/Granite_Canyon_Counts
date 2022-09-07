@@ -24,34 +24,53 @@
 
 model{
 
+	# Define Richards function - this is the mean of "true" daily abundance
+	# The realization is a normal deviate with the mean and variance, which
+	# changes with the mean, while the CV remains constant. 
 	for (y in 1:n.year){
-		for (t in 1:90){
+		# by assumption:
+		mean.N[1,y] <- 0
+		mean.N[90,y] <- 0
+		N[1,y] ~ dnorm(mean.N[1,y], 1)T(0,)
+		N[90,y] ~ dnorm(mean.N[90,y], 1)T(0,)
+		
+		for (t in 2:89){
 			M1[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/(-S[y])) * (P[y] - t))) ^ (-1/exp(K[y]))
 			M2[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/S[y]) * (P[y] - t))) ^ (-1/exp(K[y]))
-			N[t, y] <- (max[y]) * (M1[t, y] * M2[t, y])
-        
+			mean.N[t, y] <- (max.vec[y]) * (M1[t, y] * M2[t, y])
+			
+			sigma.N[t,y] <- cv.N * mean.N[t,y]
+			tau.N[t,y] <- sigma.N[t,y] ^ (-2)
+			N[t, y] ~ dnorm(mean.N[t,y], tau.N[t,y])T(0,)
+			
 		}
 	}  
 
+	# observations are from the realized abundance: N-mixture part with 
+	# binomial sampling, where the probability is modeled below
 	for (y in 1:n.year){
 		for (s in 1:n.station[y]){
 			for (d in 1:periods[y]){
 				# observation
-				n[d, s, y] ~ dpois(N[day[d,y], y] * obs.prob[d,s,y])  #dbin(obs.prob[d, s, y], round(N[day[d,y], y]))  #dnorm(X[yr,j,t], tau.y)
-		
+				#n[d, s, y] ~ dpois(N[day[d,y], y] * obs.prob[d,s,y])   
+				n[d, s, y] ~ dbin(obs.prob[d, s, y], round(N[day[d,y], y]))
 			}
 		}
 	}
 
-	# priors
+	# priors for Richards function parameters. Year-specific parameters
+	# seem to work better than common parameters
 	for (y in 1:n.year){
 		max[y] ~ dnorm(max.vec[y], 0.001)T(0,)
-		S[y] ~ dunif(0, 4)
-		K[y] ~ dunif(0, 4)
+		S[y] ~ dunif(0, 7)
+		K[y] ~ dunif(0, 2)
 		P[y] ~ dunif(30, 60)
 
 	}
 
+	#S ~ dunif(0, 7)
+	#K ~ dunif(0, 2)
+	
 	### Observation probability - include the watch period durations
 	for(y in 1:n.year){
 		for(s in 1:n.station[y]){
@@ -120,7 +139,9 @@ model{
 	sd.corr <- 0.03625
 	tau.corr <- pow(sd.corr,-2)
   
-	
 	sigma.n ~ dgamma(0.1, 0.01)
 	tau.n <- sigma.n ^ (-2)
+	
+	cv.N ~ dbeta(1,1)
+	
 }

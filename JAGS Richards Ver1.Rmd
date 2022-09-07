@@ -266,18 +266,17 @@ $max_N >> min_N$
 
 ```{r run-jags}
 MCMC.params <- list(n.samples = 100000,
-                    n.thin = 80,
-                    n.burnin = 60000,
+                    n.thin = 10,
+                    n.burnin = 80000,
                     n.chains = 5)
 
 jags.params <- c("lambda","OBS.RF","OBS.Switch",
                 "BF.Switch","BF.Fixed","VS.Switch",
                 "VS.Fixed","mean.prob",
                 "BF.Fixed",
-                "VS.Fixed",
+                "VS.Fixed", "mean.N",
                 "Corrected.Est","Raw.Est","N",
-                "K", "S", "P",
-                "theta", "N.0",
+                "K", "S", "P", "cv.N",
                 "sigma.N", "log.lkhd")
 
 jags.data <- list(  n = n.all, #obsd.n, 
@@ -314,10 +313,19 @@ mcmc_trace(jm$samples, c("Corrected.Est[1]", "Corrected.Est[2]",
 
 ```
 
+```{r}
+mcmc_dens(jm$samples, c("Corrected.Est[1]", "Corrected.Est[2]",
+                         "Corrected.Est[3]", "Corrected.Est[4]"))
+
+```
+
+
 
 ```{r}
 mcmc_trace(jm$samples, c("K[1]", "K[2]",
                          "K[3]", "K[4]"))
+
+#mcmc_trace(jm$samples, c("K", "S"))
 
 ```
 
@@ -339,5 +347,66 @@ mcmc_dens(jm$samples, c("S[1]", "S[2]",
 
 ```{r}
 mcmc_trace(jm$samples, c("BF.Fixed", "VS.Fixed"))
+```
+
+
+```{r}
+mcmc_trace(jm$samples, "cv.N")
+```
+
+
+How do estimates look?
+
+
+```{r}
+
+mean.N.hats <- data.frame(Season = rep(seasons, each = 90),
+                     Day = rep(1:90, times = 4),
+                     Mean = as.vector(jm$mean$mean.N),
+                     LCL = as.vector(jm$q2.5$mean.N),
+                     UCL = as.vector(jm$q97.5$mean.N))
+
+                     
+ggplot(mean.N.hats %>% group_by(Season)) + 
+  geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
+              fill = "blue", alpha = 0.5) +
+  geom_path(aes(x = Day, y = Mean)) + 
+  facet_wrap(~ Season)
+
+
+
+```
+
+
+
+```{r}
+
+N.hats <- data.frame(Season = rep(seasons, each = 90),
+                     Day = rep(1:90, times = 4),
+                     Mean = as.vector(jm$mean$N),
+                     LCL = as.vector(jm$q2.5$N),
+                     UCL = as.vector(jm$q97.5$N))
+
+
+ggplot(N.hats %>% group_by(Season)) + 
+  geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
+              fill = "blue", alpha = 0.5) +
+  geom_path(aes(x = Day, y = Mean)) + 
+  facet_wrap(~ Season)
+
+
+
+```
+
+
+```{r}
+n.st1 <- n.all[,1,]
+obsd.n <- data.frame(Season = rep(seasons, each = nrow(n.st1)),
+                     Day = as.vector(days.all),
+                     n = as.vector(n.st1)) %>% na.omit()
+                     
+ggplot(obsd.n %>% group_by(Season)) +
+  geom_point(aes(x = Day, y = n)) +
+  facet_wrap(~Season)
 ```
 
