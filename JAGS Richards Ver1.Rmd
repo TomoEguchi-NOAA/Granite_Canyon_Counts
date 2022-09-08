@@ -16,8 +16,8 @@ library(abind)
 library(jagsUI)
 library(tidyverse)
 library(bayesplot)
-library(mgcv)
-library(splines)
+# library(mgcv)
+# library(splines)
 
 jags.model <- paste0("models/model_Richards_norm_bino.txt")
 
