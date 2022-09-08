@@ -19,7 +19,7 @@ library(bayesplot)
 library(mgcv)
 library(splines)
 
-jags.model <- paste0("models/model_Richards_imputation_dnorm.txt")
+jags.model <- paste0("models/model_Richards_norm_bino.txt")
 
 # Observer list gets updated as new observers are added. 
 # obs.list <- read.csv("Data/Observer list.csv", header = T) 
@@ -276,7 +276,7 @@ jags.params <- c("lambda","OBS.RF","OBS.Switch",
                 "BF.Fixed",
                 "VS.Fixed", "mean.N",
                 "Corrected.Est","Raw.Est","N",
-                "K", "S", "P", "cv.N",
+                "K", "S1", "S2", "P", "cv.N",
                 "sigma.N", "log.lkhd")
 
 jags.data <- list(  n = n.all, #obsd.n, 
@@ -330,9 +330,19 @@ mcmc_trace(jm$samples, c("K[1]", "K[2]",
 ```
 
 
+
 ```{r}
-mcmc_trace(jm$samples, c("S[1]", "S[2]",
-                         "S[3]", "S[4]"))
+mcmc_dens(jm$samples, c("K[1]", "K[2]",
+                         "K[3]", "K[4]"))
+
+#mcmc_trace(jm$samples, c("K", "S"))
+
+```
+
+
+```{r}
+mcmc_trace(jm$samples, c("S2[1]", "S2[2]",
+                         "S2[3]", "S2[4]"))
 
 ```
 
@@ -340,8 +350,8 @@ mcmc_trace(jm$samples, c("S[1]", "S[2]",
 
 
 ```{r}
-mcmc_dens(jm$samples, c("S[1]", "S[2]",
-                         "S[3]", "S[4]"))
+mcmc_dens(jm$samples, c("S2[1]", "S2[2]",
+                         "S2[3]", "S2[4]"))
 
 ```
 
