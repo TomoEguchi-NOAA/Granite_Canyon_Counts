@@ -19,7 +19,9 @@ library(bayesplot)
 # library(mgcv)
 # library(splines)
 
-jags.model <- paste0("models/model_Richards_norm_bino.txt")
+# Poisson seems to work better than binomial
+#jags.model <- paste0("models/model_Richards_norm_bino.txt")
+jags.model <- paste0("models/model_Richards_norm_pois.txt")
 
 # Observer list gets updated as new observers are added. 
 # obs.list <- read.csv("Data/Observer list.csv", header = T) 
@@ -160,90 +162,6 @@ n.per.day[is.na(n.per.day)] <- 0
 ```
 
 
-
-Simulate data:
-
-```{r}
-
-# simulate counts from a known distribution:
-obs <- array(rdunif(n = prod(dim(obs.all)), 
-                    a = 1, b = max(obs.all)+1),
-             dim = dim(obs.all))
-             
-# bf <- matrix(rdunif(n = prod(dim(bf.all)), a = 0, b = 4),
-#              nrow = nrow(bf.all), ncol = ncol(bf.all))
-# 
-# vs <- matrix(rdunif(n = prod(dim(bf.all)), a = 0, b = 4),
-#              nrow = nrow(bf.all), ncol = ncol(bf.all))
-
-#logit <- function(p) log(p/(1-p))
-
-prob <- array(data = 0, dim = dim(obs))
-
-BF.fixed <- -4
-VS.fixed <- -2
-mean <- 0.3
-for (c in 1:dim(prob)[3]){
-  for (r in 1:dim(prob)[1]){
-    for (s in 1:2){
-      linear.model <- mean + 
-                      BF.fixed * bf.all[r,c] + 
-                      VS.fixed * vs.all[r,c] + 
-                      obs[r,s,c] + rnorm(n = 1, mean = 0, sd = 10) 
-      
-      prob[r,s,c] <- 1/(1 + exp(linear.model)) * watch.prop[r,c]
-    }
-    
-  }
-}
-
-Richards_fcn <- function(d, S, K, P, min, max){
-  K <- abs(K)
-  S <- abs(S)
-  S1 <- -S
-  M1 <- (1 + (2 * exp(K) - 1) * exp((1/S1) * (P - d))) ^ (-1/exp(K))
-  M2 <- (1 + (2 * exp(K) - 1) * exp((1/S) * (P - d))) ^ (-1/exp(K))
-  N <- min + (max - min) * (M1 * M2)
-  return(N)
-}
-
-S <- c(1.5, 2.1, 1.2, 1.9)   # fatness
-K <- c(1.0, 1.2, 1.3, 1.2)   # peak flatness
-P <- c(40, 45, 50, 42)       # peak timing
-max.N <- c(800, 850, 820, 600)
-
-true.N <- matrix(data = 0, nrow = 90, ncol = dim(prob)[3])
-
-for (t in 1:dim(prob)[3]){
-  for (d in 1:90){
-    true.N[d,t] <- floor(Richards_fcn(d = d, 
-                                      S = S[t], 
-                                      K = K[t], 
-                                      P = P[t], 
-                                      min = 0, max = max.N[t])  )
-    
-  }
-}
-
-obsd.n <- array(data = 0, dim = dim(prob))
-
-for (t in 1:dim(prob)[3]){
-  for (s in 1:2){
-    for (k in 1:dim(prob)[1]){
-      obsd.n[k,s,t] <- ifelse(is.na(prob[k,s,t]),
-                              NA,       
-                              rbinom(n = 1, 
-                              size = true.N[days.all[k,t],t], 
-                              prob = prob[k,s,t]))
-        
-    }
-    
-  }
-}
-
-
-```
-
 $$M_1 = (1 + (2 e^K - 1) * e^{(P-d)/(-S)}) ^ {(-1/e^K)}$$
 
 $$M_2 = (1 + (2 e^K - 1) * e^{(P-d)/(S)}) ^ {(-1/e^K)}$$
@@ -279,7 +197,7 @@ jags.params <- c("lambda","OBS.RF","OBS.Switch",
                 "K", "S1", "S2", "P", "cv.N",
                 "sigma.N", "log.lkhd")
 
-jags.data <- list(  n = n.all, #obsd.n, 
+jags.data <- list(  n = n.all,
                     n.station = c(1,1,1,1),
                     n.year = length(seasons),
                     n.obs = nrow(obs.ID.df)+1,
@@ -338,6 +256,24 @@ mcmc_dens(jm$samples, c("K[1]", "K[2]",
 #mcmc_trace(jm$samples, c("K", "S"))
 
 ```
+
+
+
+```{r}
+mcmc_trace(jm$samples, c("S1[1]", "S1[2]",
+                         "S1[3]", "S1[4]"))
+
+```
+
+
+
+
+```{r}
+mcmc_dens(jm$samples, c("S1[1]", "S1[2]",
+                         "S1[3]", "S1[4]"))
+
+```
+
 
 
 ```{r}
@@ -418,5 +354,11 @@ obsd.n <- data.frame(Season = rep(seasons, each = nrow(n.st1)),
 ggplot(obsd.n %>% group_by(Season)) +
   geom_point(aes(x = Day, y = n)) +
   facet_wrap(~Season)
+```
+
+
+```{r}
+#save.image(file = "RData/JAGS_Richards_v1_2022-09-09.rds")
+
 ```
 

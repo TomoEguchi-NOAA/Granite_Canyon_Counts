@@ -39,7 +39,7 @@ model{
 			M2[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K[y]))
 			mean.N[t, y] <- (max.vec[y]) * (M1[t, y] * M2[t, y])
 			
-			sigma.N[t,y] <- cv.N * mean.N[t,y]
+			sigma.N[t,y] <-  ifelse(mean.N[t,y] < 1, 1, cv.N * mean.N[t,y]) #cv.N * mean.N[t,y]
 			tau.N[t,y] <- sigma.N[t,y] ^ (-2)
 			N[t, y] ~ dnorm(mean.N[t,y], tau.N[t,y])T(0,)
 			
@@ -54,6 +54,7 @@ model{
 				# observation
 				#n[d, s, y] ~ dpois(N[day[d,y], y] * obs.prob[d,s,y])   
 				n[d, s, y] ~ dbin(obs.prob[d, s, y], round(N[day[d,y], y]))
+				log.lkhd[d,s,y] <- logdensity.bin(n[d,s,y], obs.prob[d,s,y], N[day[d,y], y])
 			}
 		}
 	}

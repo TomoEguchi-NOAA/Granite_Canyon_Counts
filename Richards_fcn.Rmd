@@ -1,0 +1,187 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Richareds function exploration;
+
+```{r}
+library(tidyverse)
+
+Richards_fcn <- function(d, S1, S2, K, P, min, max){
+  K <- abs(K)
+  if (S1 > 0) S1 <- -S1
+  if (S2 < 0) S2 <- -S2
+  
+  M1 <- (1 + (2 * exp(K) - 1) * exp((1/S1) * (P - d))) ^ (-1/exp(K))
+  M2 <- (1 + (2 * exp(K) - 1) * exp((1/S2) * (P - d))) ^ (-1/exp(K))
+  N <- min + (max - min) * (M1 * M2)
+  return(N)
+}
+```
+
+
+Effects of S1
+```{r}
+S1 <- c(-10, -5, -2.5, -1.2, -0.6)
+S2 <- 1.5
+K <- 1
+P <- 40
+max.N <- 800
+CV <- 0.3
+
+true.mean.N <- N <- matrix(data = 0, nrow = 90, ncol = length(S1))
+
+for (c in 1:length(S1)){
+  for (d in 1:90){
+    true.mean.N[d, c] <- floor(Richards_fcn(d = d, 
+                                            S1 = S1[c], 
+                                            S2 = S2,
+                                            K = K, 
+                                            P = P, 
+                                            min = 0, max = max.N)  )
+    
+    N[d,c] <- floor(rnorm(n = 1, 
+                          mean = true.mean.N[d,c],
+                          sd = CV * true.mean.N[d,c]))
+    
+  }
+  
+}
+
+data.df <- data.frame(Day = rep(1:90, times = length(S1)),
+                      mean.N = as.vector(true.mean.N),
+                      N = as.vector(N),
+                      S1 = rep(S1, each = 90))
+ggplot(data = data.df) +
+  geom_path(aes(x = Day, y = mean.N), color = "red") +
+  #geom_path(aes(x = Day, y = N), color = "blue") +
+  facet_wrap(~ S1)
+
+```
+
+
+Effects of S2
+```{r}
+S1 <- -1.5
+S2 <- c(0.6, 1.2, 2.5, 5, 10)
+K <- 1
+P <- 40
+max.N <- 800
+CV <- 0.3
+
+true.mean.N <- N <- matrix(data = 0, nrow = 90, ncol = length(S2))
+
+for (c in 1:length(S2)){
+  for (d in 1:90){
+    true.mean.N[d, c] <- floor(Richards_fcn(d = d, 
+                                            S1 = S1, 
+                                            S2 = S2[c],
+                                            K = K, 
+                                            P = P, 
+                                            min = 0, max = max.N)  )
+    
+    N[d,c] <- floor(rnorm(n = 1, 
+                          mean = true.mean.N[d,c],
+                          sd = CV * true.mean.N[d,c]))
+    
+  }
+  
+}
+
+data.df <- data.frame(Day = rep(1:90, times = length(S2)),
+                      mean.N = as.vector(true.mean.N),
+                      N = as.vector(N),
+                      S2 = rep(S2, each = 90))
+ggplot(data = data.df) +
+  geom_path(aes(x = Day, y = mean.N), color = "red") +
+  #geom_path(aes(x = Day, y = N), color = "blue") +
+  facet_wrap(~ S2)
+
+```
+
+
+
+Effects of K
+```{r}
+S1 <- -2.5
+S2 <- 2.5
+K <- c(0.01, 0.1, 1, 2, 4, 8)
+P <- 40
+max.N <- 800
+CV <- 0.3
+
+true.mean.N <- N <- matrix(data = 0, nrow = 90, 
+                           ncol = length(K))
+
+for (c in 1:length(K)){
+  for (d in 1:90){
+    true.mean.N[d, c] <- floor(Richards_fcn(d = d, 
+                                            S1 = S1, 
+                                            S2 = S2,
+                                            K = K[c], 
+                                            P = P, 
+                                            min = 0, max = max.N)  )
+    
+    N[d,c] <- floor(rnorm(n = 1, 
+                          mean = true.mean.N[d,c],
+                          sd = CV * true.mean.N[d,c]))
+    
+  }
+  
+}
+
+data.df <- data.frame(Day = rep(1:90, times = length(K)),
+                      mean.N = as.vector(true.mean.N),
+                      N = as.vector(N),
+                      K = rep(K, each = 90))
+ggplot(data = data.df) +
+  geom_path(aes(x = Day, y = mean.N), color = "red") +
+  #geom_path(aes(x = Day, y = N), color = "blue") +
+  facet_wrap(~ K)
+
+```
+
+
+
+
+Effects of P
+```{r}
+S1 <- -2.5
+S2 <- 2.5
+K <- 1.5
+P <- c(20, 40, 60, 80)
+max.N <- 800
+CV <- 0.3
+
+true.mean.N <- N <- matrix(data = 0, nrow = 90, 
+                           ncol = length(P))
+
+for (c in 1:length(P)){
+  for (d in 1:90){
+    true.mean.N[d, c] <- floor(Richards_fcn(d = d, 
+                                            S1 = S1, 
+                                            S2 = S2,
+                                            K = K, 
+                                            P = P[c], 
+                                            min = 0, max = max.N)  )
+    
+    N[d,c] <- floor(rnorm(n = 1, 
+                          mean = true.mean.N[d,c],
+                          sd = CV * true.mean.N[d,c]))
+    
+  }
+  
+}
+
+data.df <- data.frame(Day = rep(1:90, times = length(P)),
+                      mean.N = as.vector(true.mean.N),
+                      N = as.vector(N),
+                      P = rep(P, each = 90))
+ggplot(data = data.df) +
+  geom_path(aes(x = Day, y = mean.N), color = "red") +
+  #geom_path(aes(x = Day, y = N), color = "blue") +
+  facet_wrap(~ P)
+
+```
+
