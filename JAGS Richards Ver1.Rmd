@@ -20,8 +20,13 @@ library(bayesplot)
 # library(splines)
 
 # Poisson seems to work better than binomial
+#obs.model <- "pois"
+bos.model <- "bino"
 #jags.model <- paste0("models/model_Richards_norm_bino.txt")
-jags.model <- paste0("models/model_Richards_norm_pois.txt")
+jags.model <- paste0("models/model_Richards_norm_", obs.model, ".txt")
+
+out.file.name <- paste0("RData/JAGS_Richards_v1_", obs.model, 
+                        "pois_2022-09-09.RData")
 
 # Observer list gets updated as new observers are added. 
 # obs.list <- read.csv("Data/Observer list.csv", header = T) 
@@ -44,7 +49,8 @@ for (k in 1:length(seasons)){
                         strsplit(seasons[k], "/")[[1]][2],
                         "_Tomo_v2.rds"))
 
-  Final_Data[[k]] <- tmp$Final_Data %>%
+  #Final_Data[[k]] <- tmp$Final_Data %>%
+  Final_Data[[k]] <- tmp$Data_Out %>%  
     mutate(Year = as.numeric(strsplit(seasons[k], "/")[[1]][2]),
            Day = as.numeric(BeginDay)) %>%
     # right_join(., data.frame(Day = 1:90,
@@ -358,7 +364,7 @@ ggplot(obsd.n %>% group_by(Season)) +
 
 
 ```{r}
-#save.image(file = "RData/JAGS_Richards_v1_2022-09-09.rds")
+save.image(file = out.file.name)
 
 ```
 

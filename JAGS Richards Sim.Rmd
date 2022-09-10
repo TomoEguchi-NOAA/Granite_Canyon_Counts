@@ -18,8 +18,8 @@ library(bayesplot)
 # library(mgcv)
 # library(splines)
 
-jags.model <- paste0("models/model_Richards_norm_bino.txt")
-#jags.model <- paste0("models/model_Richards_norm_pois.txt")
+#jags.model <- paste0("models/model_Richards_norm_bino.txt")
+jags.model <- paste0("models/model_Richards_norm_pois.txt")
 
 
 # Observer list gets updated as new observers are added. 
@@ -43,7 +43,8 @@ for (k in 1:length(seasons)){
                         strsplit(seasons[k], "/")[[1]][2],
                         "_Tomo_v2.rds"))
 
-  Final_Data[[k]] <- tmp$Final_Data %>%
+  #Final_Data[[k]] <- tmp$Final_Data %>%
+  Final_Data[[k]] <- tmp$Data_Out %>%
     mutate(Year = as.numeric(strsplit(seasons[k], "/")[[1]][2]),
            Day = as.numeric(BeginDay)) %>%
     # right_join(., data.frame(Day = 1:90,
@@ -388,7 +389,6 @@ mcmc_dens(jm$samples, c("S2[1]", "S2[2]",
 mcmc_trace(jm$samples, c("P[1]", "P[2]",
                          "P[3]", "P[4]"))
 
-#mcmc_trace(jm$samples, c("K", "S"))
 
 ```
 
@@ -470,5 +470,11 @@ obsd.n <- data.frame(Season = rep(seasons, each = nrow(n.st1)),
 ggplot(obsd.n %>% group_by(Season)) +
   geom_point(aes(x = Day, y = n)) +
   facet_wrap(~Season)
+```
+```{r}
+
+#save.image(file = "RData/Richards_norm_bino_sim_2022-09-09.RData")
+save.image(file = "RData/Richards_norm_pois_sim_2022-09-09.RData")
+
 ```
 

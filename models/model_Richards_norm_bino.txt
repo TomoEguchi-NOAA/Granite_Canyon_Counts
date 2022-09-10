@@ -54,7 +54,7 @@ model{
 				# observation
 				#n[d, s, y] ~ dpois(N[day[d,y], y] * obs.prob[d,s,y])   
 				n[d, s, y] ~ dbin(obs.prob[d, s, y], round(N[day[d,y], y]))
-				log.lkhd[d,s,y] <- logdensity.bin(n[d,s,y], obs.prob[d,s,y], N[day[d,y], y])
+				log.lkhd[d,s,y] <- logdensity.bin(n[d,s,y], obs.prob[d,s,y], round(N[day[d,y], y]))
 			}
 		}
 	}
