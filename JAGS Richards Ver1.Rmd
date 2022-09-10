@@ -21,7 +21,7 @@ library(bayesplot)
 
 # Poisson seems to work better than binomial
 #obs.model <- "pois"
-bos.model <- "bino"
+obs.model <- "bino"
 #jags.model <- paste0("models/model_Richards_norm_bino.txt")
 jags.model <- paste0("models/model_Richards_norm_", obs.model, ".txt")
 
