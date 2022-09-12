@@ -21,12 +21,15 @@ library(bayesplot)
 
 # Poisson seems to work better than binomial
 #obs.model <- "pois"
-obs.model <- "bino"
-#jags.model <- paste0("models/model_Richards_norm_bino.txt")
-jags.model <- paste0("models/model_Richards_norm_", obs.model, ".txt")
+#obs.model <- "bino"
+#models <- "norm_bino"
+#models <- "norm_pois"
+models <- "pois_bino"
+#jags.model <- paste0("models/model_Richards_", models, ".txt")
+jags.model <- paste0("models/model_Richards_", models, ".txt")
 
-out.file.name <- paste0("RData/JAGS_Richards_v1_", obs.model, 
-                        "pois_2022-09-09.RData")
+out.file.name <- paste0("RData/JAGS_Richards_v1_", models, 
+                        "_2022-09-09.RData")
 
 # Observer list gets updated as new observers are added. 
 # obs.list <- read.csv("Data/Observer list.csv", header = T) 
