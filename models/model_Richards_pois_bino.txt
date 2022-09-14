@@ -46,7 +46,7 @@ model{
 			M2[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K[y]))
 			mean.N[t, y] <- (max.vec[y]) * (M1[t, y] * M2[t, y])
 			
-			N[t, y] ~ dpois(mean.N[t,y])
+			N[t, y] ~ dpois(mean.N[t,y])T(Daily.N[t,y],)
 			
 		}
 	}  

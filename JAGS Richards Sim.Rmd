@@ -117,15 +117,21 @@ Final_Data.all %>%
               names_from = Year,
               names_prefix = "Y")-> daily.counts
 
-Final_Data.all %>% 
+Final_Data.all %>%
   group_by(Year, Day) %>%
   summarise(daily.effort = sum(effort, na.rm = T),
             daily.counts = sum(n, na.rm = T)) %>%
-  mutate(daily.N = daily.counts/daily.effort) %>%
+  mutate(daily.N = ceiling(daily.counts/daily.effort) ) %>%
   select(-c(daily.effort, daily.counts)) %>%
   pivot_wider(values_from = daily.N,
               names_from = Year,
-              names_prefix = "Y")-> daily.N
+              names_prefix = "Y") %>%
+  right_join(y = data.frame(Day = seq(1:90)),
+             by = "Day") %>%
+  arrange(Day) -> daily.N
+
+
+daily.N[is.na(daily.N)] <- 0
 
 Final_Data.all %>% 
   group_by(Year, Day) %>%
@@ -297,6 +303,7 @@ jags.data <- list(  n = obsd.n,
                     n.year = length(seasons),
                     n.obs = nrow(obs.ID.df)+1,
                     periods = periods$n,
+                    Daily.N = daily.N,
                     #first.day = unlist(as.vector(first.day)),
                     obs = obs.all,
                     vs = vs.all,
@@ -412,7 +419,7 @@ mcmc_trace(jm$samples, c("BF.Fixed", "VS.Fixed"))
 
 
 ```{r}
-mcmc_trace(jm$samples, "cv.N")
+#mcmc_trace(jm$samples, "cv.N")
 ```
 
 
