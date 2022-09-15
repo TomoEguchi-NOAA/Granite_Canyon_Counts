@@ -121,7 +121,8 @@ Final_Data.all %>%
   group_by(Year, Day) %>%
   summarise(daily.effort = sum(effort, na.rm = T),
             daily.counts = sum(n, na.rm = T)) %>%
-  mutate(daily.N = ceiling(daily.counts/daily.effort) ) %>%
+#  mutate(daily.N = ceiling(daily.counts/daily.effort) ) %>%
+  mutate(daily.N = daily.counts ) %>%
   select(-c(daily.effort, daily.counts)) %>%
   pivot_wider(values_from = daily.N,
               names_from = Year,
@@ -293,7 +294,7 @@ jags.params <- c("lambda","OBS.RF","OBS.Switch",
                 "BF.Switch","BF.Fixed","VS.Switch",
                 "VS.Fixed","mean.prob",
                 "BF.Fixed",
-                "VS.Fixed", "mean.N",
+                "VS.Fixed", "mean.N", "max",
                 "Corrected.Est","Raw.Est","N",
                 "K", "S1", "S2", "P", "cv.N",
                 "sigma.N", "log.lkhd")
@@ -303,7 +304,7 @@ jags.data <- list(  n = obsd.n,
                     n.year = length(seasons),
                     n.obs = nrow(obs.ID.df)+1,
                     periods = periods$n,
-                    Daily.N = daily.N,
+                    #Daily.N = as.matrix(daily.N[,2:(length(seasons)+1)]),
                     #first.day = unlist(as.vector(first.day)),
                     obs = obs.all,
                     vs = vs.all,
@@ -322,44 +323,35 @@ jm <- jags(jags.data,
              n.iter = MCMC.params$n.samples,
              DIC = T, parallel=T)
 
-# Check conversions
-mcmc_trace(jm$samples, c("Corrected.Est[1]", "Corrected.Est[2]",
-                         "Corrected.Est[3]", "Corrected.Est[4]"))
-
-
-# This is the output file name
-# jags.out.file <- paste0("RData/jagam_dailyN_k", 
-#                         basis.dim, "_", family, "_jags.rds")
-
-```
-
-```{r}
-mcmc_dens(jm$samples, c("Corrected.Est[1]", "Corrected.Est[2]",
-                         "Corrected.Est[3]", "Corrected.Est[4]"))
-
 ```
 
 
+## Check results {-}
+
+### K parameter (Flatness of the peak)
+
+Year-specific K do not converge well, at least for the 4-year data set. 
 
 ```{r}
-mcmc_trace(jm$samples, c("K[1]", "K[2]",
-                         "K[3]", "K[4]"))
+# mcmc_trace(jm$samples, c("K[1]", "K[2]",
+#                          "K[3]", "K[4]"))
 
-#mcmc_trace(jm$samples, c("K", "S"))
+mcmc_trace(jm$samples, "K")
 
 ```
 
 
 
 ```{r}
-mcmc_dens(jm$samples, c("K[1]", "K[2]",
-                         "K[3]", "K[4]"))
+# mcmc_dens(jm$samples, c("K[1]", "K[2]",
+#                          "K[3]", "K[4]"))
 
-#mcmc_trace(jm$samples, c("K", "S"))
+mcmc_dens(jm$samples, "K")
 
 ```
 
 
+### S1 parameter (Declining slope)
 
 ```{r}
 mcmc_trace(jm$samples, c("S1[1]", "S1[2]",
@@ -377,6 +369,7 @@ mcmc_dens(jm$samples, c("S1[1]", "S1[2]",
 ```
 
 
+### S2 parameter (Increasing slope)
 
 ```{r}
 mcmc_trace(jm$samples, c("S2[1]", "S2[2]",
@@ -394,6 +387,7 @@ mcmc_dens(jm$samples, c("S2[1]", "S2[2]",
 ```
 
 
+### P parameter (Peak)
 
 ```{r}
 mcmc_trace(jm$samples, c("P[1]", "P[2]",
@@ -413,17 +407,43 @@ mcmc_dens(jm$samples, c("P[1]", "P[2]",
 ```
 
 
+### Fixed parameters for sighting probabilities (Beaufort (BF) and visibility (VS))
+
 ```{r}
 mcmc_trace(jm$samples, c("BF.Fixed", "VS.Fixed"))
 ```
 
+
+### max parameter 
+
+# They look pretty much identical... may be we don't need year-specific. 
+
+```{r}
+# mcmc_trace(jm$samples, c("max[1]", "max[2]",
+#                          "max[3]", "max[4]"))
+
+mcmc_trace(jm$samples, "max")
+
+```
+
+
+
+```{r}
+#mcmc_dens(jm$samples, c("max[1]", "max[2]",
+#                         "max[3]", "max[4]"))
+
+mcmc_dens(jm$samples, c("max"))
+
+```
 
 ```{r}
 #mcmc_trace(jm$samples, "cv.N")
 ```
 
 
-How do estimates look?
+### Richards function 
+
+True function is in gold. 
 
 
 ```{r}
@@ -448,6 +468,7 @@ ggplot(mean.N.hats %>% group_by(Season)) +
 ```
 
 
+### Accuracy of N estimates (true values are in gold)
 
 ```{r}
 
@@ -471,6 +492,29 @@ ggplot(N.hats %>% group_by(Season)) +
 ```
 
 
+### Posteriors on corrected estimates 
+
+```{r}
+# Corrected Estimates - the abundance
+mcmc_trace(jm$samples, c("Corrected.Est[1]", "Corrected.Est[2]",
+                         "Corrected.Est[3]", "Corrected.Est[4]"))
+
+
+# This is the output file name
+# jags.out.file <- paste0("RData/jagam_dailyN_k", 
+#                         basis.dim, "_", family, "_jags.rds")
+
+```
+
+
+```{r}
+mcmc_dens(jm$samples, c("Corrected.Est[1]", "Corrected.Est[2]",
+                         "Corrected.Est[3]", "Corrected.Est[4]"))
+
+```
+
+Data
+
 ```{r}
 n.st1 <- obsd.n[,1,]
 obsd.n <- data.frame(Season = rep(seasons, each = nrow(n.st1)),
@@ -481,6 +525,9 @@ ggplot(obsd.n %>% group_by(Season)) +
   geom_point(aes(x = Day, y = n)) +
   facet_wrap(~Season)
 ```
+
+Save results
+
 ```{r}
 
 #save.image(file = "RData/Richards_norm_bino_sim_2022-09-09.RData")

@@ -38,15 +38,22 @@ model{
 		# by assumption:
 		mean.N[1,y] <- 0
 		mean.N[90,y] <- 0
-		N[1,y] ~ dnorm(mean.N[1,y], 1)T(0,)
-		N[90,y] ~ dnorm(mean.N[90,y], 1)T(0,)
+		N[1,y] ~ dpois(mean.N[1,y])
+		N[90,y] ~ dpois(mean.N[90,y])
 		
 		for (t in 2:89){
-			M1[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/S1[y]) * (P[y] - t))) ^ (-1/exp(K[y]))
-			M2[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K[y]))
-			mean.N[t, y] <- (max.vec[y]) * (M1[t, y] * M2[t, y])
+			# year-specific K
+			#M1[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/S1[y]) * (P[y] - t))) ^ (-1/exp(K[y]))
+			#M2[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K[y]))
 			
-			N[t, y] ~ dpois(mean.N[t,y])T(Daily.N[t,y],)
+			# or common K
+			M1[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/S1[y]) * (P[y] - t))) ^ (-1/exp(K))
+			M2[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K))
+			
+			# mean.N[t, y] <- (max[y]) * (M1[t, y] * M2[t, y])
+			mean.N[t, y] <- (max) * (M1[t, y] * M2[t, y])
+			
+			N[t, y] ~ dpois(mean.N[t,y])
 			
 		}
 	}  
@@ -57,26 +64,26 @@ model{
 		for (s in 1:n.station[y]){
 			for (d in 1:periods[y]){
 				# observation
-				#n[d, s, y] ~ dpois(N[day[d,y], y] * obs.prob[d,s,y])   
+				
 				n[d, s, y] ~ dbin(obs.prob[d, s, y], N[day[d,y], y])
 				log.lkhd[d,s,y] <- logdensity.bin(n[d,s,y], obs.prob[d,s,y], N[day[d,y], y])
 			}
 		}
 	}
 
-	# priors for Richards function parameters. Year-specific parameters
-	# seem to work better than common parameters
+	# priors for Richards function parameters. 
 	for (y in 1:n.year){
-		max[y] ~ dnorm(max.vec[y], 0.001)T(0,)
-		S1[y] ~ dunif(-5, 0)
-		S2[y] ~ dunif(0, 5)
-		K[y] ~ dunif(0, 3)
+		#max[y] ~ dnorm(max.vec[y], 0.01)T(0,)
+		S1[y] ~ dunif(-5, -0.5)
+		S2[y] ~ dunif(0.5, 5)
+		#K[y] ~ dunif(0.1, 3)
 		P[y] ~ dunif(20, 80)
 
 	}
 
-	#S ~ dunif(0, 7)
-	#K ~ dunif(0, 2)
+	#S ~ dunif(0.5, 5)
+	K ~ dunif(0.1, 3)
+	max ~ dnorm(max.vec[1], 0.01)T(0,)
 	
 	### Observation probability - include the watch period durations
 	for(y in 1:n.year){
