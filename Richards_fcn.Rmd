@@ -7,17 +7,19 @@ Richareds function exploration;
 
 ```{r}
 library(tidyverse)
+source("Granite_Canyon_Counts_fcns.R")
 
-Richards_fcn <- function(d, S1, S2, K, P, min, max){
-  K <- abs(K)
-  if (S1 > 0) S1 <- -S1
-  if (S2 < 0) S2 <- -S2
-  
-  M1 <- (1 + (2 * exp(K) - 1) * exp((1/S1) * (P - d))) ^ (-1/exp(K))
-  M2 <- (1 + (2 * exp(K) - 1) * exp((1/S2) * (P - d))) ^ (-1/exp(K))
-  N <- min + (max - min) * (M1 * M2)
-  return(N)
-}
+# 
+# Richards_fcn <- function(d, S1, S2, K, P, min, max){
+#   K <- abs(K)
+#   if (S1 > 0) S1 <- -S1
+#   if (S2 < 0) S2 <- -S2
+#   
+#   M1 <- (1 + (2 * exp(K) - 1) * exp((1/S1) * (P - d))) ^ (-1/exp(K))
+#   M2 <- (1 + (2 * exp(K) - 1) * exp((1/S2) * (P - d))) ^ (-1/exp(K))
+#   N <- min + (max - min) * (M1 * M2)
+#   return(N)
+#}
 ```
 
 

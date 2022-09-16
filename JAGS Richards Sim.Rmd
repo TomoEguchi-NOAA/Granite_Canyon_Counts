@@ -220,23 +220,25 @@ Richards_fcn <- function(d, S1, S2, K, P, min, max){
   N <- min + (max - min) * (M1 * M2)
   return(N)
 }
-S1 <- -1 * c(0.5, 1.2, 1.4, 0.9)
-S2 <- c(1.5, 2.1, 1.2, 1.9)   # fatness
-K <- c(1.0, 1.2, 1.3, 1.2)   # peak flatness
-P <- c(40, 45, 50, 42)       # peak timing
-max.N <- c(800, 850, 820, 600)
-CV <- 0.3
+
+set.seed(12345)
+S1 <- runif(4, -5, -0.5) #c(0.8, 1.2, 1.4, 0.9)
+S2 <- runif(4, 0.5, 5)   #c(1.5, 2.1, 1.2, 1.9)   # fatness
+K <- runif(4, 0.1, 3)    #c(1.0, 1.2, 1.3, 1.2)   # peak flatness
+P <- rdunif(4, 40, 50)   #c(40, 45, 50, 42)       # peak timing
+max.N <- rdunif(4, 600, 1000)   #c(800, 850, 820, 600)
+#CV <- 0.3
 
 true.mean.N <- N <- matrix(data = 0, nrow = 90, ncol = dim(prob)[3])
 
 for (t in 1:dim(prob)[3]){
   for (d in 1:90){
     true.mean.N[d,t] <- floor(Richards_fcn(d = d, 
-                                      S1 = S1[t],
-                                      S2 = S2[t],
-                                      K = K[t], 
-                                      P = P[t], 
-                                      min = 0, max = max.N[t])  )
+                                           S1 = S1[t],
+                                           S2 = S2[t],
+                                           K = K[t], 
+                                           P = P[t], 
+                                           min = 0, max = max.N[t])  )
     
     N[d,t] <- floor(rnorm(n = 1, 
                           mean = true.mean.N[d,t],

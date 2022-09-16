@@ -1,7 +1,21 @@
 
-
-
 # define some functions
+
+
+Richards_fcn <- function(d, S1, S2, K, P, min, max){
+  K <- abs(K)
+  if (S1 > 0) S1 <- -S1
+  if (S2 < 0) S2 <- -S2
+  
+  M1 <- (1 + (2 * exp(K) - 1) * exp((1/S1) * (P - d))) ^ (-1/exp(K))
+  M2 <- (1 + (2 * exp(K) - 1) * exp((1/S2) * (P - d))) ^ (-1/exp(K))
+  N <- min + (max - min) * (M1 * M2)
+  return(N)
+}
+
+
+
+
 # A function to get one data file from selected directory
 # Inputs are data directory name, year of survey (2021/2022 is 2022), and
 # which file to be extracted (sequential number from 1 to length(files)).
