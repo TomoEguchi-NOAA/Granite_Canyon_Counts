@@ -10,7 +10,7 @@ output:
 ```{r setup, include=FALSE}
 rm(list = ls())
 knitr::opts_chunk$set(echo = TRUE)
-save.fig <- F
+save.fig <- T
 
 source("Granite_Canyon_Counts_fcns.R")
 library(tidyverse)
@@ -303,11 +303,16 @@ To evaluate the performance of the new approach using Richards functions, I simu
 
 ```{r simulation, echo=FALSE, message=FALSE}
 # Define Richards function parameters
-S1 <- -0.9
-S2 <- 1.5
-P <- 48
-K <- 2.5
-Max <- 1000
+# S1 <- -0.9
+# S2 <- 1.5
+# P <- 48
+# K <- 2.5
+#Max <- 1000
+# Days <- 1:90
+# N.mean <- Richards_fcn(d = Days, S1 = S1, S2 = S2, K = K, P = P, min = 0, max = Max)
+
+# Alternatively, use a different function to create real values for the means
+N.mean <- dgamma(1:90, 3, 0.07) * 5000
 
 
 # Define sighting probability parameters
@@ -315,8 +320,6 @@ B0 <- 0.3
 B_BF <- -1.2
 B_VS <- -2.3
 
-Days <- 1:90
-N.mean <- Richards_fcn(d = Days, S1 = S1, S2 = S2, K = K, P = P, min = 0, max = Max)
 
 True.N <- array()
 for (k in 1:length(N.mean)) True.N[k] <- rpois(n = 1, lambda = N.mean[k])
@@ -325,88 +328,92 @@ N <- data.frame(Day = Days,
                 N.mean = N.mean,
                 N.true = True.N)
 
-if (!file.exists("RData/Pois_Binom_sim_results.rds")){
+# Use real data for observers, Beaufort, and visibility
+#out.file.name <- "RData/Pois_Binom_sim_results.rds"
+out.file.name <- "RData/Pois_Binom_sim_Gamma_results.rds"
+
+if (!file.exists(out.file.name)){
   # I use the real data to emulate sampling and sighting conditions
-tmp <- readRDS(paste0("RData/V2.1_Aug2022/out_2020_Tomo_v2.rds"))
-Final_Data <- tmp$Data_Out %>%
-  mutate(Year = 2020,
-         Day = as.numeric(BeginDay)) %>%
-  mutate(effort = dur) %>%
-  mutate(watch.prop = effort * 24/9) %>%
-  select(Year, Day, effort, watch.prop, bf, vs, n, obs)
-
-# Find all observers and change them into integer code:
-unique.obs <- unique(Final_Data$obs)
-unique.obs <- unique.obs[!is.na(unique.obs)]
-obs.ID.df <- data.frame(obs = unique.obs,
-                        obs.ID = 1:length(unique.obs))
-
-Final_Data %>% 
-  left_join(obs.ID.df, by = "obs") %>% 
-  select(-obs) -> Final_Data
-
-# figure out the number of periods
-Final_Data %>% 
-  group_by(Year) %>%
-  #filter(effort > 0) %>%
-  summarise(n = n()) -> periods
-
-Final_Data$n[Final_Data$effort == 0] <- NA
-
-# Create sighting probabilities
-Final_Data %>%
-  mutate(Sighting.Prob.lm = B0 + B_BF * scale(bf) + B_VS * scale(vs) + rnorm(1, 0, 1.5)) %>%
-  mutate(Sighting.Prob = exp(Sighting.Prob.lm)/(1 + exp(Sighting.Prob.lm)),
-         Binom.Prob = watch.prop * Sighting.Prob) -> Final_Data
-
-Final_Data %>%
-  left_join(N, by = "Day") -> Data_True.N
-
-obs <- obsd.n <- array(dim = c(nrow(Data_True.N), 1, 1))
-watch.prop <- bf <- vs <- day <- array(dim = c(nrow(Data_True.N), 1))
-for (k in 1:nrow(Data_True.N)){
-  obsd.n[k, 1, 1] <- rbinom(n = 1, size = Data_True.N$N.true[k], 
-                      prob = Data_True.N$Binom.Prob[k])
+  Season = "2020"
+  tmp <- readRDS(paste0("RData/V2.1_Aug2022/out_", Season, "_Tomo_v2.rds"))
+  Final_Data <- tmp$Data_Out %>%
+    mutate(Year = Season,
+           Day = as.numeric(BeginDay)) %>%
+    mutate(effort = dur) %>%
+    mutate(watch.prop = effort * 24/9) %>%
+    select(Year, Day, effort, watch.prop, bf, vs, n, obs)
   
-  obs[k,1,1] <- Data_True.N$obs.ID[k]
-  watch.prop[k, 1] <- Data_True.N$watch.prop[k]
+  # Find all observers and change them into integer code:
+  unique.obs <- unique(Final_Data$obs)
+  unique.obs <- unique.obs[!is.na(unique.obs)]
+  obs.ID.df <- data.frame(obs = unique.obs,
+                          obs.ID = 1:length(unique.obs))
   
-  bf[k, 1] <- Data_True.N$bf[k]
-  vs[k, 1] <- Data_True.N$vs[k]
-  day[k, 1] <- Data_True.N$Day[k]
-}
-
-#Data_True.N$obsd.n <- obsd.n
-
-MCMC.params <- list(n.samples = 100000,
-                    n.thin = 10,
-                    n.burnin = 80000,
-                    n.chains = 5)
-
-jags.model <- paste0("models/model_Richards_pois_bino.txt")
-
-jags.params <- c("OBS.RF","OBS.Switch",
-                "BF.Switch","BF.Fixed","VS.Switch",
-                "VS.Fixed","mean.prob",
-                "BF.Fixed",
-                "VS.Fixed", "mean.N", "max",
-                "Corrected.Est","Raw.Est","N",
-                "K", "S1", "S2", "P", "cv.N",
-                "sigma.N", "log.lkhd")
-
-jags.data <- list(  n = obsd.n, 
-                    n.station = 1,
-                    n.year = 1,
-                    n.obs = nrow(obs.ID.df)+1,
-                    periods = periods$n,
-                    obs = obs,
-                    vs = vs,
-                    bf = bf,
-                    watch.prop = watch.prop,
-                    day = day,
-                    max.vec = c(1000, 1000))
-
-jm <- jags(jags.data,
+  Final_Data %>% 
+    left_join(obs.ID.df, by = "obs") %>% 
+    select(-obs) -> Final_Data
+  
+  # figure out the number of periods
+  Final_Data %>% 
+    group_by(Year) %>%
+    #filter(effort > 0) %>%
+    summarise(n = n()) -> periods
+  
+  Final_Data$n[Final_Data$effort == 0] <- NA
+  
+  # Create sighting probabilities
+  Final_Data %>%
+    mutate(Sighting.Prob.lm = B0 + B_BF * scale(bf) + B_VS * scale(vs) + rnorm(1, 0, 1.5)) %>%
+    mutate(Sighting.Prob = exp(Sighting.Prob.lm)/(1 + exp(Sighting.Prob.lm)),
+           Binom.Prob = watch.prop * Sighting.Prob) -> Final_Data
+  
+  Final_Data %>%
+    left_join(N, by = "Day") -> Data_True.N
+  
+  obs <- obsd.n <- array(dim = c(nrow(Data_True.N), 1, 1))
+  watch.prop <- bf <- vs <- day <- array(dim = c(nrow(Data_True.N), 1))
+  for (k in 1:nrow(Data_True.N)){
+    obsd.n[k, 1, 1] <- rbinom(n = 1, size = Data_True.N$N.true[k], 
+                              prob = Data_True.N$Binom.Prob[k])
+    
+    obs[k,1,1] <- Data_True.N$obs.ID[k]
+    watch.prop[k, 1] <- Data_True.N$watch.prop[k]
+    
+    bf[k, 1] <- Data_True.N$bf[k]
+    vs[k, 1] <- Data_True.N$vs[k]
+    day[k, 1] <- Data_True.N$Day[k]
+  }
+  
+  #Data_True.N$obsd.n <- obsd.n
+  
+  MCMC.params <- list(n.samples = 120000,
+                      n.thin = 10,
+                      n.burnin = 100000,
+                      n.chains = 5)
+  
+  jags.model <- paste0("models/model_Richards_pois_bino.txt")
+  
+  jags.params <- c("OBS.RF", "OBS.Switch",
+                   "BF.Switch", "BF.Fixed", 
+                   "VS.Switch", "VS.Fixed",
+                   "mean.prob", "mean.N", "max",
+                   "Corrected.Est", "Raw.Est", "N",
+                   "K", "S1", "S2", "P",
+                   "log.lkhd")
+  
+  jags.data <- list(  n = obsd.n, 
+                      n.station = 1,
+                      n.year = 1,
+                      n.obs = nrow(obs.ID.df)+1,
+                      periods = periods$n,
+                      obs = obs,
+                      vs = scale(vs),
+                      bf = scale(bf),
+                      watch.prop = watch.prop,
+                      day = day)
+                      #max.vec = c(3000, 3000))
+  
+  jm <- jags(jags.data,
              inits = NULL,
              parameters.to.save= jags.params,
              model.file = jags.model,
@@ -415,19 +422,19 @@ jm <- jags(jags.data,
              n.thin = MCMC.params$n.thin,
              n.iter = MCMC.params$n.samples,
              DIC = T, parallel=T)
-
-jm.out <- list(jm = jm,
-             jags.data = jags.data,
-             jags.params = jags.params,
-             jags.model = jags.model,
-             MCMC.params = MCMC.params)
-
-saveRDS(jm.out,
-        file = "RData/Pois_Binom_sim_results.rds")
+  
+  jm.out <- list(jm = jm,
+                 jags.data = jags.data,
+                 jags.params = jags.params,
+                 jags.model = jags.model,
+                 MCMC.params = MCMC.params)
+  
+  saveRDS(jm.out,
+          file = out.file.name)
   
 } else {
   
-  jm.out <- readRDS("RData/Pois_Binom_sim_results.rds")
+  jm.out <- readRDS(out.file.name)
 }
 
 
@@ -441,79 +448,95 @@ saveRDS(jm.out,
 max.r.hat <- max(unlist(lapply(jm.out$jm$Rhat, 
                                FUN = max, 
                                na.rm = T)))
-jm <- jm.out$jm
-param.names <- c("S1", "S2", "K", "P")
-true.values <- c(S1, S2, K, P)
-params <- data.frame(name = param.names,
-                     value = true.values)
-# Extract posterior samples from jagsUI output
-# zm is the object that comes back from jags in jagsUI
-# Do not include the index, e.g., [1], [2], etc.
-# extract.samples.jagsUI <- function(jm,varname){
-#   par.names <- unlist(dimnames(jm$samples[[1]])[2])
-#   col.idx <- grep(varname, par.names)
-#   samples.list <- list(length = length(col.idx))
-#   
-#   samples <- lapply(jm$samples, FUN = function(x) x[, col.idx])
-#   
-#   for (k in 1:length(col.idx)){
-#     samples.list[[k]] <- data.frame(name = par.names[col.idx[k]],
-#                                     value = unlist(samples),
-#                                     iteration = rep(1:length(samples[[1]]),
-#                                                     times = length(samples)),
-#                                     chain = rep(1:length(samples),
-#                                                 each = length(samples[[1]])))
-#   }
-# 
-#   return(samples.list)
-# }
-jm <- jm.out$jm
+#jm <- jm.out$jm
+param.names <- c("S1", "S2", "K", "P", 
+                 "mean.prob", "BF.Fixed", "VS.Fixed", "max")
+#true.values <- c(S1, S2, K, P, B0, B_BF, B_VS)
+# params <- data.frame(name = param.names,
+#                      value = true.values)
+
 plots.trace <- function(jm, params){
   out.list <- list()
-  for (i in 1:nrow(params)){
-    tmp <- mcmc_trace(jm$samples, params[i, "name"])
-    tmp$data$true.value <- params[i, "value"]
-    p.tmp <- ggplot()  +
-      geom_path(data = tmp$data, 
-                aes(x = iteration, y = value, color = chain)) + 
-      scale_color_brewer("blue") +
-      ylab(params[i, "name"]) +
-      geom_hline(aes(yintercept = first(tmp$data$true.value)),
-                 color = "red", size = 1.2)
-    
+  for (i in 1:length(params)){
+    p.tmp <- mcmc_trace(jm$samples, params[i])
+
     out.list[[i]] <- p.tmp 
   }
   return(out.list)
 }
 
-p.trace <- plots.trace(jm.out$jm, params = params)
-
-
-
-plots.dens <- function(jm, param.names, true.values){
+plots.dens <- function(jm, params){
   out.list <- list()
-  for (k in 1:length(param.names)){
-    out.list[[k]] <- mcmc_dens(jm$samples, param.names[k]) +
-      geom_vline(aes(xintercept = true.values[k]),
-                 color = "red", size = 1.2)
+  for (k in 1:length(params)){
+    out.list[[k]] <- mcmc_dens(jm$samples, params[k]) #+
+
   }
   
   return(out.list)
 }
 
+p.trace <- plots.trace(jm.out$jm, params = param.names)
+p.dens <- plots.dens(jm.out$jm, params = param.names)
+
+if (save.fig){
+  for (k in 1:nrow(params)){
+    ggsave(plot = p.trace[[k]] +
+             geom_hline(aes(yintercept = params[k, "value"]),
+                        color = "red", size = 1.2),
+           filename = paste0("figures/", params[k, "name"], "_trace.png"),
+           
+           dpi = 600, 
+           device = "png")
+    
+    ggsave(filename = paste0("figures/", params[k, "name"], "_dens.png"),
+           plot = p.dens[[k]] +
+             geom_vline(aes(xintercept = params[k, "value"]),
+                        color = "red", size = 1.2),
+           dpi = 600, device = "png")
+    
+  }
+  
+}
+
+mean.N.hats <- data.frame(Season = Season,
+                          Day = 1:90,
+                          Mean = as.vector(jm.out$jm$mean$mean.N),
+                          LCL = as.vector(jm.out$jm$q2.5$mean.N),
+                          UCL = as.vector(jm.out$jm$q97.5$mean.N),
+                          true.mean = as.vector(N$N.mean))
+
+p.mean.N.hats <- ggplot(mean.N.hats %>% group_by(Season)) + 
+  geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
+              fill = "blue", alpha = 0.5) +
+  geom_path(aes(x = Day, y = Mean)) + 
+  geom_path(aes(x = Day, y = true.mean), color = "gold") 
+  #facet_wrap(~ Season)
+
+N.hats <- data.frame(Season = Season, #rep(seasons, each = 90),
+                     Day = 1:90, #rep(1:90, times = 4),
+                     Mean = as.vector(jm.out$jm$mean$N),
+                     LCL = as.vector(jm.out$jm$q2.5$N),
+                     UCL = as.vector(jm.out$jm$q97.5$N),
+                     true.N = as.vector(N$N.true))
 
 
-p.S1.trace <- mcmc_trace(jm.out$jm$samples, "S1") +
-  geom_hline(aes(yintercept = S1), color = "red", size = 1.5)
+p.N.hats <- ggplot(N.hats) + 
+  geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
+              fill = "blue", alpha = 0.5) +
+  geom_path(aes(x = Day, y = Mean)) + 
+  geom_path(aes(x = Day, y = true.N), color = "gold") 
+  #facet_wrap(~ Season)
 
-mcmc_dens(jm.out$jm$samples, "S1") +
-  geom_vline(aes(xintercept = S1), color = "red", size = 1.2)
 
-p.S1.trace <- mcmc_trace(jm.out$jm$samples, "S1")
-p.S1.trace <- mcmc_trace(jm.out$jm$samples, "S1")
-p.S1.trace <- mcmc_trace(jm.out$jm$samples, "S1")
 
 ```
+
+
+
+
+
+
+
 
 
 A quick look of the results seems to show parameters were estimated fairly well. I have to look at how N.mean etc were estimated. The run takes several minutes but not too bad so run it again and plot results. 

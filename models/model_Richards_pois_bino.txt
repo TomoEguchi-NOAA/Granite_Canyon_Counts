@@ -47,11 +47,11 @@ model{
 			#M2[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K[y]))
 			
 			# or common K
-			M1[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/S1[y]) * (P[y] - t))) ^ (-1/exp(K))
+			M1[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/(-S1[y])) * (P[y] - t))) ^ (-1/exp(K))
 			M2[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K))
 			
-			# mean.N[t, y] <- (max[y]) * (M1[t, y] * M2[t, y])
-			mean.N[t, y] <- (max) * (M1[t, y] * M2[t, y])
+			mean.N[t, y] <- (max[y]) * (M1[t, y] * M2[t, y])
+			#mean.N[t, y] <- (max) * (M1[t, y] * M2[t, y])
 			
 			N[t, y] ~ dpois(mean.N[t,y])
 			
@@ -73,17 +73,17 @@ model{
 
 	# priors for Richards function parameters. 
 	for (y in 1:n.year){
-		#max[y] ~ dnorm(max.vec[y], 0.01)T(0,)
-		S1[y] ~ dunif(-5, -0.5)
-		S2[y] ~ dunif(0.5, 5)
-		#K[y] ~ dunif(0.1, 3)
+		max[y] ~ dgamma(4, 0.002)
+		S1[y] ~ dgamma(2.1,1) T(,5) #dunif(-5, -0.3) 
+		S2[y] ~ dgamma(2.1,1) T(,5)  #dunif(0.3, 5) 
+		#K[y] ~ dnorm(0, 0.01)T(0.3, 3)
 		P[y] ~ dunif(30, 60)
 
 	}
 
 	#S ~ dunif(0.5, 5)
-	K ~ dunif(0.1, 3)
-	max ~ dnorm(max.vec[1], 0.01)T(0,)
+	K ~ dunif(0.3, 3) # dgamma(2.8, 2.5) T(0.3,3) #   
+	
 	
 	### Observation probability - include the watch period durations
 	for(y in 1:n.year){
@@ -95,11 +95,16 @@ model{
 				#                 VS on/off * Fixed effect of VS * VS    + 
 				#                Obs effect on/off * Random effect of observer)
 
-				logit(prob[d,s,y]) <- logit(mean.prob) + 
-								(BF.Switch * BF.Fixed * bf[d,y]) + 
-								(VS.Switch * VS.Fixed * vs[d,y]) + 
-								(OBS.Switch * OBS.RF[obs[d,s,y]])						
+				#logit(prob[d,s,y]) <- logit(mean.prob) + 
+				#				(BF.Switch * BF.Fixed * bf[d,y]) + 
+				#				(VS.Switch * VS.Fixed * vs[d,y]) + 
+				#				(OBS.Switch * OBS.RF[obs[d,s,y]])						
        
+				prob[d,s,y] <- exp(mean.prob + (BF.Switch * BF.Fixed * bf[d,y]) +
+									(VS.Switch * VS.Fixed * vs[d,y]))/(1 + exp(mean.prob + (BF.Switch * BF.Fixed * bf[d,y]) +
+									(VS.Switch * VS.Fixed * vs[d,y]))) 
+
+									
 				# watch.prop is the proportion of the total watch periods in a day (540 minutes) that
 				# was actually observed. 
 				obs.prob[d,s,y] <- watch.prop[d,y] * prob[d,s,y]
