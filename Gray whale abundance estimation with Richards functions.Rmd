@@ -17,6 +17,7 @@ library(tidyverse)
 library(lubridate)
 library(flextable)
 library(jagsUI)
+library(bayesplot)
 
 set_flextable_defaults(font.size = 9,
                        font.family = "Cambria")
@@ -103,7 +104,8 @@ p.S1 <- ggplot(data = data.df) +
 
   facet_wrap(~ S1)
 
-ggsave(p.S1, filename = "figures/S1.png", dpi = 600, device = "png")
+if (save.fig)
+  ggsave(p.S1, filename = "figures/S1.png", dpi = 600, device = "png")
 
 ```
 
@@ -152,8 +154,8 @@ p.S2 <- ggplot(data = data.df) +
 
   facet_wrap(~ S2)
 
-
-ggsave(p.S2, filename = "figures/S2.png", dpi = 600, device = "png")
+if (save.fig)
+  ggsave(p.S2, filename = "figures/S2.png", dpi = 600, device = "png")
 
 ```
 
@@ -200,7 +202,8 @@ p.K <- ggplot(data = data.df) +
   geom_path(aes(x = Day, y = mean.N), color = "red") +
   facet_wrap(~ K)
 
-ggsave(p.K, filename = "figures/K.png", dpi = 600, device = "png")
+if (save.fig)
+  ggsave(p.K, filename = "figures/K.png", dpi = 600, device = "png")
 
 ```
 
@@ -248,7 +251,8 @@ p.P <- ggplot(data = data.df) +
   geom_path(aes(x = Day, y = mean.N), color = "red") +
   facet_wrap(~ P)
 
-ggsave(p.P, filename = "figures/P.png", dpi = 600, device = "png")
+if (save.fig)
+  ggsave(p.P, filename = "figures/P.png", dpi = 600, device = "png")
 
 ```
 
@@ -427,6 +431,87 @@ saveRDS(jm.out,
 }
 
 
+
+```
+
+
+#### Estimated parameters of simulated data
+
+```{r jags-posteriors, echo=FALSE, message=FALSE, warning=FALSE}
+max.r.hat <- max(unlist(lapply(jm.out$jm$Rhat, 
+                               FUN = max, 
+                               na.rm = T)))
+jm <- jm.out$jm
+param.names <- c("S1", "S2", "K", "P")
+true.values <- c(S1, S2, K, P)
+params <- data.frame(name = param.names,
+                     value = true.values)
+# Extract posterior samples from jagsUI output
+# zm is the object that comes back from jags in jagsUI
+# Do not include the index, e.g., [1], [2], etc.
+# extract.samples.jagsUI <- function(jm,varname){
+#   par.names <- unlist(dimnames(jm$samples[[1]])[2])
+#   col.idx <- grep(varname, par.names)
+#   samples.list <- list(length = length(col.idx))
+#   
+#   samples <- lapply(jm$samples, FUN = function(x) x[, col.idx])
+#   
+#   for (k in 1:length(col.idx)){
+#     samples.list[[k]] <- data.frame(name = par.names[col.idx[k]],
+#                                     value = unlist(samples),
+#                                     iteration = rep(1:length(samples[[1]]),
+#                                                     times = length(samples)),
+#                                     chain = rep(1:length(samples),
+#                                                 each = length(samples[[1]])))
+#   }
+# 
+#   return(samples.list)
+# }
+jm <- jm.out$jm
+plots.trace <- function(jm, params){
+  out.list <- list()
+  for (i in 1:nrow(params)){
+    tmp <- mcmc_trace(jm$samples, params[i, "name"])
+    tmp$data$true.value <- params[i, "value"]
+    p.tmp <- ggplot()  +
+      geom_path(data = tmp$data, 
+                aes(x = iteration, y = value, color = chain)) + 
+      scale_color_brewer("blue") +
+      ylab(params[i, "name"]) +
+      geom_hline(aes(yintercept = first(tmp$data$true.value)),
+                 color = "red", size = 1.2)
+    
+    out.list[[i]] <- p.tmp 
+  }
+  return(out.list)
+}
+
+p.trace <- plots.trace(jm.out$jm, params = params)
+
+
+
+plots.dens <- function(jm, param.names, true.values){
+  out.list <- list()
+  for (k in 1:length(param.names)){
+    out.list[[k]] <- mcmc_dens(jm$samples, param.names[k]) +
+      geom_vline(aes(xintercept = true.values[k]),
+                 color = "red", size = 1.2)
+  }
+  
+  return(out.list)
+}
+
+
+
+p.S1.trace <- mcmc_trace(jm.out$jm$samples, "S1") +
+  geom_hline(aes(yintercept = S1), color = "red", size = 1.5)
+
+mcmc_dens(jm.out$jm$samples, "S1") +
+  geom_vline(aes(xintercept = S1), color = "red", size = 1.2)
+
+p.S1.trace <- mcmc_trace(jm.out$jm$samples, "S1")
+p.S1.trace <- mcmc_trace(jm.out$jm$samples, "S1")
+p.S1.trace <- mcmc_trace(jm.out$jm$samples, "S1")
 
 ```
 
