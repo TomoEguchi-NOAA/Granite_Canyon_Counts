@@ -333,11 +333,11 @@ knitr::include_graphics("figures/gam_def.png")
 #set.seed(12345)
 
 # Define Richards function parameters
-S1 <- -0.9
+S1 <- 0.9  # this gets fixed to a negative value in Richards_fcn. 
 S2 <- 1.5
 P <- 48
 K <- 2.5
-Max <- 2000
+Max <- 500
 Days <- 1:90
 
 # Alternatively, use a different function to create real values for the means
@@ -351,19 +351,23 @@ B0 <- 0.3
 B_BF <- -1.2
 B_VS <- -2.3
 
-param.names <- c("S1", "S2", "K", "P", "max", 
+param.names <- c("S1[1]", "S1[2]", "S2[1]", "S2[2]", 
+                 "K", "P[1]", "P[2]", 
+                 "max[1]", "max[2]", 
                  "mean.prob", "BF.Fixed", "VS.Fixed")
 
 params.df <- data.frame(names = param.names,
-                        value = c(S1,S2,K,P, NA, B0,B_BF,B_VS))
+                        value = c(NA, S1, NA, S2, K, NA, P, NA, Max,
+                                  B0,B_BF,B_VS))
 
 Season = c("2020", "2022")
 True.N <- matrix(nrow = 90, ncol = length(Season))
 for (k in 1:nrow(N.mean)) {
   for (c in 1:ncol(N.mean)){
-    True.N[k,c] <- rpois(n = 1, lambda = N.mean[k, c])}
-    
+    True.N[k,c] <- rpois(n = 1, lambda = N.mean[k, c])
   }
+  
+}
 
 # N <- list(Day = Days,
 #           N.mean = N.mean,
@@ -376,8 +380,8 @@ out.file.name <- "RData/Pois_Binom_sim_results.rds"
     
 if (!file.exists(out.file.name)){
   set.seed(12345)
-
-  obs <- obsd.n <- array(dim = c(length(Days), 1, length(Season)))
+  Data_True.N <- list()
+  periods <- vector(mode = "numeric", length = length(Season))
   for (y in 1:length(Season)){
     # I use the real data to emulate sampling and sighting conditions
     tmp <- readRDS(paste0("RData/V2.1_Aug2022/out_", Season[y], "_Tomo_v2.rds"))
@@ -387,8 +391,6 @@ if (!file.exists(out.file.name)){
       mutate(effort = dur) %>%
       mutate(watch.prop = effort * 24/9) %>%
       select(Year, Day, effort, watch.prop, bf, vs, n, obs)
-
-    watch.prop <- bf <- vs <- day <- array(dim = c(nrow(Final_Data), 1))
     
     # Find all observers and change them into integer code:
     unique.obs <- unique(Final_Data$obs)
@@ -404,14 +406,16 @@ if (!file.exists(out.file.name)){
     Final_Data %>% 
       group_by(Year) %>%
       #filter(effort > 0) %>%
-      summarise(n = n()) -> periods
+      summarise(n = n()) -> n.days
+    
+    periods[y] <- n.days$n
     
     Final_Data$n[Final_Data$effort == 0] <- NA
     
     # Create sighting probabilities
     Final_Data %>%
       mutate(Sighting.Prob.lm = as.vector(B0 + B_BF * scale(bf) + 
-               B_VS * scale(vs) + rnorm(1, 0, 1.5)),
+                                            B_VS * scale(vs) + rnorm(1, 0, 1.5)),
              Sighting.Prob = exp(Sighting.Prob.lm)/(1 + exp(Sighting.Prob.lm)),
              Binom.Prob = watch.prop * Sighting.Prob) -> Final_Data
     
@@ -419,21 +423,28 @@ if (!file.exists(out.file.name)){
       left_join(data.frame(Day = Days,
                            N.mean = N.mean[,y],
                            N.True = True.N[,y]), 
-                by = "Day") -> Data_True.N
+                by = "Day") -> Data_True.N[[y]]
+  }
+  
+
+  max.n.rows <- lapply(Data_True.N, FUN = nrow) %>% unlist() %>% max()
+  watch.prop <- bf <- vs <- day <- array(dim = c(max.n.rows, length(Season)))
+  obs <- obsd.n <- array(dim = c(max.n.rows, 1, length(Season)))
+  
+  for (y in 1:length(Season)){
     
-    for (k in 1:nrow(Data_True.N)){
-      obsd.n[k, 1, y] <- rbinom(n = 1,  
-                                size = Data_True.N$N.true[k], 
-                                prob = Data_True.N$Binom.Prob[k])
+    for (k in 1:nrow(Data_True.N[[y]])){
+      obsd.n[k, 1, y] <- rbinom(n = 1, 
+                                size = Data_True.N[[y]]$N.True[k], 
+                                prob = Data_True.N[[y]]$Binom.Prob[k])
       
-      obs[k,1,y] <- Data_True.N$obs.ID[k]
-      watch.prop[k, y] <- Data_True.N$watch.prop[k]
+      obs[k,1,y] <- Data_True.N[[y]]$obs.ID[k]
+      watch.prop[k, y] <- Data_True.N[[y]]$watch.prop[k]
       
-      bf[k, y] <- Data_True.N$bf[k]
-      vs[k, y] <- Data_True.N$vs[k]
-      day[k, y] <- Data_True.N$Day[k]
+      bf[k, y] <- Data_True.N[[y]]$bf[k]
+      vs[k, y] <- Data_True.N[[y]]$vs[k]
+      day[k, y] <- Data_True.N[[y]]$Day[k]
     }
-    
   }
   
   #Data_True.N$obsd.n <- obsd.n
@@ -454,16 +465,16 @@ if (!file.exists(out.file.name)){
                    "log.lkhd")
   
   jags.data <- list(  n = obsd.n, 
-                      n.station = 1,
-                      n.year = 1,
+                      n.station = c(1,1),
+                      n.year = length(Season),
                       n.obs = nrow(obs.ID.df)+1,
-                      periods = periods$n,
+                      periods = periods,
                       obs = obs,
                       vs = scale(vs),
                       bf = scale(bf),
                       watch.prop = watch.prop,
                       day = day)
-                      #max.vec = c(3000, 3000))
+  #max.vec = c(3000, 3000))
   
   jm <- jags(jags.data,
              inits = NULL,
@@ -559,37 +570,37 @@ if (save.fig){
   
 }
 
-mean.N.hats <- data.frame(Season = Season,
-                          Day = 1:90,
+mean.N.hats <- data.frame(Season = rep(Season, each = 90),
+                          Day = rep(1:90, length(Season)),
                           Mean = as.vector(jm.out$jm$mean$mean.N),
                           LCL = as.vector(jm.out$jm$q2.5$mean.N),
                           UCL = as.vector(jm.out$jm$q97.5$mean.N),
-                          true.mean = as.vector(N$N.mean))
+                          true.mean = as.vector(N.mean))
 
 p.mean.N.hats <- ggplot(mean.N.hats %>% group_by(Season)) + 
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
               fill = "blue", alpha = 0.5) +
   geom_path(aes(x = Day, y = Mean)) + 
-  geom_path(aes(x = Day, y = true.mean), color = "gold") 
-  #facet_wrap(~ Season)
+  geom_path(aes(x = Day, y = true.mean), color = "gold") +
+  facet_wrap(~ Season)
 
 if (save.fig)
   ggsave(p.mean.N.hats, filename = "figures/mean_N.png",
          device = "png", dpi = 600)
 
-N.hats <- data.frame(Season = Season, #rep(seasons, each = 90),
-                     Day = 1:90, #rep(1:90, times = 4),
+N.hats <- data.frame(Season = rep(Season, each = 90),
+                     Day = rep(1:90, times = length(Season)),
                      Mean = as.vector(jm.out$jm$mean$N),
                      LCL = as.vector(jm.out$jm$q2.5$N),
                      UCL = as.vector(jm.out$jm$q97.5$N),
-                     true.N = as.vector(N$N.true))
+                     true.N = as.vector(True.N))
 
 p.N.hats <- ggplot(N.hats) + 
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
               fill = "blue", alpha = 0.5) +
   geom_path(aes(x = Day, y = Mean)) + 
-  geom_path(aes(x = Day, y = true.N), color = "gold") 
-  #facet_wrap(~ Season)
+  geom_path(aes(x = Day, y = true.N), color = "gold") +
+  facet_wrap(~ Season)
 
 if (save.fig)
   ggsave(p.N.hats, filename = "figures/N_hats.png",
