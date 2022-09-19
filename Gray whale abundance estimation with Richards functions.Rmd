@@ -10,7 +10,7 @@ output:
 ```{r setup, include=FALSE}
 rm(list = ls())
 knitr::opts_chunk$set(echo = TRUE)
-save.fig <- T
+save.fig <- F
 
 source("Granite_Canyon_Counts_fcns.R")
 library(tidyverse)
@@ -18,6 +18,7 @@ library(lubridate)
 library(flextable)
 library(jagsUI)
 library(bayesplot)
+library(ggpubr)
 
 set_flextable_defaults(font.size = 9,
                        font.family = "Cambria")
@@ -299,89 +300,140 @@ $$ \lambda \sim N(1.0875, 0.03625) $$ (Perryman et al. YR).
 
 #### Simulation
 
-To evaluate the performance of the new approach using Richards functions, I simulated data using the above relationships. 
+To evaluate the performance of the new approach using Richards functions, I simulated data using the above relationships. To test for a mismatch between the within-season mean function, with respect to the number of days since day 1, I used a gamma distribution function (GAM(3, 0.07) * 5000) instead of Richards functions to define the mean values. 
+
+
+$$ \bar{N}_t = GAM(t, 3, 0.07) $$
+
+The function has the following shape (Figure \@ref(fig:Figure-Gam-def)).
+
+```{r gam_fcn, echo=FALSE, message=FALSE}
+gam.def <- data.frame(x = seq(0, 100, by = 0.01)) %>%
+  mutate(y = dgamma(x, 3, 0.07) * 5000)
+
+p.gam.def <- ggplot(gam.def) +
+  geom_path(aes(x = x, y = y))
+
+if (save.fig)
+  ggsave(filename = "figures/gam_def.png", plot = p.gam.def,
+         device = "png", dpi = 600)
+```
+
+
+
+
+```{r Figure-Gam-def, echo=FALSE, message=FALSE, fig.cap="The shape of gamma distribution function used to simulate data. This function defines $\bar{N}$. Although there are non-zero values beyond x = 90, the $\bar{N}$ was set to 0 at x = 90. "}
+
+knitr::include_graphics("figures/gam_def.png")
+
+```
+
 
 ```{r simulation, echo=FALSE, message=FALSE}
+#set.seed(12345)
+
 # Define Richards function parameters
-# S1 <- -0.9
-# S2 <- 1.5
-# P <- 48
-# K <- 2.5
-#Max <- 1000
-# Days <- 1:90
-# N.mean <- Richards_fcn(d = Days, S1 = S1, S2 = S2, K = K, P = P, min = 0, max = Max)
+S1 <- -0.9
+S2 <- 1.5
+P <- 48
+K <- 2.5
+Max <- 2000
+Days <- 1:90
 
 # Alternatively, use a different function to create real values for the means
-N.mean <- dgamma(1:90, 3, 0.07) * 5000
-
+N.mean <- matrix(nrow = 90, ncol = 2)
+N.mean[,1] <- dgamma(1:90, 3, 0.07) * 5000
+N.mean[,2] <- Richards_fcn(d = Days, S1 = S1, S2 = S2, K = K, P = P, min = 0, max = Max)
+N.mean[90,1:2] <- 0
 
 # Define sighting probability parameters
 B0 <- 0.3
 B_BF <- -1.2
 B_VS <- -2.3
 
+param.names <- c("S1", "S2", "K", "P", "max", 
+                 "mean.prob", "BF.Fixed", "VS.Fixed")
 
-True.N <- array()
-for (k in 1:length(N.mean)) True.N[k] <- rpois(n = 1, lambda = N.mean[k])
+params.df <- data.frame(names = param.names,
+                        value = c(S1,S2,K,P, NA, B0,B_BF,B_VS))
 
-N <- data.frame(Day = Days,
-                N.mean = N.mean,
-                N.true = True.N)
+Season = c("2020", "2022")
+True.N <- matrix(nrow = 90, ncol = length(Season))
+for (k in 1:nrow(N.mean)) {
+  for (c in 1:ncol(N.mean)){
+    True.N[k,c] <- rpois(n = 1, lambda = N.mean[k, c])}
+    
+  }
+
+# N <- list(Day = Days,
+#           N.mean = N.mean,
+#           N.true = True.N)
+
 
 # Use real data for observers, Beaufort, and visibility
 #out.file.name <- "RData/Pois_Binom_sim_results.rds"
-out.file.name <- "RData/Pois_Binom_sim_Gamma_results.rds"
-
+out.file.name <- "RData/Pois_Binom_sim_results.rds"
+    
 if (!file.exists(out.file.name)){
-  # I use the real data to emulate sampling and sighting conditions
-  Season = "2020"
-  tmp <- readRDS(paste0("RData/V2.1_Aug2022/out_", Season, "_Tomo_v2.rds"))
-  Final_Data <- tmp$Data_Out %>%
-    mutate(Year = Season,
-           Day = as.numeric(BeginDay)) %>%
-    mutate(effort = dur) %>%
-    mutate(watch.prop = effort * 24/9) %>%
-    select(Year, Day, effort, watch.prop, bf, vs, n, obs)
-  
-  # Find all observers and change them into integer code:
-  unique.obs <- unique(Final_Data$obs)
-  unique.obs <- unique.obs[!is.na(unique.obs)]
-  obs.ID.df <- data.frame(obs = unique.obs,
-                          obs.ID = 1:length(unique.obs))
-  
-  Final_Data %>% 
-    left_join(obs.ID.df, by = "obs") %>% 
-    select(-obs) -> Final_Data
-  
-  # figure out the number of periods
-  Final_Data %>% 
-    group_by(Year) %>%
-    #filter(effort > 0) %>%
-    summarise(n = n()) -> periods
-  
-  Final_Data$n[Final_Data$effort == 0] <- NA
-  
-  # Create sighting probabilities
-  Final_Data %>%
-    mutate(Sighting.Prob.lm = B0 + B_BF * scale(bf) + B_VS * scale(vs) + rnorm(1, 0, 1.5)) %>%
-    mutate(Sighting.Prob = exp(Sighting.Prob.lm)/(1 + exp(Sighting.Prob.lm)),
-           Binom.Prob = watch.prop * Sighting.Prob) -> Final_Data
-  
-  Final_Data %>%
-    left_join(N, by = "Day") -> Data_True.N
-  
-  obs <- obsd.n <- array(dim = c(nrow(Data_True.N), 1, 1))
-  watch.prop <- bf <- vs <- day <- array(dim = c(nrow(Data_True.N), 1))
-  for (k in 1:nrow(Data_True.N)){
-    obsd.n[k, 1, 1] <- rbinom(n = 1, size = Data_True.N$N.true[k], 
-                              prob = Data_True.N$Binom.Prob[k])
+  set.seed(12345)
+
+  obs <- obsd.n <- array(dim = c(length(Days), 1, length(Season)))
+  for (y in 1:length(Season)){
+    # I use the real data to emulate sampling and sighting conditions
+    tmp <- readRDS(paste0("RData/V2.1_Aug2022/out_", Season[y], "_Tomo_v2.rds"))
+    Final_Data <- tmp$Data_Out %>%
+      mutate(Year = Season[y],
+             Day = as.numeric(BeginDay)) %>%
+      mutate(effort = dur) %>%
+      mutate(watch.prop = effort * 24/9) %>%
+      select(Year, Day, effort, watch.prop, bf, vs, n, obs)
+
+    watch.prop <- bf <- vs <- day <- array(dim = c(nrow(Final_Data), 1))
     
-    obs[k,1,1] <- Data_True.N$obs.ID[k]
-    watch.prop[k, 1] <- Data_True.N$watch.prop[k]
+    # Find all observers and change them into integer code:
+    unique.obs <- unique(Final_Data$obs)
+    unique.obs <- unique.obs[!is.na(unique.obs)]
+    obs.ID.df <- data.frame(obs = unique.obs,
+                            obs.ID = 1:length(unique.obs))
     
-    bf[k, 1] <- Data_True.N$bf[k]
-    vs[k, 1] <- Data_True.N$vs[k]
-    day[k, 1] <- Data_True.N$Day[k]
+    Final_Data %>% 
+      left_join(obs.ID.df, by = "obs") %>% 
+      select(-obs) -> Final_Data
+    
+    # figure out the number of periods
+    Final_Data %>% 
+      group_by(Year) %>%
+      #filter(effort > 0) %>%
+      summarise(n = n()) -> periods
+    
+    Final_Data$n[Final_Data$effort == 0] <- NA
+    
+    # Create sighting probabilities
+    Final_Data %>%
+      mutate(Sighting.Prob.lm = as.vector(B0 + B_BF * scale(bf) + 
+               B_VS * scale(vs) + rnorm(1, 0, 1.5)),
+             Sighting.Prob = exp(Sighting.Prob.lm)/(1 + exp(Sighting.Prob.lm)),
+             Binom.Prob = watch.prop * Sighting.Prob) -> Final_Data
+    
+    Final_Data %>%
+      left_join(data.frame(Day = Days,
+                           N.mean = N.mean[,y],
+                           N.True = True.N[,y]), 
+                by = "Day") -> Data_True.N
+    
+    for (k in 1:nrow(Data_True.N)){
+      obsd.n[k, 1, y] <- rbinom(n = 1,  
+                                size = Data_True.N$N.true[k], 
+                                prob = Data_True.N$Binom.Prob[k])
+      
+      obs[k,1,y] <- Data_True.N$obs.ID[k]
+      watch.prop[k, y] <- Data_True.N$watch.prop[k]
+      
+      bf[k, y] <- Data_True.N$bf[k]
+      vs[k, y] <- Data_True.N$vs[k]
+      day[k, y] <- Data_True.N$Day[k]
+    }
+    
   }
   
   #Data_True.N$obsd.n <- obsd.n
@@ -442,6 +494,7 @@ if (!file.exists(out.file.name)){
 ```
 
 
+
 #### Estimated parameters of simulated data
 
 ```{r jags-posteriors, echo=FALSE, message=FALSE, warning=FALSE}
@@ -449,8 +502,6 @@ max.r.hat <- max(unlist(lapply(jm.out$jm$Rhat,
                                FUN = max, 
                                na.rm = T)))
 #jm <- jm.out$jm
-param.names <- c("S1", "S2", "K", "P", 
-                 "mean.prob", "BF.Fixed", "VS.Fixed", "max")
 #true.values <- c(S1, S2, K, P, B0, B_BF, B_VS)
 # params <- data.frame(name = param.names,
 #                      value = true.values)
@@ -458,7 +509,17 @@ param.names <- c("S1", "S2", "K", "P",
 plots.trace <- function(jm, params){
   out.list <- list()
   for (i in 1:length(params)){
-    p.tmp <- mcmc_trace(jm$samples, params[i])
+    if (i < 7){
+      p.tmp <- mcmc_trace(jm$samples, params[i]) +
+        legend_none() + xaxis_text(on = FALSE) +
+        hline_at(params.df[i, "value"], color = "red", size = 1.2)
+      
+    } else {
+      p.tmp <- mcmc_trace(jm$samples, params[i]) +
+        legend_none() +
+        hline_at(params.df[i, "value"], color = "red", size = 1.2)
+
+    }
 
     out.list[[i]] <- p.tmp 
   }
@@ -479,20 +540,20 @@ p.trace <- plots.trace(jm.out$jm, params = param.names)
 p.dens <- plots.dens(jm.out$jm, params = param.names)
 
 if (save.fig){
-  for (k in 1:nrow(params)){
-    ggsave(plot = p.trace[[k]] +
-             geom_hline(aes(yintercept = params[k, "value"]),
+  for (k in 1:length(param.names)){
+    ggsave(plot = p.trace[[k]] + 
+             geom_hline(aes(yintercept = params.df[k, "value"]),
                         color = "red", size = 1.2),
-           filename = paste0("figures/", params[k, "name"], "_trace.png"),
+           filename = paste0("figures/", param.names[k], "_trace.png"),
            
            dpi = 600, 
-           device = "png")
+           device = "png",
+           height = 3, width = 3, units = "in")
     
-    ggsave(filename = paste0("figures/", params[k, "name"], "_dens.png"),
-           plot = p.dens[[k]] +
-             geom_vline(aes(xintercept = params[k, "value"]),
-                        color = "red", size = 1.2),
-           dpi = 600, device = "png")
+    ggsave(filename = paste0("figures/", param.names[k], "_dens.png"),
+           plot = p.dens[[k]],
+           dpi = 600, device = "png",
+           height = 3, width = 3, units = "in")
     
   }
   
@@ -512,13 +573,16 @@ p.mean.N.hats <- ggplot(mean.N.hats %>% group_by(Season)) +
   geom_path(aes(x = Day, y = true.mean), color = "gold") 
   #facet_wrap(~ Season)
 
+if (save.fig)
+  ggsave(p.mean.N.hats, filename = "figures/mean_N.png",
+         device = "png", dpi = 600)
+
 N.hats <- data.frame(Season = Season, #rep(seasons, each = 90),
                      Day = 1:90, #rep(1:90, times = 4),
                      Mean = as.vector(jm.out$jm$mean$N),
                      LCL = as.vector(jm.out$jm$q2.5$N),
                      UCL = as.vector(jm.out$jm$q97.5$N),
                      true.N = as.vector(N$N.true))
-
 
 p.N.hats <- ggplot(N.hats) + 
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
@@ -527,19 +591,47 @@ p.N.hats <- ggplot(N.hats) +
   geom_path(aes(x = Day, y = true.N), color = "gold") 
   #facet_wrap(~ Season)
 
+if (save.fig)
+  ggsave(p.N.hats, filename = "figures/N_hats.png",
+         device = "png", dpi = 600)
 
+p.trace.all <- cowplot::plot_grid(plotlist = p.trace, 
+                                  ncol = 2)
+
+if (save.fig)
+  cowplot::save_plot(p.trace.all, 
+                     filename = "figures/trace_plots.png",
+                     device = "png", dpi = 600, bg = "white")
 
 ```
 
 
+Convergence was reached for all parameters according to the @\hat{R}$ statistic, where the maximum value was `r signif(max.r.hat, 3)`. However, trace plots of some Richards function parameters did not look ideal (Figure \@ref(fig:Figure-trace)). The observed poor conversions of S1, S2, and max parameters might have been caused by the mismatch between the true function (gamma) and assumed (Richards) function, where Richards functions could not match the increase (S2) and decrease (S1) of the gamma function.
+
+For the parameters that associated with sighting probabilities (mean.prob, BF.Fixed, and VS.Fixed), MCMC samples appeared to converge, albeit not around the true values (Figure \@ref(fig:Figure-trace)). 
+
+```{r Figure-trace, echo=FALSE, message=FALSE, fig.cap="Trace plots of eight parameters. Red horizontal lines indicate the true values."}
+
+knitr::include_graphics("figures/trace_plots.png")
+
+```
+
+
+Even with the apparent poor conversion of a few parameters, estimated $\bar{N}$ and $N$ were qualitatively acceptable (Figures \@ref(fig:Figure-mean-N) and \@ref(fig:Figure-N)).
+
+```{r Figure-mean-N, echo=FALSE, message=FALSE, fig.cap = "Estimated $\bar{N}$ and their 95% CI (blue ribbon) and the true $\bar{N}$ in gold."}
+
+knitr::include_graphics("figures/mean_N.png")
+```
+
+
+```{r Figure-N, echo=FALSE, message=FALSE, fig.cap = "Estimated $N$ and their 95% CI (blue ribbon) and the true $N$ in gold."}
+
+knitr::include_graphics("figures/N_hats.png")
+```
 
 
 
-
-
-
-
-A quick look of the results seems to show parameters were estimated fairly well. I have to look at how N.mean etc were estimated. The run takes several minutes but not too bad so run it again and plot results. 
 
 
 
