@@ -8,11 +8,11 @@
 # The function has the following form:
 # S1 <- -S
 # M1 <- (1 + (2 * exp(K) - 1) * exp((1/S1) * (P - d))) ^ (-1/exp(K))
-# M2 <- (1 + (2 * exp(K) - 1) * exp((1/S) * (P - d))) ^ (-1/exp(K))
+# M2 <- (1 + (2 * exp(K) - 1) * exp((1/S2) * (P - d))) ^ (-1/exp(K))
 # N <- min + (max - min) * (M1 * M2)
 #
 # d is the number of days from the beginning of nesting season
-# S > 0 and S1 = -S define the "fatness" of the function
+# S1 < 0 and S2 > 0 define the "fatness" of the function
 # K > 0 defines the "flatness" at the peak of the function
 # P defines where the peak is relatvie to the range of d min(d) < P < max(d)
 # min is "the basal level of nesting outside the nesting season"
@@ -76,14 +76,13 @@ model{
 		max[y] ~ dgamma(4, 0.002)
 		S1[y] ~ dgamma(2.1,1) T(,5) #dunif(-5, -0.3) 
 		S2[y] ~ dgamma(2.1,1) T(,5)  #dunif(0.3, 5) 
-		#K[y] ~ dnorm(0, 0.01)T(0.3, 3)
+		#K[y] ~ dunif(0.3, 3)   #dnorm(0, 0.01)T(0.3, 3)
 		P[y] ~ dunif(30, 60)
 
 	}
 
 	#S ~ dunif(0.5, 5)
 	K ~ dunif(0.3, 3) # dgamma(2.8, 2.5) T(0.3,3) #   
-	
 	
 	### Observation probability - include the watch period durations
 	for(y in 1:n.year){

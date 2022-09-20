@@ -335,7 +335,7 @@ knitr::include_graphics("figures/gam_def.png")
 
 ```{r simulation, echo=FALSE, message=FALSE}
 #set.seed(12345)
-save.fig <- T
+#save.fig <- T
 # Define Richards function parameters
 S1 <- 0.9  # this gets fixed to a negative value in Richards_fcn. 
 S2 <- 1.5
@@ -575,6 +575,13 @@ if (save.fig){
   
 }
 
+obsd.n.df <- data.frame(Season = c(rep(Season[1], jm.out$jags.data$periods[1]), 
+                                   rep(Season[2], jm.out$jags.data$periods[2])),
+                        day = c(jm.out$jags.data$day[1:jm.out$jags.data$periods[1],1],
+                                jm.out$jags.data$day[1:jm.out$jags.data$periods[2],2]),
+                        n = c(jm.out$jags.data$n[1:jm.out$jags.data$periods[1],1,1],
+                              jm.out$jags.data$n[1:jm.out$jags.data$periods[2],1,2]))
+
 mean.N.hats <- data.frame(Season = rep(Season, each = 90),
                           Day = rep(1:90, length(Season)),
                           Mean = as.vector(jm.out$jm$mean$mean.N),
@@ -605,6 +612,7 @@ p.N.hats <- ggplot(N.hats) +
               fill = "blue", alpha = 0.5) +
   geom_path(aes(x = Day, y = Mean)) + 
   geom_path(aes(x = Day, y = true.N), color = "gold") +
+  geom_point(data = obsd.n.df, aes(x = day, y = n))+
   facet_wrap(~ Season)
 
 if (save.fig)
@@ -647,6 +655,7 @@ knitr::include_graphics("figures/N_hats_sim.png")
 ```
 
 
+#### Comparison to Durban et al's method
 
 
 
