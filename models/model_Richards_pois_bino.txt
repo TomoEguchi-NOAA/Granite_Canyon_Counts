@@ -36,12 +36,12 @@ model{
 	# changes with the mean, while the CV remains constant. 
 	for (y in 1:n.year){
 		# by assumption:
-		mean.N[1,y] <- 0
-		mean.N[90,y] <- 0
-		N[1,y] ~ dpois(mean.N[1,y])
-		N[90,y] ~ dpois(mean.N[90,y])
+		#mean.N[1,y] <- 0
+		#mean.N[90,y] <- 0
+		#N[1,y] ~ dpois(mean.N[1,y])
+		#N[90,y] ~ dpois(mean.N[90,y])
 		
-		for (t in 2:89){
+		for (t in 1:90){
 			# year-specific K
 			#M1[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/S1[y]) * (P[y] - t))) ^ (-1/exp(K[y]))
 			#M2[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K[y]))
@@ -95,14 +95,14 @@ model{
 				#                 VS on/off * Fixed effect of VS * VS    + 
 				#                Obs effect on/off * Random effect of observer)
 
-				#logit(prob[d,s,y]) <- logit(mean.prob) + 
-				#				(BF.Switch * BF.Fixed * bf[d,y]) + 
-				#				(VS.Switch * VS.Fixed * vs[d,y]) + 
-				#				(OBS.Switch * OBS.RF[obs[d,s,y]])						
+				logit(prob[d,s,y]) <- mean.prob  +  #logit(mean.prob) + 
+								(BF.Switch * BF.Fixed * bf[d,y]) + 
+								(VS.Switch * VS.Fixed * vs[d,y]) 
+								#(OBS.Switch * OBS.RF[obs[d,s,y]])						
        
-				prob[d,s,y] <- exp(mean.prob + (BF.Switch * BF.Fixed * bf[d,y]) +
-									(VS.Switch * VS.Fixed * vs[d,y]))/(1 + exp(mean.prob + (BF.Switch * BF.Fixed * bf[d,y]) +
-									(VS.Switch * VS.Fixed * vs[d,y]))) 
+				#prob[d,s,y] <- exp(mean.prob + (BF.Switch * BF.Fixed * bf[d,y]) +
+				#					(VS.Switch * VS.Fixed * vs[d,y]))/(1 + exp(mean.prob + (BF.Switch * BF.Fixed * bf[d,y]) +
+				#					(VS.Switch * VS.Fixed * vs[d,y]))) 
 
 									
 				# watch.prop is the proportion of the total watch periods in a day (540 minutes) that

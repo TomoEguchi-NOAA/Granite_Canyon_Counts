@@ -300,16 +300,22 @@ $$ \lambda \sim N(1.0875, 0.03625) $$ (Perryman et al. YR).
 
 #### Simulation
 
-To evaluate the performance of the new approach using Richards functions, I simulated data using the above relationships. To test for a mismatch between the within-season mean function, with respect to the number of days since day 1, I used a gamma distribution function (GAM(3, 0.07) * 5000) instead of Richards functions to define the mean values. 
+To evaluate the performance of the new approach using Richards functions, I simulated data using the above relationships. To test for a mismatch between the within-season mean function, with respect to the number of days since day 1, I used a gamma distribution function (GAM(3, 0.07) * 5000) instead of Richards functions (R())to define the mean values for one year and used Richards functions for the other year. 
 
 
-$$ \bar{N}_t = GAM(t, 3, 0.07) $$
+$$ \bar{N}_{1,t} = GAM(t, 3, 0.07) $$, 
 
-The function has the following shape (Figure \@ref(fig:Figure-Gam-def)).
+where t = 1, ..., 90.
+
+$$ \bar{N}_{2,t} = R(t, S_1 = -0.9, S_2 = 1.5, P = 48, K = 2.5, max = 500) $$, 
+
+where t = 1, ..., 90.
+
+The shape of the gamma function is shwon in Figure \@ref(fig:Figure-Gam-def).
 
 ```{r gam_fcn, echo=FALSE, message=FALSE}
 gam.def <- data.frame(x = seq(0, 100, by = 0.01)) %>%
-  mutate(y = dgamma(x, 3, 0.07) * 5000)
+  mutate(y = dgamma(x, 5.4, 0.13) * 5000)
 
 p.gam.def <- ggplot(gam.def) +
   geom_path(aes(x = x, y = y))
@@ -318,8 +324,6 @@ if (save.fig)
   ggsave(filename = "figures/gam_def.png", plot = p.gam.def,
          device = "png", dpi = 600)
 ```
-
-
 
 
 ```{r Figure-Gam-def, echo=FALSE, message=FALSE, fig.cap="The shape of gamma distribution function used to simulate data. This function defines $\bar{N}$. Although there are non-zero values beyond x = 90, the $\bar{N}$ was set to 0 at x = 90. "}
@@ -331,20 +335,23 @@ knitr::include_graphics("figures/gam_def.png")
 
 ```{r simulation, echo=FALSE, message=FALSE}
 #set.seed(12345)
-
+save.fig <- T
 # Define Richards function parameters
 S1 <- 0.9  # this gets fixed to a negative value in Richards_fcn. 
 S2 <- 1.5
 P <- 48
 K <- 2.5
-Max <- 500
+Max <- 200
 Days <- 1:90
 
 # Alternatively, use a different function to create real values for the means
 N.mean <- matrix(nrow = 90, ncol = 2)
-N.mean[,1] <- dgamma(1:90, 3, 0.07) * 5000
-N.mean[,2] <- Richards_fcn(d = Days, S1 = S1, S2 = S2, K = K, P = P, min = 0, max = Max)
-N.mean[90,1:2] <- 0
+N.mean[,1] <- dgamma(1:90, 5.4, 0.13) * 6000
+N.mean[,2] <- Richards_fcn(d = Days, S1 = S1, S2 = S2, 
+                           K = K, P = P, min = 0, max = Max)
+
+# This is by assumption
+#N.mean[c(1,90), 1:2] <- 0
 
 # Define sighting probability parameters
 B0 <- 0.3
@@ -358,7 +365,7 @@ param.names <- c("S1[1]", "S1[2]", "S2[1]", "S2[2]",
 
 params.df <- data.frame(names = param.names,
                         value = c(NA, S1, NA, S2, K, NA, P, NA, Max,
-                                  B0,B_BF,B_VS))
+                                  B0, B_BF, B_VS))
 
 Season = c("2020", "2022")
 True.N <- matrix(nrow = 90, ncol = length(Season))
@@ -368,11 +375,6 @@ for (k in 1:nrow(N.mean)) {
   }
   
 }
-
-# N <- list(Day = Days,
-#           N.mean = N.mean,
-#           N.true = True.N)
-
 
 # Use real data for observers, Beaufort, and visibility
 #out.file.name <- "RData/Pois_Binom_sim_results.rds"
@@ -415,7 +417,7 @@ if (!file.exists(out.file.name)){
     # Create sighting probabilities
     Final_Data %>%
       mutate(Sighting.Prob.lm = as.vector(B0 + B_BF * scale(bf) + 
-                                            B_VS * scale(vs) + rnorm(1, 0, 1.5)),
+                                            B_VS * scale(vs)),
              Sighting.Prob = exp(Sighting.Prob.lm)/(1 + exp(Sighting.Prob.lm)),
              Binom.Prob = watch.prop * Sighting.Prob) -> Final_Data
     
@@ -427,7 +429,10 @@ if (!file.exists(out.file.name)){
   }
   
 
-  max.n.rows <- lapply(Data_True.N, FUN = nrow) %>% unlist() %>% max()
+  max.n.rows <- lapply(Data_True.N, FUN = nrow) %>% 
+    unlist() %>% 
+    max()
+  
   watch.prop <- bf <- vs <- day <- array(dim = c(max.n.rows, length(Season)))
   obs <- obsd.n <- array(dim = c(max.n.rows, 1, length(Season)))
   
@@ -555,13 +560,13 @@ if (save.fig){
     ggsave(plot = p.trace[[k]] + 
              geom_hline(aes(yintercept = params.df[k, "value"]),
                         color = "red", size = 1.2),
-           filename = paste0("figures/", param.names[k], "_trace.png"),
+           filename = paste0("figures/", param.names[k], "_sim_trace.png"),
            
            dpi = 600, 
            device = "png",
            height = 3, width = 3, units = "in")
     
-    ggsave(filename = paste0("figures/", param.names[k], "_dens.png"),
+    ggsave(filename = paste0("figures/", param.names[k], "_sim_dens.png"),
            plot = p.dens[[k]],
            dpi = 600, device = "png",
            height = 3, width = 3, units = "in")
@@ -585,7 +590,7 @@ p.mean.N.hats <- ggplot(mean.N.hats %>% group_by(Season)) +
   facet_wrap(~ Season)
 
 if (save.fig)
-  ggsave(p.mean.N.hats, filename = "figures/mean_N.png",
+  ggsave(p.mean.N.hats, filename = "figures/mean_N_sim.png",
          device = "png", dpi = 600)
 
 N.hats <- data.frame(Season = rep(Season, each = 90),
@@ -603,7 +608,7 @@ p.N.hats <- ggplot(N.hats) +
   facet_wrap(~ Season)
 
 if (save.fig)
-  ggsave(p.N.hats, filename = "figures/N_hats.png",
+  ggsave(p.N.hats, filename = "figures/N_hats_sim.png",
          device = "png", dpi = 600)
 
 p.trace.all <- cowplot::plot_grid(plotlist = p.trace, 
@@ -611,7 +616,7 @@ p.trace.all <- cowplot::plot_grid(plotlist = p.trace,
 
 if (save.fig)
   cowplot::save_plot(p.trace.all, 
-                     filename = "figures/trace_plots.png",
+                     filename = "figures/trace_plots_sim.png",
                      device = "png", dpi = 600, bg = "white")
 
 ```
@@ -621,9 +626,9 @@ Convergence was reached for all parameters according to the @\hat{R}$ statistic,
 
 For the parameters that associated with sighting probabilities (mean.prob, BF.Fixed, and VS.Fixed), MCMC samples appeared to converge, albeit not around the true values (Figure \@ref(fig:Figure-trace)). 
 
-```{r Figure-trace, echo=FALSE, message=FALSE, fig.cap="Trace plots of eight parameters. Red horizontal lines indicate the true values."}
+```{r Figure-trace, echo=FALSE, message=FALSE, fig.cap="Trace plots of parameters. Red horizontal lines indicate the true values. Not all plots contain true values because the data generating function for one year (gamma distribution) was different from the estimation function (Richards function)."}
 
-knitr::include_graphics("figures/trace_plots.png")
+knitr::include_graphics("figures/trace_plots_sim.png")
 
 ```
 
@@ -632,13 +637,13 @@ Even with the apparent poor conversion of a few parameters, estimated $\bar{N}$ 
 
 ```{r Figure-mean-N, echo=FALSE, message=FALSE, fig.cap = "Estimated $\bar{N}$ and their 95% CI (blue ribbon) and the true $\bar{N}$ in gold."}
 
-knitr::include_graphics("figures/mean_N.png")
+knitr::include_graphics("figures/mean_N_sim.png")
 ```
 
 
 ```{r Figure-N, echo=FALSE, message=FALSE, fig.cap = "Estimated $N$ and their 95% CI (blue ribbon) and the true $N$ in gold."}
 
-knitr::include_graphics("figures/N_hats.png")
+knitr::include_graphics("figures/N_hats_sim.png")
 ```
 
 
