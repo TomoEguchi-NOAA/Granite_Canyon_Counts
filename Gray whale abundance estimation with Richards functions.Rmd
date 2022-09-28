@@ -10,7 +10,7 @@ output:
 ```{r setup, include=FALSE}
 rm(list = ls())
 knitr::opts_chunk$set(echo = TRUE)
-save.fig <- F
+save.fig <- T
 
 source("Granite_Canyon_Counts_fcns.R")
 library(tidyverse)
@@ -19,6 +19,7 @@ library(flextable)
 library(jagsUI)
 library(bayesplot)
 library(ggpubr)
+library(R2WinBUGS)
 
 set_flextable_defaults(font.size = 9,
                        font.family = "Cambria")
@@ -481,6 +482,8 @@ if (!file.exists(out.file.name)){
                       day = day)
   #max.vec = c(3000, 3000))
   
+  Start_Time<-Sys.time()
+  
   jm <- jags(jags.data,
              inits = NULL,
              parameters.to.save= jags.params,
@@ -491,11 +494,13 @@ if (!file.exists(out.file.name)){
              n.iter = MCMC.params$n.samples,
              DIC = T, parallel=T)
   
+  Run_Time <- Sys.time() - Start_Time
   jm.out <- list(jm = jm,
                  jags.data = jags.data,
                  jags.params = jags.params,
                  jags.model = jags.model,
-                 MCMC.params = MCMC.params)
+                 MCMC.params = MCMC.params,
+                 Run_Time = Run_Time)
   
   saveRDS(jm.out,
           file = out.file.name)
@@ -657,6 +662,141 @@ knitr::include_graphics("figures/N_hats_sim.png")
 
 #### Comparison to Durban et al's method
 
+In order to compare the new method to the current method (Durban et al.), I analyzed the same dataset with the analytical approach in Durban et al. 
+
+
+```{r WinBugs-Analysis, echo=FALSE, message=FALSE}
+BUGS.model <- "GW_Nmix_Orig.bugs"
+
+x <- length(Season)
+
+u <- jags.data$n
+u[!is.na(u)] <- 1
+u[is.na(u)] <- 0
+
+day <- jags.data$day
+for(i in 1:length(jags.data$periods)){ #Set the anchor points: days 1 and 90
+  day[(jags.data$periods[i]+1):(jags.data$periods[i]+2),i] <- c(1,90)
+}
+
+#The 'data' has to be the inverse of the inits, 
+# with NAs for all of the estimated Ns, and 0s for the days 1 and 90
+N <- matrix(NA, 
+            nrow=max(jags.data$periods)+2, 
+            ncol=length(jags.data$periods)) 
+
+#True number of whales passing fixed at 0 for day 1 and 90
+for(i in 1:length(jags.data$periods)){
+  N[(jags.data$periods[i]+1):(jags.data$periods[i]+2),i] <- 0 
+}
+
+N_inits <- N_inits[,1:x]
+
+BUGS.data <- list(n = jags.data$n,
+                  n.com = jags.data$n,
+                  n.sp = jags.data$n,
+                  n.station = dim(jags.data$n)[2],
+                  n.year = dim(jags.data$n)[3],
+                  n.obs = jags.data$n.obs,
+                  periods = jags.data$periods,
+                  obs = jags.data$obs,
+                  #Watch.Length = 0.0625,
+                  u = u,
+                  vs = jags.data$vs,
+                  bf = jags.data$bf,
+                  #day=day,
+                  day = jags.data$day,
+                  N = N,
+                  N.com = N,
+                  N.sp = N,
+                  knot = c(-1.46,-1.26,-1.02,-0.78,
+                         -0.58,-0.34,-0.10,0.10,
+                         0.34,0.57,0.78,1.02,1.26,1.46),
+                  n.knots=14,
+                  #begin=begin,
+                  #end=end,
+                  Watch.Length=Watch.Length)  # NEED TO FIX THIS 2022-09-28
+
+BUGS.inits <- function() list(mean.prob = 0.5,
+                              BF.Fixed = 0,
+                              VS.Fixed = 0,
+                              mean.prob.sp = 0.5,
+                              BF.Fixed.sp = 0,
+                              VS.Fixed.sp = 0,
+                              mean.prob.com = 0.5,
+                              BF.Fixed.com = 0,
+                              VS.Fixed.com = 0,
+                              mean.beta = c(0,0,0), #mean.beta = c(5,0.14,-3.5),
+                              beta.sigma = c(1,1,1),#beta.sigma = c(7,7,7),
+                              BF.Switch = 1,
+                              VS.Switch = 1,
+                              OBS.Switch = 1,
+                              sigma.Obs = 1,
+                              BF.Switch.sp = 1,
+                              VS.Switch.sp = 1,
+                              OBS.Switch.sp = 1,
+                              sigma.Obs.sp = 1,
+                              BF.Switch.com = 1,
+                              VS.Switch.com = 1,
+                              OBS.Switch.com = 1,
+                              sigma.Obs.com = 1,
+                              N = N_inits,
+                              N.com = N_inits,
+                              N.sp = N_inits,
+                              #z = matrix(1,nrow=90,ncol=6),
+                              beta.sp = array(data=0, dim=c(2,x)),
+                              sd.b.sp = rep(1, times = x), #c(1,1,1,1,1,1),
+                              z = matrix(1, nrow=90, ncol= x))
+
+# WinBUGS gives errors when N inits are set to 0. 
+# Try setting them to 1 instead (seems to work):
+N_inits[which(N_inits==0,arr.ind = T)] <- 1
+
+parameters <- c("lambda","OBS.RF","OBS.Switch",
+                "BF.Switch","BF.Fixed","VS.Switch",
+                "VS.Fixed","mean.prob","mean.prob.com",
+                "mean.prob.sp","BF.Fixed.com",
+                "BF.Fixed.sp","VS.Fixed.com",
+                "VS.Fixed.sp",
+                "Corrected.Est","Raw.Est","z",
+                "com","sp","Daily.Est","mean.beta",
+                "beta.sigma","beta","beta.sp","b.sp","sd.b.sp")
+
+if (!file.exists(paste0("RData/WinBUGS_sim.rds"))){
+  
+  Start_Time<-Sys.time()
+  
+  bm <- bugs(data = BUGS.data,
+             inits = BUGS.inits,
+             parameters = parameters,
+             model.file = BUGS.model, 
+             n.chains = MCMCparams$n.chains,
+             n.iter = MCMCparams$n.iter, 
+             n.burnin = MCMCparams$n.burnin, 
+             n.thin = MCMCparams$n.thin,
+             debug=T,
+             bugs.directory = WinBUGS.dir)
+  
+  Run_Time <- Sys.time() - Start_Time
+  
+  BUGS.out <- list(BUGS.data = BUGS.data,
+                   bm = bm,
+                   N_inits = N_inits,
+                   MCMC.params = MCMC.params,
+                   BUGS.model = BUGS.model,
+                   Run_Time = Run_Time)
+  
+  saveRDS(BUGS.out, 
+          paste0("RData/WinBUGS_sim.rds"))
+} else {
+  BUGS.out <- readRDS("RData/WinBUGS_sim.rds")
+  
+}
+
+
+
+
+```
 
 
 
