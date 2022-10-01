@@ -335,7 +335,7 @@ knitr::include_graphics("figures/gam_def.png")
 
 
 ```{r simulation, echo=FALSE, message=FALSE}
-#set.seed(12345)
+set.seed(12345)
 #save.fig <- T
 # Define Richards function parameters
 S1 <- 0.9  # this gets fixed to a negative value in Richards_fcn. 
@@ -434,7 +434,7 @@ if (!file.exists(out.file.name)){
     unlist() %>% 
     max()
   
-  watch.prop <- bf <- vs <- day <- array(dim = c(max.n.rows, length(Season)))
+  watch.prop <- bf <- vs <- day <- effort <- array(dim = c(max.n.rows, length(Season)))
   obs <- obsd.n <- array(dim = c(max.n.rows, 1, length(Season)))
   
   for (y in 1:length(Season)){
@@ -446,6 +446,7 @@ if (!file.exists(out.file.name)){
       
       obs[k,1,y] <- Data_True.N[[y]]$obs.ID[k]
       watch.prop[k, y] <- Data_True.N[[y]]$watch.prop[k]
+      effort[k,y] <- Data_True.N[[y]]$effort[k]
       
       bf[k, y] <- Data_True.N[[y]]$bf[k]
       vs[k, y] <- Data_True.N[[y]]$vs[k]
@@ -473,7 +474,7 @@ if (!file.exists(out.file.name)){
   jags.data <- list(  n = obsd.n, 
                       n.station = c(1,1),
                       n.year = length(Season),
-                      n.obs = nrow(obs.ID.df)+1,
+                      n.obs = length(unique(na.omit(as.vector(obs)))) + 1,
                       periods = periods,
                       obs = obs,
                       vs = scale(vs),
@@ -666,6 +667,7 @@ In order to compare the new method to the current method (Durban et al.), I anal
 
 
 ```{r WinBugs-Analysis, echo=FALSE, message=FALSE}
+WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
 BUGS.model <- "GW_Nmix_Orig.bugs"
 
 x <- length(Season)
@@ -674,8 +676,8 @@ u <- jags.data$n
 u[!is.na(u)] <- 1
 u[is.na(u)] <- 0
 
-day <- jags.data$day
-for(i in 1:length(jags.data$periods)){ #Set the anchor points: days 1 and 90
+day <- rbind(jags.data$day, matrix(NA, nrow = 2, ncol = x))
+for(i in 1:x){ #Set the anchor points: days 1 and 90
   day[(jags.data$periods[i]+1):(jags.data$periods[i]+2),i] <- c(1,90)
 }
 
@@ -683,14 +685,41 @@ for(i in 1:length(jags.data$periods)){ #Set the anchor points: days 1 and 90
 # with NAs for all of the estimated Ns, and 0s for the days 1 and 90
 N <- matrix(NA, 
             nrow=max(jags.data$periods)+2, 
-            ncol=length(jags.data$periods)) 
+            ncol=x) 
 
 #True number of whales passing fixed at 0 for day 1 and 90
-for(i in 1:length(jags.data$periods)){
+for(i in 1:x){
   N[(jags.data$periods[i]+1):(jags.data$periods[i]+2),i] <- 0 
 }
 
+#we're going to make N a partially observed data object with anchor points at day 1 and 90
+# TE: I don't know how these numbers were created... they are generally 2x n (not all)
+# N_inits <- as.matrix(read.table("Data/Initial Values/N_inits.txt",
+#                                 header=T))
+
+N_inits1 <- jags.data$n[, 1,] * 2 + 2
+#N_inits2 <- jags.data$n[, 2,] * 2 + 2 
+            
+N_inits <- N_inits1
+#N_inits[N_inits1 < N_inits2] <- N_inits2[N_inits1 < N_inits2]
+
+N_inits <- rbind(N_inits,
+                 matrix(data = NA, 
+                        nrow = 2, 
+                        ncol = x))
+
+for (k in 1:length(jags.data$periods)){
+  N_inits[(periods[k]+1):nrow(N_inits), k] <- NA  
+}
+
 N_inits <- N_inits[,1:x]
+
+Watch.Length <- rbind(effort,
+                      matrix(data = NA, 
+                             nrow = 2,
+                             ncol = x))
+
+Watch.Length[is.na(Watch.Length)] <- 0
 
 BUGS.data <- list(n = jags.data$n,
                   n.com = jags.data$n,
@@ -705,17 +734,17 @@ BUGS.data <- list(n = jags.data$n,
                   vs = jags.data$vs,
                   bf = jags.data$bf,
                   #day=day,
-                  day = jags.data$day,
+                  day = day,
                   N = N,
                   N.com = N,
                   N.sp = N,
                   knot = c(-1.46,-1.26,-1.02,-0.78,
                          -0.58,-0.34,-0.10,0.10,
                          0.34,0.57,0.78,1.02,1.26,1.46),
-                  n.knots=14,
+                  n.knots = 14,
                   #begin=begin,
                   #end=end,
-                  Watch.Length=Watch.Length)  # NEED TO FIX THIS 2022-09-28
+                  Watch.Length = Watch.Length)  
 
 BUGS.inits <- function() list(mean.prob = 0.5,
                               BF.Fixed = 0,
@@ -770,10 +799,10 @@ if (!file.exists(paste0("RData/WinBUGS_sim.rds"))){
              inits = BUGS.inits,
              parameters = parameters,
              model.file = BUGS.model, 
-             n.chains = MCMCparams$n.chains,
-             n.iter = MCMCparams$n.iter, 
-             n.burnin = MCMCparams$n.burnin, 
-             n.thin = MCMCparams$n.thin,
+             n.chains = MCMC.params$n.chains,
+             n.iter = MCMC.params$n.samples, 
+             n.burnin = MCMC.params$n.burnin, 
+             n.thin = MCMC.params$n.thin,
              debug=T,
              bugs.directory = WinBUGS.dir)
   
@@ -793,6 +822,7 @@ if (!file.exists(paste0("RData/WinBUGS_sim.rds"))){
   
 }
 
+#made use of undefined node Watch.Length
 
 
 
