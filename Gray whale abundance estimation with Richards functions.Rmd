@@ -10,7 +10,7 @@ output:
 ```{r setup, include=FALSE}
 rm(list = ls())
 knitr::opts_chunk$set(echo = TRUE)
-save.fig <- T
+save.fig <- F
 
 source("Granite_Canyon_Counts_fcns.R")
 library(tidyverse)
@@ -480,7 +480,10 @@ if (!file.exists(out.file.name)){
                       vs = scale(vs),
                       bf = scale(bf),
                       watch.prop = watch.prop,
-                      day = day)
+                      day = day,
+                      effort = effort,
+                      bf.raw = bf,
+                      vs.raw = vs)
   #max.vec = c(3000, 3000))
   
   Start_Time<-Sys.time()
@@ -670,15 +673,24 @@ In order to compare the new method to the current method (Durban et al.), I anal
 WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
 BUGS.model <- "GW_Nmix_Orig.bugs"
 
+data.worked <- readRDS("RData/BUGS_data_runs.rds")
+
+
 x <- length(Season)
+
+jags.data <- jm.out$jags.data
+MCMC.params <- jm.out$MCMC.params
 
 u <- jags.data$n
 u[!is.na(u)] <- 1
 u[is.na(u)] <- 0
 
 day <- rbind(jags.data$day, matrix(NA, nrow = 2, ncol = x))
+#BUGS.n <- abind::abind(jags.data$n, array(data = NA, dim = c(2, 1, x)), along = 1)
+
 for(i in 1:x){ #Set the anchor points: days 1 and 90
   day[(jags.data$periods[i]+1):(jags.data$periods[i]+2),i] <- c(1,90)
+  #BUGS.n[(jags.data$periods[i]+1):(jags.data$periods[i]+2), 1, i] <- c(0,0)
 }
 
 #The 'data' has to be the inverse of the inits, 
@@ -709,12 +721,12 @@ N_inits <- rbind(N_inits,
                         ncol = x))
 
 for (k in 1:length(jags.data$periods)){
-  N_inits[(periods[k]+1):nrow(N_inits), k] <- NA  
+  N_inits[(jags.data$periods[k]+1):nrow(N_inits), k] <- NA  
 }
 
 N_inits <- N_inits[,1:x]
 
-Watch.Length <- rbind(effort,
+Watch.Length <- rbind(jags.data$effort,
                       matrix(data = NA, 
                              nrow = 2,
                              ncol = x))
@@ -731,8 +743,8 @@ BUGS.data <- list(n = jags.data$n,
                   obs = jags.data$obs,
                   #Watch.Length = 0.0625,
                   u = u,
-                  vs = jags.data$vs,
-                  bf = jags.data$bf,
+                  vs = jags.data$vs.raw,
+                  bf = jags.data$bf.raw,
                   #day=day,
                   day = day,
                   N = N,
@@ -779,7 +791,7 @@ BUGS.inits <- function() list(mean.prob = 0.5,
 
 # WinBUGS gives errors when N inits are set to 0. 
 # Try setting them to 1 instead (seems to work):
-N_inits[which(N_inits==0,arr.ind = T)] <- 1
+N_inits[which(N_inits == 0, arr.ind = T)] <- 1
 
 parameters <- c("lambda","OBS.RF","OBS.Switch",
                 "BF.Switch","BF.Fixed","VS.Switch",
@@ -799,10 +811,10 @@ if (!file.exists(paste0("RData/WinBUGS_sim.rds"))){
              inits = BUGS.inits,
              parameters = parameters,
              model.file = BUGS.model, 
-             n.chains = MCMC.params$n.chains,
-             n.iter = MCMC.params$n.samples, 
-             n.burnin = MCMC.params$n.burnin, 
-             n.thin = MCMC.params$n.thin,
+             n.chains = 2, #MCMC.params$n.chains,
+             n.iter = 1000, #MCMC.params$n.samples, 
+             n.burnin = 750, #MCMC.params$n.burnin, 
+             n.thin = 5, #MCMC.params$n.thin,
              debug=T,
              bugs.directory = WinBUGS.dir)
   
@@ -822,7 +834,7 @@ if (!file.exists(paste0("RData/WinBUGS_sim.rds"))){
   
 }
 
-#made use of undefined node Watch.Length
+#array index is greater than array upper bound for Watch.Length
 
 
 
