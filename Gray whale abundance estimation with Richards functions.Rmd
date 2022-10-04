@@ -673,6 +673,9 @@ In order to compare the new method to the current method (Durban et al.), I anal
 WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
 BUGS.model <- "GW_Nmix_Orig.bugs"
 
+# The following is from WinBUGS Ver2.Rmd. It ran fine. I saved data and inits from
+# the run and saved it in an rds file. Compare data and inits. Data look okay.
+# Look at inits 2022-10-04
 data.worked <- readRDS("RData/BUGS_data_runs.rds")
 
 
