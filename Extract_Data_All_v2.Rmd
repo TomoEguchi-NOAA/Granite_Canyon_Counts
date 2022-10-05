@@ -19,7 +19,11 @@ library(lubridate)
 source("Granite_Canyon_Counts_fcns.R")
 
 
-YEAR <- 2015 #Enter the year of the data files
+YEAR <- 2010 #Enter the year of the data files
+
+# For 2010 and 2011 (maybe in the previous years too but I don't have any of those files)
+# Time is entered in decimal hours, not hh:mm:ss. So, that needs to be accommodated in
+# data extraction code. 2022-10-05
 
 ```
 
