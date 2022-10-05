@@ -673,11 +673,108 @@ In order to compare the new method to the current method (Durban et al.), I anal
 WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
 BUGS.model <- "GW_Nmix_Orig.bugs"
 
+#####################################################
 # The following is from WinBUGS Ver2.Rmd. It ran fine. I saved data and inits from
 # the run and saved it in an rds file. Compare data and inits. Data look okay.
 # Look at inits 2022-10-04
 data.worked <- readRDS("RData/BUGS_data_runs.rds")
+x <- 2
 
+# Create data list from the one that worked using just the last 2 years:
+obs <- data.worked$BUGS.data$obs[, , 7:8]
+obs <- obs - min(obs, na.rm = T) + 1
+n.obs <- max(obs) - 1
+
+N_inits <- jags.data$n[, 1,] * 2 + 2
+
+N_inits <- rbind(N_inits,
+                 matrix(data = NA, 
+                        nrow = 2, 
+                        ncol = 8))
+
+for (k in 1:8){
+  N_inits[(jags.data$periods[k]+1):nrow(N_inits), k] <- NA  
+}
+
+# WinBUGS gives errors when N inits are set to 0. 
+# Try setting them to 1 instead (seems to work):
+# Doesn't seem to make any difference  2022-10-05
+N_inits[which(N_inits == 0, arr.ind = T)] <- 1
+
+BUGS.data.1 <- list(n = data.worked$BUGS.data$n[, 1, 7:8],
+                    n.com = data.worked$BUGS.data$n.com[, 1, 7:8],
+                    n.sp = data.worked$BUGS.data$n.sp[, 1, 7:8],
+                    n.station = 1,
+                    n.year = 2,
+                    obs = data.worked$BUGS.data$obs[, 1, 7:8],
+                    n.obs = n.obs,
+                    periods = data.worked$BUGS.data$periods[7:8],
+                    u = data.worked$BUGS.data$u[, 1, 7:8],
+                    vs = data.worked$BUGS.data$vs[, 7:8],
+                    bf = data.worked$BUGS.data$bf[, 7:8],
+                    day = data.worked$BUGS.data$day[, 7:8],
+                    N = data.worked$BUGS.data$N[, 7:8],
+                    N.com = data.worked$BUGS.data$N.com[, 7:8],
+                    N.sp = data.worked$BUGS.data$N.sp[, 7:8],
+                    knot = data.worked$BUGS.data$knot,
+                    n.knots = data.worked$BUGS.data$n.knots,
+                    Watch.Length = data.worked$BUGS.data$Watch.Length[,7:8])
+
+BUGS.inits.1 <- function() list(mean.prob = 0.5,
+                              BF.Fixed = 0,
+                              VS.Fixed = 0,
+                              mean.prob.sp = 0.5,
+                              BF.Fixed.sp = 0,
+                              VS.Fixed.sp = 0,
+                              mean.prob.com = 0.5,
+                              BF.Fixed.com = 0,
+                              VS.Fixed.com = 0,
+                              mean.beta = c(0,0,0), #mean.beta = c(5,0.14,-3.5),
+                              beta.sigma = c(1,1,1),#beta.sigma = c(7,7,7),
+                              BF.Switch = 1,
+                              VS.Switch = 1,
+                              OBS.Switch = 1,
+                              sigma.Obs = 1,
+                              BF.Switch.sp = 1,
+                              VS.Switch.sp = 1,
+                              OBS.Switch.sp = 1,
+                              sigma.Obs.sp = 1,
+                              BF.Switch.com = 1,
+                              VS.Switch.com = 1,
+                              OBS.Switch.com = 1,
+                              sigma.Obs.com = 1,
+                              N = N_inits,
+                              N.com = N_inits,
+                              N.sp = N_inits,
+                              #z = matrix(1,nrow=90,ncol=6),
+                              beta.sp = array(data=0, dim=c(2,x)),
+                              sd.b.sp = rep(1, times = x), #c(1,1,1,1,1,1),
+                              z = matrix(1, nrow=90, ncol= x))
+
+
+parameters <- c("lambda","OBS.RF","OBS.Switch",
+                "BF.Switch","BF.Fixed","VS.Switch",
+                "VS.Fixed","mean.prob","mean.prob.com",
+                "mean.prob.sp","BF.Fixed.com",
+                "BF.Fixed.sp","VS.Fixed.com",
+                "VS.Fixed.sp",
+                "Corrected.Est","Raw.Est","z",
+                "com","sp","Daily.Est","mean.beta",
+                "beta.sigma","beta","beta.sp","b.sp","sd.b.sp")
+
+bm <- bugs(data = data.worked$BUGS.data, #BUGS.data.1,
+             inits = data.worked$BUGS.inits, #  BUGS.inits.1,
+             parameters = parameters,
+             model.file = BUGS.model, 
+             n.chains = 2, #MCMC.params$n.chains,
+             n.iter = 1000, #MCMC.params$n.samples, 
+             n.burnin = 750, #MCMC.params$n.burnin, 
+             n.thin = 5, #MCMC.params$n.thin,
+             debug=T,
+             bugs.directory = WinBUGS.dir)
+  
+value of binomial n.sp[116,2,3] must be between zero and order of n.sp[116,2,3]
+#########################################################
 
 x <- length(Season)
 
@@ -728,6 +825,10 @@ for (k in 1:length(jags.data$periods)){
 }
 
 N_inits <- N_inits[,1:x]
+
+# WinBUGS gives errors when N inits are set to 0. 
+# Try setting them to 1 instead (seems to work):
+N_inits[which(N_inits == 0, arr.ind = T)] <- 1
 
 Watch.Length <- rbind(jags.data$effort,
                       matrix(data = NA, 
@@ -792,9 +893,6 @@ BUGS.inits <- function() list(mean.prob = 0.5,
                               sd.b.sp = rep(1, times = x), #c(1,1,1,1,1,1),
                               z = matrix(1, nrow=90, ncol= x))
 
-# WinBUGS gives errors when N inits are set to 0. 
-# Try setting them to 1 instead (seems to work):
-N_inits[which(N_inits == 0, arr.ind = T)] <- 1
 
 parameters <- c("lambda","OBS.RF","OBS.Switch",
                 "BF.Switch","BF.Fixed","VS.Switch",

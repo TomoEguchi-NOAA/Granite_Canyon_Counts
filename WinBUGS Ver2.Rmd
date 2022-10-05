@@ -295,7 +295,7 @@ for(i in 1:length(periods)){ #Set the anchor points: days 1 and 90
 #this will force it to the mean observation probability with no observer effect
 
 Watch.Length <- rbind(as.matrix(Watch.Length),
-             matrix(NA, nrow=2, ncol=length(periods)))
+                      matrix(NA, nrow=2, ncol=length(periods)))
 
 for(i in 1:length(periods)){
   Watch.Length[(periods[i]+1):(periods[i]+2),i] <- 1
@@ -307,43 +307,44 @@ for(i in 1:length(periods)){
 
 # Shorten data to first x years only to replicate 
 # the analysis in Durban et al 2016:
-x <- 7
+x <- 8
 
-n <- n[,,1:x]
-obs <- obs[,,1:x]
-periods <- periods[1:x]
-u <- u[,,1:x]
-vs <- vs[,1:x]
-bf <- bf[,1:x]
-day <-day[,1:x]
-t <- t[,1:x]
-N <- N[,1:x]
-N_inits <- N_inits[,1:x]
+# n <- n[,,1:x]
+# obs <- obs[,,1:x]
+# periods <- periods[1:x]
+# u <- u[,,1:x]
+# vs <- vs[,1:x]
+# bf <- bf[,1:x]
+# day <-day[,1:x]
+# t <- t[,1:x]
+# N <- N[,1:x]
+# N_inits <- N_inits[,1:x]
+# Watch.Length <- Watch.Length[,1:x]
 
-jags.data <- list(n = n,
-                  n.com = n,
-                  n.sp = n,
-                  n.station = dim(n)[2],
-                  n.year = dim(n)[3],
-                  n.obs = max(obs),
-                  periods = periods,
-                  obs = obs,
+jags.data <- list(n = n[1:max(periods[1:x]),,1:x],
+                  n.com = n[1:max(periods[1:x]),,1:x],
+                  n.sp = n[1:max(periods[1:x]),,1:x],
+                  n.station = dim(n[1:max(periods[1:x]),,1:x])[2],
+                  n.year = dim(n[1:max(periods[1:x]),,1:x])[3],
+                  n.obs = max(obs[1:max(periods[1:x]),,1:x]),
+                  periods = periods[1:x],
+                  obs = obs[1:max(periods[1:x]),,1:x],
                   #Watch.Length = 0.0625,
-                  u = u,
-                  vs = vs,
-                  bf = bf,
+                  u = u[1:max(periods[1:x]),,1:x],
+                  vs = vs[1:max(periods[1:x]),1:x],
+                  bf = bf[1:max(periods[1:x]),1:x],
                   #day=day,
-                  day = t,
-                  N = N,
-                  N.com = N,
-                  N.sp = N,
+                  day = t[1:(max(periods[1:x])+2),1:x],
+                  N = N[,1:x],
+                  N.com = N[,1:x],
+                  N.sp = N[,1:x],
                   knot = c(-1.46,-1.26,-1.02,-0.78,
                          -0.58,-0.34,-0.10,0.10,
                          0.34,0.57,0.78,1.02,1.26,1.46),
                   n.knots=14,
                   #begin=begin,
                   #end=end,
-                  Watch.Length=Watch.Length)
+                  Watch.Length=Watch.Length[1:(max(periods[1:x])+2), 1:x])
 
 jags.inits <- function() list(mean.prob = 0.5,
                               BF.Fixed = 0,
@@ -382,7 +383,8 @@ jags.inits <- function() list(mean.prob = 0.5,
 
 # WinBUGS gives errors when N inits are set to 0. 
 # Try setting them to 1 instead (seems to work):
-N_inits[which(N_inits==0,arr.ind = T)] <- 1
+# But this makes no sense to have it here... 2022-10-05
+#N_inits[which(N_inits==0,arr.ind = T)] <- 1
 
 parameters <- c("lambda","OBS.RF","OBS.Switch",
                 "BF.Switch","BF.Fixed","VS.Switch",
@@ -430,8 +432,13 @@ if (!file.exists(paste0("RData/WinBUGS_", x, "yr_v2.rds"))){
 } else {
   Ver2.results <- readRDS(paste0("RData/WinBUGS_", x, "yr_v2.rds"))
 }
-```
 
+# The following line is for saving the data list and inits list. This was done to check why simulation
+# data were resulting in error - "undefined real result"
+#saveRDS(file = "RData/BUGS_data_runs.rds", list(BUGS.data = jags.data, BUGS.inits = jags.inits))
+```
+array index is greater than array upper bound for Watch.Length
+inits(1,C:/Users/TOMO~1.EGU/AppData/Local/Temp/Rtmpy436t0/init
 
 Make some plots:
 
