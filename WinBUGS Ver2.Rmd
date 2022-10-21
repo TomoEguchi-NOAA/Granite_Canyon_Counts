@@ -396,10 +396,10 @@ parameters <- c("lambda","OBS.RF","OBS.Switch",
                 "com","sp","Daily.Est","mean.beta",
                 "beta.sigma","beta","beta.sp","b.sp","sd.b.sp")
 
-MCMCparams <- list(n.iter = 1000, #00,
-                   n.thin = 8, #0,
-                   n.burnin = 600, #00,
-                   n.chains = 3)
+MCMCparams <- list(n.iter = 10000, #0,
+                   n.thin = 80,
+                   n.burnin = 6000, #0,
+                   n.chains = 5)
 
 
 ```
@@ -424,9 +424,10 @@ if (!file.exists(paste0("RData/WinBUGS_", x, "yr_v2.rds"))){
                   bugs.directory = WinBUGS.dir)
   
   Run_Time <- Sys.time() - Start_Time
-  saveRDS(list(jags.data = jags.data,
-               N_inits = N_inits,
-               BUGS_out = BUGS_out), 
+  Ver2.results <-list(jags.data = jags.data,
+                      N_inits = N_inits,
+                      BUGS_out = BUGS_out)
+  saveRDS(Ver2.results, 
           paste0("RData/WinBUGS_", x, "yr_v2.rds"))
   
 } else {
@@ -434,30 +435,35 @@ if (!file.exists(paste0("RData/WinBUGS_", x, "yr_v2.rds"))){
 }
 
 # The following line is for saving the data list and inits list. This was done to check why simulation
-# data were resulting in error - "undefined real result" (ran with n.iter = 1000, n.thin = 8, n.burnin = 600, n.chains = 3)
-# data.worked <- list(BUGS.data = jags.data, 
-#                     BUGS.inits = jags.inits, 
-#                     N_inits = N_inits, 
-#                     x = x, 
+# data were resulting in error - "undefined real result" 
+# (ran with n.iter = 1000, n.thin = 8, n.burnin = 600, n.chains = 3) as well as n.iter = 10000,
+# n.thin = 80, n.burnin = 6000, n.chains = 5
+# data.worked <- list(BUGS.data = jags.data,
+#                     BUGS.inits = jags.inits,
+#                     N_inits = N_inits,
+#                     x = x,
 #                     parameters = parameters,
 #                     MCMC.params = MCMCparams,
 #                     model.file = "GW_Nmix_Orig.bugs",
 #                     WinBUGS.dir = WinBUGS.dir)
 # 
-# saveRDS(file = "RData/BUGS_data_runs.rds", data.worked)
-# rm(list = ls())
+# saveRDS(file = paste0("RData/BUGS_data_runs_", Sys.Date(), ".rds"), 
+#         data.worked)
+
+# clear the workspace, bring in the data that worked.
+rm(list = ls())
 #
 # Runs from the saved list? Yes.
-# data.worked <- readRDS("RData/BUGS_data_runs.rds")
+# data.worked <- readRDS(paste0("RData/BUGS_data_runs_2022-10-21.rds"))
 # N_inits <- data.worked$N_inits
 # x <- data.worked$x
-# bm <- bugs(data = data.worked$BUGS.data, 
-#              inits = data.worked$BUGS.inits, 
+# bm <- bugs(data = data.worked$BUGS.data,
+#              inits = data.worked$BUGS.inits,
 #              parameters = data.worked$parameters,
-#              model.file = data.worked$model.file, 
+#              model.file = data.worked$model.file,
 #              n.chains = data.worked$MCMC.params$n.chains,
-#              n.iter = data.worked$MCMC.params$n.iter, 
-#              n.burnin = data.worked$MCMC.params$n.burnin, 
+#              n.iter = data.worked$MCMC.params$n.iter,
+#              n.burnin = data.worked$MCMC.params$n.burnin,
 #              n.thin = data.worked$MCMC.params$n.thin,
 #              debug=T,
 #              bugs.directory = data.worked$WinBUGS.dir)

@@ -603,7 +603,9 @@ plots.dens <- function(jm, params){
   return(out.list)
 }
 
-p.trace <- plots.trace(jm.out$jm, params = param.names)
+p.trace <- plots.trace(jm.out$jm, 
+                       params = param.names,
+                       params.df = params.df)
 p.dens <- plots.dens(jm.out$jm, params = param.names)
 
 if (save.fig){
@@ -708,93 +710,115 @@ knitr::include_graphics("figures/N_hats_sim.png")
 
 #### Comparison to Durban et al's method
 
-In order to compare the new method to the current method (Durban et al.), I analyzed the same simulated dataset with the analytical approach in Durban et al. WinBUGS returns error (undefined real reslut), which appears to be caused by computing log(0). I can't find the problem. I'll move on to comparing results of real datasets. 
+In order to compare the new method to the current method (Durban et al.), I analyzed the same simulated dataset with the analytical approach in Durban et al. WinBUGS returns error (undefined real result), which appears to be caused by computing log(0). I can't find the problem. I'll move on to comparing results of real datasets. 
 
 
 ```{r WinBugs-Analysis, echo=FALSE, message=FALSE}
-# WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
-# BUGS.model <- "GW_Nmix_Orig.bugs"
-# 
-# #####################################################
-# # The following is from WinBUGS Ver2.Rmd. It ran fine. I saved data and inits from
-# # the run and saved it in an rds file. Compare data and inits. 
-# # This works fine!
-# data.worked <- readRDS("RData/BUGS_data_runs.rds")
-# # N_inits <- data.worked$N_inits
-# # x <- 2
-# # 
+WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
+#BUGS.model <- "GW_Nmix_Orig.bugs"
+BUGS.model <- "GW_Nmix_Orig_mod.bugs"  # Lower bounds of unif distributions were changed from 0 to 0.01
+
+#####################################################
+# The following is from WinBUGS Ver2.Rmd. It ran fine. I saved data and inits from
+# the run and saved it in an rds file. Compare data and inits.
+# This works fine!
+run.date <- "2022-10-21"
+data.worked <- readRDS(paste0("RData/BUGS_data_runs_",
+                              run.date, ".rds"))
+# N_inits <- data.worked$N_inits
+# x <- 2
+# #
 # # # Create data list from the one that worked using just the last 2 years:
-# # obs <- data.worked$BUGS.data$obs[, , 7:8]
-# # obs <- obs - min(obs, na.rm = T) + 1
-# # n.obs <- max(obs) #+ 1
-# # 
-# # N_inits <- N_inits[, 7:8]
-# # 
-# # BUGS.data.1 <- list(n = data.worked$BUGS.data$n[, , 7:8],
-# #                     n.com = data.worked$BUGS.data$n.com[, , 7:8],
-# #                     n.sp = data.worked$BUGS.data$n.sp[, , 7:8],
-# #                     n.station = 1,
-# #                     n.year = 2,
-# #                     obs = obs, #data.worked$BUGS.data$obs[, 1, 7:8],
-# #                     n.obs = n.obs,
-# #                     periods = data.worked$BUGS.data$periods[7:8],
-# #                     u = data.worked$BUGS.data$u[, , 7:8],
-# #                     vs = data.worked$BUGS.data$vs[, 7:8],
-# #                     bf = data.worked$BUGS.data$bf[, 7:8],
-# #                     day = data.worked$BUGS.data$day[, 7:8],
-# #                     N = data.worked$BUGS.data$N[, 7:8],
-# #                     N.com = data.worked$BUGS.data$N.com[, 7:8],
-# #                     N.sp = data.worked$BUGS.data$N.sp[, 7:8],
-# #                     knot = data.worked$BUGS.data$knot,
-# #                     n.knots = data.worked$BUGS.data$n.knots,
-# #                     Watch.Length = data.worked$BUGS.data$Watch.Length[,7:8])
-# # 
-# # BUGS.inits.2 <- data.worked$BUGS.inits
-# # 
-# # bm <- bugs(data =  BUGS.data.1,
-# #              inits = BUGS.inits.2,
-# #              parameters = parameters,
-# #              model.file = "GW_Nmix_Orig.bugs",
-# #              n.chains = data.worked$MCMC.params$n.chains,
-# #              n.iter = data.worked$MCMC.params$n.iter, 
-# #              n.burnin = data.worked$MCMC.params$n.burnin, 
-# #              n.thin = data.worked$MCMC.params$n.thin,
-# #              debug=T,
-# #              bugs.directory = WinBUGS.dir)
+obs <- data.worked$BUGS.data$obs[, , 7:8]
+#obs <- obs - min(obs, na.rm = T) + 1
+
+# 36 was used for non-observer
+obs[obs==36] <- NA
+unique.obs <- sort(unique(c(unique(obs[,1,1]), unique(obs[,1,2]))))
+n.obs <- length(unique.obs)
+
+obs.df <- data.frame(new.ID = 1:n.obs,
+                     old.ID = unique.obs)
+
+for (k1 in 1:nrow(obs.df)){
+  for (k2 in 1:2){
+    obs[which(obs[,1,1] == obs.df[k1, "old.ID"]),1,1] <- obs.df[k1,"new.ID"]
+    obs[which(obs[,1,2] == obs.df[k1, "old.ID"]),1,2] <- obs.df[k1,"new.ID"]
+  }
+}
+
+# #
+# N_inits <- N_inits[, 7:8]
+# #
+BUGS.data.1 <- list(n = data.worked$BUGS.data$n[, , 7:8],
+                    n.com = data.worked$BUGS.data$n.com[, , 7:8],
+                    n.sp = data.worked$BUGS.data$n.sp[, , 7:8],
+                    n.station = 1,
+                    n.year = 2,
+                    obs = obs, #data.worked$BUGS.data$obs[, 1, 7:8],
+                    n.obs = max(obs, na.rm = T), #n.obs,
+                    periods = data.worked$BUGS.data$periods[7:8],
+                    u = data.worked$BUGS.data$u[, , 7:8],
+                    vs = data.worked$BUGS.data$vs[, 7:8],
+                    bf = data.worked$BUGS.data$bf[, 7:8],
+                    day = data.worked$BUGS.data$day[, 7:8],
+                    N = data.worked$BUGS.data$N[, 7:8],
+                    N.com = data.worked$BUGS.data$N.com[, 7:8],
+                    N.sp = data.worked$BUGS.data$N.sp[, 7:8],
+                    knot = data.worked$BUGS.data$knot,
+                    n.knots = data.worked$BUGS.data$n.knots,
+                    Watch.Length = data.worked$BUGS.data$Watch.Length[,7:8])
 # 
-# #########################################################
-# 
-# x <- length(Season)
-# BUGS.inits.1 <- function() list(mean.prob = 0.5,
-#                                 BF.Fixed = 0,
-#                                 VS.Fixed = 0,
-#                                 mean.prob.sp = 0.5,
-#                                 BF.Fixed.sp = 0,
-#                                 VS.Fixed.sp = 0,
-#                                 mean.prob.com = 0.5,
-#                                 BF.Fixed.com = 0,
-#                                 VS.Fixed.com = 0,
-#                                 mean.beta = c(0,0,0), 
-#                                 beta.sigma = c(1,1,1),
-#                                 BF.Switch = 1,
-#                                 VS.Switch = 1,
-#                                 OBS.Switch = 1,
-#                                 sigma.Obs = 1,
-#                                 BF.Switch.sp = 1,
-#                                 VS.Switch.sp = 1,
-#                                 OBS.Switch.sp = 1,
-#                                 sigma.Obs.sp = 1,
-#                                 BF.Switch.com = 1,
-#                                 VS.Switch.com = 1,
-#                                 OBS.Switch.com = 1,
-#                                 sigma.Obs.com = 1,
-#                                 N = N_inits,
-#                                 N.com = N_inits,
-#                                 N.sp = N_inits,
-#                                 beta.sp = array(data=0, dim=c(2,x)),
-#                                 sd.b.sp = rep(1, times = x), 
-#                                 z = matrix(1, nrow=90, ncol= x))
-# 
+BUGS.inits.2 <- data.worked$BUGS.inits
+
+bm <- bugs(data =  BUGS.data.1,
+             inits = BUGS.inits.2,
+             parameters = data.worked$parameters,
+             model.file = BUGS.model,
+             n.chains = data.worked$MCMC.params$n.chains,
+             n.iter = data.worked$MCMC.params$n.iter,
+             n.burnin = data.worked$MCMC.params$n.burnin,
+             n.thin = data.worked$MCMC.params$n.thin,
+             debug=T,
+             bugs.directory = WinBUGS.dir)
+
+# value of bernoulli z[1,1] (or z[90,1], or z[90,2]) must be an integer - this happened after I renumbered
+# the observer IDs. 
+# Compare data and inits of this section to the next section.
+
+#########################################################
+
+x <- length(Season)
+BUGS.inits.1 <- function() list(mean.prob = 0.5,
+                                BF.Fixed = 0,
+                                VS.Fixed = 0,
+                                mean.prob.sp = 0.5,
+                                BF.Fixed.sp = 0,
+                                VS.Fixed.sp = 0,
+                                mean.prob.com = 0.5,
+                                BF.Fixed.com = 0,
+                                VS.Fixed.com = 0,
+                                mean.beta = c(0,0,0),
+                                beta.sigma = c(1,1,1),
+                                BF.Switch = 1,
+                                VS.Switch = 1,
+                                OBS.Switch = 1,
+                                sigma.Obs = 1,
+                                BF.Switch.sp = 1,
+                                VS.Switch.sp = 1,
+                                OBS.Switch.sp = 1,
+                                sigma.Obs.sp = 1,
+                                BF.Switch.com = 1,
+                                VS.Switch.com = 1,
+                                OBS.Switch.com = 1,
+                                sigma.Obs.com = 1,
+                                N = N_inits,
+                                N.com = N_inits,
+                                N.sp = N_inits,
+                                beta.sp = array(data=0, dim=c(2,x)),
+                                sd.b.sp = rep(1, times = x),
+                                z = matrix(1, nrow=90, ncol= x))
+
 # parameters <- c("lambda","OBS.RF","OBS.Switch",
 #                 "BF.Switch","BF.Fixed","VS.Switch",
 #                 "VS.Fixed","mean.prob","mean.prob.com",
@@ -804,144 +828,152 @@ In order to compare the new method to the current method (Durban et al.), I anal
 #                 "Corrected.Est","Raw.Est","z",
 #                 "com","sp","Daily.Est","mean.beta",
 #                 "beta.sigma","beta","beta.sp","b.sp","sd.b.sp")
-# 
-# jags.data <- jm.out$jags.data
-# MCMC.params <- jm.out$MCMC.params
-# 
-# # Adds an all zero array to the second dimension, just as it was done for the 
-# # real data.
-# n <- abind(jags.data$n, 
-#            array(data = 0, 
-#                  dim = dim(jags.data$n)),
-#            along = 2) 
-# 
-# # replace NAs with zeros
-# n[is.na(n)] <- 0
-# 
-# # because all covariates were the same as the real data, I pull out the u
-# # array directly from the input.
-# u <- data.worked$BUGS.data$u[,,7:8]
-# 
-# # day indicators. Need to add 1 and 90 at the end
-# day <- rbind(jags.data$day, matrix(NA, nrow = 2, ncol = x))
-# 
-# for(i in 1:x){ #Set the anchor points: days 1 and 90
-#   day[(jags.data$periods[i]+1):(jags.data$periods[i]+2),i] <- c(1,90)
-# 
-# }
-# 
-# #The 'data' has to be the inverse of the inits, <- ??
-# # with NAs for all of the estimated Ns, and 0s for the days 1 and 90
-# N <- matrix(NA, 
-#             nrow = max(jags.data$periods)+2, 
-#             ncol = x) 
-# 
-# #True number of whales passing fixed at 0 for day 1 and 90
-# for(i in 1:x){
-#   N[(jags.data$periods[i]+1):(jags.data$periods[i]+2),i] <- 0 
-# }
-# 
-# #we're going to make N a partially observed data object with anchor points at day 1 and 90
-# # TE: I don't know how these numbers were created... they are generally 2x n (not all)
-# N_inits1 <- jags.data$n[, 1, ] * 2 + 2
-# #N_inits2 <- jags.data$n[, 2,] * 2 + 2
-# 
-# #N_inits <- N_inits1
-# 
-# N_inits <- rbind(N_inits1,
-#                  matrix(data = NA,
-#                         nrow = 2,
-#                         ncol = x))
-# 
-# for (k in 1:x){
-#   N_inits[(jags.data$periods[k]+1) : nrow(N_inits), k] <- NA
-# }
-# 
-# # WinBUGS gives errors when N inits are set to 0. 
-# # Try setting them to 1 instead (seems to work):
-# #N_inits[which(N_inits == 0, arr.ind = T)] <- 1
-# 
-# Watch.Length <- rbind(jags.data$effort,
-#                       matrix(data = NA, 
-#                              nrow = 2,
-#                              ncol = x))
-# 
-# obs <- abind(jags.data$obs, 
-#              array(data = 36, 
-#                    dim = dim(jags.data$obs)),
-#              along = 2) 
-# 
-# obs[is.na(obs)] <- 36
-# 
-# for (k in 1:x){
-#   Watch.Length[(jags.data$periods[k]+1) : (jags.data$periods[k]+2), k] <- 1
-# }
-# 
-# BUGS.data <- list(n = n,
-#                   n.com = n,
-#                   n.sp = n,
-#                   n.station = dim(jags.data$n)[2],
-#                   n.year = dim(jags.data$n)[3],
-#                   n.obs = jags.data$n.obs,
-#                   periods = jags.data$periods,
-#                   obs = obs,
-#                   u = u,
-#                   vs = jags.data$vs.raw,
-#                   bf = jags.data$bf.raw,
-#                   day = day,
-#                   N = N,
-#                   N.com = N,
-#                   N.sp = N,
-#                   knot = c(-1.46,-1.26,-1.02,-0.78,
-#                            -0.58,-0.34,-0.10,0.10,
-#                            0.34,0.57,0.78,1.02,1.26,1.46),
-#                   n.knots = 14,
-#                   Watch.Length = Watch.Length)  
-# 
-# if (!file.exists(paste0("RData/WinBUGS_sim.rds"))){
-#   
-#   Start_Time<-Sys.time()
-#   
-#   bm <- bugs(data = BUGS.data,
-#              inits = BUGS.inits.1,
-#              parameters = parameters,
-#              model.file = BUGS.model, 
-#              n.chains = MCMC.params$n.chains,
-#              n.iter = MCMC.params$n.samples, 
-#              n.burnin = MCMC.params$n.burnin, 
-#              n.thin = MCMC.params$n.thin,
-#              debug = F,
-#              bugs.directory = WinBUGS.dir)
-#   
-#   Run_Time <- Sys.time() - Start_Time
-#   
-#   BUGS.out <- list(BUGS.data = BUGS.data,
-#                    bm = bm,
-#                    N_inits = N_inits,
-#                    MCMC.params = MCMC.params,
-#                    BUGS.model = BUGS.model,
-#                    Run_Time = Run_Time)
-#   
-#   saveRDS(BUGS.out, 
-#           paste0("RData/WinBUGS_sim.rds"))
-# } else {
-#   BUGS.out <- readRDS("RData/WinBUGS_sim.rds")
-#   
-# }
-# 
-# #undefined real result was caused by not having 1 in Watch.Length for day 1 and 90
-# # Took me a couple days to figure it out... Still comes back with error (undefined
-# # real result as of 2022-10-06). It starts fine but stops while computing. This tells
-# # me that it must be something to do with parameter space (priors). But it works fine 
-# # on real datasets... 
-# 
-# # First error message of the trap is
-# # 
-# #  Math.Ln   [0000018BH] 
-# # 	.x	REAL	-inf
-# # 
-# # There must be log(0) somewhere... 
+
+jags.data <- jm.out$jags.data
+MCMC.params <- jm.out$MCMC.params
+
+# Adds an all zero array to the second dimension, just as it was done for the
+# real data.
+n <- abind(jags.data$n,
+           array(data = 0,
+                 dim = dim(jags.data$n)),
+           along = 2)
+
+# replace NAs with zeros
+n[is.na(n)] <- 0
+
+# the u data is whether there were observers on watch. 
+# 0 counts are often associated with years/shifts with 
+# no second observer. So if u=0, it will fix observation probability at 0
+u <- jags.data$obs
+u[!is.na(u)] <- 1
+u[is.na(u)] <- 0
+
+# day indicators. Need to add 1 and 90 at the end
+day <- rbind(jags.data$day, matrix(NA, nrow = 2, ncol = x))
+
+for(i in 1:x){ #Set the anchor points: days 1 and 90
+  day[(jags.data$periods[i]+1):(jags.data$periods[i]+2),i] <- c(1,90)
+
+}
+
+#The 'data' has to be the inverse of the inits, <- ??
+# with NAs for all of the estimated Ns, and 0s for the days 1 and 90
+N <- matrix(NA,
+            nrow = max(jags.data$periods)+2,
+            ncol = x)
+
+#True number of whales passing fixed at 0 for day 1 and 90
+for(i in 1:x){
+  N[(jags.data$periods[i]+1):(jags.data$periods[i]+2),i] <- 0
+}
+
+#we're going to make N a partially observed data object with anchor points at day 1 and 90
+# TE: I don't know how these numbers were created... they are generally 2x n (not all)
+N_inits1 <- jags.data$n[, 1, ] * 2 + 2
+#N_inits2 <- jags.data$n[, 2,] * 2 + 2
+
+#N_inits <- N_inits1
+
+N_inits <- rbind(N_inits1,
+                 matrix(data = NA,
+                        nrow = 2,
+                        ncol = x))
+
+for (k in 1:x){
+  N_inits[(jags.data$periods[k]+1) : nrow(N_inits), k] <- NA
+}
+
+# WinBUGS gives errors when N inits are set to 0.
+# Try setting them to 1 instead (seems to work):
+#N_inits[which(N_inits == 0, arr.ind = T)] <- 1
+
+Watch.Length <- rbind(jags.data$effort,
+                      matrix(data = NA,
+                             nrow = 2,
+                             ncol = x))
+
+obs <- abind(jags.data$obs,
+             array(data = 35,
+                   dim = dim(jags.data$obs)),
+             along = 2)
+
+obs[is.na(obs)] <- 35
+
+for (k in 1:x){
+  Watch.Length[(jags.data$periods[k]+1) : (jags.data$periods[k]+2), k] <- 1
+}
+
+BUGS.data <- list(n = n,
+                  n.com = n,
+                  n.sp = n,
+                  n.station = dim(jags.data$n)[2],
+                  n.year = dim(jags.data$n)[3],
+                  n.obs = jags.data$n.obs,
+                  periods = jags.data$periods,
+                  obs = obs,
+                  u = u,
+                  vs = jags.data$vs.raw,
+                  bf = jags.data$bf.raw,
+                  day = day,
+                  N = N,
+                  N.com = N,
+                  N.sp = N,
+                  knot = c(-1.46,-1.26,-1.02,-0.78,
+                           -0.58,-0.34,-0.10,0.10,
+                           0.34,0.57,0.78,1.02,1.26,1.46),
+                  n.knots = 14,
+                  Watch.Length = Watch.Length)
+
+if (!file.exists(paste0("RData/WinBUGS_sim_", run.date, ".rds"))){
+
+  Start_Time<-Sys.time()
+
+  bm <- bugs(data = BUGS.data,
+             inits = BUGS.inits.1,
+             parameters = data.worked$parameters,
+             model.file = BUGS.model,
+             n.chains = MCMC.params$n.chains,
+             n.iter = MCMC.params$n.samples,
+             n.burnin = MCMC.params$n.burnin,
+             n.thin = MCMC.params$n.thin,
+             debug = T,
+             bugs.directory = WinBUGS.dir)
+
+  Run_Time <- Sys.time() - Start_Time
+
+  BUGS.out <- list(BUGS.data = BUGS.data,
+                   bm = bm,
+                   N_inits = N_inits,
+                   MCMC.params = MCMC.params,
+                   BUGS.model = BUGS.model,
+                   Run_Time = Run_Time)
+
+  saveRDS(BUGS.out,
+          paste0("RData/WinBUGS_sim_", run.date, ".rds"))
+} else {
+  BUGS.out <- readRDS("RData/WinBUGS_sim_", run.date, ".rds")
+
+}
+
+
+
+#undefined real result was caused by not having 1 in Watch.Length for day 1 and 90
+# Took me a couple days to figure it out... Still comes back with error (undefined
+# real result as of 2022-10-06). It starts fine but stops while computing. This tells
+# me that it must be something to do with parameter space (priors). But it works fine
+# on real datasets...
+
+# First error message of the trap is
+#
+#  Math.Ln   [0000018BH]
+# 	.x	REAL	-inf
+#
+# There must be log(0) somewhere...
 ```
+
+
+array index is greater than array upper bound for u
 
 
 Analyzing the same data from WinBUGS analysis of real data:
