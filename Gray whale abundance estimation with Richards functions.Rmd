@@ -348,7 +348,11 @@ Days <- 1:90
 
 # Alternatively, use a different function to create real values for the means
 N.mean <- matrix(nrow = 90, ncol = 2)
+
+# first year with gamma
 N.mean[,1] <- dgamma(1:90, 5.4, 0.13) * 6000
+
+# second year with Richards functions
 N.mean[,2] <- Richards_fcn(d = Days, S1 = S1, S2 = S2, 
                            K = K, P = P, min = 0, max = Max)
 
@@ -512,7 +516,7 @@ jags.params <- c("OBS.RF", "OBS.Switch",
 jags.data <- list(  n = obsd.n, 
                     n.station = c(1,1),
                     n.year = length(Season),
-                    n.obs = length(unique(na.omit(as.vector(obs)))) + 1,
+                    n.obs = length(unique(na.omit(as.vector(obs)))),
                     periods = periods,
                     obs = obs.1,
                     vs = scale(vs),
@@ -718,73 +722,74 @@ WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
 #BUGS.model <- "GW_Nmix_Orig.bugs"
 BUGS.model <- "GW_Nmix_Orig_mod.bugs"  # Lower bounds of unif distributions were changed from 0 to 0.01
 
+
 #####################################################
-# The following is from WinBUGS Ver2.Rmd. It ran fine. I saved data and inits from
-# the run and saved it in an rds file. Compare data and inits.
-# This works fine!
-run.date <- "2022-10-21"
+# # The following is from WinBUGS Ver2.Rmd. It ran fine. I saved data and inits from
+# # the run and saved it in an rds file. Compare data and inits.
+# # This works fine!
+run.date <- "2022-10-21"   # the date that WinBUGS Ver2.Rmd was run and the output saved.
 data.worked <- readRDS(paste0("RData/BUGS_data_runs_",
                               run.date, ".rds"))
-# N_inits <- data.worked$N_inits
-# x <- 2
-# #
-# # # Create data list from the one that worked using just the last 2 years:
-obs <- data.worked$BUGS.data$obs[, , 7:8]
-#obs <- obs - min(obs, na.rm = T) + 1
-
-# 36 was used for non-observer
-obs[obs==36] <- NA
-unique.obs <- sort(unique(c(unique(obs[,1,1]), unique(obs[,1,2]))))
-n.obs <- length(unique.obs)
-
-obs.df <- data.frame(new.ID = 1:n.obs,
-                     old.ID = unique.obs)
-
-for (k1 in 1:nrow(obs.df)){
-  for (k2 in 1:2){
-    obs[which(obs[,1,1] == obs.df[k1, "old.ID"]),1,1] <- obs.df[k1,"new.ID"]
-    obs[which(obs[,1,2] == obs.df[k1, "old.ID"]),1,2] <- obs.df[k1,"new.ID"]
-  }
-}
-
-# #
-# N_inits <- N_inits[, 7:8]
-# #
-BUGS.data.1 <- list(n = data.worked$BUGS.data$n[, , 7:8],
-                    n.com = data.worked$BUGS.data$n.com[, , 7:8],
-                    n.sp = data.worked$BUGS.data$n.sp[, , 7:8],
-                    n.station = 1,
-                    n.year = 2,
-                    obs = obs, #data.worked$BUGS.data$obs[, 1, 7:8],
-                    n.obs = max(obs, na.rm = T), #n.obs,
-                    periods = data.worked$BUGS.data$periods[7:8],
-                    u = data.worked$BUGS.data$u[, , 7:8],
-                    vs = data.worked$BUGS.data$vs[, 7:8],
-                    bf = data.worked$BUGS.data$bf[, 7:8],
-                    day = data.worked$BUGS.data$day[, 7:8],
-                    N = data.worked$BUGS.data$N[, 7:8],
-                    N.com = data.worked$BUGS.data$N.com[, 7:8],
-                    N.sp = data.worked$BUGS.data$N.sp[, 7:8],
-                    knot = data.worked$BUGS.data$knot,
-                    n.knots = data.worked$BUGS.data$n.knots,
-                    Watch.Length = data.worked$BUGS.data$Watch.Length[,7:8])
+# # N_inits <- data.worked$N_inits
+# # x <- 2
+# # #
+# # # # Create data list from the one that worked using just the last 2 years:
+# obs <- data.worked$BUGS.data$obs[, , 7:8]
+# #obs <- obs - min(obs, na.rm = T) + 1
 # 
-BUGS.inits.2 <- data.worked$BUGS.inits
-
-bm <- bugs(data =  BUGS.data.1,
-             inits = BUGS.inits.2,
-             parameters = data.worked$parameters,
-             model.file = BUGS.model,
-             n.chains = data.worked$MCMC.params$n.chains,
-             n.iter = data.worked$MCMC.params$n.iter,
-             n.burnin = data.worked$MCMC.params$n.burnin,
-             n.thin = data.worked$MCMC.params$n.thin,
-             debug=T,
-             bugs.directory = WinBUGS.dir)
-
-# value of bernoulli z[1,1] (or z[90,1], or z[90,2]) must be an integer - this happened after I renumbered
-# the observer IDs. 
-# Compare data and inits of this section to the next section.
+# # 36 was used for non-observer
+# obs[obs==36] <- NA
+# unique.obs <- sort(unique(c(unique(obs[,1,1]), unique(obs[,1,2]))))
+# n.obs <- length(unique.obs)
+# 
+# obs.df <- data.frame(new.ID = 1:n.obs,
+#                      old.ID = unique.obs)
+# 
+# for (k1 in 1:nrow(obs.df)){
+#   for (k2 in 1:2){
+#     obs[which(obs[,1,1] == obs.df[k1, "old.ID"]),1,1] <- obs.df[k1,"new.ID"]
+#     obs[which(obs[,1,2] == obs.df[k1, "old.ID"]),1,2] <- obs.df[k1,"new.ID"]
+#   }
+# }
+# 
+# # #
+# # N_inits <- N_inits[, 7:8]
+# # #
+# BUGS.data.1 <- list(n = data.worked$BUGS.data$n[, , 7:8],
+#                     n.com = data.worked$BUGS.data$n.com[, , 7:8],
+#                     n.sp = data.worked$BUGS.data$n.sp[, , 7:8],
+#                     n.station = 1,
+#                     n.year = 2,
+#                     obs = obs, #data.worked$BUGS.data$obs[, 1, 7:8],
+#                     n.obs = max(obs, na.rm = T), #n.obs,
+#                     periods = data.worked$BUGS.data$periods[7:8],
+#                     u = data.worked$BUGS.data$u[, , 7:8],
+#                     vs = data.worked$BUGS.data$vs[, 7:8],
+#                     bf = data.worked$BUGS.data$bf[, 7:8],
+#                     day = data.worked$BUGS.data$day[, 7:8],
+#                     N = data.worked$BUGS.data$N[, 7:8],
+#                     N.com = data.worked$BUGS.data$N.com[, 7:8],
+#                     N.sp = data.worked$BUGS.data$N.sp[, 7:8],
+#                     knot = data.worked$BUGS.data$knot,
+#                     n.knots = data.worked$BUGS.data$n.knots,
+#                     Watch.Length = data.worked$BUGS.data$Watch.Length[,7:8])
+# # 
+# BUGS.inits.2 <- data.worked$BUGS.inits
+# 
+# bm <- bugs(data =  BUGS.data.1,
+#              inits = BUGS.inits.2,
+#              parameters = data.worked$parameters,
+#              model.file = BUGS.model,
+#              n.chains = data.worked$MCMC.params$n.chains,
+#              n.iter = data.worked$MCMC.params$n.iter,
+#              n.burnin = data.worked$MCMC.params$n.burnin,
+#              n.thin = data.worked$MCMC.params$n.thin,
+#              debug=T,
+#              bugs.directory = WinBUGS.dir)
+# 
+# # value of bernoulli z[1,1] (or z[90,1], or z[90,2]) must be an integer - this happened after I renumbered
+# # the observer IDs. 
+# # Compare data and inits of this section to the next section.
 
 #########################################################
 
@@ -845,9 +850,10 @@ n[is.na(n)] <- 0
 # the u data is whether there were observers on watch. 
 # 0 counts are often associated with years/shifts with 
 # no second observer. So if u=0, it will fix observation probability at 0
+# obs has no NAs, but no observers were indicated by 25. 
 u <- jags.data$obs
-u[!is.na(u)] <- 1
-u[is.na(u)] <- 0
+u[u != 25] <- 1
+u[u == 25] <- 0
 
 # day indicators. Need to add 1 and 90 at the end
 day <- rbind(jags.data$day, matrix(NA, nrow = 2, ncol = x))
@@ -900,13 +906,15 @@ obs <- abind(jags.data$obs,
 
 obs[is.na(obs)] <- 35
 
+# Should this be zeros? Watch length of day 1 and 90... 
+# They are 1s in the data.worked. 
 for (k in 1:x){
   Watch.Length[(jags.data$periods[k]+1) : (jags.data$periods[k]+2), k] <- 1
 }
 
-BUGS.data <- list(n = n,
-                  n.com = n,
-                  n.sp = n,
+BUGS.data <- list(n = unname(n),
+                  n.com = unname(n),
+                  n.sp = unname(n),
                   n.station = dim(jags.data$n)[2],
                   n.year = dim(jags.data$n)[3],
                   n.obs = jags.data$n.obs,
@@ -919,13 +927,13 @@ BUGS.data <- list(n = n,
                   N = N,
                   N.com = N,
                   N.sp = N,
-                  knot = c(-1.46,-1.26,-1.02,-0.78,
-                           -0.58,-0.34,-0.10,0.10,
-                           0.34,0.57,0.78,1.02,1.26,1.46),
+                  knot = c(-1.46, -1.26, -1.02, -0.78,
+                           -0.58, -0.34, -0.10, 0.10,
+                           0.34, 0.57, 0.78, 1.02, 1.26, 1.46),
                   n.knots = 14,
                   Watch.Length = Watch.Length)
 
-if (!file.exists(paste0("RData/WinBUGS_sim_", run.date, ".rds"))){
+if (!file.exists(paste0("RData/WinBUGS_sim_", Sys.Date(), ".rds"))){
 
   Start_Time<-Sys.time()
 

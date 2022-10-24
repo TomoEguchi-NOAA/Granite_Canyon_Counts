@@ -96,13 +96,8 @@ model{
 
 				logit(prob[d,s,y]) <- mean.prob  +  #logit(mean.prob) + 
 								(BF.Switch * BF.Fixed * bf[d,y]) + 
-								(VS.Switch * VS.Fixed * vs[d,y]) 
-								#(OBS.Switch * OBS.RF[obs[d,s,y]])						
-       
-				#prob[d,s,y] <- exp(mean.prob + (BF.Switch * BF.Fixed * bf[d,y]) +
-				#					(VS.Switch * VS.Fixed * vs[d,y]))/(1 + exp(mean.prob + (BF.Switch * BF.Fixed * bf[d,y]) +
-				#					(VS.Switch * VS.Fixed * vs[d,y]))) 
-
+								(VS.Switch * VS.Fixed * vs[d,y]) +
+								(OBS.Switch * OBS.RF[obs[d,s,y]])						
 									
 				# watch.prop is the proportion of the total watch periods in a day (540 minutes) that
 				# was actually observed. 
