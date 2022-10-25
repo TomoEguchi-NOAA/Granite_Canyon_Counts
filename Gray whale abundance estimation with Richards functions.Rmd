@@ -719,8 +719,8 @@ In order to compare the new method to the current method (Durban et al.), I anal
 
 ```{r WinBugs-Analysis, echo=FALSE, message=FALSE}
 WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
-#BUGS.model <- "GW_Nmix_Orig.bugs"
-BUGS.model <- "GW_Nmix_Orig_mod.bugs"  # Lower bounds of unif distributions were changed from 0 to 0.01
+BUGS.model <- "GW_Nmix_Orig.bugs"
+#BUGS.model <- "GW_Nmix_Orig_mod.bugs"  # Lower bounds of unif distributions were changed from 0 to 0.01
 
 
 #####################################################
@@ -938,7 +938,7 @@ if (!file.exists(paste0("RData/WinBUGS_sim_", Sys.Date(), ".rds"))){
   Start_Time<-Sys.time()
 
   bm <- bugs(data = BUGS.data,
-             inits = BUGS.inits.1,
+             inits = data.worked$BUGS.inits, #BUGS.inits.1,
              parameters = data.worked$parameters,
              model.file = BUGS.model,
              n.chains = MCMC.params$n.chains,
