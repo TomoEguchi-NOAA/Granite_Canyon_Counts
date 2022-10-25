@@ -714,7 +714,7 @@ knitr::include_graphics("figures/N_hats_sim.png")
 
 #### Comparison to Durban et al's method
 
-In order to compare the new method to the current method (Durban et al.), I analyzed the same simulated dataset with the analytical approach in Durban et al. WinBUGS returns error (undefined real result), which appears to be caused by computing log(0). I can't find the problem. I'll move on to comparing results of real datasets. 
+In order to compare the new method to the current method (Durban et al.), I analyzed the same simulated dataset with the analytical approach in Durban et al. WinBUGS returns error (undefined real result), which appears to be caused by computing log(0). I can't find the problem.  
 
 
 ```{r WinBugs-Analysis, echo=FALSE, message=FALSE}
@@ -794,6 +794,8 @@ data.worked <- readRDS(paste0("RData/BUGS_data_runs_",
 #########################################################
 
 x <- length(Season)
+
+N_inits.1 <- cbind(N_inits[,2], N_inits[,1])
 BUGS.inits.1 <- function() list(mean.prob = 0.5,
                                 BF.Fixed = 0,
                                 VS.Fixed = 0,
@@ -817,22 +819,12 @@ BUGS.inits.1 <- function() list(mean.prob = 0.5,
                                 VS.Switch.com = 1,
                                 OBS.Switch.com = 1,
                                 sigma.Obs.com = 1,
-                                N = N_inits,
-                                N.com = N_inits,
-                                N.sp = N_inits,
+                                N = N_inits.1, #N_inits,
+                                N.com = N_inits.1, #N_inits,
+                                N.sp = N_inits.1, #N_inits,
                                 beta.sp = array(data=0, dim=c(2,x)),
                                 sd.b.sp = rep(1, times = x),
                                 z = matrix(1, nrow=90, ncol= x))
-
-# parameters <- c("lambda","OBS.RF","OBS.Switch",
-#                 "BF.Switch","BF.Fixed","VS.Switch",
-#                 "VS.Fixed","mean.prob","mean.prob.com",
-#                 "mean.prob.sp","BF.Fixed.com",
-#                 "BF.Fixed.sp","VS.Fixed.com",
-#                 "VS.Fixed.sp",
-#                 "Corrected.Est","Raw.Est","z",
-#                 "com","sp","Daily.Est","mean.beta",
-#                 "beta.sigma","beta","beta.sp","b.sp","sd.b.sp")
 
 jags.data <- jm.out$jags.data
 MCMC.params <- jm.out$MCMC.params
@@ -912,33 +904,56 @@ for (k in 1:x){
   Watch.Length[(jags.data$periods[k]+1) : (jags.data$periods[k]+2), k] <- 1
 }
 
-BUGS.data <- list(n = unname(n),
-                  n.com = unname(n),
-                  n.sp = unname(n),
+##############################################################
+# let's swap the first and second columns (years)
+n.1 <- array(dim = dim(n))
+n.1[,,1] <- n[,,2]
+n.1[,,2] <- n[,,1]
+
+obs.1 <- array(dim = dim(jags.data$obs))
+obs.1[,,1] <- jags.data$obs[,,2]
+obs.1[,,2] <- jags.data$obs[,,1]
+
+bf.1 <- cbind(jags.data$bf.raw[,2], jags.data$bf.raw[,1])
+vs.1 <- cbind(jags.data$vs.raw[,2], jags.data$vs.raw[,1])
+
+periods.1 <- c(jags.data$periods[2], jags.data$periods[1])
+
+day.1 <- cbind(day[,2], day[,1])
+
+N.1 <- cbind(N[,2], N[,1])
+
+Watch.Length.1 <- cbind(Watch.Length[,2], Watch.Length[,1])
+# This one didn't work either... 
+##############################################################
+
+BUGS.data <- list(n = n.1, #unname(n),
+                  n.com = n.1, #unname(n),
+                  n.sp = n.1, #unname(n),
                   n.station = dim(jags.data$n)[2],
                   n.year = dim(jags.data$n)[3],
                   n.obs = jags.data$n.obs,
-                  periods = jags.data$periods,
-                  obs = obs,
+                  periods = periods.1, #jags.data$periods,
+                  obs = obs.1, #obs,
                   u = u,
-                  vs = jags.data$vs.raw,
-                  bf = jags.data$bf.raw,
-                  day = day,
-                  N = N,
-                  N.com = N,
-                  N.sp = N,
+                  vs = bf.1, #jags.data$vs.raw,
+                  bf = vs.1, #jags.data$bf.raw,
+                  day = day.1, #day,
+                  #N = N.1, #N,
+                  #N.com = N.1, #N,
+                  #N.sp = N.1, #N,
                   knot = c(-1.46, -1.26, -1.02, -0.78,
                            -0.58, -0.34, -0.10, 0.10,
                            0.34, 0.57, 0.78, 1.02, 1.26, 1.46),
                   n.knots = 14,
-                  Watch.Length = Watch.Length)
+                  Watch.Length = Watch.Length.1) #Watch.Length)
 
 if (!file.exists(paste0("RData/WinBUGS_sim_", Sys.Date(), ".rds"))){
 
   Start_Time<-Sys.time()
 
   bm <- bugs(data = BUGS.data,
-             inits = data.worked$BUGS.inits, #BUGS.inits.1,
+             inits = BUGS.inits.1, #data.worked$BUGS.inits, #
              parameters = data.worked$parameters,
              model.file = BUGS.model,
              n.chains = MCMC.params$n.chains,
