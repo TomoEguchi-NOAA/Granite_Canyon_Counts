@@ -1,0 +1,1192 @@
+---
+title: "A new approach to gray whale abundance estimation"
+author: "Tomo Eguchi"
+date: "`r Sys.Date()`"
+output: 
+  bookdown::word_document2: default
+---
+
+
+```{r setup, include=FALSE}
+rm(list = ls())
+knitr::opts_chunk$set(echo = TRUE)
+save.fig <- F
+
+source("Granite_Canyon_Counts_fcns.R")
+library(tidyverse)
+library(lubridate)
+library(flextable)
+library(jagsUI)
+library(bayesplot)
+library(ggpubr)
+library(R2WinBUGS)
+library(abind)
+
+set_flextable_defaults(font.size = 9,
+                       font.family = "Cambria")
+```
+
+## Introduction {-}
+
+Analytical methods to estimate abundance of gray whales from visual surveys at Granite Canyon, CA, have evolved over the years. Laake et al. (2006?) used the distance sampling approach with generalized additive models (GAMs). Durban et al. (2016) developed a new method using a Bayesian N-mixture approach. The new approach was approved by the IWC and it has been used for the analysis since the 2015/2016 season. The analysis is conducted using WinBUGS, which has become obsolete over the last several years. In this report, I provide improvements of the method by Durban et al. where the analysis is conducted using JAGS (Plummer 2021), which is a widely used Bayesian programming language. 
+
+The general tendency of annual migration of gray whales (or any other migratory species - find other examples) is that when the migration is observed at a location along the migration corridor, the number increases over time until it reaches its peak, then it decreases. The method by Durban et al. used a Gaussian function to capture this general trend. 
+
+In the following, I first describe the method by Durban et al. and point out underlying assumptions that are somewhat questionable. Then, I introduce a new approach that is consistent with the basic idea of the method by Durban et al. but improve it by removing those assumptions. I show the performance of the new approach using simulated data. Finally, I reanalyze the data to compare abundance estimates between the two approaches. 
+
+
+## Method by Durban et al. {-}
+
+### Mathematical description {-}
+
+
+### Difficulties of the method {-}
+
+The approach used the "cut" function within WinBUGS to select either Gaussian or spline fit to daily count of gray whales. The use of "cut" function has been criticized (Plummer YR). Furthermore, the assumption that the number of gray whales migrating in front of the observation station follows a Gaussian function is somewhat questionable. The true curve may not be symmetrical around the peak and the peak may not be instantaneous. In other words, the peak may persist for a few days. Fitting spline functions to observed counts alleviates the problem but it loses the general idea that the number of whales increases, reaches a peak, then decreases over the migration season.  
+
+## Improvements {-}
+
+### Model description
+In order to overcome these difficulties with the previous approach, I propose to use a more flexible function that can accommodate the general shape (increase, peak then decrease) and asymmetrical around the peak. The function is often called Richards' function and it has the following form.
+
+$$M_1 = (1 + (2 e^K - 1) * e^{(P-d)/(S_1)}) ^ {(-1/e^K)}$$
+
+$$M_2 = (1 + (2 e^K - 1) * e^{(P-d)/(S_2)}) ^ {(-1/e^K)}$$
+
+$$N = N_{min} + (N_{max} - N_{min}) * (M_1 * M_2),$$ 
+
+where $d$ is the number of days from the beginning of nesting season,
+
+$S_1 < 0$ and $S_2 > 0$ defines how the slope decreases and increases, respectively,
+
+$K > 0$ defines the "flatness" at the peak of the function,
+
+$P$ defines where the peak is relative to the range of $d$, where $min(d) < P < max(d)$,
+
+$N_{min}$ is zero, i.e., the number of whales migrating outside of a migration season and,
+
+$N_{max} >> N_{min}$. $N_{max}$ is not the maximum number of whales migrating per day but it is a parameter that may be fixed or estimated during the analysis.  
+
+
+### Function characteristics {-}
+
+#### Effects of $S_1$ {-}
+
+The parameter $S_1 < 0$ defines how the curve decreases from its peak. The rate of decline slows down as $S_1$ becomes smaller (Figure \@ref(fig:Figure-S1)). Because we make an assumption that there are no whales migrating at day 1 and 90, the lower bound of $S_1$ can be restricted to a certain value, e.g., -5).   
+
+```{r S1, echo=FALSE, message=FALSE}
+S1 <- c(-10, -5, -2.5, -1.2, -0.6, -0.3)
+S2 <- 1.5
+K <- 1
+P <- 40
+max.N <- 800
+
+true.mean.N <- matrix(data = 0, nrow = 90, ncol = length(S1))
+
+for (c in 1:length(S1)){
+  for (d in 1:90){
+    true.mean.N[d, c] <- floor(Richards_fcn(d = d, 
+                                            S1 = S1[c], 
+                                            S2 = S2,
+                                            K = K, 
+                                            P = P, 
+                                            min = 0, max = max.N)  )
+    
+
+  }
+  
+}
+
+data.df <- data.frame(Day = rep(1:90, times = length(S1)),
+                      mean.N = as.vector(true.mean.N),
+               
+                      S1 = rep(S1, each = 90))
+
+p.S1 <- ggplot(data = data.df) +
+  geom_path(aes(x = Day, y = mean.N), color = "red") +
+
+  facet_wrap(~ S1)
+
+if (save.fig)
+  ggsave(p.S1, filename = "figures/S1.png", dpi = 600, device = "png")
+
+```
+
+
+
+```{r Figure-S1, echo=FALSE, message=FALSE, fig.cap="Effects of $S_1$. In this example, $S_2 = 1.5$, $K = 1$, $P = 40$, $N_{max} = 800$."}
+
+knitr::include_graphics("figures/S1.png")
+
+```
+
+
+#### Effects of $S_2$ {-}
+
+The parameter $S_2 > 0$ defines how the curve increases to its peak. The rate of increase slows down as $S_2$ becomes larger (Figure \@ref(fig:Figure-S2)). Because we make an assumption that there are no whales migrating at day 1 and 90, the upper bound of $S_2$ can be restricted to a certain value, e.g., 5).
+
+```{r S2, echo=FALSE, message=FALSE}
+S1 <- -1.5
+S2 <- c(0.3, 0.6, 1.2, 2.5, 5, 10)
+K <- 1
+P <- 40
+max.N <- 800
+
+true.mean.N <- matrix(data = 0, nrow = 90, ncol = length(S2))
+
+for (c in 1:length(S2)){
+  for (d in 1:90){
+    true.mean.N[d, c] <- floor(Richards_fcn(d = d, 
+                                            S1 = S1, 
+                                            S2 = S2[c],
+                                            K = K, 
+                                            P = P, 
+                                            min = 0, max = max.N)  )
+    
+  }
+  
+}
+
+data.df <- data.frame(Day = rep(1:90, times = length(S2)),
+                      mean.N = as.vector(true.mean.N),
+
+                      S2 = rep(S2, each = 90))
+
+p.S2 <- ggplot(data = data.df) +
+  geom_path(aes(x = Day, y = mean.N), color = "red") +
+
+  facet_wrap(~ S2)
+
+if (save.fig)
+  ggsave(p.S2, filename = "figures/S2.png", dpi = 600, device = "png")
+
+```
+
+
+```{r Figure-S2, echo=FALSE, message=FALSE, fig.cap="Effects of $S_2$. In this example, $S_1 = -1.5$, $K = 1$, $P = 40$, $N_{max} = 800$."}
+
+knitr::include_graphics("figures/S2.png")
+
+```
+
+
+#### Effects of K {-}
+
+The parameter $K > 0$ defines the flatness of the curve at its peak. Greater $K$ values correspond to flatter peaks (Figure \@ref(fig:Figure-K)). Similarly to $S_1$ and $S_2$, the upper bound of $K$ may be defined based on the assumption that the numbers of migrating gray whales are zero at day 1 and 90, e.g., $K < 2$. 
+
+```{r K, echo=FALSE, message=FALSE}
+S1 <- -2.5
+S2 <- 2.5
+K <- c(0.01, 0.1, 1, 2, 4, 8)
+P <- 40
+max.N <- 800
+
+true.mean.N <- matrix(data = 0, nrow = 90, 
+                           ncol = length(K))
+
+for (c in 1:length(K)){
+  for (d in 1:90){
+    true.mean.N[d, c] <- floor(Richards_fcn(d = d, 
+                                            S1 = S1, 
+                                            S2 = S2,
+                                            K = K[c], 
+                                            P = P, 
+                                            min = 0, max = max.N)  )
+    
+  }
+  
+}
+
+data.df <- data.frame(Day = rep(1:90, times = length(K)),
+                      mean.N = as.vector(true.mean.N),
+                      K = rep(K, each = 90))
+
+p.K <- ggplot(data = data.df) +
+  geom_path(aes(x = Day, y = mean.N), color = "red") +
+  facet_wrap(~ K)
+
+if (save.fig)
+  ggsave(p.K, filename = "figures/K.png", dpi = 600, device = "png")
+
+```
+
+
+```{r Figure-K, echo=FALSE, message=FALSE, fig.cap="Effects of $K$. In this example, $S_1 = -2.5$, $S_2 = 2.5$, $P = 40$, $N_{max} = 800$."}
+
+knitr::include_graphics("figures/K.png")
+
+```
+
+
+
+#### Effects of P {-}
+
+The parameter $P$ defines the location of its peak (Figure \@ref(fig:Figure-P)). 
+
+```{r P, echo=FALSE, message=FALSE}
+S1 <- -2.5
+S2 <- 2.5
+K <- 1.5
+P <- c(20, 40, 60, 80)
+max.N <- 800
+
+true.mean.N <- matrix(data = 0, nrow = 90, 
+                           ncol = length(P))
+
+for (c in 1:length(P)){
+  for (d in 1:90){
+    true.mean.N[d, c] <- floor(Richards_fcn(d = d, 
+                                            S1 = S1, 
+                                            S2 = S2,
+                                            K = K, 
+                                            P = P[c], 
+                                            min = 0, max = max.N)  )
+    
+  }
+  
+}
+
+data.df <- data.frame(Day = rep(1:90, times = length(P)),
+                      mean.N = as.vector(true.mean.N),
+                      P = rep(P, each = 90))
+
+p.P <- ggplot(data = data.df) +
+  geom_path(aes(x = Day, y = mean.N), color = "red") +
+  facet_wrap(~ P)
+
+if (save.fig)
+  ggsave(p.P, filename = "figures/P.png", dpi = 600, device = "png")
+
+```
+
+
+```{r Figure-P, echo=FALSE, message=FALSE, fig.cap="Effects of $P$. In this example, $S_1 = -2.5$, $S_2 = 2.5$, $K = 1.5$, $N_{max} = 800$."}
+
+knitr::include_graphics("figures/P.png")
+
+```
+
+
+#### Fitting the model to observed counts {-}
+
+The proposed new approach replaces the spline-Gaussian selection step in Durban et al. with Richards functions. The observed counts are modeled with binomial distributions as it was in Durban et al.
+
+$$ n_{d_t,s,y} \sim BIN(N_{t, y}, p_{d_t, s, y} * \theta_{d_t, y}) $$
+where $n_{d_t, s, y}$ is the observed number of gray whales during the watch period $d$ of the $t$-th day of the season $y$ from the station $s$, $N_{t, y}$ is the number of gray whales that migrated through the sampling area during the $t$-th day,  $p_{d_t, s, y}$ is the sighting probability of the station $s$ during the watch period $d$ of the $t$-th day of the season $y$, and $\theta_{d_t,y}$ is the fractional duration of the watch period $d_t$ to the total possible (9 hrs), e.g., 3 hrs equals to 3/9 = 0.3.
+
+The sighting probability $p_{d_t, s, y}$ is modeled as a function of Beaufort sea state, visibility, and observers. Beaufort sea state and visibility were treated as fixed effects, whereas observers were treated as a random effect. Furthermore, additional parameters were added to determine whether or not to include any of these covariates. 
+
+
+$$ logit(p_{d_t, s, y}) = \beta_0 + I_{BF} * \beta_{BF} * BF_{d_t, y} + I_{VS} * \beta_{VS} * VS_{d_t, y} + I_{OBS} * OBS_{d_t, s, y}  $$
+
+This is identical to how the sighting probability was modeled in Durban et al. (2016).
+
+
+The number of gray whales that migrated through the sampling area during the $t$-th day of the season was modeled as a random Poisson variable with the mean $\bar{N}_{t, y}$, 
+
+$$ N_{t, y} \sim POI(\bar{N}_{t,y}) $$
+
+where $\bar{N}_t$ is the "mean" number of whales that expected to migrate through the sampling area on the $t$-th day of the season $y$ and modeled with Richards functions above. 
+
+I used Poisson distribution for this hierarchical model based on the finding in Raftery (1988). 
+
+The total number of gray whales for season $y$ is the sum of all $N_{t, y}$ and corrected for nighttime passage:
+
+$$ N_y = \lambda * \sum_{t = 1} ^ {90} N_{t, y} $$ and 
+
+$$ \lambda \sim N(1.0875, 0.03625) $$ (Perryman et al. YR). 
+
+
+
+### Performance of the new approach
+
+#### Simulation
+
+To evaluate the performance of the new approach using Richards functions, I simulated data using the above relationships. To test for a mismatch between the within-season mean function, with respect to the number of days since day 1, I used a gamma distribution function (GAM(3, 0.07) * 5000) instead of Richards functions (R())to define the mean values for one year and used Richards functions for the other year. 
+
+
+$$ \bar{N}_{1,t} = GAM(t, 3, 0.07) $$, 
+
+where t = 1, ..., 90.
+
+$$ \bar{N}_{2,t} = R(t, S_1 = -0.9, S_2 = 1.5, P = 48, K = 2.5, max = 500) $$, 
+
+where t = 1, ..., 90.
+
+The shape of the gamma function is shwon in Figure \@ref(fig:Figure-Gam-def).
+
+```{r gam_fcn, echo=FALSE, message=FALSE}
+gam.def <- data.frame(x = seq(0, 100, by = 0.01)) %>%
+  mutate(y = dgamma(x, 5.4, 0.13) * 5000)
+
+p.gam.def <- ggplot(gam.def) +
+  geom_path(aes(x = x, y = y))
+
+if (save.fig)
+  ggsave(filename = "figures/gam_def.png", plot = p.gam.def,
+         device = "png", dpi = 600)
+```
+
+
+```{r Figure-Gam-def, echo=FALSE, message=FALSE, fig.cap="The shape of gamma distribution function used to simulate data. This function defines $\bar{N}$. Although there are non-zero values beyond x = 90, the $\bar{N}$ was set to 0 at x = 90. "}
+
+knitr::include_graphics("figures/gam_def.png")
+
+```
+
+
+```{r simulation, echo=FALSE, message=FALSE}
+set.seed(12345)
+save.fig <- T
+# Define Richards function parameters
+S1 <- 0.9  # this gets fixed to a negative value in Richards_fcn. 
+S2 <- 1.5
+P <- 48
+K <- 2.5
+Max <- 200
+Days <- 1:90
+
+# Alternatively, use a different function to create real values for the means
+N.mean <- matrix(nrow = 90, ncol = 2)
+
+# first year with gamma
+N.mean[,1] <- dgamma(1:90, 5.4, 0.13) * 6000
+
+# second year with Richards functions
+N.mean[,2] <- Richards_fcn(d = Days, S1 = S1, S2 = S2, 
+                           K = K, P = P, min = 0, max = Max)
+
+# This is by assumption
+#N.mean[c(1,90), 1:2] <- 0
+
+# Define sighting probability parameters
+B0 <- 0.7
+B_BF <- -1.2
+B_VS <- -1.8
+
+param.names <- c("S1[1]", "S1[2]", "S2[1]", "S2[2]", 
+                 "K", "P[1]", "P[2]", 
+                 "max[1]", "max[2]", 
+                 "mean.prob", "BF.Fixed", "VS.Fixed")
+
+params.df <- data.frame(names = param.names,
+                        value = c(NA, S1, NA, S2, K, NA, P, NA, Max,
+                                  B0, B_BF, B_VS))
+
+Season = c("2020", "2022")
+True.N <- matrix(nrow = 90, ncol = length(Season))
+for (k in 1:nrow(N.mean)) {
+  for (c in 1:ncol(N.mean)){
+    True.N[k,c] <- rpois(n = 1, lambda = N.mean[k, c])
+  }
+  
+}
+
+# Use real data for observers, Beaufort, and visibility
+#out.file.name <- "RData/Pois_Binom_sim_results.rds"
+out.file.name <- "RData/Pois_Binom_sim_results.rds"
+    
+set.seed(12345)
+Data_True.N <- list()
+periods <- vector(mode = "numeric", length = length(Season))
+
+# need to convert observer initials into numbers for all years
+obs.list <- read.csv(file = "Data/Observer list 2022.csv")
+
+for (y in 1:length(Season)){
+  # I use the real data to emulate sampling and sighting conditions
+  tmp <- readRDS(paste0("RData/V2.1_Aug2022/out_", Season[y], "_Tomo_v2.rds"))
+  Final_Data <- tmp$Final_Data %>%
+    mutate(Year = Season[y],
+           Day = as.numeric(BeginDay)) %>%
+    mutate(effort = dur) %>%
+    mutate(watch.prop = effort * 24/9) %>%
+    select(Year, Day, effort, watch.prop, bf, vs, n, obs) %>%
+    filter(bf < 5, vs < 5)
+  
+  # Find all observers and change them into integer code.
+  # These numbers have to be consistent over years.
+  obs.y <- data.frame(obs = Final_Data$obs) %>% 
+    left_join(obs.list, by = "obs") 
+  
+  Final_Data$obs.ID <- obs.y$ID
+  
+  # unique.obs <- unique(obs.y$ID)
+  # obs.ID.df <- data.frame(obs = obs.list[obs.list$ID %in% unique.obs, "obs"],
+  #                         obs.ID = unique.obs) %>%
+  #   arrange(by = obs.ID)
+  # 
+  # Final_Data %>% 
+  #   left_join(obs.ID.df, by = "obs") %>% 
+  #   select(-obs) -> Final_Data
+  
+  # figure out the number of periods
+  Final_Data %>% 
+    group_by(Year) %>%
+    #filter(effort > 0) %>%
+    summarise(n = n()) -> n.days
+  
+  periods[y] <- n.days$n
+  
+  Final_Data$n[Final_Data$effort == 0] <- NA
+  
+  # Create sighting probabilities
+  Final_Data %>%
+    mutate(Sighting.Prob.lm = as.vector(B0 + B_BF * scale(bf) + 
+                                          B_VS * scale(vs)),
+           Sighting.Prob = exp(Sighting.Prob.lm)/(1 + exp(Sighting.Prob.lm)),
+           Binom.Prob = watch.prop * Sighting.Prob) -> Final_Data
+  
+  Final_Data %>%
+    left_join(data.frame(Day = Days,
+                         N.mean = N.mean[,y],
+                         N.True = True.N[,y]), 
+              by = "Day") -> Data_True.N[[y]]
+}
+
+max.n.rows <- lapply(Data_True.N, FUN = nrow) %>% 
+  unlist() %>% 
+  max()
+
+watch.prop <- bf <- vs <- day <- effort <- array(dim = c(max.n.rows, length(Season)))
+obs <- obsd.n <- array(dim = c(max.n.rows, 1, length(Season)))
+
+for (y in 1:length(Season)){
+  
+  for (k in 1:nrow(Data_True.N[[y]])){
+    obsd.n[k, 1, y] <- rbinom(n = 1, 
+                              size = Data_True.N[[y]]$N.True[k], 
+                              prob = Data_True.N[[y]]$Binom.Prob[k])
+    
+    obs[k,1,y] <- Data_True.N[[y]]$obs.ID[k]
+    watch.prop[k, y] <- Data_True.N[[y]]$watch.prop[k]
+    effort[k,y] <- Data_True.N[[y]]$effort[k]
+    
+    bf[k, y] <- Data_True.N[[y]]$bf[k]
+    vs[k, y] <- Data_True.N[[y]]$vs[k]
+    day[k, y] <- Data_True.N[[y]]$Day[k]
+  }
+}
+
+# convert obs.ID to sequential number starting from 1.
+unique.ID <- unique(c(unique(obs[,1,1]), unique(obs[,1,2])))
+unique.ID.df <- data.frame(raw.ID = unique.ID,
+                           seq.ID = 1:length(unique.ID))
+#unique.ID.df[is.na(unique.ID.df$raw.ID), "seq.ID"] <- 36                           
+
+obs.1 <- obs
+for (c1 in 1:dim(obs)[1]){
+  for (c2 in 1:dim(obs)[2]){
+    for (c3 in 1:dim(obs)[3]){
+      obs.tmp <- obs[c1,c2,c3]
+      if (!is.na(obs.tmp)){
+        obs.1[c1,c2,c3] <- unique.ID.df %>% 
+          filter(raw.ID == obs.tmp) %>%
+          select(seq.ID) %>%
+          pull()
+        
+      } else {
+        obs.1[c1,c2,c3] <- unique.ID.df %>% 
+          filter(is.na(raw.ID)) %>%
+          select(seq.ID) %>%
+          pull()
+      }
+      
+    }
+  }
+}
+
+#Data_True.N$obsd.n <- obsd.n
+
+MCMC.params <- list(n.samples = 120000,
+                    n.thin = 10,
+                    n.burnin = 100000,
+                    n.chains = 5)
+
+jags.model <- paste0("models/model_Richards_pois_bino.txt")
+
+jags.params <- c("OBS.RF", "OBS.Switch",
+                 "BF.Switch", "BF.Fixed", 
+                 "VS.Switch", "VS.Fixed",
+                 "mean.prob", "mean.N", "max",
+                 "Corrected.Est", "Raw.Est", "N",
+                 "K", "S1", "S2", "P",
+                 "log.lkhd")
+
+jags.data <- list(  n = obsd.n, 
+                    n.station = c(1,1),
+                    n.year = length(Season),
+                    n.obs = length(unique(na.omit(as.vector(obs)))),
+                    periods = periods,
+                    obs = obs.1,
+                    vs = scale(vs),
+                    bf = scale(bf),
+                    watch.prop = watch.prop,
+                    day = day,
+                    effort = effort,
+                    bf.raw = bf,
+                    vs.raw = vs)
+
+#max.vec = c(3000, 3000))
+if (!file.exists(out.file.name)){
+  
+  Start_Time<-Sys.time()
+  
+  jm <- jagsUI::jags(jags.data,
+                     inits = NULL,
+                     parameters.to.save= jags.params,
+                     model.file = jags.model,
+                     n.chains = MCMC.params$n.chains,
+                     n.burnin = MCMC.params$n.burnin,
+                     n.thin = MCMC.params$n.thin,
+                     n.iter = MCMC.params$n.samples,
+                     DIC = T, 
+                     parallel=T)
+  
+  Run_Time <- Sys.time() - Start_Time
+  jm.out <- list(jm = jm,
+                 jags.data = jags.data,
+                 jags.params = jags.params,
+                 jags.model = jags.model,
+                 MCMC.params = MCMC.params,
+                 Run_Time = Run_Time)
+  
+  saveRDS(jm.out,
+          file = out.file.name)
+  
+} else {
+  
+  jm.out <- readRDS(out.file.name)
+}
+
+
+
+```
+
+
+
+#### Estimated parameters of simulated data
+
+```{r jags-posteriors, echo=FALSE, message=FALSE, warning=FALSE}
+#save.fig <- T
+max.r.hat <- max(unlist(lapply(jm.out$jm$Rhat, 
+                               FUN = max, 
+                               na.rm = T)))
+#jm <- jm.out$jm
+#true.values <- c(S1, S2, K, P, B0, B_BF, B_VS)
+# params <- data.frame(name = param.names,
+#                      value = true.values)
+
+plots.trace <- function(jm, params, params.df){
+  out.list <- list()
+  for (i in 1:length(params)){
+    if (i < 7){
+      p.tmp <- mcmc_trace(jm$samples, params[i]) +
+        legend_none() + xaxis_text(on = FALSE) +
+        hline_at(params.df[i, "value"], color = "red", size = 1.2)
+      
+    } else {
+      p.tmp <- mcmc_trace(jm$samples, params[i]) +
+        legend_none() +
+        hline_at(params.df[i, "value"], color = "red", size = 1.2)
+
+    }
+
+    out.list[[i]] <- p.tmp 
+  }
+  return(out.list)
+}
+
+plots.dens <- function(jm, params){
+  out.list <- list()
+  for (k in 1:length(params)){
+    out.list[[k]] <- mcmc_dens(jm$samples, params[k]) #+
+
+  }
+  
+  return(out.list)
+}
+
+p.trace <- plots.trace(jm.out$jm, 
+                       params = param.names,
+                       params.df = params.df)
+p.dens <- plots.dens(jm.out$jm, params = param.names)
+
+if (save.fig){
+  for (k in 1:length(param.names)){
+    ggsave(plot = p.trace[[k]] + 
+             geom_hline(aes(yintercept = params.df[k, "value"]),
+                        color = "red", size = 1.2),
+           filename = paste0("figures/", param.names[k], "_sim_trace.png"),
+           
+           dpi = 600, 
+           device = "png",
+           height = 3, width = 3, units = "in")
+    
+    ggsave(filename = paste0("figures/", param.names[k], "_sim_dens.png"),
+           plot = p.dens[[k]],
+           dpi = 600, device = "png",
+           height = 3, width = 3, units = "in")
+    
+  }
+  
+}
+
+obsd.n.df <- data.frame(Season = c(rep(Season[1], jm.out$jags.data$periods[1]), 
+                                   rep(Season[2], jm.out$jags.data$periods[2])),
+                        day = c(jm.out$jags.data$day[1:jm.out$jags.data$periods[1],1],
+                                jm.out$jags.data$day[1:jm.out$jags.data$periods[2],2]),
+                        n = c(jm.out$jags.data$n[1:jm.out$jags.data$periods[1],1,1],
+                              jm.out$jags.data$n[1:jm.out$jags.data$periods[2],1,2]))
+
+mean.N.hats <- data.frame(Season = rep(Season, each = 90),
+                          Day = rep(1:90, length(Season)),
+                          Mean = as.vector(jm.out$jm$mean$mean.N),
+                          LCL = as.vector(jm.out$jm$q2.5$mean.N),
+                          UCL = as.vector(jm.out$jm$q97.5$mean.N),
+                          true.mean = as.vector(N.mean))
+
+p.mean.N.hats <- ggplot(mean.N.hats %>% group_by(Season)) + 
+  geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
+              fill = "blue", alpha = 0.5) +
+  geom_path(aes(x = Day, y = Mean)) + 
+  geom_path(aes(x = Day, y = true.mean), color = "gold") +
+  facet_wrap(~ Season)
+
+if (save.fig)
+  ggsave(p.mean.N.hats, filename = "figures/mean_N_sim.png",
+         device = "png", dpi = 600)
+
+N.hats <- data.frame(Season = rep(Season, each = 90),
+                     Day = rep(1:90, times = length(Season)),
+                     Mean = as.vector(jm.out$jm$mean$N),
+                     LCL = as.vector(jm.out$jm$q2.5$N),
+                     UCL = as.vector(jm.out$jm$q97.5$N),
+                     true.N = as.vector(True.N))
+
+p.N.hats <- ggplot(N.hats) + 
+  geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
+              fill = "blue", alpha = 0.5) +
+  geom_path(aes(x = Day, y = Mean)) + 
+  geom_path(aes(x = Day, y = true.N), color = "gold") +
+  geom_point(data = obsd.n.df, aes(x = day, y = n))+
+  facet_wrap(~ Season)
+
+if (save.fig)
+  ggsave(p.N.hats, filename = "figures/N_hats_sim.png",
+         device = "png", dpi = 600)
+
+p.trace.all <- cowplot::plot_grid(plotlist = p.trace, 
+                                  ncol = 2)
+
+if (save.fig)
+  cowplot::save_plot(p.trace.all, 
+                     filename = "figures/trace_plots_sim.png",
+                     device = "png", dpi = 600, bg = "white")
+
+```
+
+
+Convergence was reached for all parameters according to the @\hat{R}$ statistic, where the maximum value was `r signif(max.r.hat, 3)`. However, trace plots of some Richards function parameters did not look ideal (Figure \@ref(fig:Figure-trace)). The observed poor conversions of S1, S2, and max parameters might have been caused by the mismatch between the true function (gamma) and assumed (Richards) function, where Richards functions could not match the increase (S2) and decrease (S1) of the gamma function.
+
+For the parameters that associated with sighting probabilities (mean.prob, BF.Fixed, and VS.Fixed), MCMC samples appeared to converge, albeit not around the true values (Figure \@ref(fig:Figure-trace)). 
+
+```{r Figure-trace, echo=FALSE, message=FALSE, fig.cap="Trace plots of parameters. Red horizontal lines indicate the true values. Not all plots contain true values because the data generating function for one year (gamma distribution) was different from the estimation function (Richards function)."}
+
+knitr::include_graphics("figures/trace_plots_sim.png")
+
+```
+
+
+Even with the apparent poor conversion of a few parameters, estimated $\bar{N}$ and $N$ were qualitatively acceptable (Figures \@ref(fig:Figure-mean-N) and \@ref(fig:Figure-N)).
+
+```{r Figure-mean-N, echo=FALSE, message=FALSE, fig.cap = "Estimated $\bar{N}$ and their 95% CI (blue ribbon) and the true $\bar{N}$ in gold."}
+
+knitr::include_graphics("figures/mean_N_sim.png")
+```
+
+
+```{r Figure-N, echo=FALSE, message=FALSE, fig.cap = "Estimated $N$ and their 95% CI (blue ribbon) and the true $N$ in gold."}
+
+knitr::include_graphics("figures/N_hats_sim.png")
+```
+
+
+#### Comparison to Durban et al's method
+
+In order to compare the new method to the current method (Durban et al.), I analyzed the same simulated dataset with the analytical approach in Durban et al. WinBUGS returns error (undefined real result), which appears to be caused by computing log(0). I can't find the problem.  
+
+
+```{r WinBugs-Analysis, echo=FALSE, message=FALSE}
+WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
+BUGS.model <- "GW_Nmix_Orig.bugs"
+#BUGS.model <- "GW_Nmix_Orig_mod.bugs"  # Lower bounds of unif distributions were changed from 0 to 0.01
+
+
+#####################################################
+# # The following is from WinBUGS Ver2.Rmd. It ran fine. I saved data and inits from
+# # the run and saved it in an rds file. Compare data and inits.
+# # This works fine!
+run.date <- "2022-10-21"   # the date that WinBUGS Ver2.Rmd was run and the output saved.
+data.worked <- readRDS(paste0("RData/BUGS_data_runs_",
+                              run.date, ".rds"))
+# # N_inits <- data.worked$N_inits
+# # x <- 2
+# # #
+# # # # Create data list from the one that worked using just the last 2 years:
+# obs <- data.worked$BUGS.data$obs[, , 7:8]
+# #obs <- obs - min(obs, na.rm = T) + 1
+# 
+# # 36 was used for non-observer
+# obs[obs==36] <- NA
+# unique.obs <- sort(unique(c(unique(obs[,1,1]), unique(obs[,1,2]))))
+# n.obs <- length(unique.obs)
+# 
+# obs.df <- data.frame(new.ID = 1:n.obs,
+#                      old.ID = unique.obs)
+# 
+# for (k1 in 1:nrow(obs.df)){
+#   for (k2 in 1:2){
+#     obs[which(obs[,1,1] == obs.df[k1, "old.ID"]),1,1] <- obs.df[k1,"new.ID"]
+#     obs[which(obs[,1,2] == obs.df[k1, "old.ID"]),1,2] <- obs.df[k1,"new.ID"]
+#   }
+# }
+# 
+# # #
+# # N_inits <- N_inits[, 7:8]
+# # #
+# BUGS.data.1 <- list(n = data.worked$BUGS.data$n[, , 7:8],
+#                     n.com = data.worked$BUGS.data$n.com[, , 7:8],
+#                     n.sp = data.worked$BUGS.data$n.sp[, , 7:8],
+#                     n.station = 1,
+#                     n.year = 2,
+#                     obs = obs, #data.worked$BUGS.data$obs[, 1, 7:8],
+#                     n.obs = max(obs, na.rm = T), #n.obs,
+#                     periods = data.worked$BUGS.data$periods[7:8],
+#                     u = data.worked$BUGS.data$u[, , 7:8],
+#                     vs = data.worked$BUGS.data$vs[, 7:8],
+#                     bf = data.worked$BUGS.data$bf[, 7:8],
+#                     day = data.worked$BUGS.data$day[, 7:8],
+#                     N = data.worked$BUGS.data$N[, 7:8],
+#                     N.com = data.worked$BUGS.data$N.com[, 7:8],
+#                     N.sp = data.worked$BUGS.data$N.sp[, 7:8],
+#                     knot = data.worked$BUGS.data$knot,
+#                     n.knots = data.worked$BUGS.data$n.knots,
+#                     Watch.Length = data.worked$BUGS.data$Watch.Length[,7:8])
+# # 
+# BUGS.inits.2 <- data.worked$BUGS.inits
+# 
+# bm <- bugs(data =  BUGS.data.1,
+#              inits = BUGS.inits.2,
+#              parameters = data.worked$parameters,
+#              model.file = BUGS.model,
+#              n.chains = data.worked$MCMC.params$n.chains,
+#              n.iter = data.worked$MCMC.params$n.iter,
+#              n.burnin = data.worked$MCMC.params$n.burnin,
+#              n.thin = data.worked$MCMC.params$n.thin,
+#              debug=T,
+#              bugs.directory = WinBUGS.dir)
+# 
+# # value of bernoulli z[1,1] (or z[90,1], or z[90,2]) must be an integer - this happened after I renumbered
+# # the observer IDs. 
+# # Compare data and inits of this section to the next section.
+
+#########################################################
+
+x <- length(Season)
+
+N_inits.1 <- cbind(N_inits[,2], N_inits[,1])
+BUGS.inits.1 <- function() list(mean.prob = 0.5,
+                                BF.Fixed = 0,
+                                VS.Fixed = 0,
+                                mean.prob.sp = 0.5,
+                                BF.Fixed.sp = 0,
+                                VS.Fixed.sp = 0,
+                                mean.prob.com = 0.5,
+                                BF.Fixed.com = 0,
+                                VS.Fixed.com = 0,
+                                mean.beta = c(0,0,0),
+                                beta.sigma = c(1,1,1),
+                                BF.Switch = 1,
+                                VS.Switch = 1,
+                                OBS.Switch = 1,
+                                sigma.Obs = 1,
+                                BF.Switch.sp = 1,
+                                VS.Switch.sp = 1,
+                                OBS.Switch.sp = 1,
+                                sigma.Obs.sp = 1,
+                                BF.Switch.com = 1,
+                                VS.Switch.com = 1,
+                                OBS.Switch.com = 1,
+                                sigma.Obs.com = 1,
+                                N = N_inits.1, #N_inits,
+                                N.com = N_inits.1, #N_inits,
+                                N.sp = N_inits.1, #N_inits,
+                                beta.sp = array(data=0, dim=c(2,x)),
+                                sd.b.sp = rep(1, times = x),
+                                z = matrix(1, nrow=90, ncol= x))
+
+jags.data <- jm.out$jags.data
+MCMC.params <- jm.out$MCMC.params
+
+# Adds an all zero array to the second dimension, just as it was done for the
+# real data.
+n <- abind(jags.data$n,
+           array(data = 0,
+                 dim = dim(jags.data$n)),
+           along = 2)
+
+# replace NAs with zeros
+n[is.na(n)] <- 0
+
+# the u data is whether there were observers on watch. 
+# 0 counts are often associated with years/shifts with 
+# no second observer. So if u=0, it will fix observation probability at 0
+# obs has no NAs, but no observers were indicated by 25. 
+u <- jags.data$obs
+u[u != 25] <- 1
+u[u == 25] <- 0
+
+# day indicators. Need to add 1 and 90 at the end
+day <- rbind(jags.data$day, matrix(NA, nrow = 2, ncol = x))
+
+for(i in 1:x){ #Set the anchor points: days 1 and 90
+  day[(jags.data$periods[i]+1):(jags.data$periods[i]+2),i] <- c(1,90)
+
+}
+
+#The 'data' has to be the inverse of the inits, <- ??
+# with NAs for all of the estimated Ns, and 0s for the days 1 and 90
+N <- matrix(NA,
+            nrow = max(jags.data$periods)+2,
+            ncol = x)
+
+#True number of whales passing fixed at 0 for day 1 and 90
+for(i in 1:x){
+  N[(jags.data$periods[i]+1):(jags.data$periods[i]+2),i] <- 0
+}
+
+#we're going to make N a partially observed data object with anchor points at day 1 and 90
+# TE: I don't know how these numbers were created... they are generally 2x n (not all)
+N_inits1 <- jags.data$n[, 1, ] * 2 + 2
+#N_inits2 <- jags.data$n[, 2,] * 2 + 2
+
+#N_inits <- N_inits1
+
+N_inits <- rbind(N_inits1,
+                 matrix(data = NA,
+                        nrow = 2,
+                        ncol = x))
+
+for (k in 1:x){
+  N_inits[(jags.data$periods[k]+1) : nrow(N_inits), k] <- NA
+}
+
+# WinBUGS gives errors when N inits are set to 0.
+# Try setting them to 1 instead (seems to work):
+#N_inits[which(N_inits == 0, arr.ind = T)] <- 1
+
+Watch.Length <- rbind(jags.data$effort,
+                      matrix(data = NA,
+                             nrow = 2,
+                             ncol = x))
+
+obs <- abind(jags.data$obs,
+             array(data = 35,
+                   dim = dim(jags.data$obs)),
+             along = 2)
+
+obs[is.na(obs)] <- 35
+
+# Should this be zeros? Watch length of day 1 and 90... 
+# They are 1s in the data.worked. 
+for (k in 1:x){
+  Watch.Length[(jags.data$periods[k]+1) : (jags.data$periods[k]+2), k] <- 1
+}
+
+##############################################################
+# let's swap the first and second columns (years)
+n.1 <- array(dim = dim(n))
+n.1[,,1] <- n[,,2]
+n.1[,,2] <- n[,,1]
+
+obs.1 <- array(dim = dim(jags.data$obs))
+obs.1[,,1] <- jags.data$obs[,,2]
+obs.1[,,2] <- jags.data$obs[,,1]
+
+bf.1 <- cbind(jags.data$bf.raw[,2], jags.data$bf.raw[,1])
+vs.1 <- cbind(jags.data$vs.raw[,2], jags.data$vs.raw[,1])
+
+periods.1 <- c(jags.data$periods[2], jags.data$periods[1])
+
+day.1 <- cbind(day[,2], day[,1])
+
+N.1 <- cbind(N[,2], N[,1])
+
+Watch.Length.1 <- cbind(Watch.Length[,2], Watch.Length[,1])
+# This one didn't work either... 
+##############################################################
+
+BUGS.data <- list(n = n.1, #unname(n),
+                  n.com = n.1, #unname(n),
+                  n.sp = n.1, #unname(n),
+                  n.station = dim(jags.data$n)[2],
+                  n.year = dim(jags.data$n)[3],
+                  n.obs = jags.data$n.obs,
+                  periods = periods.1, #jags.data$periods,
+                  obs = obs.1, #obs,
+                  u = u,
+                  vs = bf.1, #jags.data$vs.raw,
+                  bf = vs.1, #jags.data$bf.raw,
+                  day = day.1, #day,
+                  #N = N.1, #N,
+                  #N.com = N.1, #N,
+                  #N.sp = N.1, #N,
+                  knot = c(-1.46, -1.26, -1.02, -0.78,
+                           -0.58, -0.34, -0.10, 0.10,
+                           0.34, 0.57, 0.78, 1.02, 1.26, 1.46),
+                  n.knots = 14,
+                  Watch.Length = Watch.Length.1) #Watch.Length)
+
+if (!file.exists(paste0("RData/WinBUGS_sim_", Sys.Date(), ".rds"))){
+
+  Start_Time<-Sys.time()
+
+  bm <- bugs(data = BUGS.data,
+             inits = BUGS.inits.1, #data.worked$BUGS.inits, #
+             parameters = data.worked$parameters,
+             model.file = BUGS.model,
+             n.chains = MCMC.params$n.chains,
+             n.iter = MCMC.params$n.samples,
+             n.burnin = MCMC.params$n.burnin,
+             n.thin = MCMC.params$n.thin,
+             debug = F,
+             bugs.directory = WinBUGS.dir)
+
+  Run_Time <- Sys.time() - Start_Time
+
+  BUGS.out <- list(BUGS.data = BUGS.data,
+                   bm = bm,
+                   N_inits = N_inits,
+                   MCMC.params = MCMC.params,
+                   BUGS.model = BUGS.model,
+                   Run_Time = Run_Time)
+
+  saveRDS(BUGS.out,
+          paste0("RData/WinBUGS_sim_", run.date, ".rds"))
+} else {
+  BUGS.out <- readRDS("RData/WinBUGS_sim_", run.date, ".rds")
+
+}
+
+
+
+#undefined real result was caused by not having 1 in Watch.Length for day 1 and 90
+# Took me a couple days to figure it out... Still comes back with error (undefined
+# real result as of 2022-10-06). It starts fine but stops while computing. This tells
+# me that it must be something to do with parameter space (priors). But it works fine
+# on real datasets...
+
+# First error message of the trap is
+#
+#  Math.Ln   [0000018BH]
+# 	.x	REAL	-inf
+#
+# There must be log(0) somewhere... This was fixed when N, N.com, and N.sp were
+# taken out from the data. All those were NAs and seems unnecessary. 
+#
+# However, the next error is the following:
+#
+#undefined real result
+#  MathRandnum.Poisson   [000010DBH] 
+# 	.floor	INTEGER	1372739575
+# 	.lambda	REAL	4254980750.573238
+# 	.x	INTEGER	48740688
+#
+# It appears that Poisson random number generator blew up. 
+```
+
+
+array index is greater than array upper bound for u
+
+
+Analyzing the same data from WinBUGS analysis of real data:
+
+```{r new-analysis, echo=FALSE}
+data.worked <- readRDS("RData/BUGS_data_runs.rds")
+out.file.name <- "RData/JAGS_pois_binom_results.rds"
+
+jags.data.real <- list(  n = data.worked$BUGS.data$n, 
+                         n.station = rep(1, dim(data.worked$BUGS.data$n)[3]),
+                         n.year = dim(data.worked$BUGS.data$n)[3],
+                         n.obs = data.worked$BUGS.data$n.obs,
+                         periods = data.worked$BUGS.data$periods,
+                         obs = data.worked$BUGS.data$obs,
+                         vs = scale(data.worked$BUGS.data$vs),
+                         bf = scale(data.worked$BUGS.data$bf),
+                         watch.prop = (data.worked$BUGS.data$Watch.Length*24*60)/540,
+                         day = data.worked$BUGS.data$day)
+
+MCMC.params <- list(n.samples = 250000,
+                    n.thin = 100,
+                    n.burnin = 200000,
+                    n.chains = 5)
+
+
+if (!file.exists(out.file.name)){
+  
+  Start_Time<-Sys.time()
+  
+  jm <- jagsUI::jags(jags.data.real,
+                     inits = NULL,
+                     parameters.to.save= jags.params,
+                     model.file = jags.model,
+                     n.chains = MCMC.params$n.chains,
+                     n.burnin = MCMC.params$n.burnin,
+                     n.thin = MCMC.params$n.thin,
+                     n.iter = MCMC.params$n.samples,
+                     DIC = T, 
+                     parallel=T)
+  
+  Run_Time <- Sys.time() - Start_Time
+  jm.out <- list(jm = jm,
+                 jags.data = jags.data,
+                 jags.params = jags.params,
+                 jags.model = jags.model,
+                 MCMC.params = MCMC.params,
+                 Run_Time = Run_Time)
+  
+  saveRDS(jm.out,
+          file = out.file.name)
+  
+} else {
+  
+  jm.out <- readRDS(out.file.name)
+}
+
+
+
+```
+
+No good convergence... need to look into this a bit more. 2022-10-07
+
+
+```{r JAGS-results, echo=F}
+Season <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011", 
+             "2014/2015", "2015/2016", "2019/2020", "2021/2022")
+
+max.r.hat <- max(unlist(lapply(jm.out$jm$Rhat, 
+                               FUN = max, 
+                               na.rm = T)))
+#jm <- jm.out$jm
+#true.values <- c(S1, S2, K, P, B0, B_BF, B_VS)
+# params <- data.frame(name = param.names,
+#                      value = true.values)
+# fix these:
+param.names <- c("S1[1]", "S1[2]","S1[3]", "S1[4]","S1[5]", "S1[6]","S1[7]", "S1[8]", 
+                 "S2[1]", "S2[2]", 
+                 "K", 
+                 "P[1]", "P[2]", 
+                 "max[1]", "max[2]", 
+                 "mean.prob", "BF.Fixed", "VS.Fixed")
+
+plots.trace <- function(jm, params){
+  out.list <- list()
+  for (i in 1:length(params)){
+      p.tmp <- mcmc_trace(jm$samples, params[i]) +
+        legend_none() + 
+        xaxis_text(on = FALSE) 
+      out.list[[i]] <- p.tmp 
+    }
+
+  return(out.list)
+}
+
+p.trace.S1 <- plots.trace(jm.out$jm, 
+                       params = c("S1[1]", "S1[2]","S1[3]", 
+                                  "S1[4]","S1[5]", "S1[6]",
+                                  "S1[7]", "S1[8]"))
+
+p.trace.S2 <- plots.trace(jm.out$jm, 
+                       params = c("S2[1]", "S2[2]", "S2[3]", 
+                                  "S2[4]", "S2[5]", "S2[6]",
+                                  "S2[7]", "S2[8]"))
+
+p.trace.P <- plots.trace(jm.out$jm, 
+                       params = c("P[1]", "P[2]", "P[3]", 
+                                  "P[4]", "P[5]", "P[6]",
+                                  "P[7]", "P[8]"))
+
+p.dens <- plots.dens(jm.out$jm, params = param.names)
+
+if (save.fig){
+  for (k in 1:length(param.names)){
+    ggsave(plot = p.trace[[k]] + 
+             geom_hline(aes(yintercept = params.df[k, "value"]),
+                        color = "red", size = 1.2),
+           filename = paste0("figures/", param.names[k], "_sim_trace.png"),
+           
+           dpi = 600, 
+           device = "png",
+           height = 3, width = 3, units = "in")
+    
+    ggsave(filename = paste0("figures/", param.names[k], "_sim_dens.png"),
+           plot = p.dens[[k]],
+           dpi = 600, device = "png",
+           height = 3, width = 3, units = "in")
+    
+  }
+  
+}
+
+obsd.n.df <- data.frame(Season = c(rep(Season[1], jm.out$jags.data$periods[1]), 
+                                   rep(Season[2], jm.out$jags.data$periods[2])),
+                        day = c(jm.out$jags.data$day[1:jm.out$jags.data$periods[1],1],
+                                jm.out$jags.data$day[1:jm.out$jags.data$periods[2],2]),
+                        n = c(jm.out$jags.data$n[1:jm.out$jags.data$periods[1],1,1],
+                              jm.out$jags.data$n[1:jm.out$jags.data$periods[2],1,2]))
+
+mean.N.hats <- data.frame(Season = rep(Season, each = 90),
+                          Day = rep(1:90, length(Season)),
+                          Mean = as.vector(jm.out$jm$mean$mean.N),
+                          LCL = as.vector(jm.out$jm$q2.5$mean.N),
+                          UCL = as.vector(jm.out$jm$q97.5$mean.N))
+
+p.mean.N.hats <- ggplot(mean.N.hats %>% group_by(Season)) + 
+  geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
+              fill = "blue", alpha = 0.5) +
+  geom_path(aes(x = Day, y = Mean)) + 
+  facet_wrap(~ Season)
+
+if (save.fig)
+  ggsave(p.mean.N.hats, filename = "figures/mean_N.png",
+         device = "png", dpi = 600)
+
+N.hats <- data.frame(Season = rep(Season, each = 90),
+                     Day = rep(1:90, times = length(Season)),
+                     Mean = as.vector(jm.out$jm$mean$N),
+                     LCL = as.vector(jm.out$jm$q2.5$N),
+                     UCL = as.vector(jm.out$jm$q97.5$N))
+
+p.N.hats <- ggplot(N.hats) + 
+  geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
+              fill = "blue", alpha = 0.5) +
+  geom_path(aes(x = Day, y = Mean)) + 
+  #geom_point(data = obsd.n.df, aes(x = day, y = n))+
+  facet_wrap(~ Season)
+
+if (save.fig)
+  ggsave(p.N.hats, filename = "figures/N_hats.png",
+         device = "png", dpi = 600)
+
+p.trace.all <- cowplot::plot_grid(plotlist = p.trace, 
+                                  ncol = 2)
+
+if (save.fig)
+  cowplot::save_plot(p.trace.all, 
+                     filename = "figures/trace_plots_S1.png",
+                     device = "png", dpi = 600, bg = "white")
+
+```
+
+
