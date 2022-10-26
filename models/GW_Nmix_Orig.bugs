@@ -65,8 +65,8 @@ model{
         log(lambda.com[j,t]) <- log(Watch.Length[j,t]) + com[day[j,t],t] #common model daily lambda fit
         log(lambda.sp[j,t]) <- log(Watch.Length[j,t]) + sp[day[j,t],t] #specific model daily lambda fit
         
-        #log(lambda[j,t]) <- log(Watch.Length[j,t]) + selected[day[j,t],t] # the 'best-fit' model, selected through the deily z switch
-        log(lambda[j,t]) <- log(Watch.Length[j,t]) + selected[j,t] # the 'best-fit' model, selected through the deily z switch
+        log(lambda[j,t]) <- log(Watch.Length[j,t]) + selected[day[j,t],t] # the 'best-fit' model, selected through the deily z switch
+        #log(lambda[j,t]) <- log(Watch.Length[j,t]) + selected[j,t] # the 'best-fit' model, selected through the deily z switch
 
       }#j
     }#t

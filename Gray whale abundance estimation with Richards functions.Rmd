@@ -960,7 +960,7 @@ if (!file.exists(paste0("RData/WinBUGS_sim_", Sys.Date(), ".rds"))){
              n.iter = MCMC.params$n.samples,
              n.burnin = MCMC.params$n.burnin,
              n.thin = MCMC.params$n.thin,
-             debug = T,
+             debug = F,
              bugs.directory = WinBUGS.dir)
 
   Run_Time <- Sys.time() - Start_Time
@@ -992,7 +992,18 @@ if (!file.exists(paste0("RData/WinBUGS_sim_", Sys.Date(), ".rds"))){
 #  Math.Ln   [0000018BH]
 # 	.x	REAL	-inf
 #
-# There must be log(0) somewhere...
+# There must be log(0) somewhere... This was fixed when N, N.com, and N.sp were
+# taken out from the data. All those were NAs and seems unnecessary. 
+#
+# However, the next error is the following:
+#
+#undefined real result
+#  MathRandnum.Poisson   [000010DBH] 
+# 	.floor	INTEGER	1372739575
+# 	.lambda	REAL	4254980750.573238
+# 	.x	INTEGER	48740688
+#
+# It appears that Poisson random number generator blew up. 
 ```
 
 
