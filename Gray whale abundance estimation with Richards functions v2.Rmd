@@ -809,7 +809,7 @@ jags.data <- jm.out$jags.data
 MCMC.params <- list(n.samples = 60000,
                     n.thin = 10,
                     n.burnin = 30000,
-                    n.chain = 5)
+                    n.chains = 5)
 
 # Adds an all zero array to the second dimension, just as it was done for the
 # real data.
