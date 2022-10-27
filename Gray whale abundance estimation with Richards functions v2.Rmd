@@ -795,36 +795,6 @@ data.worked <- readRDS(paste0("RData/BUGS_data_runs_",
 
 x <- length(Season)
 
-N_inits.1 <- cbind(N_inits[,2], N_inits[,1])
-BUGS.inits.1 <- function() list(mean.prob = 0.5,
-                                BF.Fixed = 0,
-                                VS.Fixed = 0,
-                                mean.prob.sp = 0.5,
-                                BF.Fixed.sp = 0,
-                                VS.Fixed.sp = 0,
-                                mean.prob.com = 0.5,
-                                BF.Fixed.com = 0,
-                                VS.Fixed.com = 0,
-                                mean.beta = c(0,0,0),
-                                beta.sigma = c(1,1,1),
-                                BF.Switch = 1,
-                                VS.Switch = 1,
-                                OBS.Switch = 1,
-                                sigma.Obs = 1,
-                                BF.Switch.sp = 1,
-                                VS.Switch.sp = 1,
-                                OBS.Switch.sp = 1,
-                                sigma.Obs.sp = 1,
-                                BF.Switch.com = 1,
-                                VS.Switch.com = 1,
-                                OBS.Switch.com = 1,
-                                sigma.Obs.com = 1,
-                                N = N_inits.1, #N_inits,
-                                N.com = N_inits.1, #N_inits,
-                                N.sp = N_inits.1, #N_inits,
-                                beta.sp = array(data=0, dim=c(2,x)),
-                                sd.b.sp = rep(1, times = x),
-                                z = matrix(1, nrow=90, ncol= x))
 
 jags.data <- jm.out$jags.data
 MCMC.params <- jm.out$MCMC.params
@@ -866,22 +836,6 @@ for(i in 1:x){
   N[(jags.data$periods[i]+1):(jags.data$periods[i]+2),i] <- 0
 }
 
-#we're going to make N a partially observed data object with anchor points at day 1 and 90
-# TE: I don't know how these numbers were created... they are generally 2x n (not all)
-N_inits1 <- jags.data$n[, 1, ] * 2 + 2
-#N_inits2 <- jags.data$n[, 2,] * 2 + 2
-
-#N_inits <- N_inits1
-
-N_inits <- rbind(N_inits1,
-                 matrix(data = NA,
-                        nrow = 2,
-                        ncol = x))
-
-for (k in 1:x){
-  N_inits[(jags.data$periods[k]+1) : nrow(N_inits), k] <- NA
-}
-
 # WinBUGS gives errors when N inits are set to 0.
 # Try setting them to 1 instead (seems to work):
 #N_inits[which(N_inits == 0, arr.ind = T)] <- 1
@@ -906,54 +860,102 @@ for (k in 1:x){
 
 ##############################################################
 # let's swap the first and second columns (years)
-n.1 <- array(dim = dim(n))
-n.1[,,1] <- n[,,2]
-n.1[,,2] <- n[,,1]
-
-obs.1 <- array(dim = dim(jags.data$obs))
-obs.1[,,1] <- jags.data$obs[,,2]
-obs.1[,,2] <- jags.data$obs[,,1]
-
-bf.1 <- cbind(jags.data$bf.raw[,2], jags.data$bf.raw[,1])
-vs.1 <- cbind(jags.data$vs.raw[,2], jags.data$vs.raw[,1])
-
-periods.1 <- c(jags.data$periods[2], jags.data$periods[1])
-
-day.1 <- cbind(day[,2], day[,1])
-
-N.1 <- cbind(N[,2], N[,1])
-
-Watch.Length.1 <- cbind(Watch.Length[,2], Watch.Length[,1])
+# n.1 <- array(dim = dim(n))
+# n.1[,,1] <- n[,,2]
+# n.1[,,2] <- n[,,1]
+# 
+# obs.1 <- array(dim = dim(jags.data$obs))
+# obs.1[,,1] <- jags.data$obs[,,2]
+# obs.1[,,2] <- jags.data$obs[,,1]
+# 
+# bf.1 <- cbind(jags.data$bf.raw[,2], jags.data$bf.raw[,1])
+# vs.1 <- cbind(jags.data$vs.raw[,2], jags.data$vs.raw[,1])
+# 
+# periods.1 <- c(jags.data$periods[2], jags.data$periods[1])
+# 
+# day.1 <- cbind(day[,2], day[,1])
+# 
+# N.1 <- cbind(N[,2], N[,1])
+# 
+# Watch.Length.1 <- cbind(Watch.Length[,2], Watch.Length[,1])
 # This one didn't work either... 
 ##############################################################
 
-BUGS.data <- list(n = n.1, #unname(n),
-                  n.com = n.1, #unname(n),
-                  n.sp = n.1, #unname(n),
+BUGS.data <- list(n = unname(n), #n.1, #
+                  n.com = unname(n), #n.1, #
+                  n.sp = unname(n), #n.1, #
                   n.station = dim(jags.data$n)[2],
                   n.year = dim(jags.data$n)[3],
                   n.obs = jags.data$n.obs,
-                  periods = periods.1, #jags.data$periods,
-                  obs = obs.1, #obs,
+                  periods = jags.data$periods, #periods.1, #
+                  obs = obs, #obs.1, #
                   u = u,
-                  vs = bf.1, #jags.data$vs.raw,
-                  bf = vs.1, #jags.data$bf.raw,
-                  day = day.1, #day,
-                  #N = N.1, #N,
-                  #N.com = N.1, #N,
-                  #N.sp = N.1, #N,
+                  vs = jags.data$vs.raw, #bf.1, #
+                  bf = jags.data$bf.raw, #vs.1, #
+                  day = day, #day.1, #
+                  #N = N, #N.1, #
+                  #N.com = N, #N.1, #
+                  #N.sp = N, #N.1, #
                   knot = c(-1.46, -1.26, -1.02, -0.78,
                            -0.58, -0.34, -0.10, 0.10,
                            0.34, 0.57, 0.78, 1.02, 1.26, 1.46),
                   n.knots = 14,
-                  Watch.Length = Watch.Length.1) #Watch.Length)
+                  Watch.Length = Watch.Length) #Watch.Length.1) #
+
+
+#we're going to make N a partially observed data object with anchor points at day 1 and 90
+# TE: I don't know how these numbers were created... they are generally 2x n (not all)
+N_inits1 <- jags.data$n[, 1, ] * 2 + 2
+#N_inits2 <- jags.data$n[, 2,] * 2 + 2
+
+# Should these be zeros?
+N_inits <- rbind(N_inits1,
+                 matrix(data = NA,
+                        nrow = 2,
+                        ncol = x))
+
+# Are these necessary?
+for (k in 1:x){
+  N_inits[(jags.data$periods[k]+1) : nrow(N_inits), k] <- NA
+}
+
+#N_inits.1 <- cbind(N_inits[,2], N_inits[,1])
+BUGS.inits.1 <- function() list(mean.prob = 0.5,
+                                BF.Fixed = 0,
+                                VS.Fixed = 0,
+                                mean.prob.sp = 0.5,
+                                BF.Fixed.sp = 0,
+                                VS.Fixed.sp = 0,
+                                mean.prob.com = 0.5,
+                                BF.Fixed.com = 0,
+                                VS.Fixed.com = 0,
+                                mean.beta = c(0,0,0),
+                                beta.sigma = c(1,1,1),
+                                BF.Switch = 1,
+                                VS.Switch = 1,
+                                OBS.Switch = 1,
+                                sigma.Obs = 1,
+                                BF.Switch.sp = 1,
+                                VS.Switch.sp = 1,
+                                OBS.Switch.sp = 1,
+                                sigma.Obs.sp = 1,
+                                BF.Switch.com = 1,
+                                VS.Switch.com = 1,
+                                OBS.Switch.com = 1,
+                                sigma.Obs.com = 1,
+                                N = N_inits, 
+                                N.com = N_inits, 
+                                N.sp = N_inits, 
+                                beta.sp = array(data=0, dim=c(2,x)),
+                                sd.b.sp = rep(1, times = x),
+                                z = matrix(1, nrow=90, ncol= x))
 
 if (!file.exists(paste0("RData/WinBUGS_sim_", Sys.Date(), ".rds"))){
 
   Start_Time<-Sys.time()
 
   bm <- bugs(data = BUGS.data,
-             inits = BUGS.inits.1, #data.worked$BUGS.inits, #
+             inits = BUGS.inits.1, 
              parameters = data.worked$parameters,
              model.file = BUGS.model,
              n.chains = MCMC.params$n.chains,
