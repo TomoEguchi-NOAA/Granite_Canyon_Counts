@@ -730,7 +730,7 @@ BUGS.model <- "GW_Nmix_Orig.bugs"
 run.date <- "2022-10-21"   # the date that WinBUGS Ver2.Rmd was run and the output saved.
 data.worked <- readRDS(paste0("RData/BUGS_data_runs_",
                               run.date, ".rds"))
-# # N_inits <- data.worked$N_inits
+#N_inits <- data.worked$N_inits
 # # x <- 2
 # # #
 # # # # Create data list from the one that worked using just the last 2 years:
@@ -753,7 +753,7 @@ data.worked <- readRDS(paste0("RData/BUGS_data_runs_",
 # }
 # 
 # # #
-# # N_inits <- N_inits[, 7:8]
+# # # N_inits <- N_inits[, 7:8]
 # # #
 # BUGS.data.1 <- list(n = data.worked$BUGS.data$n[, , 7:8],
 #                     n.com = data.worked$BUGS.data$n.com[, , 7:8],
@@ -795,37 +795,6 @@ data.worked <- readRDS(paste0("RData/BUGS_data_runs_",
 
 x <- length(Season)
 
-N_inits.1 <- cbind(N_inits[,2], N_inits[,1])
-BUGS.inits.1 <- function() list(mean.prob = 0.5,
-                                BF.Fixed = 0,
-                                VS.Fixed = 0,
-                                mean.prob.sp = 0.5,
-                                BF.Fixed.sp = 0,
-                                VS.Fixed.sp = 0,
-                                mean.prob.com = 0.5,
-                                BF.Fixed.com = 0,
-                                VS.Fixed.com = 0,
-                                mean.beta = c(0,0,0),
-                                beta.sigma = c(1,1,1),
-                                BF.Switch = 1,
-                                VS.Switch = 1,
-                                OBS.Switch = 1,
-                                sigma.Obs = 1,
-                                BF.Switch.sp = 1,
-                                VS.Switch.sp = 1,
-                                OBS.Switch.sp = 1,
-                                sigma.Obs.sp = 1,
-                                BF.Switch.com = 1,
-                                VS.Switch.com = 1,
-                                OBS.Switch.com = 1,
-                                sigma.Obs.com = 1,
-                                N = N_inits.1, #N_inits,
-                                N.com = N_inits.1, #N_inits,
-                                N.sp = N_inits.1, #N_inits,
-                                beta.sp = array(data=0, dim=c(2,x)),
-                                sd.b.sp = rep(1, times = x),
-                                z = matrix(1, nrow=90, ncol= x))
-
 jags.data <- jm.out$jags.data
 MCMC.params <- jm.out$MCMC.params
 
@@ -864,22 +833,6 @@ N <- matrix(NA,
 #True number of whales passing fixed at 0 for day 1 and 90
 for(i in 1:x){
   N[(jags.data$periods[i]+1):(jags.data$periods[i]+2),i] <- 0
-}
-
-#we're going to make N a partially observed data object with anchor points at day 1 and 90
-# TE: I don't know how these numbers were created... they are generally 2x n (not all)
-N_inits1 <- jags.data$n[, 1, ] * 2 + 2
-#N_inits2 <- jags.data$n[, 2,] * 2 + 2
-
-#N_inits <- N_inits1
-
-N_inits <- rbind(N_inits1,
-                 matrix(data = NA,
-                        nrow = 2,
-                        ncol = x))
-
-for (k in 1:x){
-  N_inits[(jags.data$periods[k]+1) : nrow(N_inits), k] <- NA
 }
 
 # WinBUGS gives errors when N inits are set to 0.
@@ -948,6 +901,52 @@ BUGS.data <- list(n = n.1, #unname(n),
                   n.knots = 14,
                   Watch.Length = Watch.Length.1) #Watch.Length)
 
+#we're going to make N a partially observed data object with anchor points at day 1 and 90
+# TE: I don't know how these numbers were created... they are generally 2x n (not all)
+#N_inits1 <- jags.data$n[, 1, ] * 2 + 2
+N_inits1.1 <- n.1[, 1, ] * 2 + 2
+#N_inits2 <- jags.data$n[, 2,] * 2 + 2
+
+N_inits <- rbind(N_inits1.1,
+                 matrix(data = NA,
+                        nrow = 2,
+                        ncol = x))
+
+for (k in 1:x){
+  N_inits[(BUGS.data$periods[k]+1) : nrow(N_inits), k] <- NA
+}
+
+#N_inits.1 <- cbind(N_inits[,2], N_inits[,1])
+BUGS.inits.1 <- function() list(mean.prob = 0.5,
+                                BF.Fixed = 0,
+                                VS.Fixed = 0,
+                                mean.prob.sp = 0.5,
+                                BF.Fixed.sp = 0,
+                                VS.Fixed.sp = 0,
+                                mean.prob.com = 0.5,
+                                BF.Fixed.com = 0,
+                                VS.Fixed.com = 0,
+                                mean.beta = c(0,0,0),
+                                beta.sigma = c(1,1,1),
+                                BF.Switch = 1,
+                                VS.Switch = 1,
+                                OBS.Switch = 1,
+                                sigma.Obs = 1,
+                                BF.Switch.sp = 1,
+                                VS.Switch.sp = 1,
+                                OBS.Switch.sp = 1,
+                                sigma.Obs.sp = 1,
+                                BF.Switch.com = 1,
+                                VS.Switch.com = 1,
+                                OBS.Switch.com = 1,
+                                sigma.Obs.com = 1,
+                                N = N_inits,
+                                N.com = N_inits,
+                                N.sp = N_inits,
+                                beta.sp = array(data=0, dim=c(2,x)),
+                                sd.b.sp = rep(1, times = x),
+                                z = matrix(1, nrow=90, ncol= x))
+
 if (!file.exists(paste0("RData/WinBUGS_sim_", Sys.Date(), ".rds"))){
 
   Start_Time<-Sys.time()
@@ -960,7 +959,7 @@ if (!file.exists(paste0("RData/WinBUGS_sim_", Sys.Date(), ".rds"))){
              n.iter = MCMC.params$n.samples,
              n.burnin = MCMC.params$n.burnin,
              n.thin = MCMC.params$n.thin,
-             debug = F,
+             debug = T,
              bugs.directory = WinBUGS.dir)
 
   Run_Time <- Sys.time() - Start_Time
