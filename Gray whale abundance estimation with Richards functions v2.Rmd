@@ -801,15 +801,15 @@ data.worked <- readRDS(paste0("RData/BUGS_data_runs_",
 
 x <- length(Season)
 
-
 jags.data <- jm.out$jags.data
 #MCMC.params <- jm.out$MCMC.params
 
-# To make computation faster, I reduce the sampling
-MCMC.params <- list(n.samples = 60000,
-                    n.thin = 10,
-                    n.burnin = 30000,
-                    n.chains = 5)
+# To make computation faster, I reduce the sampling: this ran in about 2 hrs. 
+# Dated 2022-10-21 but actually ran on 2022-10-26
+# MCMC.params <- list(n.samples = 60000,
+#                     n.thin = 10,
+#                     n.burnin = 30000,
+#                     n.chains = 5)
 
 # Adds an all zero array to the second dimension, just as it was done for the
 # real data.
@@ -963,7 +963,8 @@ BUGS.inits.1 <- function() list(mean.prob = 0.5,
                                 sd.b.sp = rep(1, times = x),
                                 z = matrix(1, nrow=90, ncol= x))
 
-if (!file.exists(paste0("RData/WinBUGS_sim_", Sys.Date(), ".rds"))){
+run.date <- "2022-10-27"
+if (!file.exists(paste0("RData/WinBUGS_sim_", run.date, ".rds"))){
 
   Start_Time<-Sys.time()
 
@@ -990,7 +991,7 @@ if (!file.exists(paste0("RData/WinBUGS_sim_", Sys.Date(), ".rds"))){
   saveRDS(BUGS.out,
           paste0("RData/WinBUGS_sim_", run.date, ".rds"))
 } else {
-  BUGS.out <- readRDS("RData/WinBUGS_sim_", run.date, ".rds")
+  BUGS.out <- readRDS(paste0("RData/WinBUGS_sim_", run.date, ".rds"))
 
 }
 
@@ -1019,10 +1020,104 @@ if (!file.exists(paste0("RData/WinBUGS_sim_", Sys.Date(), ".rds"))){
 # 	.x	INTEGER	48740688
 #
 # It appears that Poisson random number generator blew up. 
+
 ```
 
 
-array index is greater than array upper bound for u
+Finally, it ran on 2022-10-26. 
+
+Take a look at the results:
+
+```{r WinBUGS-results, echo=FALSE}
+seasons <- c("2020", "2022")
+
+# Extract estimated counts
+Daily.Est <- BUGS.out$bm$sims.list$Daily.Est
+sp <- BUGS.out$bm$sims.list$sp
+com <- BUGS.out$bm$sims.list$com
+Corrected.Est <- BUGS.out$bm$sims.list$Corrected.Est
+
+# Each one of them is (# samples) x (90 days) x (# years)
+# To plot them using ggplot's facet, I need to convert
+# these into 2D dataframes of statistics (upper and lower 
+# CIs, median, etc.)
+# Daily.Est.list <- sp.list <- com.list <- vector(mode = "list", 
+#                                                 length = dim(Daily.Est)[3])
+# 
+# Daily.Est.UCIs <- Daily.Est.LCIs <- vector(mode = "list",
+#                                            length = dim(Daily.Est)[3])
+
+stats.list <- vector(mode = "list",
+                     length = dim(Daily.Est)[3])
+
+for (k in 1:dim(Daily.Est)[3]){
+  # Daily.Est.list[[k]] <- Daily.Est[,,k]
+  # Daily.Est.UCIs[[k]] <- apply(Daily.Est[,,k],2,quantile,0.975)
+  # Daily.Est.LCIs[[k]] <- apply(Daily.Est[,,k],2,quantile,0.275)
+  # 
+  # sp.list[[k]] <- sp[,,k]
+  # com.list[[k]] <- com[,,k]
+  
+  stats.list[[k]] <- data.frame(Daily.Est.median = apply(Daily.Est[,,k], 2,
+                                                         median),
+                                Daily.Est.LCL = apply(Daily.Est[,,k], 2,
+                                                      quantile,0.275),
+                                Daily.Est.UCL = apply(Daily.Est[,,k], 2,
+                                                      quantile,0.975),
+                                sp.median = apply(exp(sp[,,k]), 2,
+                                                  median),
+                                sp.LCL = apply(exp(sp[,,k]), 2,
+                                               quantile,0.025),
+                                sp.UCL = apply(exp(sp[,,k]), 2,
+                                               quantile,0.975),
+                                com.median = apply(exp(com[,,k]), 2,
+                                                   median),
+                                com.LCL = apply(exp(com[,,k]), 2,
+                                                quantile,0.025),
+                                com.UCL = apply(exp(com[,,k]), 2,
+                                                quantile,0.975),
+                                #total.median = apply(exp(sp[,,k]), 1, sum),
+                                days = 1:dim(Daily.Est)[2],
+                                year = seasons[k])
+}
+
+all.stats <- do.call("rbind", stats.list) %>% group_by(year)
+
+ggplot(data = all.stats) +
+  geom_line(aes(x = days, y = Daily.Est.median)) +
+  geom_ribbon(aes(x = days, 
+                  ymin = Daily.Est.LCL, 
+                  ymax = Daily.Est.UCL),
+              fill = "orange", 
+              alpha = 0.5) + 
+  facet_wrap(vars(year))+
+  xlab("Days since December 1") + 
+  ylab("Whales per day")
+
+```
+
+Total abundance
+```{r BUGS-totalN, echo=FALSE}
+abundance.df <- data.frame(total.median = apply(Corrected.Est, 
+                                                FUN = median, 
+                                                MARGIN = 2),
+                           total.LCL = apply(Corrected.Est, 
+                                             MARGIN = 2, 
+                                             FUN = quantile, 0.025),
+                           total.UCL = apply(Corrected.Est, 
+                                             MARGIN = 2, 
+                                             FUN = quantile, 0.975),
+                           Season = seasons)
+
+
+ggplot(data = abundance.df) + 
+  geom_point(aes(x = Season, y = total.median)) + 
+  geom_errorbar(aes(x = Season, ymin = total.LCL, ymax = total.UCL))
+
+
+```
+
+
 
 
 Analyzing the same data from WinBUGS analysis of real data:
