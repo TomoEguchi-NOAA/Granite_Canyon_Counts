@@ -716,7 +716,13 @@ knitr::include_graphics("figures/N_hats_sim.png")
 
 In order to compare the new method to the current method (Durban et al.), I analyzed the same simulated dataset with the analytical approach in Durban et al. WinBUGS returns error (undefined real result), which appears to be caused by computing log(0). I can't find the problem.  
 
+This runs but it is slow. It took 1.6 minutes to run the following MCMC setup:
 
+n.chains = 3, 
+             n.iter = 1000, 
+             n.burnin = 300, 
+             n.thin = 5, 
+             
 ```{r WinBugs-Analysis, echo=FALSE, message=FALSE}
 WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
 BUGS.model <- "GW_Nmix_Orig.bugs"
@@ -797,7 +803,13 @@ x <- length(Season)
 
 
 jags.data <- jm.out$jags.data
-MCMC.params <- jm.out$MCMC.params
+#MCMC.params <- jm.out$MCMC.params
+
+# To make computation faster, I reduce the sampling
+MCMC.params <- list(n.samples = 60000,
+                    n.thin = 10,
+                    n.burnin = 30000,
+                    n.chain = 5)
 
 # Adds an all zero array to the second dimension, just as it was done for the
 # real data.
@@ -908,13 +920,14 @@ BUGS.data <- list(n = unname(n), #n.1, #
 N_inits1 <- jags.data$n[, 1, ] * 2 + 2
 #N_inits2 <- jags.data$n[, 2,] * 2 + 2
 
-# Should these be zeros?
+# Create initial values for Ns
 N_inits <- rbind(N_inits1,
                  matrix(data = NA,
                         nrow = 2,
                         ncol = x))
 
-# Are these necessary?
+# Are these necessary? Rather than making NAs, should they be zeros?
+# With these zeros, errors result.
 for (k in 1:x){
   N_inits[(jags.data$periods[k]+1) : nrow(N_inits), k] <- NA
 }
