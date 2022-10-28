@@ -24,6 +24,46 @@ library(abind)
 
 set_flextable_defaults(font.size = 9,
                        font.family = "Cambria")
+
+plots.trace <- function(jm, params, params.df = NULL){
+  out.list <- list()
+  for (i in 1:length(params)){
+    if (i < 7){
+      p.tmp <- mcmc_trace(jm$samples, params[i]) +
+        legend_none() + xaxis_text(on = FALSE)
+      
+      if (!is.null(params.df)){
+        p.tmp <- p.tmp + 
+          hline_at(params.df[i, "value"], 
+                   color = "red", size = 1.2)
+      }
+      
+    } else {
+      p.tmp <- mcmc_trace(jm$samples, params[i]) +
+        legend_none()
+      
+      if (!is.null(params.df)){
+        p.tmp <- p.tmp +
+          hline_at(params.df[i, "value"], 
+                   color = "red", size = 1.2)
+      }
+    }
+
+    out.list[[i]] <- p.tmp 
+  }
+  return(out.list)
+}
+
+plots.dens <- function(jm, params){
+  out.list <- list()
+  for (k in 1:length(params)){
+    out.list[[k]] <- mcmc_dens(jm$samples, params[k]) #+
+
+  }
+  
+  return(out.list)
+}
+
 ```
 
 ## Introduction {-}
@@ -544,7 +584,7 @@ if (!file.exists(out.file.name)){
                      parallel=T)
   
   Run_Time <- Sys.time() - Start_Time
-  jm.out <- list(jm = jm,
+  jm.sim.out <- list(jm = jm,
                  jags.data = jags.data,
                  jags.params = jags.params,
                  jags.model = jags.model,
@@ -556,7 +596,7 @@ if (!file.exists(out.file.name)){
   
 } else {
   
-  jm.out <- readRDS(out.file.name)
+  jm.sim.out <- readRDS(out.file.name)
 }
 
 
@@ -569,7 +609,7 @@ if (!file.exists(out.file.name)){
 
 ```{r jags-posteriors, echo=FALSE, message=FALSE, warning=FALSE}
 #save.fig <- T
-max.r.hat <- max(unlist(lapply(jm.out$jm$Rhat, 
+max.r.hat <- max(unlist(lapply(jm.sim.out$jm$Rhat, 
                                FUN = max, 
                                na.rm = T)))
 #jm <- jm.out$jm
@@ -577,54 +617,25 @@ max.r.hat <- max(unlist(lapply(jm.out$jm$Rhat,
 # params <- data.frame(name = param.names,
 #                      value = true.values)
 
-plots.trace <- function(jm, params, params.df){
-  out.list <- list()
-  for (i in 1:length(params)){
-    if (i < 7){
-      p.tmp <- mcmc_trace(jm$samples, params[i]) +
-        legend_none() + xaxis_text(on = FALSE) +
-        hline_at(params.df[i, "value"], color = "red", size = 1.2)
-      
-    } else {
-      p.tmp <- mcmc_trace(jm$samples, params[i]) +
-        legend_none() +
-        hline_at(params.df[i, "value"], color = "red", size = 1.2)
 
-    }
-
-    out.list[[i]] <- p.tmp 
-  }
-  return(out.list)
-}
-
-plots.dens <- function(jm, params){
-  out.list <- list()
-  for (k in 1:length(params)){
-    out.list[[k]] <- mcmc_dens(jm$samples, params[k]) #+
-
-  }
-  
-  return(out.list)
-}
-
-p.trace <- plots.trace(jm.out$jm, 
+p.trace.sim.JAGS <- plots.trace(jm.sim.out$jm, 
                        params = param.names,
                        params.df = params.df)
-p.dens <- plots.dens(jm.out$jm, params = param.names)
+p.dens.sim.JAGS <- plots.dens(jm.sim.out$jm, params = param.names)
 
 if (save.fig){
   for (k in 1:length(param.names)){
-    ggsave(plot = p.trace[[k]] + 
+    ggsave(plot = p.trace.sim.JAGS[[k]] + 
              geom_hline(aes(yintercept = params.df[k, "value"]),
                         color = "red", size = 1.2),
-           filename = paste0("figures/", param.names[k], "_sim_trace.png"),
+           filename = paste0("figures/", param.names[k], "_sim_trace_JAGS.png"),
            
            dpi = 600, 
            device = "png",
            height = 3, width = 3, units = "in")
     
-    ggsave(filename = paste0("figures/", param.names[k], "_sim_dens.png"),
-           plot = p.dens[[k]],
+    ggsave(filename = paste0("figures/", param.names[k], "_sim_dens_JAGS.png"),
+           plot = p.dens.sim.JAGS[[k]],
            dpi = 600, device = "png",
            height = 3, width = 3, units = "in")
     
@@ -632,21 +643,21 @@ if (save.fig){
   
 }
 
-obsd.n.df <- data.frame(Season = c(rep(Season[1], jm.out$jags.data$periods[1]), 
-                                   rep(Season[2], jm.out$jags.data$periods[2])),
-                        day = c(jm.out$jags.data$day[1:jm.out$jags.data$periods[1],1],
-                                jm.out$jags.data$day[1:jm.out$jags.data$periods[2],2]),
-                        n = c(jm.out$jags.data$n[1:jm.out$jags.data$periods[1],1,1],
-                              jm.out$jags.data$n[1:jm.out$jags.data$periods[2],1,2]))
+obsd.n.sim.df <- data.frame(Season = c(rep(Season[1], jm.sim.out$jags.data$periods[1]), 
+                                       rep(Season[2], jm.sim.out$jags.data$periods[2])),
+                            day = c(jm.sim.out$jags.data$day[1:jm.sim.out$jags.data$periods[1],1],
+                                    jm.sim.out$jags.data$day[1:jm.sim.out$jags.data$periods[2],2]),
+                            n = c(jm.sim.out$jags.data$n[1:jm.sim.out$jags.data$periods[1],1,1],
+                                  jm.sim.out$jags.data$n[1:jm.sim.out$jags.data$periods[2],1,2]))
 
-mean.N.hats <- data.frame(Season = rep(Season, each = 90),
-                          Day = rep(1:90, length(Season)),
-                          Mean = as.vector(jm.out$jm$mean$mean.N),
-                          LCL = as.vector(jm.out$jm$q2.5$mean.N),
-                          UCL = as.vector(jm.out$jm$q97.5$mean.N),
-                          true.mean = as.vector(N.mean))
+mean.N.hats.sim.JAGS <- data.frame(Season = rep(Season, each = 90),
+                                   Day = rep(1:90, length(Season)),
+                                   Mean = as.vector(jm.sim.out$jm$mean$mean.N),
+                                   LCL = as.vector(jm.sim.out$jm$q2.5$mean.N),
+                                   UCL = as.vector(jm.sim.out$jm$q97.5$mean.N),
+                                   true.mean = as.vector(N.mean))
 
-p.mean.N.hats <- ggplot(mean.N.hats %>% group_by(Season)) + 
+p.mean.N.hats.sim.JAGS <- ggplot(mean.N.hats.sim.JAGS %>% group_by(Season)) + 
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
               fill = "blue", alpha = 0.5) +
   geom_path(aes(x = Day, y = Mean)) + 
@@ -654,34 +665,46 @@ p.mean.N.hats <- ggplot(mean.N.hats %>% group_by(Season)) +
   facet_wrap(~ Season)
 
 if (save.fig)
-  ggsave(p.mean.N.hats, filename = "figures/mean_N_sim.png",
+  ggsave(p.mean.N.hats.sim.JAGS, filename = "figures/mean_N_sim_JAGS.png",
          device = "png", dpi = 600)
 
-N.hats <- data.frame(Season = rep(Season, each = 90),
-                     Day = rep(1:90, times = length(Season)),
-                     Mean = as.vector(jm.out$jm$mean$N),
-                     LCL = as.vector(jm.out$jm$q2.5$N),
-                     UCL = as.vector(jm.out$jm$q97.5$N),
-                     true.N = as.vector(True.N))
+N.hats.sim.JAGS <- data.frame(Season = rep(Season, each = 90),
+                              Day = rep(1:90, times = length(Season)),
+                              Mean = as.vector(jm.sim.out$jm$mean$N),
+                              LCL = as.vector(jm.sim.out$jm$q2.5$N),
+                              UCL = as.vector(jm.sim.out$jm$q97.5$N),
+                              true.N = as.vector(True.N))
 
-p.N.hats <- ggplot(N.hats) + 
+p.N.hats.sim.JAGS <- ggplot(N.hats.sim.JAGS) + 
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
               fill = "blue", alpha = 0.5) +
   geom_path(aes(x = Day, y = Mean)) + 
   geom_path(aes(x = Day, y = true.N), color = "gold") +
-  geom_point(data = obsd.n.df, aes(x = day, y = n))+
+  geom_point(data = obsd.n.sim.df, aes(x = day, y = n))+
   facet_wrap(~ Season)
 
 if (save.fig)
-  ggsave(p.N.hats, filename = "figures/N_hats_sim.png",
+  ggsave(p.N.hats.sim.JAGS, filename = "figures/N_hats_sim_JAGS.png",
          device = "png", dpi = 600)
 
-p.trace.all <- cowplot::plot_grid(plotlist = p.trace, 
-                                  ncol = 2)
+# Simulation did not take into account the correction part so no need to look at this
+# for simulation analysis. 
+# corrected.N.hats.sim.JAGS <- data.frame(Season = Season,
+#                                         Mean = as.vector(jm.sim.out$jm$mean$Corrected.Est),
+#                                         LCL = as.vector(jm.sim.out$jm$q2.5$Corrected.Est),
+#                                         UCL = as.vector(jm.sim.out$jm$q97.5$Corrected.Est))
 
 if (save.fig)
-  cowplot::save_plot(p.trace.all, 
-                     filename = "figures/trace_plots_sim.png",
+  ggsave(p.N.hats.sim.JAGS, filename = "figures/N_hats_sim_JAGS.png",
+         device = "png", dpi = 600)
+
+
+p.trace.all.sim.JAGS <- cowplot::plot_grid(plotlist = p.trace.sim.JAGS, 
+                                      ncol = 2)
+
+if (save.fig)
+  cowplot::save_plot(p.trace.all.sim.JAGS, 
+                     filename = "figures/trace_plots_sim_JAGS.png",
                      device = "png", dpi = 600, bg = "white")
 
 ```
@@ -689,50 +712,44 @@ if (save.fig)
 
 Convergence was reached for all parameters according to the @\hat{R}$ statistic, where the maximum value was `r signif(max.r.hat, 3)`. However, trace plots of some Richards function parameters did not look ideal (Figure \@ref(fig:Figure-trace)). The observed poor conversions of S1, S2, and max parameters might have been caused by the mismatch between the true function (gamma) and assumed (Richards) function, where Richards functions could not match the increase (S2) and decrease (S1) of the gamma function.
 
-For the parameters that associated with sighting probabilities (mean.prob, BF.Fixed, and VS.Fixed), MCMC samples appeared to converge, albeit not around the true values (Figure \@ref(fig:Figure-trace)). 
+For the parameters that associated with sighting probabilities (mean.prob, BF.Fixed, and VS.Fixed), MCMC samples appeared to converge, albeit not around the true values (Figure \@ref(fig:Figure-trace-sim-JAGS)). 
 
-```{r Figure-trace, echo=FALSE, message=FALSE, fig.cap="Trace plots of parameters. Red horizontal lines indicate the true values. Not all plots contain true values because the data generating function for one year (gamma distribution) was different from the estimation function (Richards function)."}
+```{r Figure-trace-sim-JAGS, echo=FALSE, message=FALSE, fig.cap="Trace plots of parameters. Red horizontal lines indicate the true values. Not all plots contain true values because the data generating function for one year (gamma distribution) was different from the estimation function (Richards function)."}
 
-knitr::include_graphics("figures/trace_plots_sim.png")
+knitr::include_graphics("figures/trace_plots_sim_JAGS.png")
 
 ```
 
 
-Even with the apparent poor conversion of a few parameters, estimated $\bar{N}$ and $N$ were qualitatively acceptable (Figures \@ref(fig:Figure-mean-N) and \@ref(fig:Figure-N)).
+Even with the apparent poor conversion of a few parameters, estimated $\bar{N}$ and $N$ were qualitatively acceptable (Figures \@ref(fig:Figure-mean-N-sim-JAGS) and \@ref(fig:Figure-N-sim-JAGS)).
 
-```{r Figure-mean-N, echo=FALSE, message=FALSE, fig.cap = "Estimated $\bar{N}$ and their 95% CI (blue ribbon) and the true $\bar{N}$ in gold."}
+```{r Figure-mean-N-sim-JAGS, echo=FALSE, message=FALSE, fig.cap = "Estimated $\bar{N}$ and their 95% CI (blue ribbon) and the true $\bar{N}$ in gold."}
 
-knitr::include_graphics("figures/mean_N_sim.png")
+knitr::include_graphics("figures/mean_N_sim_JAGS.png")
 ```
 
 
-```{r Figure-N, echo=FALSE, message=FALSE, fig.cap = "Estimated $N$ and their 95% CI (blue ribbon) and the true $N$ in gold."}
+```{r Figure-N-sim-JAGS, echo=FALSE, message=FALSE, fig.cap = "Estimated $N$ and their 95% CI (blue ribbon) and the true $N$ in gold."}
 
-knitr::include_graphics("figures/N_hats_sim.png")
+knitr::include_graphics("figures/N_hats_sim_JAGS.png")
 ```
 
 
 #### Comparison to Durban et al's method
 
-In order to compare the new method to the current method (Durban et al.), I analyzed the same simulated dataset with the analytical approach in Durban et al. WinBUGS returns error (undefined real result), which appears to be caused by computing log(0). I can't find the problem.  
-
-This runs but it is slow. It took 1.6 minutes to run the following MCMC setup:
-
-n.chains = 3, 
-             n.iter = 1000, 
-             n.burnin = 300, 
-             n.thin = 5, 
+In order to compare the new method to the current method (Durban et al.), I analyzed the same simulated dataset with the analytical approach in Durban et al.  
              
-```{r WinBugs-Analysis, echo=FALSE, message=FALSE}
+```{r WinBugs-sim-Analysis, echo=FALSE, message=FALSE}
 WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
 BUGS.model <- "GW_Nmix_Orig.bugs"
-#BUGS.model <- "GW_Nmix_Orig_mod.bugs"  # Lower bounds of unif distributions were changed from 0 to 0.01
-
+#BUGS.model <- "GW_Nmix_Orig_mod.bugs"  # Lower bounds of unif distributions were changed from 0 to 0.01 - this made no difference in errors (undefined real)
 
 #####################################################
 # # The following is from WinBUGS Ver2.Rmd. It ran fine. I saved data and inits from
 # # the run and saved it in an rds file. Compare data and inits.
 # # This works fine!
+
+# I still keep these lines here to use the list of parameter names for WinBUGS runs. 
 run.date <- "2022-10-21"   # the date that WinBUGS Ver2.Rmd was run and the output saved.
 data.worked <- readRDS(paste0("RData/BUGS_data_runs_",
                               run.date, ".rds"))
@@ -795,14 +812,14 @@ data.worked <- readRDS(paste0("RData/BUGS_data_runs_",
 # 
 # # value of bernoulli z[1,1] (or z[90,1], or z[90,2]) must be an integer - this happened after I renumbered
 # # the observer IDs. 
-# # Compare data and inits of this section to the next section.
+# # Compare data and inits of this section to the next section. DONE.
 
 #########################################################
 
 x <- length(Season)
 
-jags.data <- jm.out$jags.data
-#MCMC.params <- jm.out$MCMC.params
+jags.data <- jm.sim.out$jags.data
+MCMC.params <- jm.sim.out$MCMC.params  # takes about 3.6 hrs
 
 # To make computation faster, I reduce the sampling: this ran in about 2 hrs. 
 # Dated 2022-10-21 but actually ran on 2022-10-26
@@ -981,23 +998,24 @@ if (!file.exists(paste0("RData/WinBUGS_sim_", run.date, ".rds"))){
 
   Run_Time <- Sys.time() - Start_Time
 
-  BUGS.out <- list(BUGS.data = BUGS.data,
-                   bm = bm,
-                   N_inits = N_inits,
-                   MCMC.params = MCMC.params,
-                   BUGS.model = BUGS.model,
-                   Run_Time = Run_Time)
-
-  saveRDS(BUGS.out,
+  BUGS.out.sim <- list(BUGS.data = BUGS.data,
+                       bm = bm,
+                       N_inits = N_inits,
+                       MCMC.params = MCMC.params,
+                       BUGS.model = BUGS.model,
+                       Run_Time = Run_Time,
+                       Sys.env = Sys.getenv())  
+  
+  # the Sys.env was added after the final run on 2022-10-27. So, may not be in the output.
+  
+  saveRDS(BUGS.out.sim,
           paste0("RData/WinBUGS_sim_", run.date, ".rds"))
 } else {
-  BUGS.out <- readRDS(paste0("RData/WinBUGS_sim_", run.date, ".rds"))
+  BUGS.out.sim <- readRDS(paste0("RData/WinBUGS_sim_", run.date, ".rds"))
 
 }
 
-
-
-#undefined real result was caused by not having 1 in Watch.Length for day 1 and 90
+# undefined real result was caused by not having 1 in Watch.Length for day 1 and 90
 # Took me a couple days to figure it out... Still comes back with error (undefined
 # real result as of 2022-10-06). It starts fine but stops while computing. This tells
 # me that it must be something to do with parameter space (priors). But it works fine
@@ -1021,21 +1039,26 @@ if (!file.exists(paste0("RData/WinBUGS_sim_", run.date, ".rds"))){
 #
 # It appears that Poisson random number generator blew up. 
 
+# All the problems were fixed after removing N, N.sp, and N.com in the data
+# And, fixing a line where the index for lambda (Poisson mean) in GW_Nmix_Orig.bugs:
+# Correct: log(lambda[j,t]) <- log(Watch.Length[j,t]) + selected[day[j,t],t] 
+# Wrong: log(lambda[j,t]) <- log(Watch.Length[j,t]) + selected[j,t] 
+
+# Finally, it ran on 2022-10-26. 
+# The same number of MCMC runs as the jags run was completed on 2022-10-27
 ```
 
+Results indicated that Durban's approach overestimated the true abundance by approximately 2.5 folds (Fig. \@ref(fig:Figure-N-sim-BUGS)). Credible intervals were wide when no counts were available. 
 
-Finally, it ran on 2022-10-26. 
 
-Take a look at the results:
-
-```{r WinBUGS-results, echo=FALSE}
+```{r WinBUGS-results, echo=FALSE, message=FALSE}
 seasons <- c("2020", "2022")
 
 # Extract estimated counts
-Daily.Est <- BUGS.out$bm$sims.list$Daily.Est
-sp <- BUGS.out$bm$sims.list$sp
-com <- BUGS.out$bm$sims.list$com
-Corrected.Est <- BUGS.out$bm$sims.list$Corrected.Est
+Daily.Est.sim <- BUGS.out.sim$bm$sims.list$Daily.Est
+sp.sim <- BUGS.out.sim$bm$sims.list$sp
+com.sim <- BUGS.out.sim$bm$sims.list$com
+#Corrected.Est.sim.BUGS <- BUGS.out.sim$bm$sims.list$Corrected.Est
 
 # Each one of them is (# samples) x (90 days) x (# years)
 # To plot them using ggplot's facet, I need to convert
@@ -1048,9 +1071,9 @@ Corrected.Est <- BUGS.out$bm$sims.list$Corrected.Est
 #                                            length = dim(Daily.Est)[3])
 
 stats.list <- vector(mode = "list",
-                     length = dim(Daily.Est)[3])
+                     length = dim(Daily.Est.sim)[3])
 
-for (k in 1:dim(Daily.Est)[3]){
+for (k in 1:dim(Daily.Est.sim)[3]){
   # Daily.Est.list[[k]] <- Daily.Est[,,k]
   # Daily.Est.UCIs[[k]] <- apply(Daily.Est[,,k],2,quantile,0.975)
   # Daily.Est.LCIs[[k]] <- apply(Daily.Est[,,k],2,quantile,0.275)
@@ -1058,89 +1081,87 @@ for (k in 1:dim(Daily.Est)[3]){
   # sp.list[[k]] <- sp[,,k]
   # com.list[[k]] <- com[,,k]
   
-  stats.list[[k]] <- data.frame(Daily.Est.median = apply(Daily.Est[,,k], 2,
+  stats.list[[k]] <- data.frame(Daily.Est.median = apply(Daily.Est.sim[,,k], 2,
                                                          median),
-                                Daily.Est.LCL = apply(Daily.Est[,,k], 2,
+                                Daily.Est.LCL = apply(Daily.Est.sim[,,k], 2,
                                                       quantile,0.275),
-                                Daily.Est.UCL = apply(Daily.Est[,,k], 2,
+                                Daily.Est.UCL = apply(Daily.Est.sim[,,k], 2,
                                                       quantile,0.975),
-                                sp.median = apply(exp(sp[,,k]), 2,
+                                sp.median = apply(exp(sp.sim[,,k]), 2,
                                                   median),
-                                sp.LCL = apply(exp(sp[,,k]), 2,
+                                sp.LCL = apply(exp(sp.sim[,,k]), 2,
                                                quantile,0.025),
-                                sp.UCL = apply(exp(sp[,,k]), 2,
+                                sp.UCL = apply(exp(sp.sim[,,k]), 2,
                                                quantile,0.975),
-                                com.median = apply(exp(com[,,k]), 2,
+                                com.median = apply(exp(com.sim[,,k]), 2,
                                                    median),
-                                com.LCL = apply(exp(com[,,k]), 2,
+                                com.LCL = apply(exp(com.sim[,,k]), 2,
                                                 quantile,0.025),
-                                com.UCL = apply(exp(com[,,k]), 2,
+                                com.UCL = apply(exp(com.sim[,,k]), 2,
                                                 quantile,0.975),
-                                #total.median = apply(exp(sp[,,k]), 1, sum),
-                                days = 1:dim(Daily.Est)[2],
-                                year = seasons[k])
+                                #total.median = apply(exp(sp.sim[,,k]), 1, sum),
+                                days = 1:dim(Daily.Est.sim)[2],
+                                Season = seasons[k])
 }
 
-all.stats <- do.call("rbind", stats.list) %>% group_by(year)
+all.stats.sim.BUGS <- do.call("rbind", stats.list) %>% group_by(Season)
 
-ggplot(data = all.stats) +
+p.Daily.sim.BUGS <- ggplot(data = all.stats.sim.BUGS) +
   geom_line(aes(x = days, y = Daily.Est.median)) +
   geom_ribbon(aes(x = days, 
                   ymin = Daily.Est.LCL, 
                   ymax = Daily.Est.UCL),
-              fill = "orange", 
+              fill = "darkblue", 
               alpha = 0.5) + 
-  facet_wrap(vars(year))+
+  geom_line(data = N.hats.sim.JAGS,
+            aes(x = Day, y = Mean)) +
+  geom_ribbon(data = N.hats.sim.JAGS,
+            aes(x = Day, 
+                ymin = LCL,
+                ymax = UCL), 
+            fill = "lightblue",
+            alpha = 0.5) +
+  geom_path(data = N.hats.sim.JAGS,
+            aes(x = Day, y = true.N),
+            color = "gold") +
+  geom_point(data = obsd.n.sim.df, 
+             aes(x = day, y = n))+
+  facet_wrap(vars(Season))+
   xlab("Days since December 1") + 
   ylab("Whales per day")
 
-```
-
-Total abundance
-```{r BUGS-totalN, echo=FALSE}
-abundance.df <- data.frame(total.median = apply(Corrected.Est, 
-                                                FUN = median, 
-                                                MARGIN = 2),
-                           total.LCL = apply(Corrected.Est, 
-                                             MARGIN = 2, 
-                                             FUN = quantile, 0.025),
-                           total.UCL = apply(Corrected.Est, 
-                                             MARGIN = 2, 
-                                             FUN = quantile, 0.975),
-                           Season = seasons)
-
-
-ggplot(data = abundance.df) + 
-  geom_point(aes(x = Season, y = total.median)) + 
-  geom_errorbar(aes(x = Season, ymin = total.LCL, ymax = total.UCL))
-
+if (save.fig)
+  ggsave(filename = "figures/BUGS_daily_sim.png",
+         plot = p.Daily.sim.BUGS, device = "png", 
+         dpi = 600)
 
 ```
 
 
 
+```{r Figure-N-sim-BUGS, echo=FALSE, message=FALSE, fig.cap = "Estimated $N$ and their 95% CI (dark blue ribbon) using Durban's method, new approach (light blue ribbon), the true $N$ (gold), and observed counts (black dots)."}
 
-Analyzing the same data from WinBUGS analysis of real data:
+knitr::include_graphics("figures/BUGS_daily_sim.png")
+```
 
-```{r new-analysis, echo=FALSE}
-data.worked <- readRDS("RData/BUGS_data_runs.rds")
-out.file.name <- "RData/JAGS_pois_binom_results.rds"
+#### Reanalysis of the last 8 seasons
 
-jags.data.real <- list(  n = data.worked$BUGS.data$n, 
-                         n.station = rep(1, dim(data.worked$BUGS.data$n)[3]),
-                         n.year = dim(data.worked$BUGS.data$n)[3],
-                         n.obs = data.worked$BUGS.data$n.obs,
-                         periods = data.worked$BUGS.data$periods,
-                         obs = data.worked$BUGS.data$obs,
-                         vs = scale(data.worked$BUGS.data$vs),
-                         bf = scale(data.worked$BUGS.data$bf),
-                         watch.prop = (data.worked$BUGS.data$Watch.Length*24*60)/540,
-                         day = data.worked$BUGS.data$day)
+Data from last 8 seasons were analyzed using the new approach and the results compared to results from Durban et al's approach. 
 
-MCMC.params <- list(n.samples = 250000,
-                    n.thin = 100,
-                    n.burnin = 200000,
-                    n.chains = 5)
+```{r new-analysis-8yr-v2, echo=FALSE, message=FALSE}
+BUGS.out <- readRDS("RData/WinBUGS_8yr_v2.rds")
+out.file.name <- "RData/JAGS_pois_binom_8yr_v2_2022-10-28.rds"
+
+jags.data.real <- list(  n = BUGS.out$jags.data$n, 
+                         n.station = rep(1, dim(BUGS.out$jags.data$n)[3]),
+                         n.year = dim(BUGS.out$jags.data$n)[3],
+                         n.obs = BUGS.out$jags.data$n.obs,
+                         periods = BUGS.out$jags.data$periods,
+                         obs = BUGS.out$jags.data$obs,
+                         vs = scale(BUGS.out$jags.data$vs),
+                         bf = scale(BUGS.out$jags.data$bf),
+                         watch.prop = (BUGS.out$jags.data$Watch.Length*24*60)/540,
+                         day = BUGS.out$jags.data$day)
 
 
 if (!file.exists(out.file.name)){
@@ -1164,7 +1185,8 @@ if (!file.exists(out.file.name)){
                  jags.params = jags.params,
                  jags.model = jags.model,
                  MCMC.params = MCMC.params,
-                 Run_Time = Run_Time)
+                 Run_Time = Run_Time,
+                 Sys.env = Sys.getenv())
   
   saveRDS(jm.out,
           file = out.file.name)
@@ -1178,69 +1200,45 @@ if (!file.exists(out.file.name)){
 
 ```
 
-No good convergence... need to look into this a bit more. 2022-10-07
 
-
-```{r JAGS-results, echo=F}
+```{r JAGS-results, echo=F,message=FALSE}
 Season <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011", 
              "2014/2015", "2015/2016", "2019/2020", "2021/2022")
 
 max.r.hat <- max(unlist(lapply(jm.out$jm$Rhat, 
                                FUN = max, 
                                na.rm = T)))
-#jm <- jm.out$jm
-#true.values <- c(S1, S2, K, P, B0, B_BF, B_VS)
-# params <- data.frame(name = param.names,
-#                      value = true.values)
-# fix these:
-param.names <- c("S1[1]", "S1[2]","S1[3]", "S1[4]","S1[5]", "S1[6]","S1[7]", "S1[8]", 
-                 "S2[1]", "S2[2]", 
+
+param.names <- c("S1[1]", "S1[2]", "S1[3]", "S1[4]",
+                 "S1[5]", "S1[6]", "S1[7]", "S1[8]", 
+                 "S2[1]", "S2[2]", "S2[3]", "S2[4]",
+                 "S2[5]", "S2[6]", "S2[7]", "S2[8]",
+                 "P[1]", "P[2]", "P[3]","P[4]", 
+                 "P[5]", "P[6]","P[7]", "P[8]",
+                 "max[1]", "max[2]", "max[3]", "max[4]",
+                 "max[5]", "max[6]", "max[7]", "max[8]",
+                 "Corrected.Est[1]", "Corrected.Est[2]","Corrected.Est[3]","Corrected.Est[4]",
+                 "Corrected.Est[5]","Corrected.Est[6]","Corrected.Est[7]","Corrected.Est[8]",
+                 "Raw.Est[1]", "Raw.Est[2]", "Raw.Est[3]", "Raw.Est[4]",
+                 "Raw.Est[5]", "Raw.Est[6]", "Raw.Est[7]", "Raw.Est[8]",
                  "K", 
-                 "P[1]", "P[2]", 
-                 "max[1]", "max[2]", 
                  "mean.prob", "BF.Fixed", "VS.Fixed")
 
-plots.trace <- function(jm, params){
-  out.list <- list()
-  for (i in 1:length(params)){
-      p.tmp <- mcmc_trace(jm$samples, params[i]) +
-        legend_none() + 
-        xaxis_text(on = FALSE) 
-      out.list[[i]] <- p.tmp 
-    }
-
-  return(out.list)
-}
-
-p.trace.S1 <- plots.trace(jm.out$jm, 
-                       params = c("S1[1]", "S1[2]","S1[3]", 
-                                  "S1[4]","S1[5]", "S1[6]",
-                                  "S1[7]", "S1[8]"))
-
-p.trace.S2 <- plots.trace(jm.out$jm, 
-                       params = c("S2[1]", "S2[2]", "S2[3]", 
-                                  "S2[4]", "S2[5]", "S2[6]",
-                                  "S2[7]", "S2[8]"))
-
-p.trace.P <- plots.trace(jm.out$jm, 
-                       params = c("P[1]", "P[2]", "P[3]", 
-                                  "P[4]", "P[5]", "P[6]",
-                                  "P[7]", "P[8]"))
-
 p.dens <- plots.dens(jm.out$jm, params = param.names)
+p.trace <- plots.trace(jm.out$jm, params = param.names)
 
 if (save.fig){
   for (k in 1:length(param.names)){
     ggsave(plot = p.trace[[k]] + 
              geom_hline(aes(yintercept = params.df[k, "value"]),
                         color = "red", size = 1.2),
-           filename = paste0("figures/", param.names[k], "_sim_trace.png"),
+           filename = paste0("figures/", param.names[k], "_trace.png"),
            
            dpi = 600, 
            device = "png",
            height = 3, width = 3, units = "in")
     
-    ggsave(filename = paste0("figures/", param.names[k], "_sim_dens.png"),
+    ggsave(filename = paste0("figures/", param.names[k], "_dens.png"),
            plot = p.dens[[k]],
            dpi = 600, device = "png",
            height = 3, width = 3, units = "in")
@@ -1249,53 +1247,129 @@ if (save.fig){
   
 }
 
-obsd.n.df <- data.frame(Season = c(rep(Season[1], jm.out$jags.data$periods[1]), 
-                                   rep(Season[2], jm.out$jags.data$periods[2])),
-                        day = c(jm.out$jags.data$day[1:jm.out$jags.data$periods[1],1],
-                                jm.out$jags.data$day[1:jm.out$jags.data$periods[2],2]),
-                        n = c(jm.out$jags.data$n[1:jm.out$jags.data$periods[1],1,1],
-                              jm.out$jags.data$n[1:jm.out$jags.data$periods[2],1,2]))
 
-mean.N.hats <- data.frame(Season = rep(Season, each = 90),
+mean.N.hats.JAGS <- data.frame(Season = rep(Season, each = 90),
                           Day = rep(1:90, length(Season)),
                           Mean = as.vector(jm.out$jm$mean$mean.N),
                           LCL = as.vector(jm.out$jm$q2.5$mean.N),
                           UCL = as.vector(jm.out$jm$q97.5$mean.N))
 
-p.mean.N.hats <- ggplot(mean.N.hats %>% group_by(Season)) + 
+
+N.hats.JAGS <- data.frame(Season = rep(Season, each = 90),
+                          Day = rep(1:90, times = length(Season)),
+                          Mean = as.vector(jm.out$jm$mean$N),
+                          LCL = as.vector(jm.out$jm$q2.5$N),
+                          UCL = as.vector(jm.out$jm$q97.5$N))
+
+Corrected.Est.df.JAGS <- data.frame(Season = Season,
+                                    Mean = as.vector(jm.out$jm$mean$Corrected.Est),
+                                    LCL = as.vector(jm.out$jm$q2.5$Corrected.Est),
+                                    UCL = as.vector(jm.out$jm$q97.5$Corrected.Est))
+
+# get the BUGS output
+# Extract estimated counts
+Daily.Est.BUGS <- BUGS.out$BUGS_out$sims.list$Daily.Est
+sp.BUGS <- BUGS.out$BUGS_out$sims.list$sp
+com.BUGS <- BUGS.out$BUGS_out$sims.list$com
+Corrected.Est.BUGS <- BUGS.out$BUGS_out$sims.list$Corrected.Est
+
+stats.list <- vector(mode = "list",
+                     length = dim(Daily.Est.BUGS)[3])
+
+for (k in 1:dim(Daily.Est.BUGS)[3]){
+  stats.list[[k]] <- data.frame(Daily.Est.median = apply(Daily.Est.BUGS[,,k], 2,
+                                                         median),
+                                Daily.Est.LCL = apply(Daily.Est.BUGS[,,k], 2,
+                                                      quantile,0.275),
+                                Daily.Est.UCL = apply(Daily.Est.BUGS[,,k], 2,
+                                                      quantile,0.975),
+                                sp.median = apply(exp(sp.BUGS[,,k]), 2,
+                                                  median),
+                                sp.LCL = apply(exp(sp.BUGS[,,k]), 2,
+                                               quantile,0.025),
+                                sp.UCL = apply(exp(sp.BUGS[,,k]), 2,
+                                               quantile,0.975),
+                                com.median = apply(exp(com.BUGS[,,k]), 2,
+                                                   median),
+                                com.LCL = apply(exp(com.BUGS[,,k]), 2,
+                                                quantile,0.025),
+                                com.UCL = apply(exp(com.BUGS[,,k]), 2,
+                                                quantile,0.975),
+                                #total.median = apply(exp(sp[,,k]), 1, sum),
+                                days = 1:dim(Daily.Est.BUGS)[2],
+                                Season = Season[k])
+}
+
+all.stats.BUGS <- do.call("rbind", stats.list) %>% group_by(Season)
+
+Corrected.Est.df.BUGS <- data.frame(total.median = apply(Corrected.Est.BUGS, 
+                                                         FUN = median, 
+                                                         MARGIN = 2),
+                                    total.LCL = apply(Corrected.Est.BUGS, 
+                                                      MARGIN = 2, 
+                                                      FUN = quantile, 0.025),
+                                    total.UCL = apply(Corrected.Est.BUGS, 
+                                                      MARGIN = 2, 
+                                                      FUN = quantile, 0.975),
+                                    Season = Season)
+
+p.mean.N.hats.JAGS <- ggplot(mean.N.hats.JAGS %>% group_by(Season)) + 
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
               fill = "blue", alpha = 0.5) +
   geom_path(aes(x = Day, y = Mean)) + 
+
   facet_wrap(~ Season)
 
 if (save.fig)
-  ggsave(p.mean.N.hats, filename = "figures/mean_N.png",
+  ggsave(p.mean.N.hats, 
+         filename = "figures/mean_N_pois_bino.png",
          device = "png", dpi = 600)
 
-N.hats <- data.frame(Season = rep(Season, each = 90),
-                     Day = rep(1:90, times = length(Season)),
-                     Mean = as.vector(jm.out$jm$mean$N),
-                     LCL = as.vector(jm.out$jm$q2.5$N),
-                     UCL = as.vector(jm.out$jm$q97.5$N))
-
-p.N.hats <- ggplot(N.hats) + 
-  geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
-              fill = "blue", alpha = 0.5) +
+p.N.hats <- ggplot(N.hats.JAGS) + 
+  geom_ribbon(aes(x = Day, 
+                  ymin = LCL, 
+                  ymax = UCL),
+              fill = "lightblue", 
+              alpha = 0.5) +
   geom_path(aes(x = Day, y = Mean)) + 
+  geom_ribbon(data = all.stats.BUGS,
+              aes(x = days, 
+                  ymin = Daily.Est.LCL,
+                  ymax = Daily.Est.UCL),
+              fill = "darkblue",
+              alpha = 0.5) +
+  geom_path(data = all.stats.BUGS,
+            aes(x = days, y = Daily.Est.median)) +
   #geom_point(data = obsd.n.df, aes(x = day, y = n))+
   facet_wrap(~ Season)
 
 if (save.fig)
-  ggsave(p.N.hats, filename = "figures/N_hats.png",
+  ggsave(p.N.hats, 
+         filename = "figures/N_hats_pois_bino.png",
          device = "png", dpi = 600)
 
-p.trace.all <- cowplot::plot_grid(plotlist = p.trace, 
-                                  ncol = 2)
+p.corrected.N.hats <- ggplot() + 
+  geom_errorbar(data = Corrected.Est.df.JAGS,
+                aes(x = Season, ymin = LCL, ymax = UCL),
+                color = "lightblue") +
+  geom_point(data = Corrected.Est.df.JAGS,
+             aes(x = Season, y = Mean)) +
+  geom_errorbar(data = Corrected.Est.df.BUGS,
+                aes(x = Season, 
+                    ymin = total.LCL, 
+                    ymax = total.UCL),
+                color = "darkblue") +
+  geom_point(data = Corrected.Est.df.BUGS,
+             aes(x = Season, y = total.median)) +
+  xlab("")
 
 if (save.fig)
-  cowplot::save_plot(p.trace.all, 
-                     filename = "figures/trace_plots_S1.png",
-                     device = "png", dpi = 600, bg = "white")
+  ggsave(p.corrected.N.hats, 
+         filename = "figures/corrected_N_hats_pois_bino.png",
+         device = "png", dpi = 600)
+
+
+
 
 ```
 
