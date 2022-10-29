@@ -342,8 +342,7 @@ $$ \lambda \sim N(1.0875, 0.03625) $$ (Perryman et al. YR).
 
 #### Simulation
 
-To evaluate the performance of the new approach using Richards functions, I simulated data using the above relationships. To test for a mismatch between the within-season mean function, with respect to the number of days since day 1, I used a gamma distribution function (GAM(3, 0.07) * 5000) instead of Richards functions (R())to define the mean values for one year and used Richards functions for the other year. 
-
+To evaluate the performance of the new approach using Richards functions, I simulated data using the above relationships. To test for a mismatch between the within-season mean function, with respect to the number of days since day 1, I used a gamma distribution function (GAM(3, 0.07) * 5000) instead of Richards functions (R()) to define the mean values for one year and used Richards functions for the other year. 
 
 $$ \bar{N}_{1,t} = GAM(t, 3, 0.07) $$, 
 
@@ -353,7 +352,7 @@ $$ \bar{N}_{2,t} = R(t, S_1 = -0.9, S_2 = 1.5, P = 48, K = 2.5, max = 500) $$,
 
 where t = 1, ..., 90.
 
-The shape of the gamma function is shwon in Figure \@ref(fig:Figure-Gam-def).
+The shape of the gamma function is shown in Figure \@ref(fig:Figure-Gam-def).
 
 ```{r gam_fcn, echo=FALSE, message=FALSE}
 gam.def <- data.frame(x = seq(0, 100, by = 0.01)) %>%
@@ -377,7 +376,7 @@ knitr::include_graphics("figures/gam_def.png")
 
 ```{r simulation, echo=FALSE, message=FALSE}
 set.seed(12345)
-save.fig <- T
+#save.fig <- T
 # Define Richards function parameters
 S1 <- 0.9  # this gets fixed to a negative value in Richards_fcn. 
 S2 <- 1.5
@@ -703,14 +702,18 @@ p.trace.all.sim.JAGS <- cowplot::plot_grid(plotlist = p.trace.sim.JAGS,
                                       ncol = 2)
 
 if (save.fig)
-  cowplot::save_plot(p.trace.all.sim.JAGS, 
-                     filename = "figures/trace_plots_sim_JAGS.png",
-                     device = "png", dpi = 600, bg = "white")
+  # cowplot::save_plot(p.trace.all.sim.JAGS, 
+  #                    filename = "figures/trace_plots_sim_JAGS.png",
+  #                    device = "png", dpi = 600, bg = "white")
+  
+  ggsave(p.trace.all.sim.JAGS, 
+         filename = "figures/trace_plots_sim_JAGS.png",
+         device = "png", dpi = 600)
 
 ```
 
 
-Convergence was reached for all parameters according to the @\hat{R}$ statistic, where the maximum value was `r signif(max.r.hat, 3)`. However, trace plots of some Richards function parameters did not look ideal (Figure \@ref(fig:Figure-trace)). The observed poor conversions of S1, S2, and max parameters might have been caused by the mismatch between the true function (gamma) and assumed (Richards) function, where Richards functions could not match the increase (S2) and decrease (S1) of the gamma function.
+Convergence was reached for all parameters according to the @\hat{R}$ statistic, where the maximum value was `r signif(max.r.hat, 3)`. However, trace plots of some Richards function parameters did not look ideal (Figure \@ref(fig:Figure-trace-sim-JAGS)). The observed poor conversions of S1, S2, and max parameters might have been caused by the mismatch between the true function (gamma) and assumed (Richards) function, where Richards functions could not match the increase (S2) and decrease (S1) of the gamma function.
 
 For the parameters that associated with sighting probabilities (mean.prob, BF.Fixed, and VS.Fixed), MCMC samples appeared to converge, albeit not around the true values (Figure \@ref(fig:Figure-trace-sim-JAGS)). 
 
@@ -1148,6 +1151,8 @@ knitr::include_graphics("figures/BUGS_daily_sim.png")
 
 Data from last 8 seasons were analyzed using the new approach and the results compared to results from Durban et al's approach. 
 
+
+
 ```{r new-analysis-8yr-v2, echo=FALSE, message=FALSE}
 BUGS.out <- readRDS("RData/WinBUGS_8yr_v2.rds")
 out.file.name <- "RData/JAGS_pois_binom_8yr_v2_2022-10-28.rds"
@@ -1321,7 +1326,7 @@ p.mean.N.hats.JAGS <- ggplot(mean.N.hats.JAGS %>% group_by(Season)) +
   facet_wrap(~ Season)
 
 if (save.fig)
-  ggsave(p.mean.N.hats, 
+  ggsave(p.mean.N.hats.JAGS, 
          filename = "figures/mean_N_pois_bino.png",
          device = "png", dpi = 600)
 
@@ -1345,7 +1350,7 @@ p.N.hats <- ggplot(N.hats.JAGS) +
 
 if (save.fig)
   ggsave(p.N.hats, 
-         filename = "figures/N_hats_pois_bino.png",
+         filename = "figures/N_hats_BUGS_JAGS.png",
          device = "png", dpi = 600)
 
 p.corrected.N.hats <- ggplot() + 
@@ -1365,7 +1370,7 @@ p.corrected.N.hats <- ggplot() +
 
 if (save.fig)
   ggsave(p.corrected.N.hats, 
-         filename = "figures/corrected_N_hats_pois_bino.png",
+         filename = "figures/corrected_N_BUGS_JAGS.png",
          device = "png", dpi = 600)
 
 
@@ -1373,4 +1378,15 @@ if (save.fig)
 
 ```
 
+Convergence was reached for all parameters where the maximum $\hat{R}$ statistic was `r signif(max.r.hat, 3)`. As it was found in the analysis of simulated data, daily estimates were greater for the new approach than Durban's approach (Figure \@ref(fig:Figure-daily-N-hats)). Estimates from the new approach was more precise than those from Durban's method. As a consequence, annual estimates also were greater for Durban's method than for the new approach and precision was better for the new approach (Figure \@ref(fig:Figure-N-hats)).   
 
+
+```{r Figure-daily-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated dailyt abundance and their 95% CIs using Durban's method (dark blue) and new approach (light blue)."}
+
+knitr::include_graphics("figures/N_hats_BUGS_JAGS.png")
+```
+
+```{r Figure-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated annual abundance and their 95% CIs using Durban's method (dark blue) and new approach (light blue)."}
+
+knitr::include_graphics("figures/corrected_N_BUGS_JAGS.png")
+```
