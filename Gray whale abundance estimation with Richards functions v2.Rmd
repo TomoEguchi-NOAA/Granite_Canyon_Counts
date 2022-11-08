@@ -1086,6 +1086,12 @@ if (!file.exists(paste0("RData/WinBUGS_sim_", run.date, ".rds"))){
 
 }
 
+## 2022-11-08 More undefined real...
+undefined real result
+
+ UpdaterDFreeARS.BuildHull   [000009C5H] 
+	.denom	REAL	-inf
+
 ###### Some bugs were worked out #######
 # undefined real result was caused by not having 1 in Watch.Length for day 1 and 90
 # Took me a couple days to figure it out... Still comes back with error (undefined
