@@ -653,7 +653,7 @@ if (!file.exists(out.file.name)){
                      MCMC.params = MCMC.params,
                      Run_Time = Run_Time)
   
-  saveRDS(jm.out,
+  saveRDS(jm.sim.out,
           file = out.file.name)
   
 } else {
@@ -821,9 +821,9 @@ BUGS.model <- "GW_Nmix_Orig.bugs"
 # # This works fine!
 
 # I still keep these lines here to use the list of parameter names for WinBUGS runs. 
-#run.date <- "2022-10-21"   # the date that WinBUGS Ver2.Rmd was run and the output saved.
+worked.run.date <- "2022-10-21"   # the date that WinBUGS Ver2.Rmd was run and the output saved.
 data.worked <- readRDS(paste0("RData/BUGS_data_runs_",
-                              run.date, ".rds"))
+                              worked.run.date, ".rds"))
 # # N_inits <- data.worked$N_inits
 # # x <- 2
 # # #
@@ -1051,7 +1051,7 @@ BUGS.inits.1 <- function() list(mean.prob = 0.5,
                                 sd.b.sp = rep(1, times = x),
                                 z = matrix(1, nrow=90, ncol= x))
 
-run.date <- "2022-10-27"
+#run.date <- "2022-10-27"
 if (!file.exists(paste0("RData/WinBUGS_sim_", run.date, ".rds"))){
 
   Start_Time<-Sys.time()
