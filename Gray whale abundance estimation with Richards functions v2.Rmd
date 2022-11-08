@@ -10,7 +10,7 @@ output:
 ```{r setup, include=FALSE}
 rm(list = ls())
 knitr::opts_chunk$set(echo = TRUE)
-save.fig <- F
+save.fig <- T
 
 source("Granite_Canyon_Counts_fcns.R")
 library(tidyverse)
@@ -24,6 +24,8 @@ library(abind)
 
 set_flextable_defaults(font.size = 9,
                        font.family = "Cambria")
+
+dpi.set <- 300
 
 plots.trace <- function(jm, params, params.df = NULL){
   out.list <- list()
@@ -148,7 +150,9 @@ p.S1 <- ggplot(data = data.df) +
   facet_wrap(~ S1)
 
 if (save.fig)
-  ggsave(p.S1, filename = "figures/S1.png", dpi = 600, device = "png")
+  ggsave(p.S1, 
+         filename = paste0("figures/S1_", dpi.set, "dpi.png"), 
+                           dpi = dpi.set, device = "png")
 
 ```
 
@@ -156,7 +160,7 @@ if (save.fig)
 
 ```{r Figure-S1, echo=FALSE, message=FALSE, fig.cap="Effects of $S_1$. In this example, $S_2 = 1.5$, $K = 1$, $P = 40$, $N_{max} = 800$."}
 
-knitr::include_graphics("figures/S1.png")
+knitr::include_graphics(paste0("figures/S1_", dpi.set, "dpi.png"))
 
 ```
 
@@ -198,14 +202,15 @@ p.S2 <- ggplot(data = data.df) +
   facet_wrap(~ S2)
 
 if (save.fig)
-  ggsave(p.S2, filename = "figures/S2.png", dpi = 600, device = "png")
+  ggsave(p.S2, filename = paste0("figures/S2_", dpi.set, "dpi.png"), 
+         dpi = dpi.set, device = "png")
 
 ```
 
 
 ```{r Figure-S2, echo=FALSE, message=FALSE, fig.cap="Effects of $S_2$. In this example, $S_1 = -1.5$, $K = 1$, $P = 40$, $N_{max} = 800$."}
 
-knitr::include_graphics("figures/S2.png")
+knitr::include_graphics(paste0("figures/S2_", dpi.set, "dpi.png"))
 
 ```
 
@@ -246,14 +251,15 @@ p.K <- ggplot(data = data.df) +
   facet_wrap(~ K)
 
 if (save.fig)
-  ggsave(p.K, filename = "figures/K.png", dpi = 600, device = "png")
+  ggsave(p.K, filename = paste0("figures/K_", dpi.set, "dpi.png"), 
+         dpi = dpi.set, device = "png")
 
 ```
 
 
 ```{r Figure-K, echo=FALSE, message=FALSE, fig.cap="Effects of $K$. In this example, $S_1 = -2.5$, $S_2 = 2.5$, $P = 40$, $N_{max} = 800$."}
 
-knitr::include_graphics("figures/K.png")
+knitr::include_graphics(paste0("figures/K_", dpi.set, "dpi.png"))
 
 ```
 
@@ -295,14 +301,15 @@ p.P <- ggplot(data = data.df) +
   facet_wrap(~ P)
 
 if (save.fig)
-  ggsave(p.P, filename = "figures/P.png", dpi = 600, device = "png")
+  ggsave(p.P, filename = paste0("figures/P_", dpi.set, "dpi.png"), 
+                                dpi = dpi.set, device = "png")
 
 ```
 
 
 ```{r Figure-P, echo=FALSE, message=FALSE, fig.cap="Effects of $P$. In this example, $S_1 = -2.5$, $S_2 = 2.5$, $K = 1.5$, $N_{max} = 800$."}
 
-knitr::include_graphics("figures/P.png")
+knitr::include_graphics(paste0("figures/P_", dpi.set, "dpi.png"))
 
 ```
 
@@ -362,14 +369,15 @@ p.gam.def <- ggplot(gam.def) +
   geom_path(aes(x = x, y = y))
 
 if (save.fig)
-  ggsave(filename = "figures/gam_def.png", plot = p.gam.def,
-         device = "png", dpi = 600)
+  ggsave(filename = paste0("figures/gam_def_", dpi.set, "dpi.png"), 
+         plot = p.gam.def,
+         device = "png", dpi = dpi.set)
 ```
 
 
 ```{r Figure-Gam-def, echo=FALSE, message=FALSE, fig.cap="The shape of gamma distribution function used to simulate data. This function defines $\bar{N}$. Although there are non-zero values beyond x = 90, the $\bar{N}$ was set to 0 at x = 90. "}
 
-knitr::include_graphics("figures/gam_def.png")
+knitr::include_graphics(paste0("figures/gam_def_", dpi.set, "dpi.png"))
 
 ```
 
@@ -627,15 +635,17 @@ if (save.fig){
     ggsave(plot = p.trace.sim.JAGS[[k]] + 
              geom_hline(aes(yintercept = params.df[k, "value"]),
                         color = "red", size = 1.2),
-           filename = paste0("figures/", param.names[k], "_sim_trace_JAGS.png"),
+           filename = paste0("figures/", param.names[k], "_sim_trace_JAGS_", 
+                             dpi.set, "dpi.png"),
            
-           dpi = 600, 
+           dpi = dpi.set, 
            device = "png",
            height = 3, width = 3, units = "in")
     
-    ggsave(filename = paste0("figures/", param.names[k], "_sim_dens_JAGS.png"),
+    ggsave(filename = paste0("figures/", param.names[k], "_sim_dens_JAGS_", 
+                             dpi.set, "dpi.png"),
            plot = p.dens.sim.JAGS[[k]],
-           dpi = 600, device = "png",
+           dpi = dpi.set, device = "png",
            height = 3, width = 3, units = "in")
     
   }
@@ -664,8 +674,9 @@ p.mean.N.hats.sim.JAGS <- ggplot(mean.N.hats.sim.JAGS %>% group_by(Season)) +
   facet_wrap(~ Season)
 
 if (save.fig)
-  ggsave(p.mean.N.hats.sim.JAGS, filename = "figures/mean_N_sim_JAGS.png",
-         device = "png", dpi = 600)
+  ggsave(p.mean.N.hats.sim.JAGS, 
+         filename = paste0("figures/mean_N_sim_JAGS_", dpi.set, "dpi.png"),
+         device = "png", dpi = dpi.set)
 
 N.hats.sim.JAGS <- data.frame(Season = rep(Season, each = 90),
                               Day = rep(1:90, times = length(Season)),
@@ -683,8 +694,9 @@ p.N.hats.sim.JAGS <- ggplot(N.hats.sim.JAGS) +
   facet_wrap(~ Season)
 
 if (save.fig)
-  ggsave(p.N.hats.sim.JAGS, filename = "figures/N_hats_sim_JAGS.png",
-         device = "png", dpi = 600)
+  ggsave(p.N.hats.sim.JAGS, 
+         filename = paste0("figures/N_hats_sim_JAGS_", dpi.set, "dpi.png"),
+         device = "png", dpi = dpi.set)
 
 # Simulation did not take into account the correction part so no need to look at this
 # for simulation analysis. 
@@ -694,8 +706,9 @@ if (save.fig)
 #                                         UCL = as.vector(jm.sim.out$jm$q97.5$Corrected.Est))
 
 if (save.fig)
-  ggsave(p.N.hats.sim.JAGS, filename = "figures/N_hats_sim_JAGS.png",
-         device = "png", dpi = 600)
+  ggsave(p.N.hats.sim.JAGS, 
+         filename = paste0("figures/N_hats_sim_JAGS_", dpi.set, "dpi.png"),
+         device = "png", dpi = dpi.set)
 
 
 p.trace.all.sim.JAGS <- cowplot::plot_grid(plotlist = p.trace.sim.JAGS, 
@@ -704,11 +717,11 @@ p.trace.all.sim.JAGS <- cowplot::plot_grid(plotlist = p.trace.sim.JAGS,
 if (save.fig)
   # cowplot::save_plot(p.trace.all.sim.JAGS, 
   #                    filename = "figures/trace_plots_sim_JAGS.png",
-  #                    device = "png", dpi = 600, bg = "white")
+  #                    device = "png", dpi = dpi.set, bg = "white")
   
   ggsave(p.trace.all.sim.JAGS, 
-         filename = "figures/trace_plots_sim_JAGS.png",
-         device = "png", dpi = 600)
+         filename = paste0("figures/trace_plots_sim_JAGS_", dpi.set, "dpi.png"),
+         device = "png", dpi = dpi.set)
 
 ```
 
@@ -719,7 +732,7 @@ For the parameters that associated with sighting probabilities (mean.prob, BF.Fi
 
 ```{r Figure-trace-sim-JAGS, echo=FALSE, message=FALSE, fig.cap="Trace plots of parameters. Red horizontal lines indicate the true values. Not all plots contain true values because the data generating function for one year (gamma distribution) was different from the estimation function (Richards function)."}
 
-knitr::include_graphics("figures/trace_plots_sim_JAGS.png")
+knitr::include_graphics(paste0("figures/trace_plots_sim_JAGS_", dpi.set, "dpi.png"))
 
 ```
 
@@ -728,13 +741,13 @@ Even with the apparent poor conversion of a few parameters, estimated $\bar{N}$ 
 
 ```{r Figure-mean-N-sim-JAGS, echo=FALSE, message=FALSE, fig.cap = "Estimated $\bar{N}$ and their 95% CI (blue ribbon) and the true $\bar{N}$ in gold."}
 
-knitr::include_graphics("figures/mean_N_sim_JAGS.png")
+knitr::include_graphics(paste0("figures/mean_N_sim_JAGS_", dpi.set, "dpi.png"))
 ```
 
 
 ```{r Figure-N-sim-JAGS, echo=FALSE, message=FALSE, fig.cap = "Estimated $N$ and their 95% CI (blue ribbon) and the true $N$ in gold."}
 
-knitr::include_graphics("figures/N_hats_sim_JAGS.png")
+knitr::include_graphics(paste0("figures/N_hats_sim_JAGS_", dpi.set, "dpi.png"))
 ```
 
 
@@ -1134,9 +1147,9 @@ p.Daily.sim.BUGS <- ggplot(data = all.stats.sim.BUGS) +
   ylab("Whales per day")
 
 if (save.fig)
-  ggsave(filename = "figures/BUGS_daily_sim.png",
+  ggsave(filename = paste0("figures/BUGS_daily_sim_", dpi.set, "dpi.png"),
          plot = p.Daily.sim.BUGS, device = "png", 
-         dpi = 600)
+         dpi = dpi.set)
 
 ```
 
@@ -1144,7 +1157,7 @@ if (save.fig)
 
 ```{r Figure-N-sim-BUGS, echo=FALSE, message=FALSE, fig.cap = "Estimated $N$ and their 95% CI (dark blue ribbon) using Durban's method, new approach (light blue ribbon), the true $N$ (gold), and observed counts (black dots)."}
 
-knitr::include_graphics("figures/BUGS_daily_sim.png")
+knitr::include_graphics(paste0("figures/BUGS_daily_sim_", dpi.set, "dpi.png"))
 ```
 
 #### Reanalysis of the last 8 seasons
@@ -1237,15 +1250,17 @@ if (save.fig){
     ggsave(plot = p.trace[[k]] + 
              geom_hline(aes(yintercept = params.df[k, "value"]),
                         color = "red", size = 1.2),
-           filename = paste0("figures/", param.names[k], "_trace.png"),
+           filename = paste0("figures/", param.names[k], "_trace_", 
+                             dpi.set, "dpi.png"),
            
-           dpi = 600, 
+           dpi = dpi.set, 
            device = "png",
            height = 3, width = 3, units = "in")
     
-    ggsave(filename = paste0("figures/", param.names[k], "_dens.png"),
+    ggsave(filename = paste0("figures/", param.names[k], "_dens_", 
+                             dpi.set, "dpi.png"),
            plot = p.dens[[k]],
-           dpi = 600, device = "png",
+           dpi = dpi.set, device = "png",
            height = 3, width = 3, units = "in")
     
   }
@@ -1328,7 +1343,7 @@ p.mean.N.hats.JAGS <- ggplot(mean.N.hats.JAGS %>% group_by(Season)) +
 if (save.fig)
   ggsave(p.mean.N.hats.JAGS, 
          filename = "figures/mean_N_pois_bino.png",
-         device = "png", dpi = 600)
+         device = "png", dpi = dpi.set)
 
 p.N.hats <- ggplot(N.hats.JAGS) + 
   geom_ribbon(aes(x = Day, 
@@ -1351,7 +1366,7 @@ p.N.hats <- ggplot(N.hats.JAGS) +
 if (save.fig)
   ggsave(p.N.hats, 
          filename = "figures/N_hats_BUGS_JAGS.png",
-         device = "png", dpi = 600)
+         device = "png", dpi = dpi.set)
 
 p.corrected.N.hats <- ggplot() + 
   geom_errorbar(data = Corrected.Est.df.JAGS,
@@ -1371,7 +1386,7 @@ p.corrected.N.hats <- ggplot() +
 if (save.fig)
   ggsave(p.corrected.N.hats, 
          filename = "figures/corrected_N_BUGS_JAGS.png",
-         device = "png", dpi = 600)
+         device = "png", dpi = dpi.set)
 
 
 
@@ -1383,10 +1398,10 @@ Convergence was reached for all parameters where the maximum $\hat{R}$ statistic
 
 ```{r Figure-daily-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated dailyt abundance and their 95% CIs using Durban's method (dark blue) and new approach (light blue)."}
 
-knitr::include_graphics("figures/N_hats_BUGS_JAGS.png")
+knitr::include_graphics(paste0("figures/N_hats_BUGS_JAGS_", dpi.set, "dpi.png"))
 ```
 
 ```{r Figure-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated annual abundance and their 95% CIs using Durban's method (dark blue) and new approach (light blue)."}
 
-knitr::include_graphics("figures/corrected_N_BUGS_JAGS.png")
+knitr::include_graphics(paste0("figures/corrected_N_BUGS_JAGS_", dpi.set, "dpi.png"))
 ```
