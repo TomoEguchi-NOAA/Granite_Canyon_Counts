@@ -76,7 +76,7 @@ model{
 		max[y] ~ dgamma(4, 0.002)
 		S1[y] ~ dgamma(2.1,1) T(,5) #dunif(-5, -0.3) 
 		S2[y] ~ dgamma(2.1,1) T(,5)  #dunif(0.3, 5) 
-		K[y] ~ dunif(0.3, 3)   #dnorm(0, 0.01)T(0.3, 3)
+		K[y] ~ dunif(0.1, 5)   #dnorm(0, 0.01)T(0.3, 3)
 		P[y] ~ dunif(30, 60)
 
 	}
