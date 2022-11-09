@@ -42,13 +42,13 @@ model{
 		#N[90,y] ~ dpois(mean.N[90,y])
 		
 		for (t in 1:90){
-			# year-specific K
-			M1[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/S1[y]) * (P[y] - t))) ^ (-1/exp(K[y]))
-			M2[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K[y]))
+			# year-specific K - results in conversion issues. 2022-11-09
+			#M1[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/(-S1[y])) * (P[y] - t))) ^ (-1/exp(K[y]))
+			#M2[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K[y]))
 			
 			# or common K
-			#M1[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/(-S1[y])) * (P[y] - t))) ^ (-1/exp(K))
-			#M2[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K))
+			M1[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/(-S1[y])) * (P[y] - t))) ^ (-1/exp(K))
+			M2[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K))
 			
 			mean.N[t, y] <- (max[y]) * (M1[t, y] * M2[t, y])
 			#mean.N[t, y] <- (max) * (M1[t, y] * M2[t, y])
@@ -76,13 +76,15 @@ model{
 		max[y] ~ dgamma(4, 0.002)
 		S1[y] ~ dgamma(2.1,1) T(,5) #dunif(-5, -0.3) 
 		S2[y] ~ dgamma(2.1,1) T(,5)  #dunif(0.3, 5) 
-		K[y] ~ dunif(0.1, 5)   #dnorm(0, 0.01)T(0.3, 3)
+		#K[y] ~ dunif(0.1, 5)   #dnorm(0, 0.01)T(0.3, 3)
 		P[y] ~ dunif(30, 60)
 
 	}
 
+	# Year specific K results in poor conversions of parameters. This must be due to
+	# insufficient data. For now, I'll keep K to be a common parameter
 	#S ~ dunif(0.5, 5)
-	#K ~ dunif(0.3, 3) # dgamma(2.8, 2.5) T(0.3,3) #   
+	K ~ dunif(0.1, 5) # dgamma(2.8, 2.5) T(0.3,3) #   
 	
 	### Observation probability - include the watch period durations
 	for(y in 1:n.year){

@@ -30,27 +30,19 @@ dpi.set <- 300
 plots.trace <- function(jm, params, params.df = NULL){
   out.list <- list()
   for (i in 1:length(params)){
-    if (i < 7){
-      p.tmp <- mcmc_trace(jm$samples, params[i]) +
+    
+    p.tmp <- mcmc_trace(jm$samples, params[i]) +
         legend_none() + xaxis_text(on = FALSE)
       
       if (!is.null(params.df)){
+        if (!is.na(params.df[i, "value"])){
         p.tmp <- p.tmp + 
           hline_at(params.df[i, "value"], 
                    color = "red", size = 1.2)
+          
+        }
       }
       
-    } else {
-      p.tmp <- mcmc_trace(jm$samples, params[i]) +
-        legend_none()
-      
-      if (!is.null(params.df)){
-        p.tmp <- p.tmp +
-          hline_at(params.df[i, "value"], 
-                   color = "red", size = 1.2)
-      }
-    }
-
     out.list[[i]] <- p.tmp 
   }
   return(out.list)
@@ -448,33 +440,6 @@ B_BF <- -1.2
 B_VS <- -1.8
 
 Season = c("2020", "2022")
-n.Season = length(Season)
-params.to.summarize.n.Season <- c("S1", "S2", "P", "max")
-
-# Some are common among all years
-params.to.summarize.n.1 <- c("K", "mean.prob", "BF.Fixed", "VS.Fixed")
-
-# Add year specific indices
-param.names.n.Season <- lapply(params.to.summarize.n.Season,
-                               FUN = function(x, n.Season){
-                                 out <- vector(mode = "character", length = n.Season)
-                                 for (k in 1:n.Season){
-                                   out[k] <- paste0(x, "[", k, "]")
-                                   
-                                 }
-                                 return(out)}, 
-                               n.Season)
-
-# Combine the two groups to make a vector of all parameter names
-param.names <- c(unlist(param.names.n.Season),
-                 params.to.summarize.n.1)
-
-params.df <- data.frame(names = param.names,
-                        value = c(NA, S1, 
-                                  NA, S2, 
-                                  NA, P, 
-                                  NA, Max,
-                                  K, B0, B_BF, B_VS))
 
 True.N <- matrix(nrow = 90, ncol = length(Season))
 for (k in 1:nrow(N.mean)) {
@@ -602,7 +567,8 @@ for (c1 in 1:dim(obs)[1]){
 
 ```{r run-jags, echo=FALSE, message=FALSE}
 #Data_True.N$obsd.n <- obsd.n
-run.date <- Sys.Date()   #"2022-11-08" # change this accordingly
+run.date <- "2022-11-08" #Sys.Date()   # change this accordingly 2022-11-08 was with a common K
+
 out.file.name <- paste0("RData/Pois_Binom_sim_results_", run.date, ".rds")
     
 MCMC.params <- list(n.samples = 120000,
@@ -683,6 +649,34 @@ max.r.hat <- max(unlist(lapply(jm.sim.out$jm$Rhat,
 #true.values <- c(S1, S2, K, P, B0, B_BF, B_VS)
 # params <- data.frame(name = param.names,
 #                      value = true.values)
+n.Season = length(Season)
+params.to.summarize.n.Season <- c("S1", "S2", "P", "max")
+
+# Some are common among all years
+params.to.summarize.n.1 <- c("K", "mean.prob", "BF.Fixed", "VS.Fixed")
+
+# Add year specific indices
+param.names.n.Season <- lapply(params.to.summarize.n.Season,
+                               FUN = function(x, n.Season){
+                                 out <- vector(mode = "character", length = n.Season)
+                                 for (k in 1:n.Season){
+                                   out[k] <- paste0(x, "[", k, "]")
+                                   
+                                 }
+                                 return(out)}, 
+                               n.Season)
+
+# Combine the two groups to make a vector of all parameter names
+param.names <- c(unlist(param.names.n.Season),
+                 params.to.summarize.n.1)
+
+params.df <- data.frame(names = param.names,
+                        value = c(NA, S1, 
+                                  NA, S2, 
+                                  NA, P, 
+                                  NA, Max,
+                                  K, 
+                                  B0, B_BF, B_VS))
 
 
 p.trace.sim.JAGS <- plots.trace(jm.sim.out$jm, 
@@ -700,13 +694,15 @@ if (save.fig){
            
            dpi = dpi.set, 
            device = "png",
-           height = 3, width = 3, units = "in")
+           height = 3, width = 3, units = "in",
+           bg = "white")
     
     ggsave(filename = paste0("figures/", param.names[k], "_sim_dens_JAGS_", 
                              dpi.set, "dpi.png"),
            plot = p.dens.sim.JAGS[[k]],
            dpi = dpi.set, device = "png",
-           height = 3, width = 3, units = "in")
+           height = 3, width = 3, units = "in",
+           bg = "white")
     
   }
   
@@ -782,7 +778,7 @@ if (save.fig)
   
   ggsave(p.trace.all.sim.JAGS, 
          filename = paste0("figures/trace_plots_sim_JAGS_", dpi.set, "dpi.png"),
-         device = "png", dpi = dpi.set)
+         device = "png", dpi = dpi.set, bg = "white")
 
 ```
 
@@ -814,7 +810,7 @@ knitr::include_graphics(paste0("figures/N_hats_sim_JAGS_", dpi.set, "dpi.png"))
 
 #### Comparison to Durban et al's method
 
-In order to compare the proposed method to the method of Durban et al., I analyzed the same simulated dataset using the analytical approach in Durban et al.  
+In order to evaluate the performance of the proposed method, I compared the estimates of $N_{t,y}$ between the proposed and Durban et al. methods. The model was fitted to the simulated count data using WinBUGS code.    
              
 ```{r WinBugs-sim-Analysis, echo=FALSE, message=FALSE}
 WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
