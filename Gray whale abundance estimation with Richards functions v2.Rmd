@@ -1236,7 +1236,8 @@ Data from last 8 seasons were analyzed using the new approach and the results co
 
 ```{r new-analysis-8yr-v2, echo=FALSE, message=FALSE}
 BUGS.out <- readRDS("RData/WinBUGS_8yr_v2.rds")
-out.file.name <- "RData/JAGS_pois_binom_8yr_v2_2022-10-28.rds"
+run.date.real <- Sys.Date() #"2022-10-28"   # Change it accordingly
+out.file.name <- paste0("RData/JAGS_pois_binom_8yr_v2_", run.date.real, ".rds")
 
 jags.data.real <- list(  n = BUGS.out$jags.data$n, 
                          n.station = rep(1, dim(BUGS.out$jags.data$n)[3]),
@@ -1302,7 +1303,7 @@ params.to.summarize.n.Season <- c("S1", "S2", "P", "max",
                                   "Corrected.Est", "Raw.Est")
 
 # Some are common among all years
-params.to.summarize.n.1 <- c("K", "mean.prob", "BF.Fixed", "VS.fixed")
+params.to.summarize.n.1 <- c("K", "mean.prob", "BF.Fixed", "VS.Fixed")
 
 # Add year specific indices
 param.names.n.Season <- lapply(params.to.summarize.n.Season,
@@ -1327,18 +1328,20 @@ if (save.fig){
     ggsave(plot = p.trace[[k]] + 
              geom_hline(aes(yintercept = params.df[k, "value"]),
                         color = "red", size = 1.2),
-           filename = paste0("figures/", param.names[k], "_trace_", 
+           filename = paste0("figures/", param.names[k], "_real_trace_", 
                              dpi.set, "dpi.png"),
            
            dpi = dpi.set, 
            device = "png",
-           height = 3, width = 3, units = "in")
+           height = 3, width = 3, units = "in",
+           bg = "white")
     
-    ggsave(filename = paste0("figures/", param.names[k], "_dens_", 
+    ggsave(filename = paste0("figures/", param.names[k], "_real_dens_", 
                              dpi.set, "dpi.png"),
            plot = p.dens[[k]],
            dpi = dpi.set, device = "png",
-           height = 3, width = 3, units = "in")
+           height = 3, width = 3, units = "in",
+           bg = "white")
     
   }
   
@@ -1417,7 +1420,7 @@ p.mean.N.hats.JAGS <- ggplot(mean.N.hats.JAGS %>% group_by(Season)) +
 
 if (save.fig)
   ggsave(p.mean.N.hats.JAGS, 
-         filename = paste0("figures/mean_N_pois_bino_", dpi.set, "dpi.png"),
+         filename = paste0("figures/mean_N_pois_bino_real_", dpi.set, "dpi.png"),
          device = "png", dpi = dpi.set)
 
 p.N.hats <- ggplot(N.hats.JAGS) + 
@@ -1440,7 +1443,7 @@ p.N.hats <- ggplot(N.hats.JAGS) +
 
 if (save.fig)
   ggsave(p.N.hats, 
-         filename = paste0("figures/N_hats_BUGS_JAGS_", dpi.set, "dpi.png"),
+         filename = paste0("figures/N_hats_BUGS_JAGS_real_", dpi.set, "dpi.png"),
          device = "png", dpi = dpi.set)
 
 p.corrected.N.hats <- ggplot() + 
@@ -1460,7 +1463,7 @@ p.corrected.N.hats <- ggplot() +
 
 if (save.fig)
   ggsave(p.corrected.N.hats, 
-         filename = paste0("figures/corrected_N_BUGS_JAGS_", dpi.set, "dpi.png"),
+         filename = paste0("figures/corrected_N_BUGS_JAGS_real_", dpi.set, "dpi.png"),
          device = "png", dpi = dpi.set)
 
 
@@ -1473,10 +1476,10 @@ Convergence was reached for all parameters where the maximum $\hat{R}$ statistic
 
 ```{r Figure-daily-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated dailyt abundance and their 95% CIs using Durban's method (dark blue) and new approach (light blue)."}
 
-knitr::include_graphics(paste0("figures/N_hats_BUGS_JAGS_", dpi.set, "dpi.png"))
+knitr::include_graphics(paste0("figures/N_hats_BUGS_JAGS_real_", dpi.set, "dpi.png"))
 ```
 
 ```{r Figure-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated annual abundance and their 95% CIs using Durban's method (dark blue) and new approach (light blue)."}
 
-knitr::include_graphics(paste0("figures/corrected_N_BUGS_JAGS_", dpi.set, "dpi.png"))
+knitr::include_graphics(paste0("figures/corrected_N_BUGS_JAGS_real_", dpi.set, "dpi.png"))
 ```
