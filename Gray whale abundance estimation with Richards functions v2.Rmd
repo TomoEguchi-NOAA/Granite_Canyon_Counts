@@ -362,7 +362,7 @@ The shape of the gamma function is shown in Figure \@ref(fig:Figure-Gam-def).
 ```{r mean-N-fcns, echo=FALSE, message=FALSE}
 alpha.gam <- 5.4
 beta.gam <- 0.13
-multip.gam <- 5000
+multip.gam <- 6000
 gam.def <- data.frame(x = seq(0, 100, by = 0.01)) %>%
   mutate(y = dgamma(x, alpha.gam, beta.gam) * multip.gam)
 
@@ -483,6 +483,9 @@ for (k in 1:nrow(N.mean)) {
   }
   
 }
+
+# Force True.N = 0 for day 1 and 90
+True.N[1,] <- True.N[90,] <- 0
 
 # Use real data for observers, Beaufort, and visibility
 run.date <- Sys.Date()   # change this accordingly
@@ -719,7 +722,8 @@ mean.N.hats.sim.JAGS <- data.frame(Season = rep(Season, each = 90),
                                    Mean = as.vector(jm.sim.out$jm$mean$mean.N),
                                    LCL = as.vector(jm.sim.out$jm$q2.5$mean.N),
                                    UCL = as.vector(jm.sim.out$jm$q97.5$mean.N),
-                                   true.mean = as.vector(N.mean))
+                                   #true.mean = as.vector(True.N))
+                                   rue.mean = as.vector(N.mean))
 
 p.mean.N.hats.sim.JAGS <- ggplot(mean.N.hats.sim.JAGS %>% group_by(Season)) + 
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
@@ -1087,10 +1091,13 @@ if (!file.exists(paste0("RData/WinBUGS_sim_", run.date, ".rds"))){
 }
 
 ## 2022-11-08 More undefined real...
-undefined real result
+# undefined real result
+# 
+#  UpdaterDFreeARS.BuildHull   [000009C5H] 
+# 	.denom	REAL	-inf
 
- UpdaterDFreeARS.BuildHull   [000009C5H] 
-	.denom	REAL	-inf
+# I changed the True.N[1] and True.N[90] in the simulation to zeros and the error disappeared.
+# 2022-11-08
 
 ###### Some bugs were worked out #######
 # undefined real result was caused by not having 1 in Watch.Length for day 1 and 90
