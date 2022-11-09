@@ -488,7 +488,7 @@ for (k in 1:nrow(N.mean)) {
 True.N[1,] <- True.N[90,] <- 0
 
 # Use real data for observers, Beaufort, and visibility
-run.date <- Sys.Date()   # change this accordingly
+run.date <- Sys.Date()   #"2022-11-08" # change this accordingly
 out.file.name <- paste0("RData/Pois_Binom_sim_results_", run.date, ".rds")
     
 set.seed(12345)
@@ -723,7 +723,7 @@ mean.N.hats.sim.JAGS <- data.frame(Season = rep(Season, each = 90),
                                    LCL = as.vector(jm.sim.out$jm$q2.5$mean.N),
                                    UCL = as.vector(jm.sim.out$jm$q97.5$mean.N),
                                    #true.mean = as.vector(True.N))
-                                   rue.mean = as.vector(N.mean))
+                                   true.mean = as.vector(N.mean))
 
 p.mean.N.hats.sim.JAGS <- ggplot(mean.N.hats.sim.JAGS %>% group_by(Season)) + 
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
@@ -785,9 +785,9 @@ if (save.fig)
 ```
 
 
-Convergence was reached for all parameters according to the @\hat{R}$ statistic, where the maximum value was `r signif(max.r.hat, 3)`. However, trace plots of some Richards function parameters did not look ideal (Figure \@ref(fig:Figure-trace-sim-JAGS)). The observed poor conversions of S1, S2, and max parameters might have been caused by the mismatch between the true function (gamma) and assumed (Richards) function, where Richards functions could not match the increase (S2) and decrease (S1) of the gamma function.
+Convergence was reached for all parameters according to the @\hat{R}$ statistic, where the maximum value was `r signif(max.r.hat, 3)`. However, trace plots of some Richards function parameters did not look ideal (Figure \@ref(fig:Figure-trace-sim-JAGS)). The observed poor conversions of S1, S2, K, and max parameters might have been caused by the mismatch between the true function (gamma) and assumed (Richards) function, where Richards functions could not match the rates of increase (S2) and decrease (S1) of the gamma function. Even for the 
 
-For the parameters that associated with sighting probabilities (mean.prob, BF.Fixed, and VS.Fixed), MCMC samples appeared to converge, albeit not around the true values (Figure \@ref(fig:Figure-trace-sim-JAGS)). 
+For the parameters that associated with sighting probabilities (mean.prob, BF.Fixed, and VS.Fixed), MCMC samples appeared to converge and captured the true values (Figure \@ref(fig:Figure-trace-sim-JAGS)). 
 
 ```{r Figure-trace-sim-JAGS, echo=FALSE, message=FALSE, fig.cap="Trace plots of parameters. Red horizontal lines indicate the true values. Not all plots contain true values because the data generating function for one year (gamma distribution) was different from the estimation function (Richards function)."}
 
@@ -1213,7 +1213,8 @@ p.Daily.sim.BUGS <- ggplot(data = all.stats.sim.BUGS) +
              aes(x = day, y = n))+
   facet_wrap(vars(Season))+
   xlab("Days since December 1") + 
-  ylab("Whales per day")
+  ylab("Whales per day") +
+  ylim(c(0, 700))
 
 if (save.fig)
   ggsave(filename = paste0("figures/BUGS_daily_sim_", dpi.set, "dpi.png"),

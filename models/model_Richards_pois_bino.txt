@@ -43,12 +43,12 @@ model{
 		
 		for (t in 1:90){
 			# year-specific K
-			#M1[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/S1[y]) * (P[y] - t))) ^ (-1/exp(K[y]))
-			#M2[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K[y]))
+			M1[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/S1[y]) * (P[y] - t))) ^ (-1/exp(K[y]))
+			M2[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K[y]))
 			
 			# or common K
-			M1[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/(-S1[y])) * (P[y] - t))) ^ (-1/exp(K))
-			M2[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K))
+			#M1[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/(-S1[y])) * (P[y] - t))) ^ (-1/exp(K))
+			#M2[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K))
 			
 			mean.N[t, y] <- (max[y]) * (M1[t, y] * M2[t, y])
 			#mean.N[t, y] <- (max) * (M1[t, y] * M2[t, y])
