@@ -27,6 +27,18 @@ set_flextable_defaults(font.size = 9,
 
 dpi.set <- 300
 
+save.fig.fcn <- function(fig, file.name, replace = F, dpi = 300, device = "png",
+           height = 3, width = 3, units = "in",
+           bg = "white"){
+  if (isTRUE(replace) | (!isTRUE(replace) & !file.exists(file.name)))
+    ggsave(fig, 
+           filename = file.name, 
+           dpi = dpi, device = device,
+           height = height, width = width, units = units,
+           bg = bg)
+  
+}
+
 plots.trace <- function(jm, params, params.df = NULL){
   out.list <- list()
   for (i in 1:length(params)){
@@ -141,10 +153,9 @@ p.S1 <- ggplot(data = data.df) +
 
   facet_wrap(~ S1)
 
-if (save.fig)
-  ggsave(p.S1, 
-         filename = paste0("figures/S1_", dpi.set, "dpi.png"), 
-                           dpi = dpi.set, device = "png")
+save.fig.fcn(p.S1, 
+             file.name = paste0("figures/S1_", dpi.set, "dpi.png"), 
+             replace = T, dpi = dpi.set)
 
 ```
 
@@ -193,9 +204,10 @@ p.S2 <- ggplot(data = data.df) +
 
   facet_wrap(~ S2)
 
-if (save.fig)
-  ggsave(p.S2, filename = paste0("figures/S2_", dpi.set, "dpi.png"), 
-         dpi = dpi.set, device = "png")
+save.fig.fcn(p.S2, 
+             file.name = paste0("figures/S2_", dpi.set, "dpi.png"), 
+             replace = T, dpi = dpi.set)
+
 
 ```
 
@@ -242,9 +254,11 @@ p.K <- ggplot(data = data.df) +
   geom_path(aes(x = Day, y = mean.N), color = "red") +
   facet_wrap(~ K)
 
-if (save.fig)
-  ggsave(p.K, filename = paste0("figures/K_", dpi.set, "dpi.png"), 
-         dpi = dpi.set, device = "png")
+save.fig.fcn(p.K, 
+             file.name = paste0("figures/K_", dpi.set, "dpi.png"), 
+             replace = T, dpi = dpi.set)
+
+
 
 ```
 
@@ -292,9 +306,11 @@ p.P <- ggplot(data = data.df) +
   geom_path(aes(x = Day, y = mean.N), color = "red") +
   facet_wrap(~ P)
 
-if (save.fig)
-  ggsave(p.P, filename = paste0("figures/P_", dpi.set, "dpi.png"), 
-                                dpi = dpi.set, device = "png")
+save.fig.fcn(p.P, 
+             file.name = paste0("figures/P_", dpi.set, "dpi.png"), 
+             replace = save.fig, 
+             dpi = dpi.set)
+
 
 ```
 
@@ -382,10 +398,11 @@ p.Richards.def <- ggplot(data.frame(x = seq(0, 100, by = 0.01),
 p.mean.N.def <- cowplot::plot_grid(plotlist = list(p.gam.def, p.Richards.def), 
                             ncol = 2)
 
-if (save.fig)
-  ggsave(filename = paste0("figures/mean_N_def_", dpi.set, "dpi.png"), 
-         plot = p.mean.N.def,
-         device = "png", dpi = dpi.set)
+save.fig.fcn(p.mean.N.def, 
+             file.name = paste0("figures/mean_N_def_", dpi.set, "dpi.png"), 
+             replace = save.fig, 
+             dpi = dpi.set)
+
 ```
 
 Daily true numbers of gray whales that migrated through the sampling area then were simulated using a Poisson distribution with the daily mean values:
@@ -684,27 +701,19 @@ p.trace.sim.JAGS <- plots.trace(jm.sim.out$jm,
                        params.df = params.df)
 p.dens.sim.JAGS <- plots.dens(jm.sim.out$jm, params = param.names)
 
-if (save.fig){
-  for (k in 1:length(param.names)){
-    ggsave(plot = p.trace.sim.JAGS[[k]] + 
-             geom_hline(aes(yintercept = params.df[k, "value"]),
-                        color = "red", size = 1.2),
-           filename = paste0("figures/", param.names[k], "_sim_trace_JAGS_", 
-                             dpi.set, "dpi.png"),
-           
-           dpi = dpi.set, 
-           device = "png",
-           height = 3, width = 3, units = "in",
-           bg = "white")
-    
-    ggsave(filename = paste0("figures/", param.names[k], "_sim_dens_JAGS_", 
-                             dpi.set, "dpi.png"),
-           plot = p.dens.sim.JAGS[[k]],
-           dpi = dpi.set, device = "png",
-           height = 3, width = 3, units = "in",
-           bg = "white")
-    
-  }
+for (k in 1:length(param.names)){
+  save.fig.fcn(p.trace.sim.JAGS[[k]] + 
+                 geom_hline(aes(yintercept = params.df[k, "value"]),
+                            color = "red", size = 1.2),
+               file.name = paste0("figures/", param.names[k], "_sim_trace_JAGS_", 
+                                  dpi.set, "dpi.png"),
+               
+               dpi = dpi.set, replace = save.fig)
+  
+  save.fig.fcn(fig = p.dens.sim.JAGS[[k]],
+               file.name = paste0("figures/", param.names[k], "_sim_dens_JAGS_", 
+                                  dpi.set, "dpi.png"),
+               dpi = dpi.set, replace = save.fig)
   
 }
 
@@ -730,6 +739,11 @@ p.mean.N.hats.sim.JAGS <- ggplot(mean.N.hats.sim.JAGS %>% group_by(Season)) +
   geom_path(aes(x = Day, y = true.mean), color = "gold") +
   facet_wrap(~ Season)
 
+save.fig.fcn(p.mean.N.hats.sim.JAGS, 
+             file.name = paste0("figures/mean_N_sim_JAGS_", dpi.set, "dpi.png"), 
+             replace = save.fig, 
+             dpi = dpi.set)
+
 if (save.fig)
   ggsave(p.mean.N.hats.sim.JAGS, 
          filename = paste0("figures/mean_N_sim_JAGS_", dpi.set, "dpi.png"),
@@ -750,10 +764,9 @@ p.N.hats.sim.JAGS <- ggplot(N.hats.sim.JAGS) +
   geom_point(data = obsd.n.sim.df, aes(x = day, y = n))+
   facet_wrap(~ Season)
 
-if (save.fig)
-  ggsave(p.N.hats.sim.JAGS, 
-         filename = paste0("figures/N_hats_sim_JAGS_", dpi.set, "dpi.png"),
-         device = "png", dpi = dpi.set)
+save.fig.fcn(fig = p.N.hats.sim.JAGS,
+               file.name = paste0("figures/N_hats_sim_JAGS_", dpi.set, "dpi.png"),
+               dpi = dpi.set, replace = save.fig)
 
 # Simulation did not take into account the correction part so no need to look at this
 # for simulation analysis. 
@@ -762,23 +775,13 @@ if (save.fig)
 #                                         LCL = as.vector(jm.sim.out$jm$q2.5$Corrected.Est),
 #                                         UCL = as.vector(jm.sim.out$jm$q97.5$Corrected.Est))
 
-if (save.fig)
-  ggsave(p.N.hats.sim.JAGS, 
-         filename = paste0("figures/N_hats_sim_JAGS_", dpi.set, "dpi.png"),
-         device = "png", dpi = dpi.set)
-
-
 p.trace.all.sim.JAGS <- cowplot::plot_grid(plotlist = p.trace.sim.JAGS, 
                                       ncol = 2)
 
-if (save.fig)
-  # cowplot::save_plot(p.trace.all.sim.JAGS, 
-  #                    filename = "figures/trace_plots_sim_JAGS.png",
-  #                    device = "png", dpi = dpi.set, bg = "white")
-  
-  ggsave(p.trace.all.sim.JAGS, 
-         filename = paste0("figures/trace_plots_sim_JAGS_", dpi.set, "dpi.png"),
-         device = "png", dpi = dpi.set, bg = "white")
+save.fig.fcn(fig = p.trace.all.sim.JAGS,
+             file.name = paste0("figures/trace_plots_sim_JAGS_", dpi.set, "dpi.png"),
+             dpi = dpi.set, replace = save.fig)
+
 
 ```
 
@@ -1214,10 +1217,9 @@ p.Daily.sim.BUGS <- ggplot(data = all.stats.sim.BUGS) +
   ylab("Whales per day") +
   ylim(c(0, 700))
 
-if (save.fig)
-  ggsave(filename = paste0("figures/BUGS_daily_sim_", dpi.set, "dpi.png"),
-         plot = p.Daily.sim.BUGS, device = "png", 
-         dpi = dpi.set)
+save.fig.fcn(fig = p.Daily.sim.BUGS,
+             file.name = paste0("figures/BUGS_daily_sim_", dpi.set, "dpi.png"),
+             dpi = dpi.set, replace = save.fig)
 
 ```
 
@@ -1236,7 +1238,7 @@ Data from last 8 seasons were analyzed using the new approach and the results co
 
 ```{r new-analysis-8yr-v2, echo=FALSE, message=FALSE}
 BUGS.out <- readRDS("RData/WinBUGS_8yr_v2.rds")
-run.date.real <- Sys.Date() #"2022-10-28"   # Change it accordingly
+run.date.real <- "2022-11-09"   #Sys.Date() # Change it accordingly
 out.file.name <- paste0("RData/JAGS_pois_binom_8yr_v2_", run.date.real, ".rds")
 
 jags.data.real <- list(  n = BUGS.out$jags.data$n, 
@@ -1323,27 +1325,19 @@ param.names <- c(unlist(param.names.n.Season),
 p.dens <- plots.dens(jm.out$jm, params = param.names)
 p.trace <- plots.trace(jm.out$jm, params = param.names)
 
-if (save.fig){
-  for (k in 1:length(param.names)){
-    ggsave(plot = p.trace[[k]] + 
-             geom_hline(aes(yintercept = params.df[k, "value"]),
-                        color = "red", size = 1.2),
-           filename = paste0("figures/", param.names[k], "_real_trace_", 
-                             dpi.set, "dpi.png"),
-           
-           dpi = dpi.set, 
-           device = "png",
-           height = 3, width = 3, units = "in",
-           bg = "white")
-    
-    ggsave(filename = paste0("figures/", param.names[k], "_real_dens_", 
-                             dpi.set, "dpi.png"),
-           plot = p.dens[[k]],
-           dpi = dpi.set, device = "png",
-           height = 3, width = 3, units = "in",
-           bg = "white")
-    
-  }
+for (k in 1:length(param.names)){
+  save.fig.fcn(fig = p.trace[[k]] + 
+                 geom_hline(aes(yintercept = params.df[k, "value"]),
+                            color = "red", size = 1.2),
+               file.name = paste0("figures/", param.names[k], "_real_trace_", 
+                                  dpi.set, "dpi.png"),
+               dpi = dpi.set, replace = save.fig)
+  
+  save.fig.fcn(fig = p.dens[[k]],
+               file.name = paste0("figures/", param.names[k], "_real_dens_", 
+                                  dpi.set, "dpi.png"),
+               dpi = dpi.set, replace = save.fig)
+  
   
 }
 
@@ -1418,10 +1412,10 @@ p.mean.N.hats.JAGS <- ggplot(mean.N.hats.JAGS %>% group_by(Season)) +
 
   facet_wrap(~ Season)
 
-if (save.fig)
-  ggsave(p.mean.N.hats.JAGS, 
-         filename = paste0("figures/mean_N_pois_bino_real_", dpi.set, "dpi.png"),
-         device = "png", dpi = dpi.set)
+save.fig.fcn(p.mean.N.hats.JAGS, 
+             file.name = paste0("figures/mean_N_pois_bino_real_", dpi.set, "dpi.png"),
+             dpi = dpi.set, replace = save.fig)
+
 
 p.N.hats <- ggplot(N.hats.JAGS) + 
   geom_ribbon(aes(x = Day, 
@@ -1441,10 +1435,10 @@ p.N.hats <- ggplot(N.hats.JAGS) +
   #geom_point(data = obsd.n.df, aes(x = day, y = n))+
   facet_wrap(~ Season)
 
-if (save.fig)
-  ggsave(p.N.hats, 
-         filename = paste0("figures/N_hats_BUGS_JAGS_real_", dpi.set, "dpi.png"),
-         device = "png", dpi = dpi.set)
+save.fig.fcn(p.N.hats, 
+             file.name = paste0("figures/N_hats_BUGS_JAGS_real_", dpi.set, "dpi.png"),
+             dpi = dpi.set, replace = save.fig)
+
 
 p.corrected.N.hats <- ggplot() + 
   geom_errorbar(data = Corrected.Est.df.JAGS,
@@ -1461,12 +1455,9 @@ p.corrected.N.hats <- ggplot() +
              aes(x = Season, y = total.median)) +
   xlab("")
 
-if (save.fig)
-  ggsave(p.corrected.N.hats, 
-         filename = paste0("figures/corrected_N_BUGS_JAGS_real_", dpi.set, "dpi.png"),
-         device = "png", dpi = dpi.set)
-
-
+save.fig.fcn(p.corrected.N.hats, 
+             file.name = paste0("figures/corrected_N_hats_BUGS_JAGS_real_", dpi.set, "dpi.png"),
+             dpi = dpi.set, replace = save.fig)
 
 
 ```
@@ -1481,5 +1472,5 @@ knitr::include_graphics(paste0("figures/N_hats_BUGS_JAGS_real_", dpi.set, "dpi.p
 
 ```{r Figure-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated annual abundance and their 95% CIs using Durban's method (dark blue) and new approach (light blue)."}
 
-knitr::include_graphics(paste0("figures/corrected_N_BUGS_JAGS_real_", dpi.set, "dpi.png"))
+knitr::include_graphics(paste0("figures/corrected_N_hats_BUGS_JAGS_real_", dpi.set, "dpi.png"))
 ```
