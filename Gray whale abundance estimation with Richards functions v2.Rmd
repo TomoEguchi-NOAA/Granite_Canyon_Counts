@@ -4,8 +4,8 @@ author: "Tomo Eguchi"
 date: "`r Sys.Date()`"
 output: 
   bookdown::word_document2: default
+bibliography: references.bib
 ---
-
 
 ```{r setup, include=FALSE}
 rm(list = ls())
@@ -72,34 +72,33 @@ plots.dens <- function(jm, params){
 
 ```
 
-## Introduction {-}
+## Introduction {.unnumbered}
 
-Analytical methods to estimate abundance of gray whales from visual surveys at Granite Canyon, CA, have evolved over the years. Laake et al. (2006?) used the distance sampling approach with generalized additive models (GAMs). Durban et al. (2016) developed a new method using a Bayesian N-mixture approach. The new approach was approved by the IWC and it has been used for the analysis since the 2015/2016 season. The analysis is conducted using WinBUGS, which has become obsolete over the last several years. In this report, I provide improvements of the method by Durban et al. where the analysis is conducted using JAGS (Plummer 2021), which is a widely used Bayesian programming language. 
+Analytical methods to estimate abundance of gray whales from visual surveys at Granite Canyon, CA, have evolved over the years. Laake et al. (2006?) used the distance sampling approach with generalized additive models (GAMs). Durban et al. (2016) developed a new method using a Bayesian N-mixture approach. The new approach was approved by the IWC and it has been used for the analysis since the 2015/2016 season. The analysis is conducted using WinBUGS, which has become obsolete over the last several years. In this report, I provide improvements of the method by Durban et al. where the analysis is conducted using JAGS (Plummer 2021), which is a widely used Bayesian programming language.
 
-The general tendency of annual migration of gray whales (or any other migratory species - find other examples) is that when the migration is observed at a location along the migration corridor, the number increases over time until it reaches its peak, then it decreases. The method by Durban et al. used a Gaussian function to capture this general trend. 
+The general tendency of annual migration of gray whales (or any other migratory species - find other examples) is that when the migration is observed at a location along the migration corridor, the number increases over time until it reaches its peak, then it decreases. The method by Durban et al. used a Gaussian function to capture this general trend.
 
-In the following, I first describe the method by Durban et al. and point out underlying assumptions that are somewhat questionable. Then, I introduce a new approach that is consistent with the basic idea of the method by Durban et al. but improve it by removing those assumptions. I show the performance of the new approach using simulated data. Finally, I reanalyze the data to compare abundance estimates between the two approaches. 
+In the following, I first describe the method by Durban et al. and point out underlying assumptions that are somewhat questionable. Then, I introduce a new approach that is consistent with the basic idea of the method by Durban et al. but improve it by removing those assumptions. I show the performance of the new approach using simulated data. Finally, I reanalyze the data to compare abundance estimates between the two approaches.
 
+## Method by Durban et al. {.unnumbered}
 
-## Method by Durban et al. {-}
+### Mathematical description {.unnumbered}
 
-### Mathematical description {-}
+### Difficulties of the method {.unnumbered}
 
+The approach used the "cut" function within WinBUGS to select either Gaussian or spline fit to daily count of gray whales. The use of "cut" function has been criticized ([@plummer2015]). Furthermore, the assumption that the number of gray whales migrating in front of the observation station follows a Gaussian function is somewhat questionable. The true curve may not be symmetrical around the peak and the peak may not be instantaneous. In other words, the peak may persist for a few days. Fitting spline functions to observed counts alleviates the problem but it loses the general idea that the number of whales increases, reaches a peak, then decreases over the migration season.
 
-### Difficulties of the method {-}
-
-The approach used the "cut" function within WinBUGS to select either Gaussian or spline fit to daily count of gray whales. The use of "cut" function has been criticized (Plummer YR). Furthermore, the assumption that the number of gray whales migrating in front of the observation station follows a Gaussian function is somewhat questionable. The true curve may not be symmetrical around the peak and the peak may not be instantaneous. In other words, the peak may persist for a few days. Fitting spline functions to observed counts alleviates the problem but it loses the general idea that the number of whales increases, reaches a peak, then decreases over the migration season.  
-
-## Improvements {-}
+## Improvements {.unnumbered}
 
 ### Model description
+
 In order to overcome these difficulties with the previous approach, I propose to use a more flexible function that can accommodate the general shape (increase, peak then decrease) and asymmetrical around the peak. The function is often called Richards' function and it has the following form.
 
 $$M_1 = (1 + (2 e^K - 1) * e^{(P-d)/(S_1)}) ^ {(-1/e^K)}$$
 
 $$M_2 = (1 + (2 e^K - 1) * e^{(P-d)/(S_2)}) ^ {(-1/e^K)}$$
 
-$$N = N_{min} + (N_{max} - N_{min}) * (M_1 * M_2),$$ 
+$$N = N_{min} + (N_{max} - N_{min}) * (M_1 * M_2),$$
 
 where $d$ is the number of days from the beginning of nesting season,
 
@@ -111,14 +110,13 @@ $P$ defines where the peak is relative to the range of $d$, where $min(d) < P < 
 
 $N_{min}$ is zero, i.e., the number of whales migrating outside of a migration season and,
 
-$N_{max} >> N_{min}$. $N_{max}$ is not the maximum number of whales migrating per day but it is a parameter that may be fixed or estimated during the analysis.  
+$N_{max} >> N_{min}$. $N_{max}$ is not the maximum number of whales migrating per day but it is a parameter that may be fixed or estimated during the analysis.
 
+### Function characteristics {.unnumbered}
 
-### Function characteristics {-}
+#### Effects of $S_1$ {.unnumbered}
 
-#### Effects of $S_1$ {-}
-
-The parameter $S_1 < 0$ defines how the curve decreases from its peak. The rate of decline slows down as $S_1$ becomes smaller (Figure \@ref(fig:Figure-S1)). Because we make an assumption that there are no whales migrating at day 1 and 90, the lower bound of $S_1$ can be restricted to a certain value, e.g., -5).   
+The parameter $S_1 < 0$ defines how the curve decreases from its peak. The rate of decline slows down as $S_1$ becomes smaller (Figure \@ref(fig:Figure-S1)). Because we make an assumption that there are no whales migrating at day 1 and 90, the lower bound of $S_1$ can be restricted to a certain value, e.g., -5).
 
 ```{r S1, echo=FALSE, message=FALSE}
 S1 <- c(-10, -5, -2.5, -1.2, -0.6, -0.3)
@@ -159,16 +157,13 @@ save.fig.fcn(p.S1,
 
 ```
 
-
-
 ```{r Figure-S1, echo=FALSE, message=FALSE, fig.cap="Effects of $S_1$. In this example, $S_2 = 1.5$, $K = 1$, $P = 40$, $N_{max} = 800$."}
 
 knitr::include_graphics(paste0("figures/S1_", dpi.set, "dpi.png"))
 
 ```
 
-
-#### Effects of $S_2$ {-}
+#### Effects of $S_2$ {.unnumbered}
 
 The parameter $S_2 > 0$ defines how the curve increases to its peak. The rate of increase slows down as $S_2$ becomes larger (Figure \@ref(fig:Figure-S2)). Because we make an assumption that there are no whales migrating at day 1 and 90, the upper bound of $S_2$ can be restricted to a certain value, e.g., 5).
 
@@ -211,17 +206,15 @@ save.fig.fcn(p.S2,
 
 ```
 
-
 ```{r Figure-S2, echo=FALSE, message=FALSE, fig.cap="Effects of $S_2$. In this example, $S_1 = -1.5$, $K = 1$, $P = 40$, $N_{max} = 800$."}
 
 knitr::include_graphics(paste0("figures/S2_", dpi.set, "dpi.png"))
 
 ```
 
+#### Effects of K {.unnumbered}
 
-#### Effects of K {-}
-
-The parameter $K > 0$ defines the flatness of the curve at its peak. Greater $K$ values correspond to flatter peaks (Figure \@ref(fig:Figure-K)). Similarly to $S_1$ and $S_2$, the upper bound of $K$ may be defined based on the assumption that the numbers of migrating gray whales are zero at day 1 and 90, e.g., $K < 2$. 
+The parameter $K > 0$ defines the flatness of the curve at its peak. Greater $K$ values correspond to flatter peaks (Figure \@ref(fig:Figure-K)). Similarly to $S_1$ and $S_2$, the upper bound of $K$ may be defined based on the assumption that the numbers of migrating gray whales are zero at day 1 and 90, e.g., $K < 2$.
 
 ```{r K, echo=FALSE, message=FALSE}
 S1 <- -2.5
@@ -262,18 +255,15 @@ save.fig.fcn(p.K,
 
 ```
 
-
 ```{r Figure-K, echo=FALSE, message=FALSE, fig.cap="Effects of $K$. In this example, $S_1 = -2.5$, $S_2 = 2.5$, $P = 40$, $N_{max} = 800$."}
 
 knitr::include_graphics(paste0("figures/K_", dpi.set, "dpi.png"))
 
 ```
 
+#### Effects of P {.unnumbered}
 
-
-#### Effects of P {-}
-
-The parameter $P$ defines the location of its peak (Figure \@ref(fig:Figure-P)). 
+The parameter $P$ defines the location of its peak (Figure \@ref(fig:Figure-P)).
 
 ```{r P, echo=FALSE, message=FALSE}
 S1 <- -2.5
@@ -314,54 +304,47 @@ save.fig.fcn(p.P,
 
 ```
 
-
 ```{r Figure-P, echo=FALSE, message=FALSE, fig.cap="Effects of $P$. In this example, $S_1 = -2.5$, $S_2 = 2.5$, $K = 1.5$, $N_{max} = 800$."}
 
 knitr::include_graphics(paste0("figures/P_", dpi.set, "dpi.png"))
 
 ```
 
-
-#### Fitting the model to observed counts {-}
+#### Fitting the model to observed counts {.unnumbered}
 
 The proposed new approach replaces the spline-Gaussian selection step in Durban et al. with Richards functions. The observed counts are modeled with binomial distributions as it was in Durban et al.
 
-$$ n_{d_t,s,y} \sim BIN(N_{t, y}, p_{d_t, s, y} * \theta_{d_t, y}) $$
-where $n_{d_t, s, y}$ is the observed number of gray whales during the watch period $d$ of the $t$-th day of the season $y$ from the station $s$, $N_{t, y}$ is the number of gray whales that migrated through the sampling area during the $t$-th day,  $p_{d_t, s, y}$ is the sighting probability of the station $s$ during the watch period $d$ of the $t$-th day of the season $y$, and $\theta_{d_t,y}$ is the fractional duration of the watch period $d_t$ to the total possible (9 hrs), e.g., 3 hrs equals to 3/9 = 0.3.
+$$ n_{d_t,s,y} \sim BIN(N_{t, y}, p_{d_t, s, y} * \theta_{d_t, y}) $$ where $n_{d_t, s, y}$ is the observed number of gray whales during the watch period $d$ of the $t$-th day of the season $y$ from the station $s$, $N_{t, y}$ is the number of gray whales that migrated through the sampling area during the $t$-th day, $p_{d_t, s, y}$ is the sighting probability of the station $s$ during the watch period $d$ of the $t$-th day of the season $y$, and $\theta_{d_t,y}$ is the fractional duration of the watch period $d_t$ to the total possible (9 hrs), e.g., 3 hrs equals to 3/9 = 0.3.
 
-The sighting probability $p_{d_t, s, y}$ is modeled as a function of Beaufort sea state, visibility, and observers. Beaufort sea state and visibility were treated as fixed effects, whereas observers were treated as a random effect. Furthermore, additional parameters were added to determine whether or not to include any of these covariates. 
-
+The sighting probability $p_{d_t, s, y}$ is modeled as a function of Beaufort sea state, visibility, and observers. Beaufort sea state and visibility were treated as fixed effects, whereas observers were treated as a random effect. Furthermore, additional parameters were added to determine whether or not to include any of these covariates.
 
 $$ logit(p_{d_t, s, y}) = \beta_0 + I_{BF} * \beta_{BF} * BF_{d_t, y} + I_{VS} * \beta_{VS} * VS_{d_t, y} + I_{OBS} * OBS_{d_t, s, y}  $$
 
 This is identical to how the sighting probability was modeled in Durban et al. (2016).
 
-
-The number of gray whales that migrated through the sampling area during the $t$-th day of the season was modeled as a random Poisson variable with the mean $\bar{N}_{t, y}$, 
+The number of gray whales that migrated through the sampling area during the $t$-th day of the season was modeled as a random Poisson variable with the mean $\bar{N}_{t, y}$,
 
 $$ N_{t, y} \sim POI(\bar{N}_{t,y}) $$
 
-where $\bar{N}_t$ is the "mean" number of whales that expected to migrate through the sampling area on the $t$-th day of the season $y$ and modeled with Richards functions above. 
+where $\bar{N}_t$ is the "mean" number of whales that expected to migrate through the sampling area on the $t$-th day of the season $y$ and modeled with Richards functions above.
 
-I used Poisson distribution for this hierarchical model based on the finding in Raftery (1988). 
+I used Poisson distribution for this hierarchical model based on the finding in Raftery (1988).
 
 The total number of gray whales for season $y$ is the sum of all $N_{t, y}$ and corrected for nighttime passage:
 
-$$ N_y = \lambda * \sum_{t = 1} ^ {90} N_{t, y} $$ and 
+$$ N_y = \lambda * \sum_{t = 1} ^ {90} N_{t, y} $$ and
 
-$$ \lambda \sim N(1.0875, 0.03625) $$ (Perryman et al. YR). 
-
-
+$$ \lambda \sim N(1.0875, 0.03625) $$ (Perryman et al. YR).
 
 ### Performance of the proposed approach
 
 #### Simulation
 
-To evaluate the performance of the new approach using Richards functions, I simulated data using the above relationships. To test for a mismatch between the within-season mean function between the true and model (i.e., Richards function), daily mean numbers of whales ($\bar{N}_{y,t}$, $y = 1, 2$, $t = 1, \dots, 90$) for the first year was simulated from a gamma distribution function (GAM(3, 0.07) * 5000). For the second year, I used Richards function (R()) for the daily mean numbers.  
+To evaluate the performance of the new approach using Richards functions, I simulated data using the above relationships. To test for a mismatch between the within-season mean function between the true and model (i.e., Richards function), daily mean numbers of whales ($\bar{N}_{y,t}$, $y = 1, 2$, $t = 1, \dots, 90$) for the first year was simulated from a gamma distribution function (GAM(3, 0.07) \* 5000). For the second year, I used Richards function (R()) for the daily mean numbers.
 
-$$ \bar{N}_{1,t} = GAM(t, 3, 0.07) $$, and 
+$$ \bar{N}_{1,t} = GAM(t, 3, 0.07) $$, and
 
-$$ \bar{N}_{2,t} = R(t, S_1 = -0.9, S_2 = 1.5, P = 48, K = 2.5, max = 200) $$, 
+$$ \bar{N}_{2,t} = R(t, S_1 = -0.9, S_2 = 1.5, P = 48, K = 2.5, max = 200) $$,
 
 where $t = 1, \dots, 90$.
 
@@ -409,7 +392,7 @@ Daily true numbers of gray whales that migrated through the sampling area then w
 
 $$ n_{y,t} \sim POI(\bar{N}_{y,t})  $$
 
-Finally, the recorded numbers of whales by the observers ($m_{y,t,i}$) were simulated using a binomial distribution with the true number of gray whales ($\n_{y,t}$) and the sighting probability ($p_{y,t,i}$), for the i-th observation period on day t, where the index of observation periods in a day can range from 1 to 6. The actual index of observation periods is inconsequential, however. Sighting probability for one period is treated as a function of (1) viewing condition (V), (2) Beaufort sea state (B), (3) the observation duration as a fraction of maximum ($q_{t,y,i}$; 6 periods equal to 540 minutes), and (4) observer random effects ($O_{t,y,i}$). If an observation period lasted 34 minutes, $q_{t,y,i}$ = 34/540
+Finally, the recorded numbers of whales by the observers ($m_{y,t,i}$) were simulated using a binomial distribution with the true number of gray whales ($n_{y,t}$) and the sighting probability ($p_{y,t,i}$), for the i-th observation period on day t, where the index of observation periods in a day can range from 1 to 6. The actual index of observation periods is inconsequential, however. Sighting probability for one period is treated as a function of (1) viewing condition (V), (2) Beaufort sea state (B), (3) the observation duration as a fraction of maximum ($q_{t,y,i}$; 6 periods equal to 540 minutes), and (4) observer random effects ($O_{t,y,i}$). If an observation period lasted 34 minutes, $q_{t,y,i}$ = 34/540
 
 $$ logit(\gamma_{y,t,i}) = \bar{p} + I(V) \beta_{V} V_{y,t,i} + I(B) \beta_{B} B_{y,t,i} + I(O) O_{y,t,i} $$.
 
@@ -417,19 +400,17 @@ I(.) is an indicator function (either 0 or 1) that is used to determine whether 
 
 $$ p_{y,t,i} = \gamma_{y,t,i} \times q_{t,y,i} $$
 
-Finally, the observed number of whales was simulated using a binomial distribution. 
+Finally, the observed number of whales was simulated using a binomial distribution.
 
 $$ m_{y,t,i} \sim BIN(n_{y,t}, p_{y,t,i}) $$
 
-In this simulation, the total number of whales per year was not simulated directly. Rather, daily numbers of whales were simulated from the mean curves (Gamma or Richards). The total number of gray whales during daily observation window (540 minutes) was multiplied by a correction factor (mean = 1.0875, S = 0.03625) and summed over 90 days to obtain the corrected total number of whales in one year. 
-
+In this simulation, the total number of whales per year was not simulated directly. Rather, daily numbers of whales were simulated from the mean curves (Gamma or Richards). The total number of gray whales during daily observation window (540 minutes) was multiplied by a correction factor (mean = 1.0875, S = 0.03625) and summed over 90 days to obtain the corrected total number of whales in one year.
 
 ```{r Figure-Gam-def, echo=FALSE, message=FALSE, fig.cap="The shapes of $\bar{N}$ for simulated data. A gamma distribution function was used for the first year (left) and Richards function for the second year. Although there are non-zero values at x = 1 and beyond x = 90, the $\bar{N}$ was fixed to 0 at x = 1 and 90."}
 
 knitr::include_graphics(paste0("figures/mean_N_def_", dpi.set, "dpi.png"))
 
 ```
-
 
 ```{r simulation, echo=FALSE, message=FALSE}
 set.seed(12345)
@@ -581,7 +562,6 @@ for (c1 in 1:dim(obs)[1]){
 }
 ```
 
-
 ```{r run-jags, echo=FALSE, message=FALSE}
 #Data_True.N$obsd.n <- obsd.n
 run.date <- "2022-11-08" #Sys.Date()   # change this accordingly 2022-11-08 was with a common K
@@ -653,9 +633,7 @@ if (!file.exists(out.file.name)){
 
 ```
 
-
-
-#### Estimated parameters for simulated data
+#### Estimated parameters from simulated data
 
 ```{r jags-posteriors, echo=FALSE, message=FALSE, warning=FALSE}
 #save.fig <- T
@@ -785,17 +763,15 @@ save.fig.fcn(fig = p.trace.all.sim.JAGS,
 
 ```
 
+Convergence was reached for all parameters according to the \@\hat{R}\$ statistic, where the maximum value was `r signif(max.r.hat, 3)`. However, trace plots of some Richards function parameters did not look ideal (Figure \@ref(fig:Figure-trace-sim-JAGS)). The observed poor conversions of S1, S2, K, and max parameters might have been caused by the mismatch between the true function (gamma) and assumed (Richards) function, where Richards functions could not match the rates of increase (S2) and decrease (S1) of the gamma function. Even for the
 
-Convergence was reached for all parameters according to the @\hat{R}$ statistic, where the maximum value was `r signif(max.r.hat, 3)`. However, trace plots of some Richards function parameters did not look ideal (Figure \@ref(fig:Figure-trace-sim-JAGS)). The observed poor conversions of S1, S2, K, and max parameters might have been caused by the mismatch between the true function (gamma) and assumed (Richards) function, where Richards functions could not match the rates of increase (S2) and decrease (S1) of the gamma function. Even for the 
-
-For the parameters that associated with sighting probabilities (mean.prob, BF.Fixed, and VS.Fixed), MCMC samples appeared to converge and captured the true values (Figure \@ref(fig:Figure-trace-sim-JAGS)). 
+For the parameters that associated with sighting probabilities (mean.prob, BF.Fixed, and VS.Fixed), MCMC samples appeared to converge and captured the true values (Figure \@ref(fig:Figure-trace-sim-JAGS)).
 
 ```{r Figure-trace-sim-JAGS, echo=FALSE, message=FALSE, fig.cap="Trace plots of parameters. Red horizontal lines indicate the true values. Not all plots contain true values because the data generating function for one year (gamma distribution) was different from the estimation function (Richards function)."}
 
 knitr::include_graphics(paste0("figures/trace_plots_sim_JAGS_", dpi.set, "dpi.png"))
 
 ```
-
 
 Even with the apparent poor conversion of a few parameters, estimated $\bar{N}$ and $N$ were qualitatively acceptable (Figures \@ref(fig:Figure-mean-N-sim-JAGS) and \@ref(fig:Figure-N-sim-JAGS)).
 
@@ -804,17 +780,15 @@ Even with the apparent poor conversion of a few parameters, estimated $\bar{N}$ 
 knitr::include_graphics(paste0("figures/mean_N_sim_JAGS_", dpi.set, "dpi.png"))
 ```
 
-
 ```{r Figure-N-sim-JAGS, echo=FALSE, message=FALSE, fig.cap = "Estimated $N$ and their 95% CI (blue ribbon) and the true $N$ in gold."}
 
 knitr::include_graphics(paste0("figures/N_hats_sim_JAGS_", dpi.set, "dpi.png"))
 ```
 
-
 #### Comparison to Durban et al's method
 
-In order to evaluate the performance of the proposed method, I compared the estimates of $N_{t,y}$ between the proposed and Durban et al. methods. The model was fitted to the simulated count data using WinBUGS code.    
-             
+In order to evaluate the performance of the proposed method, I compared the estimates of $N_{t,y}$ between the proposed and Durban et al. methods. The model was fitted to the simulated count data using WinBUGS code.
+
 ```{r WinBugs-sim-Analysis, echo=FALSE, message=FALSE}
 WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
 BUGS.model <- "GW_Nmix_Orig.bugs"
@@ -1134,8 +1108,7 @@ if (!file.exists(paste0("RData/WinBUGS_sim_", run.date, ".rds"))){
 # The same number of MCMC runs as the jags run was completed on 2022-10-27
 ```
 
-Results indicated that Durban's approach overestimated the true abundance by approximately 2.5 folds (Fig. \@ref(fig:Figure-N-sim-BUGS)). Credible intervals were wide when no counts were available. 
-
+Results indicated that Durban's approach overestimated the true abundance by approximately 2.5 folds (Fig. \@ref(fig:Figure-N-sim-BUGS)). Credible intervals were wide when no counts were available.
 
 ```{r WinBUGS-results, echo=FALSE, message=FALSE}
 seasons <- c("2020", "2022")
@@ -1223,8 +1196,6 @@ save.fig.fcn(fig = p.Daily.sim.BUGS,
 
 ```
 
-
-
 ```{r Figure-N-sim-BUGS, echo=FALSE, message=FALSE, fig.cap = "Estimated $N$ and their 95% CI (dark blue ribbon) using Durban's method, new approach (light blue ribbon), the true $N$ (gold), and observed counts (black dots)."}
 
 knitr::include_graphics(paste0("figures/BUGS_daily_sim_", dpi.set, "dpi.png"))
@@ -1232,9 +1203,7 @@ knitr::include_graphics(paste0("figures/BUGS_daily_sim_", dpi.set, "dpi.png"))
 
 #### Reanalysis of the last 8 seasons
 
-Data from last 8 seasons were analyzed using the new approach and the results compared to results from Durban et al's approach. 
-
-
+Data from last 8 seasons were analyzed using the new approach and the results compared to results from Durban et al's approach.
 
 ```{r new-analysis-8yr-v2, echo=FALSE, message=FALSE}
 BUGS.out <- readRDS("RData/WinBUGS_8yr_v2.rds")
@@ -1288,7 +1257,6 @@ if (!file.exists(out.file.name)){
 
 
 ```
-
 
 ```{r JAGS-results, echo=F,message=FALSE}
 Season <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011", 
@@ -1462,8 +1430,7 @@ save.fig.fcn(p.corrected.N.hats,
 
 ```
 
-Convergence was reached for all parameters where the maximum $\hat{R}$ statistic was `r signif(max.r.hat, 3)`. As it was found in the analysis of simulated data, daily estimates were greater for the new approach than Durban's approach (Figure \@ref(fig:Figure-daily-N-hats)). Estimates from the new approach was more precise than those from Durban's method. As a consequence, annual estimates also were greater for Durban's method than for the new approach and precision was better for the new approach (Figure \@ref(fig:Figure-N-hats)).   
-
+Convergence was reached for all parameters where the maximum $\hat{R}$ statistic was `r signif(max.r.hat, 3)`. As it was found in the analysis of simulated data, daily estimates were greater for the new approach than Durban's approach (Figure \@ref(fig:Figure-daily-N-hats)). Estimates from the new approach was more precise than those from Durban's method. As a consequence, annual estimates also were greater for Durban's method than for the new approach and precision was better for the new approach (Figure \@ref(fig:Figure-N-hats)).
 
 ```{r Figure-daily-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated dailyt abundance and their 95% CIs using Durban's method (dark blue) and new approach (light blue)."}
 
