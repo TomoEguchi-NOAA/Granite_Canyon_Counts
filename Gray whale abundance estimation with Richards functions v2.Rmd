@@ -9,7 +9,7 @@ bibliography: references.bib
 
 ```{r setup, include=FALSE}
 rm(list = ls())
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 save.fig <- F
 
 source("Granite_Canyon_Counts_fcns.R")
@@ -22,6 +22,7 @@ library(ggpubr)
 library(R2WinBUGS)
 library(abind)
 library(rmarkdown)
+library(loo)
 
 set_flextable_defaults(font.size = 9,
                        font.family = "Cambria")
@@ -345,13 +346,13 @@ $$ \lambda \sim N(1.0875, 0.03625) $$ [@perryman1999].
 
 #### Simulation {.unnumbered}
 
-To evaluate the performance of the new approach using Richards functions, I simulated data using the above relationships. To test for a mismatch between the within-season mean function between the true and model (i.e., Richards function), daily mean numbers of whales ($\bar{N}_{y,t}$, $y = 1, 2$, $t = 1, \dots, 90$) for the first year was simulated from a gamma distribution function (GAM(3, 0.07) \* 5000). For the second year, I used Richards function (R()) for the daily mean numbers.
+To evaluate the performance of the new approach using Richards functions, I simulated data using the above relationships. To test for a mismatch between the within-season mean function between the true and model (i.e., Richards function), daily mean numbers of whales ($\bar{N}_{y,t}$, $y = 1, 2$, $t = 1, \dots, 90$) for the first year was simulated from a gamma distribution function (GAM(3, 0.07) \* 5000). For the second year, I used Richards function for the daily mean numbers.
 
 $$ \bar{N}_{1,t} = GAM(t, 3, 0.07) $$ and
 
 $$ \bar{N}_{2,t} = R(t, S_1 = -0.9, S_2 = 1.5, P = 48, K = 2.5, max = 200) $$
 
-where $t = 1, \dots, 90$.
+where $t = 1, \dots, 90$ and $R()$ indicates Richards function with necessary parameters.
 
 The shape of the gamma function is shown in Figure \@ref(fig:Figure-Gam-def).
 
@@ -636,9 +637,22 @@ if (!file.exists(out.file.name)){
   jm.sim.out <- readRDS(out.file.name)
 }
 
+# observed n is in a 3D array with #periods x #stations x #years,
+# which makes the log-likelihood array to be 4D, which is not allowed
+# in the relative_eff function... fixed the function to allow array 
+# inputs - convert array into matrix 2023-01-06
+
+LOOIC.sim.n <- compute.LOOIC(loglik.array = jm.sim.out$jm$sims.list$log.lkhd,
+                             data.array = jm.sim.out$jags.data$n,
+                             MCMC.params = jm.sim.out$MCMC.params)
+
 
 
 ```
+
+#### Goodness of fit {.unnumbered}
+
+Despite the difference in data generating (Gamma for the first year) and fitted functions (Richards function for both years), majority of Pareto k statistics were less than 0.7 (`r which(LOOIC.sim.n$loo.out$diagnostics$pareto_k < 0.7) %>% length()` out of `r length(LOOIC.sim.n$loo.out$diagnostics$pareto_k)`), with the maximum value of `r signif(max(LOOIC.sim.n$loo.out$diagnostics$pareto_k), 3)`.
 
 #### Estimated parameters from simulated data {.unnumbered}
 
@@ -1214,11 +1228,14 @@ Data from last 8 seasons were analyzed using the new approach and the results co
 
 ```{r new-analysis-8yr-v2, echo=FALSE, message=FALSE, warning=FALSE}
 BUGS.out <- readRDS("RData/WinBUGS_8yr_v2.rds")
-run.date.real <- "2022-11-09"   #Sys.Date() # Change it accordingly
+run.date.real <- "2023-01-06"   #Sys.Date() # Change it accordingly
 out.file.name <- paste0("RData/JAGS_pois_binom_8yr_v2_", run.date.real, ".rds")
 
+n.station <- c(1,1,1,1,1,1,1,1)
+n.station[colSums(BUGS.out$jags.data$n[,2,]) > 0] <- 2
+
 jags.data.real <- list(  n = BUGS.out$jags.data$n,
-                         n.station = rep(1, dim(BUGS.out$jags.data$n)[3]),
+                         n.station = n.station,
                          n.year = dim(BUGS.out$jags.data$n)[3],
                          n.obs = BUGS.out$jags.data$n.obs,
                          periods = BUGS.out$jags.data$periods,
@@ -1246,7 +1263,7 @@ if (!file.exists(out.file.name)){
 
   Run_Time <- Sys.time() - Start_Time
   jm.out <- list(jm = jm,
-                 jags.data = jags.data,
+                 jags.data = jags.data.real,
                  jags.params = jags.params,
                  jags.model = jags.model,
                  MCMC.params = MCMC.params,
@@ -1261,9 +1278,19 @@ if (!file.exists(out.file.name)){
   jm.out <- readRDS(out.file.name)
 }
 
+# need to turn zeros into NAs when there were no second station:
+data.array <- jm.out$jags.data$n
+data.array[,2,which(jm.out$jags.data$n.station == 1)] <- NA
+
+LOOIC.n <- compute.LOOIC(loglik.array = jm.out$jm$sims.list$log.lkhd,
+                         data.array = data.array,
+                         MCMC.params = jm.out$MCMC.params)
+
 
 
 ```
+
+Pareto k statistics indicated that the model fit reasonably well to the data. Majority of Pareto k statistics were less than 0.7 (`r which(LOOIC.n$loo.out$diagnostics$pareto_k < 0.7) %>% length()` out of `r length(LOOIC.n$loo.out$diagnostics$pareto_k)`), with the maximum value of `r signif(max(LOOIC.n$loo.out$diagnostics$pareto_k), 3)`.
 
 ```{r JAGS-results, echo=F,message=FALSE}
 Season <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011",
@@ -1288,7 +1315,7 @@ param.names.n.Season <- lapply(params.to.summarize.n.Season,
                                  out <- vector(mode = "character", length = n.Season)
                                  for (k in 1:n.Season){
                                    out[k] <- paste0(x, "[", k, "]")
-
+                                   
                                  }
                                  return(out)},
                                n.Season)
@@ -1441,7 +1468,9 @@ save.fig.fcn(p.corrected.N.hats,
 
 ```
 
-Convergence was reached for all parameters where the maximum $\hat{R}$ statistic was `r signif(max.r.hat, 3)`. As it was found in the analysis of simulated data, daily estimates were greater for the new approach than Durban's approach (Figure \@ref(fig:Figure-daily-N-hats)). Estimates from the new approach was more precise than those from Durban's method. As a consequence, annual estimates also were greater for Durban's method than for the new approach and precision was better for the new approach (Figure \@ref(fig:Figure-N-hats)).
+Convergence was not reached for all parameters where the maximum $\hat{R}$ statistic was `r signif(max.r.hat, 3)`. There were `r length(which(unlist(jm.out$jm$Rhat) > 1.1))` parameters that resulted in $\hat{R}$ statistic \> 1.1. A closer examination of $\hat{R}$ statistics revealed that high values were associated with the mean.N and N parameters, as well as the parameters for Richards function (S1, S2, and P) for the 2015/2016 season.
+
+Similarly to the analysis of simulated data, daily estimates were generally less for the new approach than Durban's approach (Figure \@ref(fig:Figure-daily-N-hats)). Estimates from the new approach was more precise than those from Durban's method. As a consequence, annual estimates also were greater for Durban's method than for the new approach and precision was better for the new approach (Figure \@ref(fig:Figure-N-hats)).
 
 ```{r Figure-daily-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated dailyt abundance and their 95% CIs using Durban's method (green) and new approach (blue)."}
 

@@ -2,6 +2,45 @@
 # define some functions
 
 
+compute.LOOIC <- function(loglik.array, data.array, MCMC.params){
+  n.per.chain <- (MCMC.params$n.samples - MCMC.params$n.burnin)/MCMC.params$n.thin
+  
+  # Convert the log-likelihood and data arrays into vectors
+  loglik.vec <- c(loglik.array)
+  data.vec <- c(data.array)
+  
+  # Convert the log-likelihood vector into a 2D array
+  n.data <- length(data.vec)
+  loglik.mat <- array(loglik.vec, 
+                      c((n.per.chain * MCMC.params$n.chains), n.data))
+  
+  # remove the log-likelihood values that correspond to NA data points
+  loglik.mat <- loglik.mat[, !is.na(data.vec)]
+  
+  # Also, some of data points (0s) were unobserved and no log likelihood values
+  # exist
+  colsums.loglik <- colSums(loglik.mat)
+  loglik.mat <- loglik.mat[, !is.na(colsums.loglik)]
+  
+  # remove NAs in the data vector
+  #data.vec <- data.vec[!is.na(data.vec)]
+  
+  Reff <- relative_eff(exp(loglik.mat),
+                       chain_id = rep(1:MCMC.params$n.chains,
+                                      each = n.per.chain),
+                       cores = 4)
+  
+  loo.out <- rstanarm::loo(loglik.mat, 
+                           r_eff = Reff, 
+                           cores = 4, k_threshold = 0.7)
+  
+  out.list <- list(Reff = Reff,
+                   loo.out = loo.out)
+  
+  return(out.list)  
+}
+
+
 # Multiple plot function
 # from http://www.cookbook-r.com/Graphs/Multiple_graphs_on_one_page_(ggplot2)/
 #
