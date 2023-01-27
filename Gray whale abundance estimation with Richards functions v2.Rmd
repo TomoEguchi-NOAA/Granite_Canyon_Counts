@@ -104,21 +104,21 @@ where the intercept $p_0$ was the base detection probability in the absence of c
 
 A Poisson distribution $N_{j,t} \sim Poisson(\lambda_{j,t})$) was used as a hierarchical prior for the distribution of abundances, and specified a model for the Poisson mean ($\lambda$) in terms of the number of whales passing each day ($d$), with an offset for the effort duration of each watch period, $E_{j,t}$ in decimal days (Laake et al., 2012):
 
-$$ log(\lambda_{j,t}) = log(E_{j,t}) + model_{d(j),t}$$
+$$ log(\lambda_{j,t}) = log(E_{j,t}) + model_{d,t}$$
 
-$$ model_{d,t} = z_{d,t} Common_{d,t} + (1 – z_{d,t}) Specific_{d,t} $$
+$$ model_{d,t} = z_{d,t} f_{d,t} + (1 – z_{d,t}) g_{d,t} $$
 
-where $z_{d,t}$ is an indicator function (see below). $Common_{d,t}$ and $Specific_{d,t}$ also are explained below.
+where $z_{d,t}$ is an indicator function (see below). $f_{d,t}$ and $g_{d,t}$ also are explained below.
 
-Days were specified as d = 0 to $D_{t} = 90$, where days were counted from 12:00am on 1 December, and we added an abundance of 0 whales passing for day 0 and $D_t$ to anchor the fitted model when we assumed whales did not pass [@buckland1993].
+Days were specified as d = 0 to 90, where days were counted from 12:00am on 1 December, and we added an abundance of 0 whales passing for day 0 and 90 to anchor the fitted model when we assumed whales did not pass [@buckland1993].
 
-Estimates were derived from either of two competing models ('Common' and 'Specific', e.g. [@li2012]) describing changes in abundance across each annual migration. The model contributing each daily estimate was indicated using stochastic binary indicator variables $z_{d,t}$, each assigned a Bernoulli(0.5) prior distribution. As such, the posterior distribution of each $z_{d,t}$ indicated the probability of a daily estimate conforming to the common trend, allowing flexibility for departures from this trend that may only exist on certain days in certain years to be identified and modeled (rather than assuming all counts from an entire year conform to or depart from a common trend). The total number of whales passing at the suvey location during each migration was then estimated by summing the expected value from the model averaged number of whales passing each day from time 0 to $D_{t}$ (Laake et al., 2012).
+Estimates were derived from either of two competing models ('Common' ($f$) and 'Specific' ($g$), e.g. [@li2012]) describing changes in abundance across each annual migration. The model contributing each daily estimate was indicated using stochastic binary indicator variables $z_{d,t}$, each assigned a Bernoulli(0.5) prior distribution. As such, the posterior distribution of each $z_{d,t}$ indicated the probability of a daily estimate conforming to the common trend, allowing flexibility for departures from this trend that may only exist on certain days in certain years to be identified and modeled (rather than assuming all counts from an entire year conform to or depart from a common trend). The total number of whales passing at the suvey location during each migration was then estimated by summing the expected value from the model averaged number of whales passing each day ($d$) from 0 to 90 (Laake et al., 2012).
 
 These estimates were then rescaled to account for the differential passage rate at night (Perryman et al., 1999), based on the nine hour day multiplicative correction factor [@rugh2005]. Specifically, we applied a constant night time correction factor that was assumed to be a Normally distributed fixed effect with mean of 1.0875 and standard deviation of 0.037.
 
-For the 'Common model', we assumed a typical trend in abundance throughout each annual migration (e.g. Buckland et al., 1993), with abundance changes assumed Normally distributed around a migration mid-point. A Normal distribution was specified as a quadratic function of days, on the log scale:
+For the 'Common model' ($f_{d,t}$), we assumed a typical trend in abundance throughout each annual migration (e.g. Buckland et al., 1993), with abundance changes assumed Normally distributed around a migration mid-point. A Normal distribution was specified as a quadratic function of days, on the log scale:
 
-$$Common_{d,t} = a_t + b_t *d_t + c_t * d^2_t$$
+$$f_{d,t} = a_t + b_t *d_t + c_t * d^2_t$$
 
 where the mid-point of the migration curve for each year $t$ was derived by $–b_t/(2a_t)$. This assumed common migration curve allowed information to be 'borrowed' across years when needed, specifying association across years to strengthen inference about migration curves in years with relatively sparse counts. Each parameter was specified to be drawn from a hierarchical Normal distribution.
 
@@ -128,25 +128,25 @@ $$ b_t \sim Normal(\mu_b, \sigma_b)$$
 
 $$ c_t \sim Normal(\mu_c, \sigma_c)$$
 
-and $\mu \sim Normal(0, 10)$ and $\sigma \sim Uniform(0, 10)$.
+and $\mu \sim Normal(0, 10)$ and $\sigma \sim Uniform(0, 10)$, for $a$, $b$, and $c$.
 
 This hierarchical and random effects approach allowed the timing, level and extent of the Normal migration curve to vary annually around the general pattern, if supported by the data.
 
-To acknowledge and incorporate deviations from the common Normal model, the selection of an alternative 'Specific' migration model was allowed. The 'specific' model was a semi-parametric model that estimated the time trends independently for each year without making any prior assumptions about its form (e.g. Laake et al., 2012). In this model, the shape of the relationship of true abundance across days was determined by the data via penalized splines [@ruppert2002].
+To acknowledge and incorporate deviations from the common Normal model, the selection of an alternative 'specific' migration model was allowed ($g_{d,t}$). The 'specific' model was a semi-parametric model that estimated the time trends independently for each year without making any prior assumptions about its form (e.g. Laake et al., 2012). In this model, the shape of the relationship of true abundance across days was determined by the data via penalized splines [@ruppert2002].
 
 A linear (on the log scale) penalized spline was used to describe this relationship [@crainiceanu2005]:
 
-$$ Specific_{d,t} = S_{0,t} + S_{1,t} * d_t + \sum_{k=1}^{m} \lambda_{k,t} (d_t – \kappa_{k,t}) $$ Where $S_{0,t}, S_{1,t}$ and $\lambda_{1,t}, \dots, \lambda_{m,t}$ were regression coefficients to be estimated separately for each year and $\kappa_{1,t} < <\kappa_{2,t} < \dots < \kappa_{m,t}$ were fixed knots. To ensure the desired flexibility, we used m = 15 knots, which is a relatively large number. $\kappa_{k,t}$ is the sample quantile of $\lambda_{k,t}$ corresponding to probability $k/(m + 1)$. (Note: the symbol between "the sample quantile of" and "corresponding" was missing in the publication. I assumed that this was $\lambda_{k,t}$.) To avoid overfitting, the $\lambda$'s were penalized by assuming that they were Normally distributed random variables with mean 0 and standard deviation $\sim Uniform(0,10)$. The parameters $S_{0,t}, S_{1,t}$ were modeled as fixed effects with Normal(0, 10) prior distributions.
+$$ g_{d,t} = S_{0,t} + S_{1,t} * d_t + \sum_{k=1}^{m} \lambda_{k,t} (d_t – \kappa_{k,t}) $$ Where $S_{0,t}, S_{1,t}$ and $\lambda_{1,t}, \dots, \lambda_{m,t}$ were regression coefficients to be estimated separately for each year and $\kappa_{1,t} < \kappa_{2,t} < \dots < \kappa_{m,t}$ were fixed knots. To ensure the desired flexibility, we used m = 15 knots, which is a relatively large number. $\kappa_{k,t}$ is the sample quantile of $\lambda_{k,t}$ corresponding to probability $k/(m + 1)$. (Note: the symbol between "the sample quantile of" and "corresponding" was missing in the publication. I assumed that this was $\lambda_{k,t}$.) To avoid overfitting, the $\lambda$'s were penalized by assuming that they were Normally distributed random variables with mean 0 and standard deviation $\sim Uniform(0,10)$. The parameters $S_{0,t}, S_{1,t}$ were modeled as fixed effects with Normal(0, 10) prior distributions.
 
 ### Difficulties of the method {.unnumbered}
 
-The approach used the "cut" function within WinBUGS to select either Gaussian or spline fit to daily counts of gray whales. The use of "cut" function has been criticized [@plummer2015]. Furthermore, the assumption that the number of gray whales migrating in front of the observation station follows a Gaussian function is somewhat questionable. The true curve may not be symmetric around a peak and the peak may not be instantaneous. In other words, the peak may persist for a few days. Fitting spline functions to observed counts alleviates the problem but it loses the general idea that the number of whales increases, reaches a peak, then decreases over the migration season.
+The approach in Durban et al. (2015) used the "cut" function within WinBUGS to select either Gaussian ('common') or spline ('specific') fit to daily counts of gray whales. The use of "cut" function has been criticized [@plummer2015]. Furthermore, the assumption that the number of gray whales migrating in front of the observation station follows a Gaussian function is somewhat questionable and the fitted spline to observed counts may be too flexible, given missing counts due to unfavorable observation conditions. The true curve in abundance may not be symmetric around a peak and the peak may not be instantaneous. In other words, the peak may persist for a few days. Fitting spline functions to observed counts alleviates the problem but it loses the general idea that the number of whales increases, reaches a peak, then decreases over the migration season.
 
 ## Improvements {.unnumbered}
 
 ### Model description {.unnumbered}
 
-In order to overcome these difficulties with the previous approach, I propose to use a more flexible function that can accommodate the general shape (increase, peak then decrease) and asymmetrical around the peak. The function is often called Richards' function [@richards1959] and it has been used to model changes in the number of nesting turtles [@girondot2007].
+In order to overcome these difficulties with the previous approach, I use a more flexible function that can accommodate the general shape (increase, peak then decrease) and asymmetrical around the peak. The function is often called Richards' function [@richards1959] and it has been used, for example, to model changes in the number of nesting turtles [@girondot2007].
 
 $$M_1 = (1 + (2 e^K - 1) * e^{(P-d)/(S_1)}) ^ {(-1/e^K)}$$
 
@@ -172,7 +172,7 @@ Effects of these parameters on the shape of the function are described in the fo
 
 #### Effects of $S_1$ {.unnumbered}
 
-The parameter $S_1 < 0$ defines how the curve decreases from its peak. The rate of decline slows down as $S_1$ becomes smaller (Figure \@ref(fig:Figure-S1)). Because we make an assumption that there are no whales migrating at day 1 and 90, the lower bound of $S_1$ can be restricted to a certain value, (e.g., -5).
+The parameter $S_1 < 0$ defines how the curve decreases from its peak. The rate of decline slows down as $S_1$ becomes greater (i.e., closer to zero; Figure \@ref(fig:Figure-S1)). Because we make an assumption that there are no whales migrating after day 90, the lower bound of $S_1$ can be restricted to a certain value, (e.g., $-5 < S_1 < 0$).
 
 ```{r S1, echo=FALSE, message=FALSE}
 S1 <- c(-10, -5, -2.5, -1.2, -0.6, -0.3)
@@ -221,7 +221,7 @@ knitr::include_graphics(paste0("figures/S1_", dpi.set, "dpi.png"))
 
 #### Effects of $S_2$ {.unnumbered}
 
-The parameter $S_2 > 0$ defines how the curve increases to its peak. The rate of increase slows down as $S_2$ becomes larger (Figure \@ref(fig:Figure-S2)). Because we make an assumption that there are no whales migrating at day 1 and 90, the upper bound of $S_2$ can be restricted to a certain value, e.g., 5).
+The parameter $S_2 > 0$ defines how the curve increases to its peak. The rate of increase slows down as $S_2$ becomes larger (Figure \@ref(fig:Figure-S2)). Because we make an assumption that there are no whales migrating before day 1, the upper bound of $S_2$ can be restricted to a certain value (e.g., $0 < S_2 <5$).
 
 ```{r S2, echo=FALSE, message=FALSE}
 S1 <- -1.5
@@ -270,7 +270,7 @@ knitr::include_graphics(paste0("figures/S2_", dpi.set, "dpi.png"))
 
 #### Effects of K {.unnumbered}
 
-The parameter $K > 0$ defines the flatness of the curve at its peak. Greater $K$ values correspond to flatter peaks (Figure \@ref(fig:Figure-K)). Similarly to $S_1$ and $S_2$, the upper bound of $K$ may be defined based on the assumption that the numbers of migrating gray whales are zero at day 1 and 90, e.g., $K < 2$.
+The parameter $K > 0$ defines the flatness of the curve at its peak. Greater $K$ values correspond to flatter peaks (Figure \@ref(fig:Figure-K)). Similarly to $S_1$ and $S_2$, the upper bound of $K$ may be defined based on the assumption that the numbers of migrating gray whales are zero at day 1 and 90 (e.g., $0 < K < max(K)$). The upper bound ($max(K)$) may change when other parameters change, such as $S_1$ and $S_2$.
 
 ```{r K, echo=FALSE, message=FALSE}
 S1 <- -2.5
@@ -402,7 +402,7 @@ $$ \bar{N}_{1,t} = GAM(t, 3, 0.07) $$ and
 
 $$ \bar{N}_{2,t} = R(t, S_1 = -0.9, S_2 = 1.5, P = 48, K = 2.5, max = 200) $$
 
-where $t = 1, \dots, 90$ and $R()$ indicates Richards function with necessary parameters.
+where $t = 1, \dots, 90$ and $R(\dots)$ indicates Richards function with necessary parameters.
 
 The shape of the gamma function is shown in Figure \@ref(fig:Figure-Gam-def).
 
@@ -456,7 +456,7 @@ I(.) is an indicator function (either 0 or 1) that is used to determine whether 
 
 $$ p_{y,t,i} = \gamma_{y,t,i} \times q_{t,y,i} $$
 
-Finally, the observed number of whales was simulated using a binomial distribution.
+Finally, the observed number of whales during one sampling period was simulated using a binomial distribution.
 
 $$ m_{y,t,i} \sim BIN(n_{y,t}, p_{y,t,i}) $$
 
@@ -702,7 +702,7 @@ LOOIC.sim.n <- compute.LOOIC(loglik.array = jm.sim.out$jm$sims.list$log.lkhd,
 
 #### Goodness of fit {.unnumbered}
 
-Despite the difference in data generating (Gamma for the first year) and fitted functions (Richards function for both years), majority of Pareto k statistics were less than 0.7 (`r which(LOOIC.sim.n$loo.out$diagnostics$pareto_k < 0.7) %>% length()` out of `r length(LOOIC.sim.n$loo.out$diagnostics$pareto_k)`), with the maximum value of `r signif(max(LOOIC.sim.n$loo.out$diagnostics$pareto_k), 3)`.
+Despite the difference in data generating (Gamma for the first year) and fitted functions (Richards function for both years), majority of Pareto k statistics [@vehtari2017] were less than 0.7 (`r which(LOOIC.sim.n$loo.out$diagnostics$pareto_k < 0.7) %>% length()` out of `r length(LOOIC.sim.n$loo.out$diagnostics$pareto_k)`), with the maximum value of `r signif(max(LOOIC.sim.n$loo.out$diagnostics$pareto_k), 3)`.
 
 #### Estimated parameters from simulated data {.unnumbered}
 
@@ -834,11 +834,11 @@ save.fig.fcn(fig = p.trace.all.sim.JAGS,
 
 ```
 
-Convergence was reached for all parameters according to the $\hat{R}$ statistic, where the maximum value was `r signif(max.r.hat, 3)`. However, trace plots of some Richards function parameters did not look ideal (Figure \@ref(fig:Figure-trace-sim-JAGS)). The observed poor conversions of S1, S2, K, and max parameters might have been caused by the mismatch between the true function (gamma) and assumed (Richards) function, where Richards functions could not match the rates of increase (S2) and decrease (S1) of the gamma function.
+Convergence was reached for all parameters according to the $\hat{R}$ statistic [@gelman2013a], where the maximum value was `r signif(max.r.hat, 3)`. However, trace plots of some Richards function parameters did not look ideal (Figure \@ref(fig:Figure-trace-sim-JAGS)). The observed poor conversions of S1, S2, K, and max parameters might have been caused by the mismatch between the true function (gamma) and assumed (Richards) function, where Richards functions could not match the rates of increase (S2) and decrease (S1) of the gamma function.
 
 For the parameters that associated with sighting probabilities (mean.prob, BF.Fixed, and VS.Fixed), MCMC samples appeared to converge and captured the true values (Figure \@ref(fig:Figure-trace-sim-JAGS)).
 
-```{r Figure-trace-sim-JAGS, echo=FALSE, message=FALSE, fig.cap="Trace plots of parameters. Red horizontal lines indicate the true values. Not all plots contain true values because the data generating function for one year (gamma distribution) was different from the estimation function (Richards function)."}
+```{r Figure-trace-sim-JAGS, echo=FALSE, message=FALSE, fig.cap="Trace plots of parameters. Red horizontal lines indicate the true values. Not all plots contain true values because the data generating function for the first year (gamma distribution) was different from the estimation function (Richards function)."}
 
 knitr::include_graphics(paste0("figures/trace_plots_sim_JAGS_", dpi.set, "dpi.png"))
 
@@ -846,7 +846,7 @@ knitr::include_graphics(paste0("figures/trace_plots_sim_JAGS_", dpi.set, "dpi.pn
 
 Even with the apparent poor conversion of a few parameters, estimated $\bar{N}$ and $N$ were qualitatively acceptable (Figures \@ref(fig:Figure-mean-N-sim-JAGS) and \@ref(fig:Figure-N-sim-JAGS)).
 
-```{r Figure-mean-N-sim-JAGS, echo=FALSE, message=FALSE, fig.cap = "Estimated $\\bar{N}$ and their 95% CI (blue ribbon) and the true $\\bar{N}$ in gold."}
+```{r Figure-mean-N-sim-JAGS, echo=FALSE, message=FALSE, fig.cap = "Estimated $\\bar{N}$ and their 95% CI (blue ribbon) and the true $\\bar{N}$ in gold. Black filled circles indicate observed counts."}
 
 knitr::include_graphics(paste0("figures/mean_N_sim_JAGS_", dpi.set, "dpi.png"))
 ```
@@ -1179,7 +1179,7 @@ if (!file.exists(paste0("RData/WinBUGS_sim_", run.date, ".rds"))){
 # The same number of MCMC runs as the jags run was completed on 2022-10-27
 ```
 
-Results indicated that Durban's approach overestimated the true abundance by approximately 2.5 folds (Fig. \@ref(fig:Figure-N-sim-BUGS)). Credible intervals were wide when no counts were available.
+Results indicated that Durban's approach overestimated the true abundance by approximately 2.5 folds (Figure \@ref(fig:Figure-N-sim-BUGS)). Credible intervals were wide when no counts were available.
 
 ```{r WinBUGS-results, echo=FALSE, message=FALSE}
 seasons <- c("2020", "2022")
