@@ -76,7 +76,7 @@ plots.dens <- function(jm, params){
 
 ## Introduction {.unnumbered}
 
-Analytical methods to estimate abundance of gray whales from visual surveys at Granite Canyon, CA, have evolved over the years [@laake2012;@durban2015;]. Laake et al. (2012) used the distance sampling approach with generalized additive models (GAMs). Durban et al. (2015) developed a new method using a Bayesian N-mixture approach, which was approved by the IWC and it has been used for the analysis since the 2015/2016 season. Computation of the analysis is conducted using WinBUGS, which has become obsolete over the last decade or so. In this report, I provide improvements of the method by Durban et al.
+Analytical methods to estimate abundance of gray whales from visual surveys at Granite Canyon, CA, have evolved over the years [@laake2012;@durban2015]. Laake et al. (2012) used the distance sampling approach with generalized additive models (GAMs). Durban et al. (2015) developed a new method using a Bayesian N-mixture approach, which was approved by the IWC and it has been used for the analysis since the 2015/2016 season. Computation of the analysis is conducted using WinBUGS, which has become obsolete over the last decade or so. In this report, I provide improvements of the method by Durban et al.
 
 At a location along the migration corridor, the number of gray whale sightings increases over time until it reaches its peak, then decreases. The method by Durban et al. used a Gaussian function to capture this general trend. Deviations from the Gaussian function was captured via fitting a spline function to the observed counts.
 
@@ -94,13 +94,15 @@ This section was extracted from Durban et al. (2015), almost verbatim. I edited 
 
 The total counts of whales ($n_{i,j,t}$) during the watch period $j$ in the year $t$ at the watch station $i$ was modeled as a binomial random deviate
 
-$$ n_{i,j,t} \sim BIN(N_{j,t}, p_{i,j,t}) $$ The binomial count parameter ($N_{j,t}$) is the unknown total number of gray whales passing through the study area during the watch period $j$ in the year $t$.
+$$ n_{i,j,t} \sim BIN(N_{j,t}, p_{i,j,t}) $$ 
 
-The detection probability was modeled as a function of visibility (VS), Beaufort scale (BF), and observers (ob).
+The binomial $N_{j,t}$ parameter is the unknown total number of gray whales passing through the study area during the watch period $j$ in the year $t$.
 
-$$ logit(p_{i,j,t}) = logit(p_0) + I_{VS} \beta_{VS} VS_{j,t} + I_{BF} \beta_{BF} BF_{j,t}+ I_{ob} \beta^{i,j,t = o}_{ob} $$
+The detection probability was modeled as a function of visibility (V), Beaufort scale (B), and observers (O).
 
-where the intercept $p_0$ was the base detection probability in the absence of covariate effects, assigned a Uniform(0,1) prior distribution, and $logit(p_0) = ln(p_0/(1–p_0))$. For each fixed effect, $\beta_{BF}$ and $\beta_{VS}$, a Normal prior distribution with mean zero and standard deviation of 10 was used. The random effect for each observer was drawn from a Normal distribution with mean zero and standard deviation $\sigma_{ob} \sim Uniform(0,10)$. Each binary indicator variable, I, was assigned a Bernoulli(0.5) distribution to specify equal probability of inclusion (1) or exclusion (0) of the effect in the model (Durban et al. 2015).
+$$ logit(p_{i,j,t}) = logit(p_0) + I_{V} \beta_{V} VS_{j,t} + I_{B} \beta_{B} B_{j,t}+ I_{O} \mathbf{\beta}^{O_{i,j,t} = o}_{O} $$
+
+where the intercept $p_0$ was the base detection probability in the absence of covariate effects, assigned a Uniform(0,1) prior distribution, and $logit(p_0) = ln(p_0/(1–p_0))$. For each fixed effect, $\beta_{B}$ and $\beta_{V}$, a Normal prior distribution with mean zero and standard deviation of 10 was used. The random effect for each observer was drawn from a Normal distribution with mean zero and standard deviation $\sigma_{O} \sim Uniform(0,10)$. Each binary indicator variable, I, was assigned a Bernoulli(0.5) distribution to specify equal probability of inclusion (1) or exclusion (0) of the effect in the model (Durban et al. 2015).
 
 A Poisson distribution $N_{j,t} \sim Poisson(\lambda_{j,t})$) was used as a hierarchical prior for the distribution of abundances, and specified a model for the Poisson mean ($\lambda$) in terms of the number of whales passing each day ($d$), with an offset for the effort duration of each watch period, $E_{j,t}$ in decimal days (Laake et al., 2012):
 
@@ -142,7 +144,7 @@ $$ g_{d,t} = S_{0,t} + S_{1,t} * d_t + \sum_{k=1}^{m} \lambda_{k,t} (d_t – \ka
 
 The approach in Durban et al. (2015) used the "cut" function within WinBUGS to select either Gaussian ('common') or spline ('specific') fit to daily counts of gray whales. The use of "cut" function has been criticized [@plummer2015]. Furthermore, the assumption that the number of gray whales migrating in front of the observation station follows a Gaussian function is somewhat questionable and the fitted spline to observed counts may be too flexible, given missing counts due to unfavorable observation conditions. The true curve in abundance may not be symmetric around a peak and the peak may not be instantaneous. In other words, the peak may persist for a few days. Fitting spline functions to observed counts alleviates the problem but it loses the general idea that the number of whales increases, reaches a peak, then decreases over the migration season.
 
-## Improvements {.unnumbered}
+## Modification {.unnumbered}
 
 ### Model description {.unnumbered}
 
@@ -370,11 +372,13 @@ knitr::include_graphics(paste0("figures/P_", dpi.set, "dpi.png"))
 
 The proposed new approach replaces the spline-Gaussian selection step in Durban et al. with Richards functions. The observed counts are modeled with binomial distributions as it was in Durban et al.
 
-$$ n_{d_t,s,y} \sim BIN(N_{t, y}, p_{d_t, s, y} * \theta_{d_t, y}) $$ where $n_{d_t, s, y}$ is the observed number of gray whales during the watch period $d$ of the $t$-th day of the season $y$ from the station $s$, $N_{t, y}$ is the number of gray whales that migrated through the sampling area during the $t$-th day of season $y$, $p_{d_t, s, y}$ is the sighting probability of the station $s$ during the watch period $d$ of the $t$-th day of the season $y$, and $\theta_{d_t,y}$ is the fractional duration of the watch period $d_t$ to the total possible (9 hrs), e.g., 3 hrs equals to 3/9 = 0.3.
+$$ n_{d_t,s,y} \sim BIN(N_{t, y}, p_{d_t, s, y} * \theta_{d_t, y}) $$ 
 
-The sighting probability $p_{d_t, s, y}$ is modeled as a function of Beaufort sea state, visibility, and observers. Beaufort sea state and visibility were treated as fixed effects, whereas observers were treated as a random effect. Furthermore, additional parameters were added to determine whether or not to include any of these covariates.
+where $n_{d_t, s, y}$ is the observed number of gray whales during the watch period $d$ of the $t$-th day of the season $y$ from the station $s$, $N_{t, y}$ is the number of gray whales that migrated through the sampling area during the $t$-th day of season $y$, $p_{d_t, s, y}$ is the sighting probability of the station $s$ during the watch period $d$ of the $t$-th day of the season $y$, and $\theta_{d_t,y}$ is the fractional duration of the watch period $d_t$ to the total possible (9 hrs), e.g., 3 hrs equals to 3/9 = 0.3.
 
-$$ logit(p_{d_t, s, y}) = \beta_0 + I_{BF} * \beta_{BF} * BF_{d_t, y} + I_{VS} * \beta_{VS} * VS_{d_t, y} + I_{OBS} * OBS_{d_t, s, y}  $$
+The sighting probability $p_{d_t, s, y}$ is modeled as a function of Beaufort sea state ($B$), visibility ($V$), and observers ($O$). Beaufort sea state and visibility were treated as fixed effects, whereas observers were treated as a random effect. Furthermore, additional parameters were added to determine whether or not to include any of these covariates.
+
+$$ logit(p_{d_t, s, y}) = \beta_0 + I_{B} * \beta_{B} * B_{d_t, y} + I_{V} * \beta_{V} * V_{d_t, y} + I_{O} * O_{d_t, s, y}  $$
 
 This is identical to how the sighting probability was modeled in Durban et al. (2015).
 
@@ -423,11 +427,11 @@ P <- 48
 K <- 2.5
 Max <- 200
 Richards.def <- Richards_fcn(d =  seq(0, 100, by = 0.01),
-                            S1 = S1,
-                            S2 = S2,
-                            K = K,
-                            P = P,
-                            min = 0, max = Max)
+                             S1 = S1,
+                             S2 = S2,
+                             K = K,
+                             P = P,
+                             min = 0, max = Max)
 
 p.Richards.def <- ggplot(data.frame(x = seq(0, 100, by = 0.01),
                                     y = Richards.def)) +
@@ -460,7 +464,7 @@ Finally, the observed number of whales during one sampling period was simulated 
 
 $$ m_{y,t,i} \sim BIN(n_{y,t}, p_{y,t,i}) $$
 
-In this simulation, the total number of whales per year was not simulated directly. Rather, daily numbers of whales were simulated from the mean curves (Gamma or Richards). The total number of gray whales during daily observation window (540 minutes) was multiplied by a correction factor (mean = 1.0875, S = 0.03625) and summed over 90 days to obtain the corrected total number of whales in one year.
+To simplify the simulation, I did not include the observer random effects. The total number of whales per year was not simulated directly. Rather, daily numbers of whales were simulated from the mean curves (Gamma or Richards). The total number of gray whales during daily observation window (540 minutes) was multiplied by a correction factor (mean = 1.0875, S = 0.03625) and summed over 90 days to obtain the corrected total number of whales in one year.
 
 ```{r Figure-Gam-def, echo=FALSE, message=FALSE, fig.cap="The shapes of $\\bar{N}$ for simulated data. A gamma distribution function was used for the first year (left) and Richards function for the second year. Although there are non-zero values at x = 1 and beyond x = 90, the $\\bar{N}$ was fixed to 0 at x = 1 and 90."}
 
@@ -526,7 +530,7 @@ for (y in 1:length(Season)){
     mutate(watch.prop = effort * 24/9) %>%
     select(Year, Day, effort, watch.prop, bf, vs, n, obs) %>%
     filter(bf < 5, vs < 5)
-
+  
   # Find all observers and change them into integer code.
   # These numbers have to be consistent over years.
   obs.y <- data.frame(obs = Final_Data$obs) %>%
