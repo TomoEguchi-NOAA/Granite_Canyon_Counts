@@ -86,27 +86,27 @@ In the following, I first describe the method by Durban et al. and point out und
 
 At the field station located at Granite Canyon, CA, in order to estimate detectability of gray whales by visual observers, counts from two independent stations of paired observers operating simultaneously were compared during two years (2009/2010 and 2010/2011). The two watch stations were positioned 35 m apart at the same elevation (22.5 m) above sea level (Durban et al. 2015). For the years with only one station, detectability was extrapolated for all monitored watch periods based on the fitted model for detectability, where the counts for the south watch station were treated as zero inflated binomial outcomes. The binomial probability was specified as the product of an indicator function and the detectability ($u_{i,j,t} \times p_{i,j,t}$), where $u$ = 1 or 0 to indicate whether or not count data were collected from that station. This formulation ensured that structural zero counts from periods without a second watch did not contribute to the likelihood for estimation of $p$ or $N$ (Durban et al. 2015).
 
-Consistent with Laake et al. (2012), the model for detectability incorporated fixed effects $b$ for visibility ($V$) and Beaufort Scale ($B$), whereas observers were treated as random effects ($O$). These were modelled as additive effects on a general intercept so that the direction and magnitude of the estimated effects away from zero (no effect) could be assessed. The selection for the inclusion of these effects were accomplished by using Bayesian model selection with stochastic binary indicator variables $I$ to switch each of the three possible effects either in or out of the model.
+Consistent with Laake et al. (2012), the model for detectability incorporated fixed effects for visibility ($V$) and Beaufort Scale ($B$), whereas observers were treated as random effects ($O$). These were modelled as additive effects on a general intercept so that the direction and magnitude of the estimated effects away from zero (no effect) could be assessed. The selection for the inclusion of these effects were accomplished by using Bayesian model selection with stochastic binary indicator variables $I$ to switch each of the three possible effects either in or out of the model.
 
 ### Mathematical description {.unnumbered}
 
-This section was extracted from Durban et al. (2015), almost verbatim. I edited some places to make explanations clearer in my mind.
+This section was extracted from Durban et al. (2015), almost verbatim. I edited some places to make explanations clearer in my mind and changed some symbols to make them consistent between theirs and my proposed approach, which is described later in this document.
 
-The total counts of whales ($n_{i,j,t}$) during the watch period $j$ in the year $t$ at the watch station $i$ was modeled as a binomial random deviate
+The total counts of whales ($n_{i,d(j),t}$) during the watch period $j$ of the $d$th day in the year $t$ at the watch station $i$ was modeled as a binomial random deviate (in the paper, $j$ was not specified as the $j$th watch period during the $d$th day of the season):
 
-$$ n_{i,j,t} \sim BIN(N_{j,t}, p_{i,j,t}) $$ 
+$$ n_{i,d(j),t} \sim BIN(N_{d(j),t}, p_{i,d(j),t}). $$ 
 
-The binomial $N_{j,t}$ parameter is the unknown total number of gray whales passing through the study area during the watch period $j$ in the year $t$.
+The binomial $N_{d(j),t}$ parameter is the unknown total number of gray whales passing through the study area during the watch period $j$ in the $d$th day in the year $t$.
 
 The detection probability was modeled as a function of visibility (V), Beaufort scale (B), and observers (O).
 
-$$ logit(p_{i,j,t}) = logit(p_0) + I_{V} \beta_{V} VS_{j,t} + I_{B} \beta_{B} B_{j,t}+ I_{O} \mathbf{\beta}^{O_{i,j,t} = o}_{O} $$
+$$ logit(p_{i,d(j),t}) = logit(p_0) + I_{V} \beta_{V} V_{d(j),t} + I_{B} \beta_{B} B_{d(j),t}+ I_{O} \mathbf{\beta}^{O_{i,d(j),t} = o}_{O} $$
 
 where the intercept $p_0$ was the base detection probability in the absence of covariate effects, assigned a Uniform(0,1) prior distribution, and $logit(p_0) = ln(p_0/(1–p_0))$. For each fixed effect, $\beta_{B}$ and $\beta_{V}$, a Normal prior distribution with mean zero and standard deviation of 10 was used. The random effect for each observer was drawn from a Normal distribution with mean zero and standard deviation $\sigma_{O} \sim Uniform(0,10)$. Each binary indicator variable, I, was assigned a Bernoulli(0.5) distribution to specify equal probability of inclusion (1) or exclusion (0) of the effect in the model (Durban et al. 2015).
 
-A Poisson distribution $N_{j,t} \sim Poisson(\lambda_{j,t})$) was used as a hierarchical prior for the distribution of abundances, and specified a model for the Poisson mean ($\lambda$) in terms of the number of whales passing each day ($d$), with an offset for the effort duration of each watch period, $E_{j,t}$ in decimal days (Laake et al., 2012):
+A Poisson distribution $N_{d(j),t} \sim Poisson(\lambda_{d(j),t})$) was used as a hierarchical prior for the distribution of abundances, and specified a model for the Poisson mean ($\lambda$) in terms of the number of whales passing each day ($d$), with an offset for the effort duration of each watch period, $E_{d(j),t}$ in decimal days (Laake et al., 2012):
 
-$$ log(\lambda_{j,t}) = log(E_{j,t}) + model_{d,t}$$
+$$ log(\lambda_{d(j),t}) = log(E_{d(j),t}) + model_{d,t}$$
 
 $$ model_{d,t} = z_{d,t} f_{d,t} + (1 – z_{d,t}) g_{d,t} $$
 
@@ -122,7 +122,7 @@ For the 'Common model' ($f_{d,t}$), we assumed a typical trend in abundance thro
 
 $$f_{d,t} = a_t + b_t *d_t + c_t * d^2_t$$
 
-where the mid-point of the migration curve for each year $t$ was derived by $–b_t/(2a_t)$. This assumed common migration curve allowed information to be 'borrowed' across years when needed, specifying association across years to strengthen inference about migration curves in years with relatively sparse counts. Each parameter was specified to be drawn from a hierarchical Normal distribution.
+where the mid-point of the migration curve for each year $t$ was derived by $–b_t/2a_t$. This assumed common migration curve allowed information to be 'borrowed' across years when needed, specifying association across years to strengthen inference about migration curves in years with relatively sparse counts. Each parameter was specified to be drawn from a hierarchical Normal distribution.
 
 $$ a_t \sim Normal(\mu_a, \sigma_a)$$
 
@@ -134,13 +134,13 @@ and $\mu \sim Normal(0, 10)$ and $\sigma \sim Uniform(0, 10)$, for $a$, $b$, and
 
 This hierarchical and random effects approach allowed the timing, level and extent of the Normal migration curve to vary annually around the general pattern, if supported by the data.
 
-To acknowledge and incorporate deviations from the common Normal model, the selection of an alternative 'specific' migration model was allowed ($g_{d,t}$). The 'specific' model was a semi-parametric model that estimated the time trends independently for each year without making any prior assumptions about its form (e.g. Laake et al., 2012). In this model, the shape of the relationship of true abundance across days was determined by the data via penalized splines [@ruppert2002].
+To acknowledge and incorporate deviations from the common Normal model, the selection of an alternative 'specific' migration model was allowed ($g_{d,t}$). The 'specific' model was a semi-parametric model that estimated the time trends independently for each year without making any prior assumptions about its form (e.g., Laake et al., 2012). In this model, the shape of the relationship of true abundance across days was determined by the data via penalized splines [@ruppert2002].
 
 A linear (on the log scale) penalized spline was used to describe this relationship [@crainiceanu2005]:
 
 $$ g_{d,t} = S_{0,t} + S_{1,t} * d_t + \sum_{k=1}^{m} \lambda_{k,t} (d_t – \kappa_{k,t}) $$ Where $S_{0,t}, S_{1,t}$ and $\lambda_{1,t}, \dots, \lambda_{m,t}$ were regression coefficients to be estimated separately for each year and $\kappa_{1,t} < \kappa_{2,t} < \dots < \kappa_{m,t}$ were fixed knots. To ensure the desired flexibility, we used m = 15 knots, which is a relatively large number. $\kappa_{k,t}$ is the sample quantile of $\lambda_{k,t}$ corresponding to probability $k/(m + 1)$. (Note: the symbol between "the sample quantile of" and "corresponding" was missing in the publication. I assumed that this was $\lambda_{k,t}$.) To avoid overfitting, the $\lambda$'s were penalized by assuming that they were Normally distributed random variables with mean 0 and standard deviation $\sim Uniform(0,10)$. The parameters $S_{0,t}, S_{1,t}$ were modeled as fixed effects with Normal(0, 10) prior distributions.
 
-### Criticism of the current method {.unnumbered}
+### Criticism of the Durban et al's method {.unnumbered}
 
 The approach in Durban et al. (2015) used the "cut" function within WinBUGS to select either Gaussian ('common') or spline ('specific') fit to daily counts of gray whales. The use of "cut" function has been criticized [@plummer2015]. Furthermore, the assumption that the number of gray whales migrating in front of the observation station follows a Gaussian function is somewhat questionable and the fitted spline to observed counts may be too flexible, given missing counts due to unfavorable observation conditions. The true curve in abundance may not be symmetric around a peak and the peak may not be instantaneous. In other words, the peak may persist for a few days. Fitting spline functions to observed counts alleviates the problem but it loses the general idea that the number of whales increases, reaches a peak, then decreases over the migration season.
 
