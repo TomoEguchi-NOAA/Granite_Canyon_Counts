@@ -11,7 +11,7 @@ csl: marine-ecology-progress-series.csl
 ```{r setup, include=FALSE}
 rm(list = ls())
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
-save.fig <- F
+save.fig <- T
 
 source("Granite_Canyon_Counts_fcns.R")
 library(tidyverse)
@@ -837,7 +837,7 @@ save.fig.fcn(fig = p.trace.all.sim.JAGS,
 
 ```
 
-Convergence was reached for all parameters according to the $\hat{R}$ statistic [@gelman_bayesian_1995], where the maximum value was `r signif(max.r.hat, 3)`. However, trace plots of some Richards function parameters did not look ideal (Figure \@ref(fig:Figure-trace-sim-JAGS)). The observed poor conversions of S1, S2, K, and max parameters might have been caused by the mismatch between the true (gamma) and assumed (Richards') functions, where Richards' functions could not match the rates of increase (S2) and decrease (S1) of the gamma function.
+Convergence was reached for all parameters according to the $\hat{R}$ statistic [@gelman_bayesian_2013], where the maximum value was `r signif(max.r.hat, 3)`. However, trace plots of some Richards function parameters did not look ideal (Figure \@ref(fig:Figure-trace-sim-JAGS)). The observed poor conversions of S1, S2, K, and max parameters might have been caused by the mismatch between the true (gamma) and assumed (Richards') functions, where Richards' functions could not match the rates of increase (S2) and decrease (S1) of the gamma function.
 
 For the parameters that associated with sighting probabilities (mean.prob, BF.Fixed, and VS.Fixed), MCMC samples appeared to converge and captured the true values (Figure \@ref(fig:Figure-trace-sim-JAGS)).
 
