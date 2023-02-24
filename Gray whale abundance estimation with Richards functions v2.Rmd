@@ -11,7 +11,7 @@ csl: marine-ecology-progress-series.csl
 ```{r setup, include=FALSE}
 rm(list = ls())
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
-save.fig <- T
+save.fig <- F
 
 source("Granite_Canyon_Counts_fcns.R")
 library(tidyverse)
@@ -143,13 +143,13 @@ $$ g_{d,t} = S_{0,t} + S_{1,t} * d_t + \sum_{k=1}^{m} \lambda_{k,t} (d_t – \ka
 
 ### Some concerns about Durban et al's method {.unnumbered}
 
-The approach in Durban et al. (2015) used the "cut" function within WinBUGS to select either Gaussian ('common') or spline ('specific') fit to daily counts of gray whales. The function is unavailable in modern Bayesian computation packages (e.g., JAGS, STAN) and its use of has been questioned [@plummer_cuts_2015]. In short, "cut" function does not converge to a well-defined limiting distribution (Plummer 2015). In addition, the assumption that the number of gray whales migrating in front of the observation station follows a Gaussian distribution centered around the mid point of the pre-defined migration season is somewhat questionable. The true curve in abundance may not be symmetric around a peak and the peak may not be instantaneous. In other words, the peak may persist for a few days. Fitting spline functions to observed counts may alleviate some of these problems but a fitted spline to observed counts may be too flexible. A spline fit would lose the general idea that the number of whales increases from the beginning of a migration season, reaches a peak, then decreases over time to the end of the migration season.
+The approach in Durban et al. (2015) used the "cut" function within WinBUGS to select either Gaussian ('common') or spline ('specific') fit to daily counts of gray whales. The function is unavailable in modern Bayesian computation packages (e.g., JAGS, STAN) and its use has been questioned [@plummer_cuts_2015]. In short, "cut" function does not converge to a well-defined limiting distribution (Plummer 2015). In addition, the assumption that the number of gray whales migrating in front of the observation station follows a Gaussian distribution centered around the mid point of the pre-defined migration season is somewhat questionable. The true curve in abundance may not be symmetric around a peak and the peak may not be instantaneous. In other words, the peak may persist for a few days. Fitting spline functions to observed counts may alleviate some of these problems but a fitted spline to observed counts may be too flexible. A spline fit would lose the general idea that the number of whales increases from the beginning of a migration season, reaches a peak, then decreases over time to the end of the migration season.
 
 ## Modification {.unnumbered}
 
 ### Model description {.unnumbered}
 
-In order to overcome these difficulties with the previous approach, I use a more flexible function that can accommodate the general shape (increase, peak then decrease) and asymmetrical around the peak. The function is often called Richards' function [@richards_flexible_1959 ] and it has been used, for example, to model changes in the number of nesting turtles [@girondot_modeling_2007].
+In order to overcome these difficulties with the previous approach, I use a more flexible function that can accommodate the general shape (increase, peak then decrease) and asymmetrical around the peak. The function is often called Richards' function [@richards_flexible_1959] and it has been used, for example, to model changes in the number of nesting turtles [@girondot_modeling_2007]. The model is defined as follows. 
 
 $$M_1 = (1 + (2 e^K - 1) * e^{(P-d)/(S_1)}) ^ {(-1/e^K)}$$
 
@@ -157,7 +157,7 @@ $$M_2 = (1 + (2 e^K - 1) * e^{(P-d)/(S_2)}) ^ {(-1/e^K)}$$
 
 $$N = N_{min} + (N_{max} - N_{min}) * (M_1 * M_2),$$
 
-where $d$ is the number of days from the day that first gray whale migrate through the sampling location,
+where $d$ is the number of days from the day that first gray whale migrate through the sampling location, or the number of days since an arbitrary date, 
 
 $S_1 < 0$ and $S_2 > 0$ define how the slope decreases and increases, respectively,
 
@@ -375,7 +375,7 @@ The proposed new approach replaces the spline-Gaussian selection step in Durban 
 
 $$ n_{i_t,s,y} \sim BIN(N_{t, y}, p_{i_t, s, y} * \theta_{i_t, y}) $$
 
-where $n_{d_t, s, y}$ is the observed number of gray whales during the watch period $i$ of the $t$-th day of the season $y$ from the station $s$, $N_{t, y}$ is the number of gray whales that migrated through the sampling area during the $t$-th day of season $y$, $p_{i_t, s, y}$ is the sighting probability of the station $s$ during the watch period $d$ of the $t$-th day of the season $y$, and $\theta_{i_t,y}$ is the fractional duration of the watch period $i_t$ to the total possible (9 hrs), e.g., 3 hrs equals to 3/9 = 0.3.
+where $n_{i_t, s, y}$ is the observed number of gray whales during the watch period $i$ of the $t$-th day of the season $y$ from the station $s$, $N_{t, y}$ is the number of gray whales that migrated through the sampling area during the $t$-th day of season $y$, $p_{i_t, s, y}$ is the sighting probability of the station $s$ during the watch period $i$ of the $t$-th day of the season $y$, and $\theta_{i_t,y}$ is the fractional duration of the watch period $i_t$ to the total possible (9 hrs), e.g., 3 hrs equals to 3/9 = 0.3.
 
 The sighting probability $p_{i_t, s, y}$ is modeled as a function of Beaufort sea state ($B$), visibility ($V$), and observers ($O$). Beaufort sea state and visibility were treated as fixed effects, whereas observers were treated as random effects. Furthermore, additional parameters (indicator functions $I_{.}$) were added to determine whether or not to include any of these covariates.
 
@@ -383,13 +383,11 @@ $$ logit(p_{i_t, s, y}) = \beta_0 + I_{B} * \beta_{B} * B_{i_t, y} + I_{V} * \be
 
 This is identical to how the sighting probability was modeled in Durban et al. (2015).
 
-The number of gray whales that migrated through the sampling area during the $t$-th day of the season was modeled as a random Poisson variable with the mean $\bar{N}_{t, y}$
+The number of gray whales that migrated through the sampling area during the $t$-th day of the season was modeled as a random Poisson variable with the mean $\bar{N}_{t, y}$ [@raftery_inference_1988].
 
 $$ N_{t, y} \sim POI(\bar{N}_{t,y}) $$
 
-where $\bar{N}_t$ is the expected number of whales that migrate through the sampling area on the $t$-th day of the season $y$ and modeled with Richards functions above.
-
-I used Poisson distribution for this hierarchical model [@raftery_inference_1988].
+where $\bar{N}_{t,y}$ is the expected number of whales that migrate through the sampling area on the $t$-th day of the season $y$ and modeled with Richards functions above.
 
 The total number of gray whales for season $y$ is the sum of all $N_{t, y}$ and corrected for nighttime passage:
 
@@ -439,19 +437,19 @@ save.fig.fcn(p.mean.N.def,
 
 ```
 
-To evaluate the performance of the new approach using Richards' functions, I simulated data using the above relationships. To test for a mismatch between the within-season mean function between the true and model (i.e., Richards function), daily mean numbers of whales ($\bar{N}_{y,t}$, $y = 1, 2$, $t = 1, \dots, 90$) for the first year was simulated from a gamma distribution function (GAM(`r signif(alpha.gam,3)`, `r signif(beta.gam, 3)`) \* `r multip.gam`; Figure \@ref(fig:Figure-Gam-def)). For the second year, I used Richards' function for the daily mean numbers.
+To evaluate the performance of the new approach using Richards function, I simulated data using the above relationships. To test for a mismatch between the within-season mean function between the true and model (i.e., Richards function), daily mean numbers of whales ($\bar{N}_{y,t}$, $y = 1, 2$, $t = 1, \dots, 90$) for the first year was simulated from a gamma distribution function (GAM(`r signif(alpha.gam,3)`, `r signif(beta.gam, 3)`) \* `r multip.gam`; Figure \@ref(fig:Figure-Gam-def)). For the second year, I used Richards function for the daily mean numbers.
 
 $$ \bar{N}_{1,t} = GAM(t, 5.4, 0.13) \times 6000$$ and
 
 $$ \bar{N}_{2,t} = R(t, S_1 = -0.9, S_2 = 1.5, P = 48, K = 2.5, max = 200) $$
 
-where $t = 1, \dots, 90$ and $R(\dots)$ indicates Richards' function with necessary parameters (Figure \@ref(fig:Figure-Gam-def)).
+where $t = 1, \dots, 90$ and $R(\dots)$ indicates Richards function with necessary parameters (Figure \@ref(fig:Figure-Gam-def)).
 
 Daily true numbers of gray whales that migrated through the sampling area then were simulated using a Poisson distribution with the daily mean values:
 
-$$ n_{y,t} \sim POI(\bar{N}_{y,t})  $$
+$$ N_{y,t} \sim POI(\bar{N}_{y,t})  $$
 
-Finally, the recorded numbers of whales by the observers during the $i$-th watch period ($m_{y,t,i}$) were simulated using a binomial distribution with the true number of gray whales ($n_{y,t}$) and the sighting probability ($p_{y,t,i}$), for the i-th observation period on day t, where the index of observation periods in a day can range from 1 to 6. The actual index of observation periods is inconsequential, however. Sighting probability for one period is treated as a function of (1) viewing condition (V), (2) Beaufort sea state (B), (3) the observation duration as a fraction of maximum ($q_{y,t,i}$; 6 periods equal to 540 minutes), and (4) observer random effects ($O_{y,t,i}$).
+Finally, the recorded numbers of whales by the observers during the $i$-th watch period ($n_{y,t,i}$) were simulated using a binomial distribution with the true number of gray whales ($N_{y,t}$) and the sighting probability ($p_{y,t,i}$), for the i-th observation period on day t, where the index of observation periods in a day can range from 1 to 6. The actual index of observation periods is inconsequential, however. Sighting probability for one period is treated as a function of (1) viewing condition (V), (2) Beaufort sea state (B), (3) the observation duration as a fraction of maximum ($q_{y,t,i}$; 6 periods equal to 540 minutes), and (4) observer random effects ($O_{y,t,i}$).
 
 $$ logit(\gamma_{y,t,i}) = \bar{p} + I(V) \beta_{V} V_{y,t,i} + I(B) \beta_{B} B_{y,t,i} + I(O) O_{y,t,i} $$
 
@@ -461,7 +459,7 @@ $$ p_{y,t,i} = \gamma_{y,t,i} \times q_{y,t,i} $$
 
 Finally, the observed number of whales during one sampling period was simulated using a binomial distribution.
 
-$$ m_{y,t,i} \sim BIN(n_{y,t}, p_{y,t,i}) $$
+$$ n_{y,t,i} \sim BIN(N_{y,t}, p_{y,t,i}) $$
 
 To simplify the simulation, I did not add the observer random effects. The total number of whales per year was not simulated directly. Rather, daily numbers of whales were simulated from the mean curves (Gamma or Richards). The total number of gray whales during daily observation window (540 minutes) was multiplied by a correction factor (mean = 1.0875, S = 0.03625) and summed over 90 days to obtain the corrected total number of whales in one year.
 
