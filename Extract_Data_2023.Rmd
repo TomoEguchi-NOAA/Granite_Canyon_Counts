@@ -1,0 +1,202 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+For 2023, all data files were merged into one file. To make things consistent, I first split the file into sampling day specific files. Then, they were pooled together again 
+
+
+```{r}
+
+rm(list=ls())
+library(tidyverse)
+library(lubridate)
+library(readr)
+source("Granite_Canyon_Counts_fcns.R")
+
+
+YEAR <- 2023 #Enter the year of the data files
+
+# These lines need to be run just once. ############################
+# This is the merged file from Aimee Lang
+# data.file.name <- "Data/2023/EditedDataAll_2023.dat"
+# 
+# all.lines <- read_lines(file = data.file.name)
+# line.ID <- str_sub(all.lines, start = 1, end = 3)
+# Date <- str_sub(all.lines, start = 7, end = 16)
+# Time <- str_sub(all.lines, start = 18, end = 25)
+# 
+# first.line <- which(line.ID == "001")
+# 
+# n.files <- length(first.line)
+# f <- 1
+# for (f in 1:n.files){
+#   Date.1 <- Date[first.line[f]] %>% strsplit("/") %>% unlist()
+#   Time.1 <- Time[first.line[f]] %>% 
+#     strsplit("/") %>% 
+#     unlist() %>%
+#     strsplit(":") %>%
+#     unlist() %>%  
+#     paste(collapse = "")
+#   out.file.name <- paste0("Data/2023/EditedGW23", Date.1[1], Date.1[2], "_", Time.1, ".dat")
+#   
+#   if (f < n.files){
+#     last.line <- first.line[f+1] - 1
+#   } else {
+#     last.line <- length(all.lines)
+#   }
+#   
+#   write_lines(all.lines[first.line[f]:last.line],
+#               file = out.file.name)
+# }
+#####################################################################
+```
+
+
+```{r}
+
+FILES <- list.files(paste0("Data/", YEAR, "/"))
+
+Data_Out.list <- list()
+
+ff <- 36
+for(ff in 1:length(FILES)){ 
+  
+  data <- get.data("Data/", YEAR, ff = ff)
+
+  
+  #Shifts <- which(data$V2 %in% c('P','E')) #start/end of all shifts
+  Shifts <- which(data$V2 %in% "P") #start of all shifts
+  # # if there is no "E"
+  # if (length(which(data$V2 %in% "E")) == 0){
+  #   i.max <- length(Shifts)
+  # } else {
+  #   i.max <- length(Shifts) - 1
+  # }
+  # 
+  Output.list <- list()
+  #i <- 1
+  for(k in 1:length(Shifts)){
+    out.shift <- get.shift(YEAR, data, ff, k)
+      
+    Output.list[[k]] <- out.shift$out.df
+  }#i
+  
+  Data_Out.list[[ff]] <- do.call("rbind", Output.list)
+
+}#ff (files loop)         
+
+Data_Out <- do.call("rbind", Data_Out.list)
+
+```
+
+
+```{r}
+# Filter out short periods:
+
+#Josh: 0.0625 is the exact watch period, but I've given some leeway. If it's less than 5 minutes short, I'm counting it
+#If it's less than 10 minutes over the 1.5hrs, I'm also counting it (guessing that they forgot to log off or something)
+
+#Entries that are less than 1.5hrs (5 minute grace period)
+shift_dur_min <- 90   # 90 minutes - 5 minutes
+#grace_min <- 5
+# Data_Out[which((Data_Out$end - Data_Out$begin) < (shift_dur_min - grace_min)/(24*60)),]
+# 
+# #Entries more than 1.5hrs (5 minute grace period)
+# Data_Out[which((Data_Out$end - Data_Out$begin) > (shift_dur_min + grace_min)/(24*60)),] 
+# 
+# #Entries more than 1.5 hrs +/- 10 min
+#grace_min <- 10
+# Data_Out[which(Data_Out$end - Data_Out$begin < 
+#                  (shift_dur_min - grace_min)/(24*60)),]
+# Data_Out[which(Data_Out$end-Data_Out$begin > 
+#                  (shift_dur_min + grace_min)/(24*60)),] 
+
+# Final data
+# Remove watches that were less than 85 minutes or greater than 95 minutes:
+grace_min <- 5
+max_dur <- 90 + grace_min
+min_dur <- 90 - grace_min
+
+Data_Out %>% 
+  filter(dur > min_dur/(24*60) & 
+           dur < max_dur/(24*60)) -> Correct_Length
+
+Chaff <- Data_Out[which(Data_Out$end-Data_Out$begin < 
+                          (shift_dur_min - grace_min)/(24*60)),]
+
+Final_Data <- Correct_Length %>%
+  filter(bf < 5, vs < 5)
+
+WhalesDays <- Final_Data %>%
+  group_by(BeginDay) %>%
+  mutate(PropDay = end-begin) %>%
+  summarize(TotalWatch = sum(PropDay), TotalWhales=sum(n))
+
+ggplot(data = WhalesDays) + 
+  geom_point(aes(x = as.numeric(BeginDay), y = TotalWhales/TotalWatch))
+#plot(x=WhalesDays$BeginDay,y=WhalesDays$TotalWhales/WhalesDays$TotalWatch)
+
+ShiftsPerDay <- Final_Data %>%
+  group_by(BeginDay) %>%
+  summarize(Watches = n())
+
+```
+
+
+```{r}
+#Spot Checks:
+
+#Check shifts that passed muster to confirm the compiled data is correct
+# set.seed(1199)
+# Final_Data[sample(1:196,20,replace=F),]
+# 
+# #Check shifts that were thrown out to make sure they deserved it
+# set.seed(1200)
+# Chaff[sample(1:54,10,replace=F),]
+
+
+#Summary Stats for Report
+Complete_Data <- Final_Data[complete.cases(Final_Data),]
+Complete_Data$Eff <- Complete_Data$end - Complete_Data$begin
+
+TotalHrs <- sum(Complete_Data$Eff)*24
+TotalDays <- length(unique(floor(Complete_Data$begin)))
+TotalObservers <- length(unique(Complete_Data$obs))
+TotalWhales <- sum(Complete_Data$n)
+
+WPH <- Complete_Data %>%
+  mutate(DaysSinceDec1 = as.numeric(BeginDay)) %>%
+  group_by(DaysSinceDec1) %>%
+  summarize(TotalWhales = sum(n), 
+            TotalEffort = sum(Eff), 
+            WPH = sum(n)/(sum(Eff)*24)) 
+
+out.obj <- list(Data_Out = Data_Out,
+                Correct_Length = Correct_Length,
+                Final_Data = Final_Data,
+                Complete_Data = Complete_Data,
+                WPH = WPH)
+
+#saveRDS(out.obj, file = paste0("RData/V2_Aug2022/out_", YEAR, "_Tomo_v2.rds"))
+#saveRDS(out.obj, file = paste0("RData/V2.1_Aug2022/out_", YEAR, "_Tomo_v2.rds"))
+
+```
+
+Create observer list.
+
+```{r}
+obs.list.2023 <- data.frame(obs = Final_Data$obs %>% unique())
+
+obs.list.2022 <- read.csv("Data/Observer list 2022.csv")
+
+obs.list.2022 %>% full_join(obs.list.2023, by = "obs") -> obs.list.new
+
+obs.list.new[is.na(obs.list.new$ID), "ID"] <- rownames(obs.list.new[is.na(obs.list.new$ID), ])
+
+write.csv(obs.list.new, file = "Data/ObserverList2023.csv", row.names = F)
+
+```
+
+
+
