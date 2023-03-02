@@ -149,7 +149,7 @@ The approach in Durban et al. (2015) used the "cut" function within WinBUGS to s
 
 ### Model description {.unnumbered}
 
-In order to overcome these difficulties with the previous approach, I use a more flexible function that can accommodate the general shape (increase, peak then decrease) and asymmetrical around the peak. The function is often called Richards' function [@richards_flexible_1959] and it has been used, for example, to model changes in the number of nesting turtles [@girondot_modeling_2007]. The model is defined as follows. 
+In order to overcome these difficulties with the previous approach, I use a more flexible function that can accommodate the general shape (increase, peak then decrease) and asymmetrical around the peak. The function is often called Richards' function [@richards_flexible_1959] and it has been used, for example, to model changes in the number of nesting turtles [@girondot_modeling_2007]. The model is defined as follows.
 
 $$M_1 = (1 + (2 e^K - 1) * e^{(P-d)/(S_1)}) ^ {(-1/e^K)}$$
 
@@ -157,7 +157,7 @@ $$M_2 = (1 + (2 e^K - 1) * e^{(P-d)/(S_2)}) ^ {(-1/e^K)}$$
 
 $$N = N_{min} + (N_{max} - N_{min}) * (M_1 * M_2),$$
 
-where $d$ is the number of days from the day that first gray whale migrate through the sampling location, or the number of days since an arbitrary date, 
+where $d$ is the number of days from the day that first gray whale migrate through the sampling location, or the number of days since an arbitrary date,
 
 $S_1 < 0$ and $S_2 > 0$ define how the slope decreases and increases, respectively,
 
