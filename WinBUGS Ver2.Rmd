@@ -537,7 +537,10 @@ ggplot(data = all.stats) +
 
 Total abundance
 ```{r}
-abundance.df <- data.frame(total.median = apply(Corrected.Est, 
+abundance.df <- data.frame(total.mean = apply(Corrected.Est,
+                                              FUN = mean,
+                                              MARGIN = 2),
+                           total.median = apply(Corrected.Est, 
                                                 FUN = median, 
                                                 MARGIN = 2),
                            total.LCL = apply(Corrected.Est, 
