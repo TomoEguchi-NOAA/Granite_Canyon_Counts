@@ -62,10 +62,10 @@ FILES <- list.files(path = paste0("Data/", YEAR, "/"),
 
 Data_Out.list <- list()
 
-ff <- 34
+ff <- 2
 for(ff in 1:length(FILES)){ 
   
-  data <- get.data("Data/", YEAR, ff = ff)
+  data <- get.data(dir = "Data/", YEAR = YEAR, ff = ff, FILES = FILES)
 
   
   #Shifts <- which(data$V2 %in% c('P','E')) #start/end of all shifts
@@ -181,7 +181,7 @@ out.obj <- list(Data_Out = Data_Out,
                 Complete_Data = Complete_Data,
                 WPH = WPH)
 
-#saveRDS(out.obj, file = paste0("RData/V2_Aug2022/out_", YEAR, "_Tomo_v2.rds"))
+# Uncomment the following line if new file needs to be saved
 #saveRDS(out.obj, file = paste0("RData/V2.1_Aug2022/out_", YEAR, "_Tomo_v2.rds"))
 
 ```
@@ -197,6 +197,7 @@ obs.list.2022 %>% full_join(obs.list.2023, by = "obs") -> obs.list.new
 
 obs.list.new[is.na(obs.list.new$ID), "ID"] <- rownames(obs.list.new[is.na(obs.list.new$ID), ])
 
+# Uncomment the following line if new file needs to be saved
 #write.csv(obs.list.new, file = "Data/ObserverList2023.csv", row.names = F)
 
 ```

@@ -68,11 +68,14 @@ u <- abind(u,
 # #visibility
 vs. <- lapply(out.v2, FUN = function(x) x$Final_Data$vs)
 vs <- rbind(data.0$vs[,1:4], 
-                  array(NA, dim = c(max(periods) - nrow(data.0$vs), 4)))
+                  array(NA, dim = c(max(periods) - nrow(data.0$vs), 4))) %>%
+    labelled::remove_attributes("dimnames")
 
+# Beaufort
 bf. <- lapply(out.v2, FUN = function(x) x$Final_Data$bf)
 bf <- rbind(data.0$bf[,1:4], 
-                  array(NA, dim = c(max(periods) - nrow(data.0$bf), 4)))
+                  array(NA, dim = c(max(periods) - nrow(data.0$bf), 4)))%>%
+    labelled::remove_attributes("dimnames")
 
 # observers
 # need to convert observer initials into numbers for all years
@@ -84,25 +87,33 @@ obs <- abind(obs,
 
 Watch.Length <- rbind(data.0$Watch.Length[,1:4], 
                       array(NA, dim = c(max(periods) - 
-                                          nrow(data.0$Watch.Length), 4)))
+                                          nrow(data.0$Watch.Length), 4)))%>%
+    labelled::remove_attributes("dimnames")
 
 day <- rbind(data.0$day[,1:4], 
-                   array(NA, dim = c(max(periods) - nrow(data.0$day), 4)))
+                   array(NA, dim = c(max(periods) - nrow(data.0$day), 4)))%>%
+    labelled::remove_attributes("dimnames")
 
+k <- 1
 for (k in 1:length(begin.)){
-  n <- abind(n, cbind(c(out.v2[[k]]$Final_Data$n, 
-                        rep(0, times = (dim(n)[1] - length(out.v2[[k]]$Final_Data$n)))), 
-                      rep(0, times = dim(n)[1]))) %>%
-  labelled::remove_attributes("dimnames")
+  n <- abind(n, 
+             cbind(c(out.v2[[k]]$Final_Data$n, 
+                     rep(0, times = (dim(n)[1] - length(out.v2[[k]]$Final_Data$n)))), 
+                   rep(0, times = dim(n)[1]))) %>%
+    labelled::remove_attributes("dimnames")
   
   u <- abind(u, 
              cbind(c(rep(1, times = length(out.v2[[k]]$Final_Data$n)), 
                      rep(0, times = (dim(u)[1] - length(out.v2[[k]]$Final_Data$n)))), 
                    rep(0, times = dim(u)[1])))
-  vs <- cbind(vs, out.v2[[k]]$Final_Data$vs)  %>%
+  
+  vs <- cbind(vs, c(out.v2[[k]]$Final_Data$vs, 
+                    rep(NA, times = max(periods - length(out.v2[[k]]$Final_Data$vs)))))  %>%
     labelled::remove_attributes("dimnames")
   
-  bf <- cbind(bf, out.v2[[k]]$Final_Data$bf)  %>%
+  
+  bf <- cbind(bf, c(out.v2[[k]]$Final_Data$bf,
+                    rep(NA, times = max(periods - length(out.v2[[k]]$Final_Data$bf)))))  %>%
     labelled::remove_attributes("dimnames")
   
   obs.year <- data.frame(obs = out.v2[[k]]$Final_Data$obs) %>% 
@@ -116,8 +127,7 @@ for (k in 1:length(begin.)){
   Watch.Length <- cbind(Watch.Length,
                         c(Watch.Length.[[k]], 
                           rep(NA, 
-                              times = max(periods) -                             
-                                length(Watch.Length.[[k]])))) %>%
+                              times = max(periods) - length(Watch.Length.[[k]])))) %>%
     labelled::remove_attributes("dimnames")
   
   day <- cbind(day, 
@@ -347,7 +357,8 @@ if (!file.exists(paste0("RData/WinBUGS_", x, "yr_v2.rds"))){
   Run_Time <- Sys.time() - Start_Time
   Ver2.results <-list(BUGS.data = BUGS.data,
                       N_inits = N_inits,
-                      BUGS_out = BUGS_out)
+                      BUGS_out = BUGS_out,
+                      Run_Time = Run_Time)
   saveRDS(Ver2.results, 
           paste0("RData/WinBUGS_", x, "yr_v2.rds"))
   
@@ -372,7 +383,7 @@ if (!file.exists(paste0("RData/WinBUGS_", x, "yr_v2.rds"))){
 #         data.worked)
 
 # clear the workspace, bring in the data that worked.
-rm(list = ls())
+#rm(list = ls())
 #
 # Runs from the saved list? Yes.
 # data.worked <- readRDS(paste0("RData/BUGS_data_runs_2022-10-21.rds"))

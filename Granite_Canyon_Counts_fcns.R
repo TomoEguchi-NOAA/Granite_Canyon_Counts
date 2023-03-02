@@ -107,8 +107,17 @@ Richards_fcn <- function(d, S1, S2, K, P, min, max){
 # A function to get one data file from selected directory
 # Inputs are data directory name, year of survey (2021/2022 is 2022), and
 # which file to be extracted (sequential number from 1 to length(files)).
-get.data <- function(dir, YEAR, ff){
-  FILES <- list.files(paste0(dir, "/", YEAR))
+get.data <- function(dir, YEAR, FILES = NULL, ff){
+  # 2023-03-02 Commented the following line and added FILES input because all data for 2023
+  # were combined in one file (EditedDataAll_2023.dat), which was parsed out to day-specific
+  # files so they will be the same as other years. The combined file also was stored in the
+  # same folder.
+  
+  # if FILES input was not provided, make a list of files in the directory. This should work
+  # for other years 
+  if (is.null(FILES))
+    FILES <- list.files(paste0(dir, "/", YEAR))
+  
   all.lines <- read_lines(file = paste0(dir, "/", YEAR, "/", FILES[ff]))
   
   # look at all event code
