@@ -20,37 +20,40 @@ YEAR <- 2023 #Enter the year of the data files
 # These lines need to be run just once. ############################
 # This is the merged file from Aimee Lang
 # data.file.name <- "Data/2023/EditedDataAll_2023.dat"
-# 
-# all.lines <- read_lines(file = data.file.name)
-# line.ID <- str_sub(all.lines, start = 1, end = 3)
-# Date <- str_sub(all.lines, start = 7, end = 16)
-# Time <- str_sub(all.lines, start = 18, end = 25)
-# 
-# first.line <- which(line.ID == "001")
-# 
-# n.files <- length(first.line)
-# f <- 1
-# for (f in 1:n.files){
-#   Date.1 <- Date[first.line[f]] %>% strsplit("/") %>% unlist()
-#   Time.1 <- Time[first.line[f]] %>%
-#     strsplit("/") %>%
-#     unlist() %>%
-#     strsplit(":") %>%
-#     unlist() %>%
-#     paste(collapse = "")
-#   out.file.name <- paste0("Data/2023/EditedGW", 
-#                           unlist(strsplit(Date.1[3], "0"))[2], 
-#                           Date.1[1], Date.1[2], "_", Time.1, ".dat")
-# 
-#   if (f < n.files){
-#     last.line <- first.line[f+1] - 1
-#   } else {
-#     last.line <- length(all.lines)
-#   }
-# 
-#   write_lines(all.lines[first.line[f]:last.line],
-#               file = out.file.name)
-# }
+# Then, I had to edit a few lines where there were 018b and 018c line numbers
+# for 2023-01-12. Can't have these extra letters in the fourth position.
+data.file.name <- "Data/2023/EditedDataAll_2023_TE.dat"
+
+all.lines <- read_lines(file = data.file.name)
+line.ID <- str_sub(all.lines, start = 1, end = 3)
+Date <- str_sub(all.lines, start = 7, end = 16)
+Time <- str_sub(all.lines, start = 18, end = 25)
+
+first.line <- which(line.ID == "001")
+
+n.files <- length(first.line)
+f <- 1
+for (f in 1:n.files){
+  Date.1 <- Date[first.line[f]] %>% strsplit("/") %>% unlist()
+  Time.1 <- Time[first.line[f]] %>%
+    strsplit("/") %>%
+    unlist() %>%
+    strsplit(":") %>%
+    unlist() %>%
+    paste(collapse = "")
+  out.file.name <- paste0("Data/2023/EditedGW",
+                          unlist(strsplit(Date.1[3], "0"))[2],
+                          Date.1[1], Date.1[2], "_", Time.1, ".dat")
+
+  if (f < n.files){
+    last.line <- first.line[f+1] - 1
+  } else {
+    last.line <- length(all.lines)
+  }
+
+  write_lines(all.lines[first.line[f]:last.line],
+              file = out.file.name)
+}
 #####################################################################
 ```
 
@@ -62,7 +65,7 @@ FILES <- list.files(path = paste0("Data/", YEAR, "/"),
 
 Data_Out.list <- list()
 
-ff <- 2
+ff <- 1
 for(ff in 1:length(FILES)){ 
   
   data <- get.data(dir = "Data/", YEAR = YEAR, ff = ff, FILES = FILES)
@@ -182,7 +185,7 @@ out.obj <- list(Data_Out = Data_Out,
                 WPH = WPH)
 
 # Uncomment the following line if new file needs to be saved
-#saveRDS(out.obj, file = paste0("RData/V2.1_Aug2022/out_", YEAR, "_Tomo_v2.rds"))
+saveRDS(out.obj, file = paste0("RData/V2.1_Aug2022/out_", YEAR, "_Tomo_v2.rds"))
 
 ```
 
@@ -198,7 +201,7 @@ obs.list.2022 %>% full_join(obs.list.2023, by = "obs") -> obs.list.new
 obs.list.new[is.na(obs.list.new$ID), "ID"] <- rownames(obs.list.new[is.na(obs.list.new$ID), ])
 
 # Uncomment the following line if new file needs to be saved
-#write.csv(obs.list.new, file = "Data/ObserverList2023.csv", row.names = F)
+write.csv(obs.list.new, file = "Data/ObserverList2023.csv", row.names = F)
 
 ```
 
