@@ -327,9 +327,12 @@ parameters <- c("lambda","OBS.RF","OBS.Switch",
                 "com","sp","Daily.Est","mean.beta",
                 "beta.sigma","beta","beta.sp","b.sp","sd.b.sp")
 
-MCMCparams <- list(n.iter = 10000, #0,
+# Good to run with 10k/6k as a practice run to see if WinBUGS completes computation.
+# Then, increase iterations/burnin to 100k/60k. 
+
+MCMCparams <- list(n.iter = 100000,
                    n.thin = 80,
-                   n.burnin = 6000, #0,
+                   n.burnin = 60000,
                    n.chains = 5)
 
 
@@ -358,7 +361,9 @@ if (!file.exists(paste0("RData/WinBUGS_", x, "yr_v2.rds"))){
   Ver2.results <-list(BUGS.data = BUGS.data,
                       N_inits = N_inits,
                       BUGS_out = BUGS_out,
-                      Run_Time = Run_Time)
+                      Run_Time = Run_Time,
+                      Sys.info = Sys.info())
+  
   saveRDS(Ver2.results, 
           paste0("RData/WinBUGS_", x, "yr_v2.rds"))
   
