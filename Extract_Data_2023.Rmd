@@ -32,20 +32,22 @@ YEAR <- 2023 #Enter the year of the data files
 # f <- 1
 # for (f in 1:n.files){
 #   Date.1 <- Date[first.line[f]] %>% strsplit("/") %>% unlist()
-#   Time.1 <- Time[first.line[f]] %>% 
-#     strsplit("/") %>% 
+#   Time.1 <- Time[first.line[f]] %>%
+#     strsplit("/") %>%
 #     unlist() %>%
 #     strsplit(":") %>%
-#     unlist() %>%  
+#     unlist() %>%
 #     paste(collapse = "")
-#   out.file.name <- paste0("Data/2023/EditedGW23", Date.1[1], Date.1[2], "_", Time.1, ".dat")
-#   
+#   out.file.name <- paste0("Data/2023/EditedGW", 
+#                           unlist(strsplit(Date.1[3], "0"))[2], 
+#                           Date.1[1], Date.1[2], "_", Time.1, ".dat")
+# 
 #   if (f < n.files){
 #     last.line <- first.line[f+1] - 1
 #   } else {
 #     last.line <- length(all.lines)
 #   }
-#   
+# 
 #   write_lines(all.lines[first.line[f]:last.line],
 #               file = out.file.name)
 # }
@@ -55,11 +57,12 @@ YEAR <- 2023 #Enter the year of the data files
 
 ```{r}
 
-FILES <- list.files(paste0("Data/", YEAR, "/"))
+FILES <- list.files(path = paste0("Data/", YEAR, "/"),
+                    pattern = "EditedGW")
 
 Data_Out.list <- list()
 
-ff <- 36
+ff <- 34
 for(ff in 1:length(FILES)){ 
   
   data <- get.data("Data/", YEAR, ff = ff)
@@ -194,7 +197,7 @@ obs.list.2022 %>% full_join(obs.list.2023, by = "obs") -> obs.list.new
 
 obs.list.new[is.na(obs.list.new$ID), "ID"] <- rownames(obs.list.new[is.na(obs.list.new$ID), ])
 
-write.csv(obs.list.new, file = "Data/ObserverList2023.csv", row.names = F)
+#write.csv(obs.list.new, file = "Data/ObserverList2023.csv", row.names = F)
 
 ```
 

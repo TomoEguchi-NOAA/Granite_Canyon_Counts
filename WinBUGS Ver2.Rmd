@@ -341,7 +341,7 @@ if (!file.exists(paste0("RData/WinBUGS_", x, "yr_v2.rds"))){
                   n.iter = MCMCparams$n.iter, 
                   n.burnin = MCMCparams$n.burnin, 
                   n.thin = MCMCparams$n.thin,
-                  debug=F,
+                  debug=T,
                   bugs.directory = WinBUGS.dir)
   
   Run_Time <- Sys.time() - Start_Time
