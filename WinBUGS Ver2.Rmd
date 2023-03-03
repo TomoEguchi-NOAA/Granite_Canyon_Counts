@@ -34,7 +34,10 @@ data.0 <- readRDS("RData/2006-2019_GC_Formatted_Data.RDS")
 # output from Ver2.0 extraction
 years <- c("2015", "2016", "2020", "2022", "2023")
 
-out.v2 <- lapply(years, FUN = function(x) readRDS(paste0("RData/V2.1_Aug2022/out_", x, "_Tomo_v2.rds")))
+#out.v2 <- lapply(years, FUN = function(x) readRDS(paste0("RData/V2.1_Aug2022/out_", x, "_Tomo_v2.rds")))
+
+# Analysis with minimum of 30 minutes sampling duration:
+out.v2 <- lapply(years, FUN = function(x) readRDS(paste0("RData/V2.1_Mar2023/out_", x, "_min30_Tomo_v2.rds")))
 
 begin. <- lapply(out.v2, FUN = function(x) x$Final_Data$begin)
 end. <- lapply(out.v2, FUN = function(x) x$Final_Data$end)
