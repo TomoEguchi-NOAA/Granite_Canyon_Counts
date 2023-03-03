@@ -386,7 +386,7 @@ if (!file.exists(paste0("RData/WinBUGS_", x, "yr_v2.rds"))){
 # 
 # saveRDS(file = paste0("RData/BUGS_data_runs_", Sys.Date(), ".rds"), 
 #         data.worked)
-
+│
 # clear the workspace, bring in the data that worked.
 #rm(list = ls())
 #
@@ -537,7 +537,8 @@ ggplot(data = all.stats) +
 
 Total abundance
 ```{r}
-abundance.df <- data.frame(total.mean = apply(Corrected.Est,
+abundance.df <- data.frame(Season = seasons,
+                           total.mean = apply(Corrected.Est,
                                               FUN = mean,
                                               MARGIN = 2),
                            total.median = apply(Corrected.Est, 
@@ -548,8 +549,7 @@ abundance.df <- data.frame(total.mean = apply(Corrected.Est,
                                              FUN = quantile, 0.025),
                            total.UCL = apply(Corrected.Est, 
                                              MARGIN = 2, 
-                                             FUN = quantile, 0.975),
-                           Season = seasons)
+                                             FUN = quantile, 0.975))
 
 
 ggplot(data = abundance.df) + 
@@ -558,5 +558,11 @@ ggplot(data = abundance.df) +
 
 #median(apply(exp(sp[,,4]),1,sum))
 
+```
+
+```{r}
+ggplot(data = abundance.df) + 
+  geom_point(aes(x = Season, y = total.mean)) + 
+  geom_errorbar(aes(x = Season, ymin = total.LCL, ymax = total.UCL))
 ```
 
