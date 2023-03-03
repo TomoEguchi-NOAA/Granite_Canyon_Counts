@@ -344,7 +344,9 @@ MCMCparams <- list(n.iter = 100000,
 Run WinBUGS if it hasn't been run..
 
 ```{r}
-if (!file.exists(paste0("RData/WinBUGS_", x, "yr_v2.rds"))){
+#out.file.name <- paste0("RData/WinBUGS_", x, "yr_v2.rds")
+out.file.name <- paste0("RData/WinBUGS_", x, "yr_v2_min30.rds")
+if (!file.exists(out.file.name)){
   
   #Run time: 
   Start_Time<-Sys.time()
@@ -367,11 +369,10 @@ if (!file.exists(paste0("RData/WinBUGS_", x, "yr_v2.rds"))){
                       Run_Time = Run_Time,
                       Sys.info = Sys.info())
   
-  saveRDS(Ver2.results, 
-          paste0("RData/WinBUGS_", x, "yr_v2.rds"))
+  saveRDS(Ver2.results, file = out.file.name)
   
 } else {
-  Ver2.results <- readRDS(paste0("RData/WinBUGS_", x, "yr_v2.rds"))
+  Ver2.results <- readRDS(out.file.name)
 }
 
 # The following line is for saving the data list and inits list. This was done to check why simulation
