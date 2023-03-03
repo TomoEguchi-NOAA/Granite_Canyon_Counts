@@ -360,8 +360,27 @@ if (!file.exists(out.file.name)){
                   n.burnin = MCMCparams$n.burnin, 
                   n.thin = MCMCparams$n.thin,
                   debug=F,
-                  bugs.directory = WinBUGS.dir)
+                  bugs.directory = WinBUGS.dir,
+                  DIC = FALSE)
   
+  # 2023-03-03 (problem solved but leavee the comments below for future reference)
+  # ERROR: NIL dereference (read). According to the user manual, this error may
+  # happen "at compilation in some circumstances when an inappropriate
+  # transformation is made, for example an array into a scalar." 
+  # (https://www.mrc-bsu.cam.ac.uk/wp-content/uploads/manual14.pdf)
+  
+  # DIC problems: Surprisingly, sometimes when getting a trap (including one with the very
+  # informative title “NIL dereference (read)”), setting the argument DIC = FALSE in the bugs()
+  # function has helped. (https://www.mbr-pwrc.usgs.gov/software/kerybook/AppendixA_list_of_WinBUGS_tricks.pdf)
+  
+  # I only changed the effort (Watch.Length) for this analysis using 30 minutes as the 
+  # minimum observation duration. That changed the size of data arrays, which shouldn't be an issue. 
+  
+  # It turned out a new observer (JSD) was introduced when a shorter minimum was used to filter
+  # observation period. "JSD" was only found in 2020 (200109_080043). A strange thing happened for that day.
+  # During the 0800 shift, JSD/JWG changed to SJC/JDS on 0900, then the shift continued until 0930. The new
+  # cutoff time (30 min) picked up the first (1 hr) and the second (30 min) as separate observation periods.
+
   Run_Time <- Sys.time() - Start_Time
   Ver2.results <-list(BUGS.data = BUGS.data,
                       N_inits = N_inits,
