@@ -386,7 +386,7 @@ if (!file.exists(paste0("RData/WinBUGS_", x, "yr_v2.rds"))){
 # 
 # saveRDS(file = paste0("RData/BUGS_data_runs_", Sys.Date(), ".rds"), 
 #         data.worked)
-│
+
 # clear the workspace, bring in the data that worked.
 #rm(list = ls())
 #
@@ -541,6 +541,9 @@ abundance.df <- data.frame(Season = seasons,
                            total.mean = apply(Corrected.Est,
                                               FUN = mean,
                                               MARGIN = 2),
+                           total.CV = apply(Corrected.Est,
+                                            FUN = function(x) 100*sqrt(var(x))/mean(x),
+                                            MARGIN = 2),
                            total.median = apply(Corrected.Est, 
                                                 FUN = median, 
                                                 MARGIN = 2),
@@ -564,5 +567,7 @@ ggplot(data = abundance.df) +
 ggplot(data = abundance.df) + 
   geom_point(aes(x = Season, y = total.mean)) + 
   geom_errorbar(aes(x = Season, ymin = total.LCL, ymax = total.UCL))
+
+#ggsave(filename = "figures/abundance_9yrs.png", device = "png", dpi = 600)
 ```
 

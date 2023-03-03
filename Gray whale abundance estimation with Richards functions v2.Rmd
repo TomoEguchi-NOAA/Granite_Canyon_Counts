@@ -1279,7 +1279,7 @@ Data from last 9 seasons were analyzed using the new approach and the results co
 
 ```{r new-analysis-9yr-v2, echo=FALSE, message=FALSE, warning=FALSE}
 BUGS.out <- readRDS("RData/WinBUGS_9yr_v2_10k.rds")
-run.date.real <- Sys.Date() #"2023-01-06"   # Change it accordingly
+run.date.real <- "2023-03-02" #Sys.Date() #"2023-01-06"   # Change it accordingly
 out.file.name <- paste0("RData/JAGS_pois_binom_9yr_v2_", run.date.real, ".rds")
 
 n.station <- c(1,1,1,1,1,1,1,1,1)
