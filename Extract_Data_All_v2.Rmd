@@ -18,7 +18,7 @@ library(tidyverse)
 library(lubridate)
 source("Granite_Canyon_Counts_fcns.R")
 
-
+# Do not run 2023 with this script. Use Extract_Data_2023.Rmd for 2023. 
 YEAR <- 2023 #Enter the year of the data files
 
 # For 2010 and 2011 (maybe in the previous years too but I don't have any of those files)
