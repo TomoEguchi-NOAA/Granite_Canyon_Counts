@@ -42,10 +42,6 @@ min.duration <- 85 #30
 # Change file names accordingly:
 Nhats.filename <- paste0("Data/abundance_", years[length(years)], "_", min.duration, "min.csv")
 
-#out.file.name <- paste0("RData/WinBUGS_", x, "yr_v2_min", min.duration, ".rds")
-
-out.file.name <- paste0("RData/WinBUGS_", x, "yr_v2_min", min.duration, "_8weeks_2023.rds")
-
 # Analysis with minimum of 85 or 30 minutes sampling duration:
 # out.v2 <- lapply(years, FUN = function(x) readRDS(paste0("RData/V2.1_Mar2023/out_", x, 
 #                                                          "_min", min.duration, "_Tomo_v2.rds")))
@@ -61,6 +57,12 @@ end. <- lapply(out.v2, FUN = function(x) x$Final_Data$end)
 # plus the new ones
 periods <-c(136, 135, 164, 178, 
             lapply(begin., FUN = function(x) length(x)) %>% unlist)
+# Shorten data to first x years only to replicate 
+# the analysis in Durban et al 2016:
+x <- length(periods)
+
+#out.file.name <- paste0("RData/WinBUGS_", x, "yr_v2_min", min.duration, ".rds")
+out.file.name <- paste0("RData/WinBUGS_", x, "yr_v2_min", min.duration, "_8weeks_2023.rds")
 
 Watch.Length. <- list()
 
@@ -254,9 +256,6 @@ for(i in 1:length(periods)){
 # and then a third replicate of data to select
 # 'best fit' (same structure as Durban et al)
 
-# Shorten data to first x years only to replicate 
-# the analysis in Durban et al 2016:
-x <- length(periods)
 
 # n <- n[,,1:x]
 # obs <- obs[,,1:x]
