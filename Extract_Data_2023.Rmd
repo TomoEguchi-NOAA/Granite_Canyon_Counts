@@ -71,6 +71,10 @@ FILES <- list.files(path = paste0("Data/", YEAR, "/"),
 # FILES <- list.files(path = paste0("Data/", YEAR, "_8weeks/"),
 #                     pattern = "EditedGW")
 
+out.rds.filename <- paste0("RData/V2.1_Mar2023/out_", YEAR, "_min", min_dur, "_Tomo_v2.rds")
+#out.rds.filename <- paste0("RData/V2.1_Aug2022/out_", YEAR, "_Tomo_v2.rds")
+#out.rds.filename <-  paste0("RData/V2.1_Mar2023_8weeks/out_", YEAR, "_min", min_dur, "_Tomo_v2.rds")
+
 Data_Out.list <- list()
 
 ff <- 1
@@ -202,9 +206,8 @@ out.obj <- list(Data_Out = Data_Out,
                 WPH = WPH)
 
 # Uncomment the following line if new file needs to be saved
-#saveRDS(out.obj, file = paste0("RData/V2.1_Aug2022/out_", YEAR, "_Tomo_v2.rds"))
-saveRDS(out.obj, file = paste0("RData/V2.1_Mar2023/out_", YEAR, "_min", min_dur, "_Tomo_v2.rds"))
-#saveRDS(out.obj, file = paste0("RData/V2.1_Mar2023_8weeks/out_", YEAR, "_min", min_dur, "_Tomo_v2.rds"))
+saveRDS(out.obj, file = out.rds.filename)
+
 
 ```
 
