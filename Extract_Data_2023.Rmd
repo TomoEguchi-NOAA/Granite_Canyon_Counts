@@ -67,6 +67,10 @@ YEAR <- 2023 #Enter the year of the data files
 FILES <- list.files(path = paste0("Data/", YEAR, "/"),
                     pattern = "EditedGW")
 
+# A special case for 2023 - using just 8 weeks of data:
+# FILES <- list.files(path = paste0("Data/", YEAR, "_8weeks/"),
+#                     pattern = "EditedGW")
+
 Data_Out.list <- list()
 
 ff <- 1
@@ -126,10 +130,10 @@ shift_dur_min <- 90   # 90 minutes - 5 minutes
 # Remove watches that were less than 85 minutes or greater than 95 minutes:
 grace_min <- 5
 max_dur <- 90 + grace_min
-#min_dur <- 90 - grace_min
+min_dur <- 90 - grace_min
 
 # For Mar 2023 analysis, I changed this to minimum duration of 30 minutes
-min_dur <- 30
+#min_dur <- 30
 
 Data_Out %>% 
   filter(dur > min_dur/(24*60) & 
@@ -199,7 +203,8 @@ out.obj <- list(Data_Out = Data_Out,
 
 # Uncomment the following line if new file needs to be saved
 #saveRDS(out.obj, file = paste0("RData/V2.1_Aug2022/out_", YEAR, "_Tomo_v2.rds"))
-#saveRDS(out.obj, file = paste0("RData/V2.1_Mar2023/out_", YEAR, "_min30_Tomo_v2.rds"))
+saveRDS(out.obj, file = paste0("RData/V2.1_Mar2023/out_", YEAR, "_min", min_dur, "_Tomo_v2.rds"))
+#saveRDS(out.obj, file = paste0("RData/V2.1_Mar2023_8weeks/out_", YEAR, "_min", min_dur, "_Tomo_v2.rds"))
 
 ```
 

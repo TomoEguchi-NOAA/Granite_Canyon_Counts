@@ -36,8 +36,16 @@ years <- c("2015", "2016", "2020", "2022", "2023")
 
 #out.v2 <- lapply(years, FUN = function(x) readRDS(paste0("RData/V2.1_Aug2022/out_", x, "_Tomo_v2.rds")))
 
-# Analysis with minimum of 30 minutes sampling duration:
-out.v2 <- lapply(years, FUN = function(x) readRDS(paste0("RData/V2.1_Mar2023/out_", x, "_min30_Tomo_v2.rds")))
+# 85 or 30
+min.duration <- 85 #30
+
+# Analysis with minimum of 85 or 30 minutes sampling duration:
+# out.v2 <- lapply(years, FUN = function(x) readRDS(paste0("RData/V2.1_Mar2023/out_", x, 
+#                                                          "_min", min.duration, "_Tomo_v2.rds")))
+
+# just for 8 weeks
+out.v2 <- lapply(years, FUN = function(x) readRDS(paste0("RData/V2.1_Mar2023_8weeks/out_", x, 
+                                                         "_min", min.duration, "_Tomo_v2.rds")))
 
 begin. <- lapply(out.v2, FUN = function(x) x$Final_Data$begin)
 end. <- lapply(out.v2, FUN = function(x) x$Final_Data$end)
@@ -583,6 +591,11 @@ ggplot(data = abundance.df) +
   geom_errorbar(aes(x = Season, ymin = total.LCL, ymax = total.UCL))
 
 #median(apply(exp(sp[,,4]),1,sum))
+
+# Change file names accordingly:
+Nhats.filename <- paste0("Data/abundance_", years[length(years)], "_", min.duration, "min.csv")
+
+write_csv(abundance.df, file = Nhats.filename)
 
 ```
 
