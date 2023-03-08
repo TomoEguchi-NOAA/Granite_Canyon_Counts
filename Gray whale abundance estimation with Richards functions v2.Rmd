@@ -147,11 +147,7 @@ The approach in Durban et al. (2015) used the "cut" function within WinBUGS to d
 
 ## Modification {.unnumbered}
 
-To remove the "cut" function from the model, I removed the common (Normal) model, using just the spline portion of the model. The spline-only approach would be affected by variability in observed counts. Next, I use only a flexible function (Richards function) instead of the common and spline models.  
-
-### Spline only
-
-
+Because of the way spline is fit to data points, it is impossible to use just spline when data are not collected from day 1. Missing data points (weekends, not having 90 days of observations) are linearly interpolated unless there is an assumed data generating model (the Normal distribution in the approach by Durban et al.) that is common among years. Instead of using Normal and spline functions, I use one flexible function (Richards function).  
 
 ### Model description {.unnumbered}
 
