@@ -41,14 +41,15 @@ min.duration <- 85 #30
 
 # Change file names accordingly:
 Nhats.filename <- paste0("Data/abundance_", years[length(years)], "_", min.duration, "min.csv")
+#Nhats.filename <- paste0("Data/abundance_", years[length(years)], "_", min.duration, "min_8weeks.csv")
 
 # Analysis with minimum of 85 or 30 minutes sampling duration:
-# out.v2 <- lapply(years, FUN = function(x) readRDS(paste0("RData/V2.1_Mar2023/out_", x, 
-#                                                          "_min", min.duration, "_Tomo_v2.rds")))
+out.v2 <- lapply(years, FUN = function(x) readRDS(paste0("RData/V2.1_Mar2023/out_", x,
+                                                         "_min", min.duration, "_Tomo_v2.rds")))
 
 # just for 8 weeks in 2023
-out.v2 <- lapply(years, FUN = function(x) readRDS(paste0("RData/V2.1_Mar2023_8weeks/out_", x, 
-                                                         "_min", min.duration, "_Tomo_v2.rds")))
+#out.v2 <- lapply(years, FUN = function(x) readRDS(paste0("RData/V2.1_Mar2023_8weeks/out_", x, 
+#                                                         "_min", min.duration, "_Tomo_v2.rds")))
 
 begin. <- lapply(out.v2, FUN = function(x) x$Final_Data$begin)
 end. <- lapply(out.v2, FUN = function(x) x$Final_Data$end)
@@ -61,8 +62,8 @@ periods <-c(136, 135, 164, 178,
 # the analysis in Durban et al 2016:
 x <- length(periods)
 
-#out.file.name <- paste0("RData/WinBUGS_", x, "yr_v2_min", min.duration, ".rds")
-out.file.name <- paste0("RData/WinBUGS_", x, "yr_v2_min", min.duration, "_8weeks_2023.rds")
+out.file.name <- paste0("RData/WinBUGS_", x, "yr_v2_min", min.duration, ".rds")
+#out.file.name <- paste0("RData/WinBUGS_", x, "yr_v2_min", min.duration, "_8weeks_2023.rds")
 
 Watch.Length. <- list()
 
