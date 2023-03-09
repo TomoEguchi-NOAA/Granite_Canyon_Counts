@@ -76,7 +76,7 @@ UMEs <- data.frame(Season = c("1999/2000", "2000/2001",
                               "2021/2022", "2022/2023"),
                    Year = c(1999, 2000, 2019, 2020, 2021, 2022))
 
-# This is for the 2023 analysis. Change it accordingly:
+# This is for the 2023 analysis. 
 end.year <- 2023
 all.years <- data.frame(Year = seq(from = min(Laake.estimates$Year), 
                                   to = end.year))
@@ -93,10 +93,12 @@ x <- length(seasons)
 
 all.files. <- list.files(path = paste0("Data/", end.year, "/"),
                          pattern = "EditedGW")
+
 data.first. <- get.data(dir = "Data/", 
                         YEAR = end.year, 
                         FILES = all.files., 
                         ff = 1)
+
 data.last. <- get.data(dir ="Data/", 
                        YEAR = end.year, 
                        FILES = all.files.,
@@ -178,7 +180,7 @@ Linear models were fitted to the relationship between median dates and year. In 
 
 
 ```{r results, echo=FALSE, warning=FALSE, message= FALSE}
-estimates.2023 <- read_csv(file = "Data/abundance_2023_85min.csv")
+#estimates.2023 <- read_csv(file = "Data/abundance_2023_85min.csv")
 
 Laake.estimates %>%
   dplyr::select(Year, Season, Nhat, LCL, UCL) %>%
@@ -187,7 +189,7 @@ Laake.estimates %>%
 
 #write.csv(all.estimates, file = "Data/all_estimates_2022.csv")
 
-p.Nhat.v1 <- ggplot(data = all.estimates) + 
+p.Nhat <- ggplot(data = all.estimates) + 
   geom_point(aes(x = Season, y = Nhat, color = Method)) + 
   geom_errorbar(aes(x = Season, ymin = LCL, ymax = UCL, color = Method)) +
   geom_tile(data = UMEs,
@@ -200,82 +202,32 @@ p.Nhat.v1 <- ggplot(data = all.estimates) +
   ylab("Abundance + 95% CI")
 
 if (save.fig)
-  ggsave(filename = "figures/nhats_v1.png", 
-         plot = p.Nhat.v1,
+  ggsave(filename = "figures/nhats_2023.png", 
+         plot = p.Nhat,
          device = "png", dpi = 600)
 
-# p.v1.both <- ggplot(data = all.stats.v1) + 
-#   geom_line(aes(x = days, y = sp.median),
-#             color = "darkblue") + 
-#   geom_line(aes(x = days, y = com.median),
-#             color = "red") +
-#   geom_ribbon(aes(x = days, 
-#                   ymin = sp.LCL, 
-#                   ymax = sp.UCL),
-#               fill = "lightblue", 
-#               alpha = 0.5) +
-#   geom_ribbon(aes(x = days, 
-#                   ymin = com.LCL, 
-#                   ymax = com.UCL),
-#               fill = "indianred1", 
-#               alpha = 0.5) +
-#   geom_point(data = daily.N.df.long,
-#              aes(x = days, y = N)) +
-#   facet_wrap(vars(Season)) +
-#   xlab("Days since December 1") + 
-#   ylab("Whales per day")
-# 
-# if (save.fig)
-#   ggsave(filename = "figures/SPvsNormal_v1.png", 
-#          plot = p.v1.both,
-#          device = "png", dpi = 600)
-# 
-# p.v1.daily <- 
-#   ggplot(data = all.stats.v1) +
-#   geom_line(aes(x = days, y = Daily.Est.median)) +
-#   geom_ribbon(aes(x = days, 
-#                   ymin = Daily.Est.LCL, 
-#                   ymax = Daily.Est.UCL),
-#               fill = "orange", 
-#               alpha = 0.5) + 
-#   geom_point(data = daily.N.df.long,
-#              aes(x = days, y = N)) +
-#   facet_wrap(vars(Season))+
-#   xlab("Days since December 1") + 
-#   ylab("Whales per day")
-# 
-# if (save.fig)
-#   ggsave(filename = "figures/daily_estimates_v1.png", plot = p.v1.daily,
-#          device = "png", dpi = 600)
-# 
-# 
-# p.v1.sp.daily <- 
-#   ggplot(data = all.stats.v1) +
-#   geom_line(aes(x = days, y = sp.median)) +
-#   geom_ribbon(aes(x = days, 
-#                   ymin = sp.LCL, 
-#                   ymax = sp.UCL),
-#               fill = "orange", 
-#               alpha = 0.5) + 
-#   geom_point(data = daily.N.df.long,
-#              aes(x = days, y = N)) +
-#   facet_wrap(vars(Season))+
-#   xlab("Days since December 1") + 
-#   ylab("Whales per day")
-# 
-# if (save.fig)
-#   ggsave(filename = "figures/sp_estimates_v1.png", 
-#          plot = p.v1.sp.daily,
-#          device = "png", dpi = 600)
+# Find daily data:
+data.2023 <- readRDS(file = "RData/V2.1_Mar2023/out_2023_min85_Tomo_v2.rds")
+# ones in the V2.1_Aug2022 folder are the same as those in V2.1_Mar2023 (at least
+# the 2023 file)
+#data.2023a <- readRDS(file = "RData/V2.1_Aug2022/out_2023_Tomo_v2.rds")
 
+data.2023$Complete_Data %>% 
+  group_by(BeginDay) %>%
+  summarize(Date = as.Date("2022-11-30") + BeginDay[1],
+            n.day = sum(n)) -> daily.counts
 
+# Get the output from WinBUGS run. I use the version 2 output results
+# because V1 had some errors for the past years.  
+WinBUGS.results <- readRDS(paste0("RData/WinBUGS_", x, "yr_v2_min85.rds"))
+Nhat.2023 <- WinBUGS.results$BUGS_out$mean$Corrected.Est[x] 
+SD.Nhat.2023 <- WinBUGS.results$BUGS_out$sd$Corrected.Est[x] 
+CV.Nhat.2023 <- SD.Nhat.2023/Nhat.2023
 ```
 
 ### Abundance estimates {-}
 
-NEED TO FIX DATES AND NUMBERS IN THIS SECTION AS R CODE. 
-
-From 28 December 2021 to 18 February 2022, 13 trained observers completed 255 hours of survey effort over 39 survey days. A total of 853 groups of 1689 gray whales were counted, with the highest daily count of 112 whales on 03 January 2022 (Fig. 1). Estimated total abundance of gray whales during the 2021/2022 southbound migration was 16,650 (95% Credible Interval: 15,170 - 18,335, CV = 0.0485, 20-percentile = 16,050). This estimate includes the multiplicative correction factor for nighttime passage (mean = 1.0875, SD = 0.03625). This estimate represents a 19.6% decline from the previous survey in 2019/2020 when abundance was estimated at 20,580 (Table 1, Fig. 2). Considering the 23.7% decline in abundance from 2016 to 2020 (Stewart and Weller 2021a), a striking decrease in the numbers of ENP gray whales occurred since 2016; 26,960 whales in 2015/2016, 20,580 in 2019/2020 and 16,650 in 2021/2022 (Fig. 2). 
+From `r format(as.Date("2022-11-30") + data.2023$Data_Out[1, "BeginDay"], "%d %B %Y")` to `r format(as.Date("2022-11-30") + data.2023$Data_Out[nrow(data.2023$Data_Out), "BeginDay"], "%d %B %Y")`, `r length(unique(data.2023$Data_Out$obs))` trained observers completed `r signif(sum(data.2023$Data_Out$dur) * 24, 4)` hours of survey effort over `r length(unique(data.2023$Data_Out$BeginDay))` survey days. Due to the inclement weather and other constraints (e.g., poor visibility due to fog) `r signif(sum(data.2023$Complete_Data$dur) * 24, 4)` hours of survey effort was retained for further analyses. A total of `r nrow(data.2023$Complete_Data` groups of `r sum(data.2023$Complete_Data$n)` gray whales were counted, with the highest daily count of `r max(daily.counts$n.day)` whales on `r daily.counts %>% filter(n.day == max(n.day)) %>% dplyr::select("Date") %>% as.data.frame() %>% format("%d %B %Y")` (Fig. 1). Estimated total abundance of gray whales during the 2021/2022 southbound migration was `r Durban.estimates[x, "Nhat"]` (95% Credible Interval: `r Durban.estimates[x, "LCL"]` - `r Durban.estimates[x, "UCL"]`, CV = `r signif(CV.Nhat.2023, 3)`, 20-percentile = `r quantile(WinBUGS$BUGS_out$sims.list$Corrected.Est[,x], 0.2)`). This estimate includes the multiplicative correction factor for nighttime passage (mean = 1.0875, SD = 0.03625). This estimate represents a `r abs(signif((Durban.estimates[x, "Nhat"] - Durban.estimates[x-1, "Nhat"])/Durban.estimates[x-1,"Nhat"], 3)) * 100`% decline from the previous survey in 2021/2022 when abundance was estimated at `r Durban.estimates[x-1, "Nhat"]` (Table 1, Fig. 2). Considering the 23.7% decline in abundance from 2016 to 2020 (Stewart and Weller 2021a) and the `r abs(signif((Durban.estimates[x-1, "Nhat"] - Durban.estimates[x-2, "Nhat"])/Durban.estimates[x-2,"Nhat"], 3)) * 100`% decline from 2019/2020 to 2020/2021 (Eguchi et al. 2022), a striking decrease in the numbers of ENP gray whales occurred since 2016 (Fig. 2). 
 
 
 The most recent estimate of 16,650 in 2021/2022 is comparable to those from 2000/2001 and 2001/2002 (Fig. 2). Those earlier survey years coincided with an unusual mortality event (UME)  that occurred in 1999 and 2000 when higher than usual strandings and deaths of gray whales were observed along the west coast of Mexico, the United States, and Canada. In total, 651 dead gray whales were reported, with 283 observed in 1999 and 368 in 2000 (Gulland et al. 2005). While the cause of this UME was not determined, some stranded whales were in poor body condition leading to questions about whether the population of ENP gray whales had reached the limit of what the Arctic feeding ground habitat could support (Moore et al. 2001). However, the population subsequently increased and in 2016 the abundance was estimated at its all-time high of nearly 27,000 whales. 
