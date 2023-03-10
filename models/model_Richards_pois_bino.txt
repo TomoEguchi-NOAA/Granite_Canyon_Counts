@@ -35,12 +35,7 @@ model{
 	# The realization is a normal deviate with the mean and variance, which
 	# changes with the mean, while the CV remains constant. 
 	for (y in 1:n.year){
-		# by assumption:
-		#mean.N[1,y] <- 0
-		#mean.N[90,y] <- 0
-		#N[1,y] ~ dpois(mean.N[1,y])
-		#N[90,y] ~ dpois(mean.N[90,y])
-		
+				
 		for (t in 1:90){
 			# year-specific K - results in conversion issues. 2022-11-09
 			#M1[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/(-S1[y])) * (P[y] - t))) ^ (-1/exp(K[y]))
@@ -50,8 +45,7 @@ model{
 			M1[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/(-S1[y])) * (P[y] - t))) ^ (-1/exp(K))
 			M2[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K))
 			
-			mean.N[t, y] <- (max[y]) * (M1[t, y] * M2[t, y])
-			#mean.N[t, y] <- (max) * (M1[t, y] * M2[t, y])
+			mean.N[t, y] <- (Max[y]) * (M1[t, y] * M2[t, y])
 			
 			N[t, y] ~ dpois(mean.N[t,y])
 			
@@ -63,7 +57,7 @@ model{
 	for (y in 1:n.year){
 		for (s in 1:n.station[y]){
 			for (d in 1:periods[y]){
-				# observation
+				# observation per period d
 				
 				n[d, s, y] ~ dbin(obs.prob[d, s, y], N[day[d,y], y])
 				log.lkhd[d,s,y] <- logdensity.bin(n[d,s,y], obs.prob[d,s,y], N[day[d,y], y])
@@ -73,7 +67,7 @@ model{
 
 	# priors for Richards function parameters. 
 	for (y in 1:n.year){
-		max[y] ~ dgamma(4, 0.002)
+		Max[y] ~ dgamma(4, 0.002)
 		S1[y] ~ dgamma(2.1,1) T(,5) #dunif(-5, -0.3) 
 		S2[y] ~ dgamma(2.1,1) T(,5)  #dunif(0.3, 5) 
 		#K[y] ~ dunif(0.1, 5)   #dnorm(0, 0.01)T(0.3, 3)
@@ -91,12 +85,7 @@ model{
 		for(s in 1:n.station[y]){
 			for(d in 1:periods[y]){
 
-				# Final obs prob = observer 1/0 * 
-				#                (base obs prob + BF on/off * Fixed effect of BF * BF + 
-				#                 VS on/off * Fixed effect of VS * VS    + 
-				#                Obs effect on/off * Random effect of observer)
-
-				logit(prob[d,s,y]) <- mean.prob  +  #logit(mean.prob) + 
+				logit(prob[d,s,y]) <- mean.prob  + 
 								(BF.Switch * BF.Fixed * bf[d,y]) + 
 								(VS.Switch * VS.Fixed * vs[d,y]) +
 								(OBS.Switch * OBS.RF[obs[d,s,y]])						
@@ -109,8 +98,8 @@ model{
 		}#s
 	}#y
   
-	# Flat prior for mean.prob
-	mean.prob ~ dunif(0,1)
+	# A wide prior for mean.prob
+	mean.prob ~ dunif(-2,2) # dunif(0,1) #dnorm(0, 0.1) # 
     
 	### Specification of terms within observation probability linear model
   
