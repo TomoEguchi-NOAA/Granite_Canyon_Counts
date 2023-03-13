@@ -18,6 +18,8 @@ library(flextable)
 
 set_flextable_defaults(font.size = 9,
                        font.family = "Cambria")
+
+
 # some constants here:
 # # periods for the 6 survey years
 periods <-c(136, 135, 164, 178, 179, 151)
