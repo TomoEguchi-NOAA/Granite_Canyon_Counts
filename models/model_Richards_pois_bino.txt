@@ -137,7 +137,7 @@ model{
 	}#t
   
 
-	# Correction factor for nighttime passage rates:
+	# Correction factor for nighttime passage rates (Perryman et al. 1999 Marine Mammal Science):
 	corr.factor ~ dnorm(mean.corr, tau.corr)
 	mean.corr <- 1.0875
 	sd.corr <- 0.03625
