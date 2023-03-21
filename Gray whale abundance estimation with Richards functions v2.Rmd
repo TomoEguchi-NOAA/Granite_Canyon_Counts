@@ -698,7 +698,8 @@ if (!file.exists(out.file.name)){
                      jags.params = jags.params,
                      jags.model = jags.model,
                      MCMC.params = MCMC.params,
-                     Run_Time = Run_Time)
+                     Run_Time = Run_Time,
+                     sys.env = Sys.getenv())
 
   saveRDS(jm.sim.out,
           file = out.file.name)
@@ -737,7 +738,7 @@ max.r.hat <- max(unlist(lapply(jm.sim.out$jm$Rhat,
 # params <- data.frame(name = param.names,
 #                      value = true.values)
 n.Season = length(Season)
-params.to.summarize.n.Season <- c("S1", "S2", "P", "max")
+params.to.summarize.n.Season <- c("S1", "S2", "P", "Max")
 
 # Some are common among all years
 params.to.summarize.n.1 <- c("K", "mean.prob", "BF.Fixed", "VS.Fixed")
@@ -972,11 +973,12 @@ MCMC.params <- jm.sim.out$MCMC.params  # takes about 3.6 hrs
 
 # Adds an all zero array to the second dimension, just as it was done for the
 # real data.
-n <- abind(jags.data$n,
-           array(data = 0,
-                 dim = dim(jags.data$n)),
-           along = 2)
+# n <- abind(jags.data$n,
+#            array(data = 0,
+#                  dim = dim(jags.data$n)),
+#            along = 2)
 
+n <- jags.data$n
 # replace NAs with zeros
 n[is.na(n)] <- 0
 
@@ -1017,11 +1019,11 @@ Watch.Length <- rbind(jags.data$effort,
                              ncol = x))
 
 obs <- abind(jags.data$obs,
-             array(data = 35,
+             array(data = 36,
                    dim = dim(jags.data$obs)),
              along = 2)
 
-obs[is.na(obs)] <- 35
+obs[is.na(obs)] <- 36
 
 # Should this be zeros? Watch length of day 1 and 90...
 # They are 1s in data.worked.
@@ -1052,12 +1054,12 @@ for (k in 1:x){
 # This one didn't work either...
 ##############################################################
 
-BUGS.data <- list(n = unname(n), #n.1, #
-                  n.com = unname(n), #n.1, #
-                  n.sp = unname(n), #n.1, #
-                  n.station = dim(jags.data$n)[2],
+BUGS.data <- list(n = n, #unname(n), #n.1, #
+                  n.com = n, #unname(n), #n.1, #
+                  n.sp = n, #unname(n), #n.1, #
+                  n.station = dim(jags.data$n)[2], #jags.data$n.station, #
                   n.year = dim(jags.data$n)[3],
-                  n.obs = jags.data$n.obs,
+                  n.obs = max(obs),
                   periods = jags.data$periods, #periods.1, #
                   obs = obs, #obs.1, #
                   u = u,
@@ -1076,7 +1078,16 @@ BUGS.data <- list(n = unname(n), #n.1, #
 
 #we're going to make N a partially observed data object with anchor points at day 1 and 90
 # TE: I don't know how these numbers were created... they are generally 2x n (not all)
-N_inits1 <- jags.data$n[, 1, ] * 2 + 2
+# N has to be greater than the largest of n, when there are two observation stations
+# A loop is clunky but should work...
+N_inits1 <- matrix(nrow = dim(n)[1], ncol = dim(n)[3])
+
+for (k in 1:dim(n)[1]){
+  for (k1 in 1:dim(n)[3]){
+    N_inits1[k, k1] <- max(n[k,,k1] * 2 + 2)
+  }
+}
+#N_inits1 <- n[, , ] * 2 + 2
 #N_inits2 <- jags.data$n[, 2,] * 2 + 2
 
 # Create initial values for Ns

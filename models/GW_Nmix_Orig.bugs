@@ -114,7 +114,7 @@ model{
   # lead to a very low sighting probability during those days)
   for(t in 1:n.year){
     for(j in 1:periods[t]){
-      for(s in 1:n.station){
+      for(s in 1:n.station){   
 
         # Final obs prob = observer 1/0 * 
         #                (base obs prob + BF on/off *Fixed effect of BF * BF + 
