@@ -1018,6 +1018,8 @@ Watch.Length <- rbind(jags.data$effort,
                              nrow = 2,
                              ncol = x))
 
+# Changed obs array and the following error popped up:
+# "made use of undefined node obs"  2023-03-23
 obs.BUGS <- obs.1
 # obs <- abind(jags.data$obs,
 #              array(data = NA,
@@ -1149,7 +1151,7 @@ if (!file.exists(paste0("RData/WinBUGS_sim_", run.date, ".rds"))){
              n.iter = MCMC.params$n.samples,
              n.burnin = MCMC.params$n.burnin,
              n.thin = MCMC.params$n.thin,
-             debug = F,
+             debug = T,
              bugs.directory = WinBUGS.dir)
 
   Run_Time <- Sys.time() - Start_Time
