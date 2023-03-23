@@ -11,7 +11,7 @@ csl: marine-ecology-progress-series.csl
 ```{r setup, include=FALSE}
 rm(list = ls())
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
-save.fig <- T
+save.fig <- F
 
 source("Granite_Canyon_Counts_fcns.R")
 library(tidyverse)
@@ -643,7 +643,7 @@ for (c1 in 1:dim(obs)[1]){
 # change this accordingly 2022-11-08 was with a common K and one station
 # 2023-03-20 is with two stations
 
-run.date <- Sys.Date() #"2022-11-08" #   
+run.date <- "2023-03-23" #Sys.Date() #"2022-11-08" #   
 
 out.file.name <- paste0("RData/Pois_Binom_sim_results_", run.date, ".rds")
 
@@ -1018,12 +1018,15 @@ Watch.Length <- rbind(jags.data$effort,
                              nrow = 2,
                              ncol = x))
 
-obs <- abind(jags.data$obs,
-             array(data = 36,
-                   dim = dim(jags.data$obs)),
-             along = 2)
+obs.BUGS <- obs.1
+# obs <- abind(jags.data$obs,
+#              array(data = NA,
+#                    dim = dim(jags.data$obs)),
+#              along = 2)
 
-obs[is.na(obs)] <- 36
+#obs[is.na(obs)] <- 36
+
+obs.BUGS[obs.BUGS == 36] <- NA
 
 # Should this be zeros? Watch length of day 1 and 90...
 # They are 1s in data.worked.
@@ -1059,9 +1062,9 @@ BUGS.data <- list(n = n, #unname(n), #n.1, #
                   n.sp = n, #unname(n), #n.1, #
                   n.station = dim(jags.data$n)[2], #jags.data$n.station, #
                   n.year = dim(jags.data$n)[3],
-                  n.obs = max(obs),
+                  n.obs = max(obs.BUGS, na.rm = T),
                   periods = jags.data$periods, #periods.1, #
-                  obs = obs, #obs.1, #
+                  obs = obs.BUGS, #obs.1, #
                   u = u,
                   vs = jags.data$vs.raw, #bf.1, #
                   bf = jags.data$bf.raw, #vs.1, #
