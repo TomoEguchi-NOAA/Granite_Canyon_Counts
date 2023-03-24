@@ -985,10 +985,13 @@ n[is.na(n)] <- 0
 # the u data is whether there were observers on watch.
 # 0 counts are often associated with years/shifts with
 # no second observer. So if u=0, it will fix observation probability at 0
-# obs has no NAs, but no observers were indicated by 25.
-u <- jags.data$obs
-u[u != 25] <- 1
-u[u == 25] <- 0
+# obs has no NAs (not true any more; 2023-03-23), but no observers were indicated by 25.
+# u <- jags.data$obs
+# u[u != 25] <- 1
+# u[u == 25] <- 0
+u <- obs.1
+u[u == 36] <- 0
+u[u != 36] <- 1
 
 # day indicators. Need to add 1 and 90 at the end
 day <- rbind(jags.data$day, matrix(NA, nrow = 2, ncol = x))
@@ -1018,17 +1021,29 @@ Watch.Length <- rbind(jags.data$effort,
                              nrow = 2,
                              ncol = x))
 
+# WinBUGS crashed with Poisson unreal error. I thought it was something
+# to do with the observer array - having 36 as non-observers. So, 
+# replaced it with new array... then a different error. 
 # Changed obs array and the following error popped up:
 # "made use of undefined node obs"  2023-03-23
+# According to this StackOverflow posting, NAs are not liked by WinBUGS
+# https://stackoverflow.com/questions/39938942/made-use-of-undefined-node-winbugs-beginner
 obs.BUGS <- obs.1
+
 # obs <- abind(jags.data$obs,
 #              array(data = NA,
 #                    dim = dim(jags.data$obs)),
 #              along = 2)
+# 
+# obs[obs==36] <- NA
 
-#obs[is.na(obs)] <- 36
+obs.BUGS[is.na(obs.BUGS)] <- 36
 
-obs.BUGS[obs.BUGS == 36] <- NA
+# obs.BUGS.1 <- abind(obs.BUGS,
+#                     array(data = NA,
+#                           dim = dim(obs.BUGS)),
+#                     along = 2)
+
 
 # Should this be zeros? Watch length of day 1 and 90...
 # They are 1s in data.worked.
@@ -1066,7 +1081,7 @@ BUGS.data <- list(n = n, #unname(n), #n.1, #
                   n.year = dim(jags.data$n)[3],
                   n.obs = max(obs.BUGS, na.rm = T),
                   periods = jags.data$periods, #periods.1, #
-                  obs = obs.BUGS, #obs.1, #
+                  obs = obs.BUGS, #unname(obs.BUGS.1), #obs.1, #
                   u = u,
                   vs = jags.data$vs.raw, #bf.1, #
                   bf = jags.data$bf.raw, #vs.1, #
