@@ -641,7 +641,7 @@ for (c1 in 1:dim(obs)[1]){
 ```{r run-jags, echo=FALSE, message=FALSE}
 #Data_True.N$obsd.n <- obsd.n
 # change this accordingly 2022-11-08 was with a common K and one station
-# 2023-03-20 is with two stations
+# 2023-03-23 is with two stations
 
 run.date <- "2023-03-23" #Sys.Date() #"2022-11-08" #   
 
