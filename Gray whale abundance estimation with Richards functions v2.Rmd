@@ -477,165 +477,203 @@ knitr::include_graphics(paste0("figures/mean_N_def_", dpi.set, "dpi.png"))
 ```
 
 ```{r simulation, echo=FALSE, message=FALSE}
-set.seed(12345)
-#save.fig <- T
+sim.date <- "2023-03-27"
+data.sim.out.file <- paste0("RData/simulation_data_", sim.date, ".rds")
+save.fig <- T
 
-# Define Richards function parameters
-Days <- 1:90
-
-# Alternatively, use a different function to create real values for the means
-N.mean <- matrix(nrow = 90, ncol = 2)
-
-# first year with gamma
-N.mean[,1] <- dgamma(1:90, alpha.gam, beta.gam) * multip.gam
-
-# second year with Richards functions
-N.mean[,2] <- Richards_fcn(d = Days, S1 = S1, S2 = S2,
-                           K = K, P = P, min = 0, max = Max)
-
-# This is by assumption
-#N.mean[c(1,90), 1:2] <- 0
-
-# Define sighting probability parameters
-B0 <- 0.7
-B_BF <- -1.2
-B_VS <- -1.8
-
-Season = c("2020", "2022")
-n.stations <- 2
-
-True.N <- matrix(nrow = 90, ncol = length(Season))
-for (k in 1:nrow(N.mean)) {
-  for (c in 1:ncol(N.mean)){
-    True.N[k,c] <- rpois(n = 1, lambda = N.mean[k, c])
-  }
-
-}
-
-# Force True.N = 0 for day 1 and 90
-True.N[1,] <- True.N[90,] <- 0
-
-# Use real data for observers, Beaufort, and visibility
-set.seed(12345)
-Data_True.N <- list()
-periods <- vector(mode = "numeric", length = length(Season))
-
-# need to convert observer initials into numbers for all years
-obs.list <- read.csv(file = "Data/Observer list 2022.csv")
-
-for (y in 1:length(Season)){
-  # I use the real data to emulate sampling and sighting conditions
-  tmp <- readRDS(paste0("RData/V2.1_Aug2022/out_", Season[y], "_Tomo_v2.rds"))
-  Final_Data <- tmp$Final_Data %>%
-    mutate(Year = Season[y],
-           Day = as.numeric(BeginDay)) %>%
-    mutate(effort = dur) %>%
-    mutate(watch.prop = effort * 24/9) %>%
-    dplyr::select(Year, Day, effort, watch.prop, bf, vs, n, obs) %>%
-    filter(bf < 5, vs < 5)
+if (!file.exists(data.sim.out.file)){
+  set.seed(12345)
   
-  # Find all observers and change them into integer code.
-  # These numbers have to be consistent over years.
-  obs.y <- data.frame(obs = Final_Data$obs) %>%
-    left_join(obs.list, by = "obs")
-
-  Final_Data$obs.ID <- obs.y$ID
-
-  # unique.obs <- unique(obs.y$ID)
-  # obs.ID.df <- data.frame(obs = obs.list[obs.list$ID %in% unique.obs, "obs"],
-  #                         obs.ID = unique.obs) %>%
-  #   arrange(by = obs.ID)
-  #
-  # Final_Data %>%
-  #   left_join(obs.ID.df, by = "obs") %>%
-  #   select(-obs) -> Final_Data
-
-  # figure out the number of periods
-  Final_Data %>%
-    group_by(Year) %>%
-    #filter(effort > 0) %>%
-    summarise(n = n()) -> n.days
-
-  periods[y] <- n.days$n
-
-  Final_Data$n[Final_Data$effort == 0] <- NA
-
-  # Create sighting probabilities
-  Final_Data %>%
-    mutate(Sighting.Prob.lm = as.vector(B0 + B_BF * scale(bf) +
-                                          B_VS * scale(vs)),
-           Sighting.Prob = exp(Sighting.Prob.lm)/(1 + exp(Sighting.Prob.lm)),
-           Binom.Prob = watch.prop * Sighting.Prob) -> Final_Data
-
-  Final_Data %>%
-    left_join(data.frame(Day = Days,
-                         N.mean = N.mean[,y],
-                         N.True = True.N[,y]),
-              by = "Day") -> Data_True.N[[y]]
-}
-
-max.n.rows <- lapply(Data_True.N, FUN = nrow) %>%
-  unlist() %>%
-  max()
-
-watch.prop <- bf <- vs <- day <- effort <- array(dim = c(max.n.rows, length(Season)))
-obs <- obsd.n <- array(dim = c(max.n.rows, n.stations, length(Season)))
-
-for (y in 1:length(Season)){
-
-  for (k in 1:nrow(Data_True.N[[y]])){
-    obsd.n[k, 1, y] <- rbinom(n = 1,
-                              size = Data_True.N[[y]]$N.True[k],
-                              prob = Data_True.N[[y]]$Binom.Prob[k])
-
-    obs[k,1,y] <- Data_True.N[[y]]$obs.ID[k]
+  # Define Richards function parameters
+  Days <- 1:90
+  
+  # Alternatively, use a different function to create real values for the means
+  N.mean <- matrix(nrow = 90, ncol = 2)
+  
+  # first year with gamma
+  N.mean[,1] <- dgamma(1:90, alpha.gam, beta.gam) * multip.gam
+  
+  # second year with Richards functions
+  N.mean[,2] <- Richards_fcn(d = Days, S1 = S1, S2 = S2,
+                             K = K, P = P, min = 0, max = Max)
+  
+  # This is by assumption
+  #N.mean[c(1,90), 1:2] <- 0
+  
+  # Define sighting probability parameters
+  B0 <- 0.7
+  B_BF <- -1.2
+  B_VS <- -1.8
+  
+  Season = c("2020", "2022")
+  n.stations <- 2
+  
+  True.N <- matrix(nrow = 90, ncol = length(Season))
+  for (k in 1:nrow(N.mean)) {
+    for (c in 1:ncol(N.mean)){
+      True.N[k,c] <- rpois(n = 1, lambda = N.mean[k, c])
+    }
     
-    if (y == 1){
-      obsd.n[k, 2, y] <- rbinom(n = 1,
+  }
+  
+  # Force True.N = 0 for day 1 and 90
+  True.N[1,] <- True.N[90,] <- 0
+  
+  # Use real data for observers, Beaufort, and visibility
+  set.seed(12345)
+  Data_True.N <- list()
+  periods <- vector(mode = "numeric", length = length(Season))
+  
+  # need to convert observer initials into numbers for all years
+  obs.list <- read.csv(file = "Data/Observer list 2022.csv")
+  
+  for (y in 1:length(Season)){
+    # I use the real data to emulate sampling and sighting conditions
+    tmp <- readRDS(paste0("RData/V2.1_Aug2022/out_", Season[y], "_Tomo_v2.rds"))
+    Final_Data <- tmp$Final_Data %>%
+      mutate(Year = Season[y],
+             Day = as.numeric(BeginDay)) %>%
+      mutate(effort = dur) %>%
+      mutate(watch.prop = effort * 24/9) %>%
+      dplyr::select(Year, Day, effort, watch.prop, bf, vs, n, obs) %>%
+      filter(bf < 5, vs < 5)
+    
+    # Find all observers and change them into integer code.
+    # These numbers have to be consistent over years.
+    obs.y <- data.frame(obs = Final_Data$obs) %>%
+      left_join(obs.list, by = "obs")
+    
+    Final_Data$obs.ID <- obs.y$ID
+    
+    # unique.obs <- unique(obs.y$ID)
+    # obs.ID.df <- data.frame(obs = obs.list[obs.list$ID %in% unique.obs, "obs"],
+    #                         obs.ID = unique.obs) %>%
+    #   arrange(by = obs.ID)
+    #
+    # Final_Data %>%
+    #   left_join(obs.ID.df, by = "obs") %>%
+    #   select(-obs) -> Final_Data
+    
+    # figure out the number of periods
+    Final_Data %>%
+      group_by(Year) %>%
+      #filter(effort > 0) %>%
+      summarise(n = n()) -> n.days
+    
+    periods[y] <- n.days$n
+    
+    Final_Data$n[Final_Data$effort == 0] <- NA
+    
+    # Create sighting probabilities
+    Final_Data %>%
+      mutate(Sighting.Prob.lm = as.vector(B0 + B_BF * scale(bf) +
+                                            B_VS * scale(vs)),
+             Sighting.Prob = exp(Sighting.Prob.lm)/(1 + exp(Sighting.Prob.lm)),
+             Binom.Prob = watch.prop * Sighting.Prob) -> Final_Data
+    
+    Final_Data %>%
+      left_join(data.frame(Day = Days,
+                           N.mean = N.mean[,y],
+                           N.True = True.N[,y]),
+                by = "Day") -> Data_True.N[[y]]
+  }
+  
+  max.n.rows <- lapply(Data_True.N, FUN = nrow) %>%
+    unlist() %>%
+    max()
+  
+  watch.prop <- bf <- vs <- day <- effort <- array(dim = c(max.n.rows, length(Season)))
+  obs <- obsd.n <- array(dim = c(max.n.rows, n.stations, length(Season)))
+  
+  for (y in 1:length(Season)){
+    
+    for (k in 1:nrow(Data_True.N[[y]])){
+      obsd.n[k, 1, y] <- rbinom(n = 1,
                                 size = Data_True.N[[y]]$N.True[k],
                                 prob = Data_True.N[[y]]$Binom.Prob[k])
       
-      # Create obs IDs for the second station that are not identical 
-      # to the 1st station. 
-      obs[k,2,y] <- Data_True.N[[y]]$obs.ID[k] - 1  
+      obs[k,1,y] <- Data_True.N[[y]]$obs.ID[k]
       
-    }
-    watch.prop[k, y] <- Data_True.N[[y]]$watch.prop[k]
-    effort[k,y] <- Data_True.N[[y]]$effort[k]
-
-    bf[k, y] <- Data_True.N[[y]]$bf[k]
-    vs[k, y] <- Data_True.N[[y]]$vs[k]
-    day[k, y] <- Data_True.N[[y]]$Day[k]
-  }
-}
-
-# convert obs.ID to sequential number starting from 1.
-unique.ID <- unique(c(unique(obs[,,1]), unique(obs[,,2]))) 
-unique.ID.df <- data.frame(raw.ID = unique.ID,
-                           seq.ID = 1:length(unique.ID))
-unique.ID.df[is.na(unique.ID.df$raw.ID), "seq.ID"] <- 36
-
-obs.1 <- obs
-for (c1 in 1:dim(obs)[1]){
-  for (c2 in 1:dim(obs)[2]){
-    for (c3 in 1:dim(obs)[3]){
-      obs.tmp <- obs[c1,c2,c3]
-      if (!is.na(obs.tmp)){
-        obs.1[c1,c2,c3] <- unique.ID.df %>%
-          filter(raw.ID == obs.tmp) %>%
-          dplyr::select(seq.ID) %>%
-          pull()
-
-      } else {
-        obs.1[c1,c2,c3] <- unique.ID.df %>%
-          filter(is.na(raw.ID)) %>%
-          dplyr::select(seq.ID) %>%
-          pull()
+      if (y == 1){
+        obsd.n[k, 2, y] <- rbinom(n = 1,
+                                  size = Data_True.N[[y]]$N.True[k],
+                                  prob = Data_True.N[[y]]$Binom.Prob[k])
+        
+        # Create obs IDs for the second station that are not identical 
+        # to the 1st station. 
+        obs[k,2,y] <- Data_True.N[[y]]$obs.ID[k] - 1  
+        
       }
-
+      watch.prop[k, y] <- Data_True.N[[y]]$watch.prop[k]
+      effort[k,y] <- Data_True.N[[y]]$effort[k]
+      
+      bf[k, y] <- Data_True.N[[y]]$bf[k]
+      vs[k, y] <- Data_True.N[[y]]$vs[k]
+      day[k, y] <- Data_True.N[[y]]$Day[k]
     }
   }
+  
+  # convert obs.ID to sequential number starting from 1.
+  unique.ID <- unique(c(unique(obs[,,1]), unique(obs[,,2]))) 
+  unique.ID.df <- data.frame(raw.ID = unique.ID,
+                             seq.ID = 1:length(unique.ID))
+  unique.ID.df[is.na(unique.ID.df$raw.ID), "seq.ID"] <- 36
+  
+  obs.1 <- obs
+  for (c1 in 1:dim(obs)[1]){
+    for (c2 in 1:dim(obs)[2]){
+      for (c3 in 1:dim(obs)[3]){
+        obs.tmp <- obs[c1,c2,c3]
+        if (!is.na(obs.tmp)){
+          obs.1[c1,c2,c3] <- unique.ID.df %>%
+            filter(raw.ID == obs.tmp) %>%
+            dplyr::select(seq.ID) %>%
+            pull()
+          
+        } else {
+          obs.1[c1,c2,c3] <- unique.ID.df %>%
+            filter(is.na(raw.ID)) %>%
+            dplyr::select(seq.ID) %>%
+            pull()
+        }
+        
+      }
+    }
+  }  
+
+  sim.data <- list(  n = obsd.n,
+                      n.station = c(2,1),
+                      n.year = length(Season),
+                      n.obs = length(unique(na.omit(as.vector(obs)))),
+                      periods = periods,
+                      obs = obs.1,
+                      vs = scale(vs),
+                      bf = scale(bf),
+                      watch.prop = watch.prop,
+                      day = day,
+                      effort = effort,
+                      bf.raw = bf,
+                      vs.raw = vs)
+  
+  sim.parameters <- list(S1 = S1,
+                         S2 = S2,
+                         Max = Max,
+                         K = K,
+                         B_BF = B_BF,
+                         B_VS = B_VS,
+                         B0 = B0,
+                         Data_True.N = Data_True.N)
+  
+  simulated.data <- list(sim.data = sim.data,
+                         sim.parameters = sim.parameters)
+  
+  saveRDS(simulated.data, file = data.sim.out.file)
+  
+} else {
+  
+  simulated.data <- readRDS(data.sim.out.file)
 }
+
 ```
 
 ```{r run-jags, echo=FALSE, message=FALSE}
@@ -643,44 +681,44 @@ for (c1 in 1:dim(obs)[1]){
 # change this accordingly 2022-11-08 was with a common K and one station
 # 2023-03-23 is with two stations
 
-run.date <- "2023-03-23" #Sys.Date() #"2022-11-08" #   
+run.date <- "2023-03-27" #Sys.Date() #"2022-11-08" #   
 
 out.file.name <- paste0("RData/Pois_Binom_sim_results_", run.date, ".rds")
-
-MCMC.params <- list(n.samples = 120000,
-                    n.thin = 10,
-                    n.burnin = 100000,
-                    n.chains = 5)
-
-jags.model <- paste0("models/model_Richards_pois_bino.txt")
-
-jags.params <- c("OBS.RF", "OBS.Switch",
-                 "BF.Switch", "BF.Fixed",
-                 "VS.Switch", "VS.Fixed",
-                 "mean.prob", "mean.N", "Max",
-                 "Corrected.Est", "Raw.Est", "N",
-                 "K", "S1", "S2", "P",
-                 "log.lkhd")
-
-jags.data <- list(  n = obsd.n,
-                    n.station = c(2,1),
-                    n.year = length(Season),
-                    n.obs = length(unique(na.omit(as.vector(obs)))),
-                    periods = periods,
-                    obs = obs.1,
-                    vs = scale(vs),
-                    bf = scale(bf),
-                    watch.prop = watch.prop,
-                    day = day,
-                    effort = effort,
-                    bf.raw = bf,
-                    vs.raw = vs)
-
-#max.vec = c(3000, 3000))
 if (!file.exists(out.file.name)){
-
+  MCMC.params <- list(n.samples = 120000,
+                      n.thin = 10,
+                      n.burnin = 100000,
+                      n.chains = 5)
+  
+  jags.model <- paste0("models/model_Richards_pois_bino.txt")
+  
+  jags.params <- c("OBS.RF", "OBS.Switch",
+                   "BF.Switch", "BF.Fixed",
+                   "VS.Switch", "VS.Fixed",
+                   "mean.prob", "mean.N", "Max",
+                   "Corrected.Est", "Raw.Est", "N",
+                   "K", "S1", "S2", "P",
+                   "log.lkhd")
+  
+  jags.data <- simulated.data$sim.data 
+  # list(  n = obsd.n,
+  #        n.station = c(2,1),
+  #        n.year = length(Season),
+  #        n.obs = length(unique(na.omit(as.vector(obs)))),
+  #        periods = periods,
+  #        obs = obs.1,
+  #        vs = scale(vs),
+  #        bf = scale(bf),
+  #        watch.prop = watch.prop,
+  #        day = day,
+  #        effort = effort,
+  #        bf.raw = bf,
+  #        vs.raw = vs)
+  
+  #max.vec = c(3000, 3000))
+  
   Start_Time<-Sys.time()
-
+  
   jm <- jagsUI::jags(jags.data,
                      inits = NULL,
                      parameters.to.save= jags.params,
@@ -759,17 +797,20 @@ param.names <- c(unlist(param.names.n.Season),
                  params.to.summarize.n.1)
 
 params.df <- data.frame(names = param.names,
-                        value = c(NA, S1,
-                                  NA, S2,
-                                  NA, P,
-                                  NA, Max,
-                                  K,
-                                  B0, B_BF, B_VS))
+                        value = c(NA, simulated.data$sim.parameters$S1,
+                                  NA, simulated.data$sim.parameters$S2,
+                                  NA, simulated.data$sim.parameters$P,
+                                  NA, simulated.data$sim.parameters$Max,
+                                  simulated.data$sim.parameters$K,
+                                  simulated.data$sim.parameters$B0, 
+                                  simulated.data$sim.parameters$B_BF, 
+                                  simulated.data$sim.parameters$B_VS))
 
 
 p.trace.sim.JAGS <- plots.trace(jm.sim.out$jm,
                                 params = param.names,
                                 params.df = params.df)
+
 p.dens.sim.JAGS <- plots.dens(jm.sim.out$jm, params = param.names)
 
 for (k in 1:length(param.names)){
@@ -807,7 +848,8 @@ p.mean.N.hats.sim.JAGS <- ggplot(mean.N.hats.sim.JAGS %>% group_by(Season)) +
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
               fill = "blue", alpha = 0.5) +
   geom_path(aes(x = Day, y = Mean)) +
-  geom_path(aes(x = Day, y = true.mean), color = "gold") +
+  geom_path(aes(x = Day, y = true.mean), 
+            color = "gold") +
   facet_wrap(~ Season)
 
 save.fig.fcn(p.mean.N.hats.sim.JAGS,
@@ -828,10 +870,10 @@ N.hats.sim.JAGS <- data.frame(Season = rep(Season, each = 90),
                               true.N = as.vector(True.N))
 
 p.N.hats.sim.JAGS <- ggplot(N.hats.sim.JAGS) +
+  geom_path(aes(x = Day, y = true.N), color = "gold") +
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
               fill = "blue", alpha = 0.5) +
   geom_path(aes(x = Day, y = Mean)) +
-  geom_path(aes(x = Day, y = true.N), color = "gold") +
   geom_point(data = obsd.n.sim.df, aes(x = day, y = n))+
   facet_wrap(~ Season)
 
@@ -866,7 +908,8 @@ knitr::include_graphics(paste0("figures/trace_plots_sim_JAGS_", dpi.set, "dpi.pn
 
 ```
 
-Even with the apparent poor conversion of a few parameters, estimated $\bar{N}$ and $N$ were qualitatively acceptable (Figures \@ref(fig:Figure-mean-N-sim-JAGS) and \@ref(fig:Figure-N-sim-JAGS)).
+Even with the apparent poor conversion of a few parameters, estimated $\bar{N}$ and $N$ might be considered acceptable (Figures \@ref(fig:Figure-mean-N-sim-JAGS) and \@ref(fig:Figure-N-sim-JAGS)). For the year when data generation and estimation models were different ("2020"), the estimated peak and tails were positively biased (Figure \@ref(fig:Figure-mean-N-sim-JAGS)). 
+
 
 ```{r Figure-mean-N-sim-JAGS, echo=FALSE, message=FALSE, fig.cap = "Estimated $\\bar{N}$ and their 95% CI (blue ribbon) and the true $\\bar{N}$ in gold. "}
 
@@ -880,284 +923,283 @@ knitr::include_graphics(paste0("figures/N_hats_sim_JAGS_", dpi.set, "dpi.png"))
 
 #### Comparison to Durban et al's method {.unnumbered}
 
-In order to evaluate the performance of the proposed method, I compared the estimates of $N_{t,y}$ between the proposed and Durban et al. methods. The model was fitted to the simulated count data using WinBUGS code.
+In order to evaluate the performance of the proposed method, I compared the estimates of $N_{t,y}$ between the proposed and Durban et al. methods. Durban's method was applied to the same simulated dataset using WinBUGS.
 
 ```{r WinBugs-sim-Analysis, echo=FALSE, message=FALSE}
-WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
-BUGS.model <- "GW_Nmix_Orig.bugs"
-#BUGS.model <- "GW_Nmix_Orig_mod.bugs"  # Lower bounds of unif distributions were changed from 0 to 0.01 - this made no difference in errors (undefined real)
-
-#####################################################
-# # The following is from WinBUGS Ver2.Rmd. It ran fine. I saved data and inits from
-# # the run and saved it in an rds file. Compare data and inits.
-# # This works fine!
-
-# I still keep these lines here to use the list of parameter names for WinBUGS runs.
-worked.run.date <- "2022-10-21"   # the date that WinBUGS Ver2.Rmd was run and the output saved.
-data.worked <- readRDS(paste0("RData/BUGS_data_runs_",
-                              worked.run.date, ".rds"))
-# # N_inits <- data.worked$N_inits
-# # x <- 2
-# # #
-# # # # Create data list from the one that worked using just the last 2 years:
-# obs <- data.worked$BUGS.data$obs[, , 7:8]
-# #obs <- obs - min(obs, na.rm = T) + 1
-#
-# # 36 was used for non-observer
-# obs[obs==36] <- NA
-# unique.obs <- sort(unique(c(unique(obs[,1,1]), unique(obs[,1,2]))))
-# n.obs <- length(unique.obs)
-#
-# obs.df <- data.frame(new.ID = 1:n.obs,
-#                      old.ID = unique.obs)
-#
-# for (k1 in 1:nrow(obs.df)){
-#   for (k2 in 1:2){
-#     obs[which(obs[,1,1] == obs.df[k1, "old.ID"]),1,1] <- obs.df[k1,"new.ID"]
-#     obs[which(obs[,1,2] == obs.df[k1, "old.ID"]),1,2] <- obs.df[k1,"new.ID"]
-#   }
-# }
-#
-# # #
-# # N_inits <- N_inits[, 7:8]
-# # #
-# BUGS.data.1 <- list(n = data.worked$BUGS.data$n[, , 7:8],
-#                     n.com = data.worked$BUGS.data$n.com[, , 7:8],
-#                     n.sp = data.worked$BUGS.data$n.sp[, , 7:8],
-#                     n.station = 1,
-#                     n.year = 2,
-#                     obs = obs, #data.worked$BUGS.data$obs[, 1, 7:8],
-#                     n.obs = max(obs, na.rm = T), #n.obs,
-#                     periods = data.worked$BUGS.data$periods[7:8],
-#                     u = data.worked$BUGS.data$u[, , 7:8],
-#                     vs = data.worked$BUGS.data$vs[, 7:8],
-#                     bf = data.worked$BUGS.data$bf[, 7:8],
-#                     day = data.worked$BUGS.data$day[, 7:8],
-#                     N = data.worked$BUGS.data$N[, 7:8],
-#                     N.com = data.worked$BUGS.data$N.com[, 7:8],
-#                     N.sp = data.worked$BUGS.data$N.sp[, 7:8],
-#                     knot = data.worked$BUGS.data$knot,
-#                     n.knots = data.worked$BUGS.data$n.knots,
-#                     Watch.Length = data.worked$BUGS.data$Watch.Length[,7:8])
-# #
-# BUGS.inits.2 <- data.worked$BUGS.inits
-#
-# bm <- bugs(data =  BUGS.data.1,
-#              inits = BUGS.inits.2,
-#              parameters = data.worked$parameters,
-#              model.file = BUGS.model,
-#              n.chains = data.worked$MCMC.params$n.chains,
-#              n.iter = data.worked$MCMC.params$n.iter,
-#              n.burnin = data.worked$MCMC.params$n.burnin,
-#              n.thin = data.worked$MCMC.params$n.thin,
-#              debug=T,
-#              bugs.directory = WinBUGS.dir)
-#
-# # value of bernoulli z[1,1] (or z[90,1], or z[90,2]) must be an integer - this happened after I renumbered
-# # the observer IDs.
-# # Compare data and inits of this section to the next section. DONE.
-
-#########################################################
-
-x <- length(Season)
-
-jags.data <- jm.sim.out$jags.data
-MCMC.params <- jm.sim.out$MCMC.params  # takes about 3.6 hrs
-
-# To make computation faster, I reduce the sampling: this ran in about 2 hrs.
-# Dated 2022-10-21 but actually ran on 2022-10-26
-# MCMC.params <- list(n.samples = 60000,
-#                     n.thin = 10,
-#                     n.burnin = 30000,
-#                     n.chains = 5)
-
-# Adds an all zero array to the second dimension, just as it was done for the
-# real data.
-# n <- abind(jags.data$n,
-#            array(data = 0,
-#                  dim = dim(jags.data$n)),
-#            along = 2)
-
-n <- jags.data$n
-# replace NAs with zeros
-n[is.na(n)] <- 0
-
-# the u data is whether there were observers on watch.
-# 0 counts are often associated with years/shifts with
-# no second observer. So if u=0, it will fix observation probability at 0
-# obs has no NAs (not true any more; 2023-03-23), but no observers were indicated by 25.
-# u <- jags.data$obs
-# u[u != 25] <- 1
-# u[u == 25] <- 0
-u <- obs.1
-u[u == 36] <- 0
-u[u != 36] <- 1
-
-# day indicators. Need to add 1 and 90 at the end
-day <- rbind(jags.data$day, matrix(NA, nrow = 2, ncol = x))
-
-for(i in 1:x){ #Set the anchor points: days 1 and 90
-  day[(jags.data$periods[i]+1):(jags.data$periods[i]+2),i] <- c(1,90)
-
-}
-
-#The 'data' has to be the inverse of the inits, <- ??
-# with NAs for all of the estimated Ns, and 0s for the days 1 and 90
-N <- matrix(NA,
-            nrow = max(jags.data$periods)+2,
-            ncol = x)
-
-#True number of whales passing fixed at 0 for day 1 and 90
-for(i in 1:x){
-  N[(jags.data$periods[i]+1):(jags.data$periods[i]+2),i] <- 0
-}
-
-# WinBUGS gives errors when N inits are set to 0.
-# Try setting them to 1 instead (seems to work):
-#N_inits[which(N_inits == 0, arr.ind = T)] <- 1
-
-Watch.Length <- rbind(jags.data$effort,
-                      matrix(data = NA,
-                             nrow = 2,
-                             ncol = x))
-
-# WinBUGS crashed with Poisson unreal error. I thought it was something
-# to do with the observer array - having 36 as non-observers. So, 
-# replaced it with new array... then a different error. 
-# Changed obs array and the following error popped up:
-# "made use of undefined node obs"  2023-03-23
-# According to this StackOverflow posting, NAs are not liked by WinBUGS
-# https://stackoverflow.com/questions/39938942/made-use-of-undefined-node-winbugs-beginner
-obs.BUGS <- obs.1
-
-# obs <- abind(jags.data$obs,
-#              array(data = NA,
-#                    dim = dim(jags.data$obs)),
-#              along = 2)
-# 
-# obs[obs==36] <- NA
-
-obs.BUGS[is.na(obs.BUGS)] <- 36
-
-# obs.BUGS.1 <- abind(obs.BUGS,
-#                     array(data = NA,
-#                           dim = dim(obs.BUGS)),
-#                     along = 2)
-
-
-# Should this be zeros? Watch length of day 1 and 90...
-# They are 1s in data.worked.
-for (k in 1:x){
-  Watch.Length[(jags.data$periods[k]+1) : (jags.data$periods[k]+2), k] <- 1
-}
-
-##############################################################
-# let's swap the first and second columns (years)
-# n.1 <- array(dim = dim(n))
-# n.1[,,1] <- n[,,2]
-# n.1[,,2] <- n[,,1]
-#
-# obs.1 <- array(dim = dim(jags.data$obs))
-# obs.1[,,1] <- jags.data$obs[,,2]
-# obs.1[,,2] <- jags.data$obs[,,1]
-#
-# bf.1 <- cbind(jags.data$bf.raw[,2], jags.data$bf.raw[,1])
-# vs.1 <- cbind(jags.data$vs.raw[,2], jags.data$vs.raw[,1])
-#
-# periods.1 <- c(jags.data$periods[2], jags.data$periods[1])
-#
-# day.1 <- cbind(day[,2], day[,1])
-#
-# N.1 <- cbind(N[,2], N[,1])
-#
-# Watch.Length.1 <- cbind(Watch.Length[,2], Watch.Length[,1])
-# This one didn't work either...
-##############################################################
-
-BUGS.data <- list(n = n, #unname(n), #n.1, #
-                  n.com = n, #unname(n), #n.1, #
-                  n.sp = n, #unname(n), #n.1, #
-                  n.station = dim(jags.data$n)[2], #jags.data$n.station, #
-                  n.year = dim(jags.data$n)[3],
-                  n.obs = max(obs.BUGS, na.rm = T),
-                  periods = jags.data$periods, #periods.1, #
-                  obs = obs.BUGS, #unname(obs.BUGS.1), #obs.1, #
-                  u = u,
-                  vs = jags.data$vs.raw, #bf.1, #
-                  bf = jags.data$bf.raw, #vs.1, #
-                  day = day, #day.1, #
-                  #N = N, #N.1, #   # See comments below for why these were taken out
-                  #N.com = N, #N.1, #
-                  #N.sp = N, #N.1, #
-                  knot = c(-1.46, -1.26, -1.02, -0.78,
-                           -0.58, -0.34, -0.10, 0.10,
-                           0.34, 0.57, 0.78, 1.02, 1.26, 1.46),
-                  n.knots = 14,
-                  Watch.Length = Watch.Length) #Watch.Length.1) #
-
-
-#we're going to make N a partially observed data object with anchor points at day 1 and 90
-# TE: I don't know how these numbers were created... they are generally 2x n (not all)
-# N has to be greater than the largest of n, when there are two observation stations
-# A loop is clunky but should work...
-N_inits1 <- matrix(nrow = dim(n)[1], ncol = dim(n)[3])
-
-for (k in 1:dim(n)[1]){
-  for (k1 in 1:dim(n)[3]){
-    N_inits1[k, k1] <- max(n[k,,k1] * 2 + 2)
-  }
-}
-#N_inits1 <- n[, , ] * 2 + 2
-#N_inits2 <- jags.data$n[, 2,] * 2 + 2
-
-# Create initial values for Ns
-N_inits <- rbind(N_inits1,
-                 matrix(data = NA,
-                        nrow = 2,
-                        ncol = x))
-
-# Are these necessary? Rather than making NAs, should they be zeros?
-# With these zeros, errors result.
-for (k in 1:x){
-  N_inits[(jags.data$periods[k]+1) : nrow(N_inits), k] <- NA
-}
-
-#N_inits.1 <- cbind(N_inits[,2], N_inits[,1])
-BUGS.inits.1 <- function() list(mean.prob = 0.5,
-                                BF.Fixed = 0,
-                                VS.Fixed = 0,
-                                mean.prob.sp = 0.5,
-                                BF.Fixed.sp = 0,
-                                VS.Fixed.sp = 0,
-                                mean.prob.com = 0.5,
-                                BF.Fixed.com = 0,
-                                VS.Fixed.com = 0,
-                                mean.beta = c(0,0,0),
-                                beta.sigma = c(1,1,1),
-                                BF.Switch = 1,
-                                VS.Switch = 1,
-                                OBS.Switch = 1,
-                                sigma.Obs = 1,
-                                BF.Switch.sp = 1,
-                                VS.Switch.sp = 1,
-                                OBS.Switch.sp = 1,
-                                sigma.Obs.sp = 1,
-                                BF.Switch.com = 1,
-                                VS.Switch.com = 1,
-                                OBS.Switch.com = 1,
-                                sigma.Obs.com = 1,
-                                N = N_inits,
-                                N.com = N_inits,
-                                N.sp = N_inits,
-                                beta.sp = array(data=0, dim=c(2,x)),
-                                sd.b.sp = rep(1, times = x),
-                                z = matrix(1, nrow=90, ncol= x))
-
 #run.date <- "2022-10-27"
 if (!file.exists(paste0("RData/WinBUGS_sim_", run.date, ".rds"))){
-
+  WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
+  BUGS.model <- "GW_Nmix_Orig.bugs"
+  #BUGS.model <- "GW_Nmix_Orig_mod.bugs"  # Lower bounds of unif distributions were changed from 0 to 0.01 - this made no difference in errors (undefined real)
+  
+  #####################################################
+  # # The following is from WinBUGS Ver2.Rmd. It ran fine. I saved data and inits from
+  # # the run and saved it in an rds file. Compare data and inits.
+  # # This works fine!
+  
+  # I still keep these lines here to use the list of parameter names for WinBUGS runs.
+  worked.run.date <- "2022-10-21"   # the date that WinBUGS Ver2.Rmd was run and the output saved.
+  data.worked <- readRDS(paste0("RData/BUGS_data_runs_",
+                                worked.run.date, ".rds"))
+  # # N_inits <- data.worked$N_inits
+  # # x <- 2
+  # # #
+  # # # # Create data list from the one that worked using just the last 2 years:
+  # obs <- data.worked$BUGS.data$obs[, , 7:8]
+  # #obs <- obs - min(obs, na.rm = T) + 1
+  #
+  # # 36 was used for non-observer
+  # obs[obs==36] <- NA
+  # unique.obs <- sort(unique(c(unique(obs[,1,1]), unique(obs[,1,2]))))
+  # n.obs <- length(unique.obs)
+  #
+  # obs.df <- data.frame(new.ID = 1:n.obs,
+  #                      old.ID = unique.obs)
+  #
+  # for (k1 in 1:nrow(obs.df)){
+  #   for (k2 in 1:2){
+  #     obs[which(obs[,1,1] == obs.df[k1, "old.ID"]),1,1] <- obs.df[k1,"new.ID"]
+  #     obs[which(obs[,1,2] == obs.df[k1, "old.ID"]),1,2] <- obs.df[k1,"new.ID"]
+  #   }
+  # }
+  #
+  # # #
+  # # N_inits <- N_inits[, 7:8]
+  # # #
+  # BUGS.data.1 <- list(n = data.worked$BUGS.data$n[, , 7:8],
+  #                     n.com = data.worked$BUGS.data$n.com[, , 7:8],
+  #                     n.sp = data.worked$BUGS.data$n.sp[, , 7:8],
+  #                     n.station = 1,
+  #                     n.year = 2,
+  #                     obs = obs, #data.worked$BUGS.data$obs[, 1, 7:8],
+  #                     n.obs = max(obs, na.rm = T), #n.obs,
+  #                     periods = data.worked$BUGS.data$periods[7:8],
+  #                     u = data.worked$BUGS.data$u[, , 7:8],
+  #                     vs = data.worked$BUGS.data$vs[, 7:8],
+  #                     bf = data.worked$BUGS.data$bf[, 7:8],
+  #                     day = data.worked$BUGS.data$day[, 7:8],
+  #                     N = data.worked$BUGS.data$N[, 7:8],
+  #                     N.com = data.worked$BUGS.data$N.com[, 7:8],
+  #                     N.sp = data.worked$BUGS.data$N.sp[, 7:8],
+  #                     knot = data.worked$BUGS.data$knot,
+  #                     n.knots = data.worked$BUGS.data$n.knots,
+  #                     Watch.Length = data.worked$BUGS.data$Watch.Length[,7:8])
+  # #
+  # BUGS.inits.2 <- data.worked$BUGS.inits
+  #
+  # bm <- bugs(data =  BUGS.data.1,
+  #              inits = BUGS.inits.2,
+  #              parameters = data.worked$parameters,
+  #              model.file = BUGS.model,
+  #              n.chains = data.worked$MCMC.params$n.chains,
+  #              n.iter = data.worked$MCMC.params$n.iter,
+  #              n.burnin = data.worked$MCMC.params$n.burnin,
+  #              n.thin = data.worked$MCMC.params$n.thin,
+  #              debug=T,
+  #              bugs.directory = WinBUGS.dir)
+  #
+  # # value of bernoulli z[1,1] (or z[90,1], or z[90,2]) must be an integer - this happened after I renumbered
+  # # the observer IDs.
+  # # Compare data and inits of this section to the next section. DONE.
+  
+  #########################################################
+  
+  x <- length(Season)
+  
+  jags.data <- jm.sim.out$jags.data
+  MCMC.params <- jm.sim.out$MCMC.params  # takes about 3.6 hrs
+  
+  # To make computation faster, I reduce the sampling: this ran in about 2 hrs.
+  # Dated 2022-10-21 but actually ran on 2022-10-26
+  # MCMC.params <- list(n.samples = 60000,
+  #                     n.thin = 10,
+  #                     n.burnin = 30000,
+  #                     n.chains = 5)
+  
+  # Adds an all zero array to the second dimension, just as it was done for the
+  # real data.
+  # n <- abind(jags.data$n,
+  #            array(data = 0,
+  #                  dim = dim(jags.data$n)),
+  #            along = 2)
+  
+  n <- jags.data$n
+  # replace NAs with zeros
+  n[is.na(n)] <- 0
+  
+  # the u data is whether there were observers on watch.
+  # 0 counts are often associated with years/shifts with
+  # no second observer. So if u=0, it will fix observation probability at 0
+  # obs has no NAs (not true any more; 2023-03-23), but no observers were indicated by 25.
+  # u <- jags.data$obs
+  # u[u != 25] <- 1
+  # u[u == 25] <- 0
+  u <- obs.1
+  u[u == 36] <- 0
+  u[u != 36] <- 1
+  
+  # day indicators. Need to add 1 and 90 at the end
+  day <- rbind(jags.data$day, matrix(NA, nrow = 2, ncol = x))
+  
+  for(i in 1:x){ #Set the anchor points: days 1 and 90
+    day[(jags.data$periods[i]+1):(jags.data$periods[i]+2),i] <- c(1,90)
+    
+  }
+  
+  #The 'data' has to be the inverse of the inits, <- ??
+  # with NAs for all of the estimated Ns, and 0s for the days 1 and 90
+  N <- matrix(NA,
+              nrow = max(jags.data$periods)+2,
+              ncol = x)
+  
+  #True number of whales passing fixed at 0 for day 1 and 90
+  for(i in 1:x){
+    N[(jags.data$periods[i]+1):(jags.data$periods[i]+2),i] <- 0
+  }
+  
+  # WinBUGS gives errors when N inits are set to 0.
+  # Try setting them to 1 instead (seems to work):
+  #N_inits[which(N_inits == 0, arr.ind = T)] <- 1
+  
+  Watch.Length <- rbind(jags.data$effort,
+                        matrix(data = NA,
+                               nrow = 2,
+                               ncol = x))
+  
+  # WinBUGS crashed with Poisson unreal error. I thought it was something
+  # to do with the observer array - having 36 as non-observers. So, 
+  # replaced it with new array... then a different error. 
+  # Changed obs array and the following error popped up:
+  # "made use of undefined node obs"  2023-03-23
+  # According to this StackOverflow posting, NAs are not liked by WinBUGS
+  # https://stackoverflow.com/questions/39938942/made-use-of-undefined-node-winbugs-beginner
+  obs.BUGS <- obs.1
+  
+  # obs <- abind(jags.data$obs,
+  #              array(data = NA,
+  #                    dim = dim(jags.data$obs)),
+  #              along = 2)
+  # 
+  # obs[obs==36] <- NA
+  
+  obs.BUGS[is.na(obs.BUGS)] <- 36
+  
+  # obs.BUGS.1 <- abind(obs.BUGS,
+  #                     array(data = NA,
+  #                           dim = dim(obs.BUGS)),
+  #                     along = 2)
+  
+  
+  # Should this be zeros? Watch length of day 1 and 90...
+  # They are 1s in data.worked.
+  for (k in 1:x){
+    Watch.Length[(jags.data$periods[k]+1) : (jags.data$periods[k]+2), k] <- 1
+  }
+  
+  ##############################################################
+  # let's swap the first and second columns (years)
+  # n.1 <- array(dim = dim(n))
+  # n.1[,,1] <- n[,,2]
+  # n.1[,,2] <- n[,,1]
+  #
+  # obs.1 <- array(dim = dim(jags.data$obs))
+  # obs.1[,,1] <- jags.data$obs[,,2]
+  # obs.1[,,2] <- jags.data$obs[,,1]
+  #
+  # bf.1 <- cbind(jags.data$bf.raw[,2], jags.data$bf.raw[,1])
+  # vs.1 <- cbind(jags.data$vs.raw[,2], jags.data$vs.raw[,1])
+  #
+  # periods.1 <- c(jags.data$periods[2], jags.data$periods[1])
+  #
+  # day.1 <- cbind(day[,2], day[,1])
+  #
+  # N.1 <- cbind(N[,2], N[,1])
+  #
+  # Watch.Length.1 <- cbind(Watch.Length[,2], Watch.Length[,1])
+  # This one didn't work either...
+  ##############################################################
+  
+  BUGS.data <- list(n = n, #unname(n), #n.1, #
+                    n.com = n, #unname(n), #n.1, #
+                    n.sp = n, #unname(n), #n.1, #
+                    n.station = dim(jags.data$n)[2], #jags.data$n.station, #
+                    n.year = dim(jags.data$n)[3],
+                    n.obs = max(obs.BUGS, na.rm = T),
+                    periods = jags.data$periods, #periods.1, #
+                    obs = obs.BUGS, #unname(obs.BUGS.1), #obs.1, #
+                    u = u,
+                    vs = jags.data$vs.raw, #bf.1, #
+                    bf = jags.data$bf.raw, #vs.1, #
+                    day = day, #day.1, #
+                    #N = N, #N.1, #   # See comments below for why these were taken out
+                    #N.com = N, #N.1, #
+                    #N.sp = N, #N.1, #
+                    knot = c(-1.46, -1.26, -1.02, -0.78,
+                             -0.58, -0.34, -0.10, 0.10,
+                             0.34, 0.57, 0.78, 1.02, 1.26, 1.46),
+                    n.knots = 14,
+                    Watch.Length = Watch.Length) #Watch.Length.1) #
+  
+  
+  #we're going to make N a partially observed data object with anchor points at day 1 and 90
+  # TE: I don't know how these numbers were created... they are generally 2x n (not all)
+  # N has to be greater than the largest of n, when there are two observation stations
+  # A loop is clunky but should work...
+  N_inits1 <- matrix(nrow = dim(n)[1], ncol = dim(n)[3])
+  
+  for (k in 1:dim(n)[1]){
+    for (k1 in 1:dim(n)[3]){
+      N_inits1[k, k1] <- max(n[k,,k1] * 2 + 2)
+    }
+  }
+  #N_inits1 <- n[, , ] * 2 + 2
+  #N_inits2 <- jags.data$n[, 2,] * 2 + 2
+  
+  # Create initial values for Ns
+  N_inits <- rbind(N_inits1,
+                   matrix(data = NA,
+                          nrow = 2,
+                          ncol = x))
+  
+  # Are these necessary? Rather than making NAs, should they be zeros?
+  # With these zeros, errors result.
+  for (k in 1:x){
+    N_inits[(jags.data$periods[k]+1) : nrow(N_inits), k] <- NA
+  }
+  
+  #N_inits.1 <- cbind(N_inits[,2], N_inits[,1])
+  BUGS.inits.1 <- function() list(mean.prob = 0.5,
+                                  BF.Fixed = 0,
+                                  VS.Fixed = 0,
+                                  mean.prob.sp = 0.5,
+                                  BF.Fixed.sp = 0,
+                                  VS.Fixed.sp = 0,
+                                  mean.prob.com = 0.5,
+                                  BF.Fixed.com = 0,
+                                  VS.Fixed.com = 0,
+                                  mean.beta = c(0,0,0),
+                                  beta.sigma = c(1,1,1),
+                                  BF.Switch = 1,
+                                  VS.Switch = 1,
+                                  OBS.Switch = 1,
+                                  sigma.Obs = 1,
+                                  BF.Switch.sp = 1,
+                                  VS.Switch.sp = 1,
+                                  OBS.Switch.sp = 1,
+                                  sigma.Obs.sp = 1,
+                                  BF.Switch.com = 1,
+                                  VS.Switch.com = 1,
+                                  OBS.Switch.com = 1,
+                                  sigma.Obs.com = 1,
+                                  N = N_inits,
+                                  N.com = N_inits,
+                                  N.sp = N_inits,
+                                  beta.sp = array(data=0, dim=c(2,x)),
+                                  sd.b.sp = rep(1, times = x),
+                                  z = matrix(1, nrow=90, ncol= x))
+  
   Start_Time<-Sys.time()
-
+  
   bm <- bugs(data = BUGS.data,
              inits = BUGS.inits.1,
              parameters = data.worked$parameters,
@@ -1168,9 +1210,9 @@ if (!file.exists(paste0("RData/WinBUGS_sim_", run.date, ".rds"))){
              n.thin = MCMC.params$n.thin,
              debug = T,
              bugs.directory = WinBUGS.dir)
-
+  
   Run_Time <- Sys.time() - Start_Time
-
+  
   BUGS.out.sim <- list(BUGS.data = BUGS.data,
                        bm = bm,
                        N_inits = N_inits,
@@ -1178,14 +1220,14 @@ if (!file.exists(paste0("RData/WinBUGS_sim_", run.date, ".rds"))){
                        BUGS.model = BUGS.model,
                        Run_Time = Run_Time,
                        Sys.env = Sys.getenv())
-
+  
   # the Sys.env was added after the final run on 2022-10-27. So, may not be in the output.
-
+  
   saveRDS(BUGS.out.sim,
           paste0("RData/WinBUGS_sim_", run.date, ".rds"))
 } else {
   BUGS.out.sim <- readRDS(paste0("RData/WinBUGS_sim_", run.date, ".rds"))
-
+  
 }
 
 ## 2022-11-08 More undefined real...
@@ -1234,7 +1276,7 @@ if (!file.exists(paste0("RData/WinBUGS_sim_", run.date, ".rds"))){
 Results indicated that Durban's approach overestimated the true abundance by approximately 2.5 folds (Figure \@ref(fig:Figure-N-sim-BUGS)). Credible intervals were wide when no counts were available.
 
 ```{r WinBUGS-results, echo=FALSE, message=FALSE}
-seasons <- c("2020", "2022")
+#seasons <- c("Year1", "Year2")
 
 # Extract estimated counts
 Daily.Est.sim <- BUGS.out.sim$bm$sims.list$Daily.Est
@@ -1283,12 +1325,15 @@ for (k in 1:dim(Daily.Est.sim)[3]){
                                                 quantile,0.975),
                                 #total.median = apply(exp(sp.sim[,,k]), 1, sum),
                                 days = 1:dim(Daily.Est.sim)[2],
-                                Season = seasons[k])
+                                Season = Season[k])
 }
 
 all.stats.sim.BUGS <- do.call("rbind", stats.list) %>% group_by(Season)
 
 p.Daily.sim.BUGS <- ggplot(data = all.stats.sim.BUGS) +
+  geom_path(data = N.hats.sim.JAGS,
+            aes(x = Day, y = true.N),
+            color = "gold") +
   geom_line(aes(x = days, y = Daily.Est.median)) +
   geom_ribbon(aes(x = days,
                   ymin = Daily.Est.LCL,
@@ -1296,16 +1341,14 @@ p.Daily.sim.BUGS <- ggplot(data = all.stats.sim.BUGS) +
               fill = "olivedrab",
               alpha = 0.5) +
   geom_line(data = N.hats.sim.JAGS,
-            aes(x = Day, y = Mean)) +
+            aes(x = Day, y = Mean),
+            color = "darkblue") +
   geom_ribbon(data = N.hats.sim.JAGS,
             aes(x = Day,
                 ymin = LCL,
                 ymax = UCL),
             fill = "blue",
             alpha = 0.5) +
-  geom_path(data = N.hats.sim.JAGS,
-            aes(x = Day, y = true.N),
-            color = "gold") +
   geom_point(data = obsd.n.sim.df,
              aes(x = day, y = n))+
   facet_wrap(vars(Season))+
@@ -1318,6 +1361,7 @@ save.fig.fcn(fig = p.Daily.sim.BUGS,
              dpi = dpi.set, replace = save.fig)
 
 ```
+
 
 ```{r Figure-N-sim-BUGS, echo=FALSE, message=FALSE, fig.cap = "Estimated $N$ and their 95% CI (green ribbon) using Durban's method, new approach (blue ribbon), the true $N$ (gold), and observed counts (black dots)."}
 
@@ -1364,29 +1408,29 @@ if (!file.exists(out.file.name)){
                      parallel=T)
 
   Run_Time <- Sys.time() - Start_Time
-  jm.out <- list(jm = jm,
-                 jags.data = jags.data.real,
-                 jags.params = jags.params,
-                 jags.model = jags.model,
-                 MCMC.params = MCMC.params,
-                 Run_Time = Run_Time,
-                 Sys.env = Sys.getenv())
-
-  saveRDS(jm.out,
+  jm.out.real <- list(jm = jm,
+                      jags.data = jags.data.real,
+                      jags.params = jags.params,
+                      jags.model = jags.model,
+                      MCMC.params = MCMC.params,
+                      Run_Time = Run_Time,
+                      Sys.env = Sys.getenv())
+  
+  saveRDS(jm.out.real,
           file = out.file.name)
 
 } else {
 
-  jm.out <- readRDS(out.file.name)
+  jm.out.real <- readRDS(out.file.name)
 }
 
 # need to turn zeros into NAs when there were no second station:
-data.array <- jm.out$jags.data$n
-data.array[,2,which(jm.out$jags.data$n.station == 1)] <- NA
+data.array <- jm.out.real$jags.data$n
+data.array[,2,which(jm.out.real$jags.data$n.station == 1)] <- NA
 
-LOOIC.n <- compute.LOOIC(loglik.array = jm.out$jm$sims.list$log.lkhd,
+LOOIC.n <- compute.LOOIC(loglik.array = jm.out.real$jm$sims.list$log.lkhd,
                          data.array = data.array,
-                         MCMC.params = jm.out$MCMC.params)
+                         MCMC.params = jm.out.real$MCMC.params)
 
 
 
@@ -1399,7 +1443,7 @@ Season <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011",
             "2014/2015", "2015/2016", "2019/2020", "2021/2022",
             "2022/2023")
 
-max.r.hat <- max(unlist(lapply(jm.out$jm$Rhat,
+max.r.hat.real <- max(unlist(lapply(jm.out.real$jm$Rhat,
                                FUN = max,
                                na.rm = T)))
 
@@ -1427,8 +1471,8 @@ param.names.n.Season <- lapply(params.to.summarize.n.Season,
 param.names <- c(unlist(param.names.n.Season),
                  params.to.summarize.n.1)
 
-p.dens <- plots.dens(jm.out$jm, params = param.names)
-p.trace <- plots.trace(jm.out$jm, params = param.names)
+p.dens <- plots.dens(jm.out.real$jm, params = param.names)
+p.trace <- plots.trace(jm.out.real$jm, params = param.names)
 
 for (k in 1:length(param.names)){
   save.fig.fcn(fig = p.trace[[k]] +
@@ -1448,21 +1492,21 @@ for (k in 1:length(param.names)){
 
 mean.N.hats.JAGS <- data.frame(Season = rep(Season, each = 90),
                                Day = rep(1:90, length(Season)),
-                               Mean = as.vector(jm.out$jm$mean$mean.N),
-                               LCL = as.vector(jm.out$jm$q2.5$mean.N),
-                               UCL = as.vector(jm.out$jm$q97.5$mean.N))
+                               Mean = as.vector(jm.out.real$jm$mean$mean.N),
+                               LCL = as.vector(jm.out.real$jm$q2.5$mean.N),
+                               UCL = as.vector(jm.out.real$jm$q97.5$mean.N))
 
 N.hats.JAGS <- data.frame(Season = rep(Season, each = 90),
                           Day = rep(1:90, times = length(Season)),
-                          Mean = as.vector(jm.out$jm$mean$N),
-                          LCL = as.vector(jm.out$jm$q2.5$N),
-                          UCL = as.vector(jm.out$jm$q97.5$N))
+                          Mean = as.vector(jm.out.real$jm$mean$N),
+                          LCL = as.vector(jm.out.real$jm$q2.5$N),
+                          UCL = as.vector(jm.out.real$jm$q97.5$N))
 
 Corrected.Est.df.JAGS <- data.frame(Season = Season,
-                                    Mean = as.vector(jm.out$jm$mean$Corrected.Est),
-                                    Median = as.vector(jm.out$jm$q50$Corrected.Est),
-                                    LCL = as.vector(jm.out$jm$q2.5$Corrected.Est),
-                                    UCL = as.vector(jm.out$jm$q97.5$Corrected.Est))
+                                    Mean = as.vector(jm.out.real$jm$mean$Corrected.Est),
+                                    Median = as.vector(jm.out.real$jm$q50$Corrected.Est),
+                                    LCL = as.vector(jm.out.real$jm$q2.5$Corrected.Est),
+                                    UCL = as.vector(jm.out.real$jm$q97.5$Corrected.Est))
 
 # get the BUGS output
 # Extract estimated daily counts
@@ -1571,7 +1615,7 @@ save.fig.fcn(p.corrected.N.hats,
 
 ```
 
-Convergence was not reached for all parameters where the maximum $\hat{R}$ statistic was `r signif(max.r.hat, 3)`. There were `r length(which(unlist(jm.out$jm$Rhat) > 1.1))` parameters that resulted in $\hat{R}$ statistic \> 1.1. A closer examination of $\hat{R}$ statistics revealed that high values were associated with the mean.N and N parameters, as well as the parameters for Richards function (S1, S2, and P) for the 2015/2016 season.
+Convergence was not reached for all parameters where the maximum $\hat{R}$ statistic was `r signif(max.r.hat.real, 3)`. There were `r length(which(unlist(jm.out.real$jm$Rhat) > 1.1))` parameters that resulted in $\hat{R}$ statistic \> 1.1. A closer examination of $\hat{R}$ statistics revealed that high values were associated with the mean.N and N parameters, as well as the parameters for Richards function (S1, S2, and P) for the 2015/2016 season.
 
 Similarly to the analysis of simulated data, daily estimates were generally less for the new approach than Durban's approach (Figure \@ref(fig:Figure-daily-N-hats)). Estimates from the new approach was more precise than those from Durban's method. As a consequence, annual estimates also were greater for Durban's method than for the new approach and precision was better for the new approach (Figure \@ref(fig:Figure-N-hats)).
 
