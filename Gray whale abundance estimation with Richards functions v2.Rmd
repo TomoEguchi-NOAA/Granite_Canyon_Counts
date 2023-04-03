@@ -479,7 +479,7 @@ knitr::include_graphics(paste0("figures/mean_N_def_", dpi.set, "dpi.png"))
 ```{r simulation, echo=FALSE, message=FALSE}
 sim.date <- "2023-03-27"
 data.sim.out.file <- paste0("RData/simulation_data_", sim.date, ".rds")
-save.fig <- T
+save.fig <- F
 
 if (!file.exists(data.sim.out.file)){
   set.seed(12345)
@@ -505,7 +505,7 @@ if (!file.exists(data.sim.out.file)){
   B_BF <- -1.2
   B_VS <- -1.8
   
-  Season = c("2020", "2022")
+  Season <- c("2020", "2022")
   n.stations <- 2
   
   True.N <- matrix(nrow = 90, ncol = length(Season))
@@ -659,10 +659,12 @@ if (!file.exists(data.sim.out.file)){
                          S2 = S2,
                          Max = Max,
                          K = K,
+                         P = P,
                          B_BF = B_BF,
                          B_VS = B_VS,
                          B0 = B0,
-                         Data_True.N = Data_True.N)
+                         Data_True.N = Data_True.N,
+                         Season = Season)
   
   simulated.data <- list(sim.data = sim.data,
                          sim.parameters = sim.parameters)
@@ -1208,7 +1210,7 @@ if (!file.exists(paste0("RData/WinBUGS_sim_", run.date, ".rds"))){
              n.iter = MCMC.params$n.samples,
              n.burnin = MCMC.params$n.burnin,
              n.thin = MCMC.params$n.thin,
-             debug = T,
+             debug = F,
              bugs.directory = WinBUGS.dir)
   
   Run_Time <- Sys.time() - Start_Time
