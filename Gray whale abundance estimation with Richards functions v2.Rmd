@@ -1210,7 +1210,7 @@ if (!file.exists(paste0("RData/WinBUGS_sim_", run.date, ".rds"))){
              n.iter = MCMC.params$n.samples,
              n.burnin = MCMC.params$n.burnin,
              n.thin = MCMC.params$n.thin,
-             debug = F,
+             debug = T,
              bugs.directory = WinBUGS.dir)
   
   Run_Time <- Sys.time() - Start_Time
@@ -1231,6 +1231,104 @@ if (!file.exists(paste0("RData/WinBUGS_sim_", run.date, ".rds"))){
   BUGS.out.sim <- readRDS(paste0("RData/WinBUGS_sim_", run.date, ".rds"))
   
 }
+
+# 2023-04-05
+# undefined real result
+# 
+#  MathRandnum.Poisson   [000010DBH] 
+# 	.floor	INTEGER	205013192
+# 	.lambda	REAL	3894519905.757908
+# 	.x	INTEGER	47594336
+#  GraphPoisson.StdNode.Sample   [00000470H] 
+# 	.lambda	REAL	3894519905.757908
+# 	.node	GraphPoisson.StdNode	[02C24320H] 
+# 	.res	INTEGER	0
+# 	.value	REAL	1.0
+#  UpdaterForward.Updater.MCMC   [00000035H] 
+# 	.overRelax	BOOLEAN	FALSE
+# 	.prior	GraphStochastic.Node	[02C24320H] 
+# 	.res	INTEGER	0
+# 	.updater	UpdaterForward.Updater	[02AB5EB0H] 
+#  BugsUpdaters.Updater.MCMC   [000005B8H] 
+# 	.chain	INTEGER	0
+# 	.depth	INTEGER	3
+# 	.i	INTEGER	404
+# 	.name	BugsNames.Name	[02A79C60H] 
+# 	.ok	BOOLEAN	TRUE
+# 	.overRelax	BOOLEAN	FALSE
+# 	.res	INTEGER	0
+# 	.size	INTEGER	406
+# 	.string	ARRAY 120 OF CHAR	""   ...
+# 	.updater	BugsUpdaters.Updater	[02DB9D70H] 
+#  BugsSampler.MCMC   [0000036DH] 
+# 	.chain	INTEGER	0
+# 	.cursor	BugsSampler.List	[02AB5ED0H] 
+# 	.depth	INTEGER	3
+# 	.depth0	INTEGER	1
+# 	.depth1	INTEGER	4
+# 	.offset	INTEGER	6416052
+# 	.ok	BOOLEAN	TRUE
+# 	.overRelax	BOOLEAN	FALSE
+# 	.updater	BugsUpdaters.Updater	[02DB9D70H] 
+#  BugsCmds.Action.Step   [00000B1FH] 
+# 	.a	BugsCmds.Action	[02C340D0H] 
+# 	.chain	INTEGER	0
+# 	.i	INTEGER	40
+# 	.j	INTEGER	0
+# 	.numChains	INTEGER	5
+#  BugsCmds.Action.Do   [00000C58H] 
+# 	.a	BugsCmds.Action	[02C340D0H] 
+# 	.elapsedTime	LONGINT	692B21F1692A0384H
+# 	.profileList	ARRAY 2024 OF CHAR	73F2X, 7673X, 9D88X, "g", 23DX   ...
+# 	.res	INTEGER	2
+# 	.s	ARRAY 120 OF CHAR	""   ...
+#  Services.Exec   [00000136H] 
+# 	.a	Services.Action	[02C340D0H] 
+# 	.t	POINTER	[692A0384H]
+#  Services.IterateOverActions   [000002F4H] 
+# 	.p	Services.Action	[02C340D0H] 
+# 	.t	POINTER	NIL
+# 	.time	LONGINT	950900265
+#  Services.StdHook.Step   [0000034DH] 
+# 	.h	Services.StdHook	[02A7E380H] 
+#  HostWindows.Idle   [00004A86H] 
+# 	.focus	BOOLEAN	FALSE
+# 	.tick	Controllers.TickMsg	Fields
+# 	.w	HostWindows.Window	NIL
+#  HostMenus.TimerTick   [00003422H] 
+# 	.lParam	INTEGER	0
+# 	.ops	Controllers.PollOpsMsg	Fields
+# 	.wParam	INTEGER	1
+# 	.wnd	INTEGER	4982818
+#  Kernel.Try   [00003A61H] 
+# 	.a	INTEGER	4982818
+# 	.b	INTEGER	1
+# 	.c	INTEGER	0
+# 	.h	PROCEDURE	HostMenus.TimerTick
+#  HostMenus.ApplWinHandler   [00003841H] 
+# 	.Proc	PROCEDURE	NIL
+# 	.hit	BOOLEAN	FALSE
+# 	.lParam	INTEGER	0
+# 	.message	INTEGER	275
+# 	.res	INTEGER	0
+# 	.s	ARRAY 256 OF SHORTCHAR	"|È", 8X, "w"   ...
+# 	.w	INTEGER	0
+# 	.wParam	INTEGER	1
+# 	.wnd	INTEGER	4982818
+# <system>   (pc=768010EAH,  fp=0061FAACH)
+# <system>   (pc=767F80A9H,  fp=0061FB90H)
+# <system>   (pc=767F5E19H,  fp=0061FC04H)
+# <system>   (pc=767E7EFFH,  fp=0061FC0CH)
+#  HostMenus.Loop   [00003BDEH] 
+# 	.done	BOOLEAN	FALSE
+# 	.f	SET	{0..5}
+# 	.n	INTEGER	9
+# 	.res	INTEGER	0
+# 	.w	HostWindows.Window	NIL
+#  Kernel.Start   [00002B8CH] 
+# 	.code	PROCEDURE	HostMenus.Loop
+
+
 
 ## 2022-11-08 More undefined real...
 # undefined real result
@@ -1273,6 +1371,9 @@ if (!file.exists(paste0("RData/WinBUGS_sim_", run.date, ".rds"))){
 
 # Finally, it ran on 2022-10-26.
 # The same number of MCMC runs as the jags run was completed on 2022-10-27
+
+# With new simulated data (two stations for the first year), unobserved real came back... 
+
 ```
 
 Results indicated that Durban's approach overestimated the true abundance by approximately 2.5 folds (Figure \@ref(fig:Figure-N-sim-BUGS)). Credible intervals were wide when no counts were available.
