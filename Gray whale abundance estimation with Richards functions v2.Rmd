@@ -477,7 +477,7 @@ knitr::include_graphics(paste0("figures/mean_N_def_", dpi.set, "dpi.png"))
 ```
 
 ```{r simulation, echo=FALSE, message=FALSE}
-sim.date <- "2023-03-27"
+sim.date <- "2023-04-14"
 data.sim.out.file <- paste0("RData/simulation_data_", sim.date, ".rds")
 save.fig <- F
 
@@ -664,7 +664,8 @@ if (!file.exists(data.sim.out.file)){
                          B_VS = B_VS,
                          B0 = B0,
                          Data_True.N = Data_True.N,
-                         Season = Season)
+                         Season = Season,
+                         N.mean = N.mean)
   
   simulated.data <- list(sim.data = sim.data,
                          sim.parameters = sim.parameters)
@@ -683,7 +684,7 @@ if (!file.exists(data.sim.out.file)){
 # change this accordingly 2022-11-08 was with a common K and one station
 # 2023-03-23 is with two stations
 
-run.date <- "2023-03-27" #Sys.Date() #"2022-11-08" #   
+run.date <- "2023-04-14" #Sys.Date() #"2022-11-08" #   
 
 out.file.name <- paste0("RData/Pois_Binom_sim_results_", run.date, ".rds")
 if (!file.exists(out.file.name)){
@@ -777,7 +778,8 @@ max.r.hat <- max(unlist(lapply(jm.sim.out$jm$Rhat,
 #true.values <- c(S1, S2, K, P, B0, B_BF, B_VS)
 # params <- data.frame(name = param.names,
 #                      value = true.values)
-n.Season = length(Season)
+Season <- simulated.data$sim.parameters$Season
+n.Season <- length(Season)
 params.to.summarize.n.Season <- c("S1", "S2", "P", "Max")
 
 # Some are common among all years
