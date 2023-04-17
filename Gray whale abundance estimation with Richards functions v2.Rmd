@@ -665,7 +665,8 @@ if (!file.exists(data.sim.out.file)){
                          B0 = B0,
                          Data_True.N = Data_True.N,
                          Season = Season,
-                         N.mean = N.mean)
+                         N.mean = N.mean,
+                         True.N = True.N)
   
   simulated.data <- list(sim.data = sim.data,
                          sim.parameters = sim.parameters)
@@ -846,7 +847,7 @@ mean.N.hats.sim.JAGS <- data.frame(Season = rep(Season, each = 90),
                                    LCL = as.vector(jm.sim.out$jm$q2.5$mean.N),
                                    UCL = as.vector(jm.sim.out$jm$q97.5$mean.N),
                                    #true.mean = as.vector(True.N))
-                                   true.mean = as.vector(N.mean))
+                                   true.mean = as.vector(simulated.data$sim.parameters$N.mean))
 
 p.mean.N.hats.sim.JAGS <- ggplot(mean.N.hats.sim.JAGS %>% group_by(Season)) +
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
@@ -871,7 +872,7 @@ N.hats.sim.JAGS <- data.frame(Season = rep(Season, each = 90),
                               Mean = as.vector(jm.sim.out$jm$mean$N),
                               LCL = as.vector(jm.sim.out$jm$q2.5$N),
                               UCL = as.vector(jm.sim.out$jm$q97.5$N),
-                              true.N = as.vector(True.N))
+                              true.N = as.vector(simulated.data$sim.parameters$True.N))
 
 p.N.hats.sim.JAGS <- ggplot(N.hats.sim.JAGS) +
   geom_path(aes(x = Day, y = true.N), color = "gold") +
@@ -1020,6 +1021,14 @@ if (!file.exists(paste0("RData/WinBUGS_sim_", run.date, ".rds"))){
   #                     n.burnin = 30000,
   #                     n.chains = 5)
   
+  # Changed on 2023-04-14
+  # Model runs but with longer chains (jags setup is 120000/10/10000/5), Poisson 
+  # blows up during sampling. So, I reduced the # samples to 100000
+  MCMC.params <- list(n.samples = 100000,
+                      n.thin = 10,
+                      n.burnin = 30000,
+                      n.chains = 5)
+
   # Adds an all zero array to the second dimension, just as it was done for the
   # real data.
   # n <- abind(jags.data$n,
@@ -1038,7 +1047,7 @@ if (!file.exists(paste0("RData/WinBUGS_sim_", run.date, ".rds"))){
   # u <- jags.data$obs
   # u[u != 25] <- 1
   # u[u == 25] <- 0
-  u <- obs.1
+  u <- simulated.data$sim.data$obs #obs.1
   u[u == 36] <- 0
   u[u != 36] <- 1
   
@@ -1077,7 +1086,7 @@ if (!file.exists(paste0("RData/WinBUGS_sim_", run.date, ".rds"))){
   # "made use of undefined node obs"  2023-03-23
   # According to this StackOverflow posting, NAs are not liked by WinBUGS
   # https://stackoverflow.com/questions/39938942/made-use-of-undefined-node-winbugs-beginner
-  obs.BUGS <- obs.1
+  obs.BUGS <-  simulated.data$sim.data$obs #obs.1
   
   # obs <- abind(jags.data$obs,
   #              array(data = NA,
@@ -1212,7 +1221,7 @@ if (!file.exists(paste0("RData/WinBUGS_sim_", run.date, ".rds"))){
              n.iter = MCMC.params$n.samples,
              n.burnin = MCMC.params$n.burnin,
              n.thin = MCMC.params$n.thin,
-             debug = T,
+             debug = F,
              bugs.directory = WinBUGS.dir)
   
   Run_Time <- Sys.time() - Start_Time
