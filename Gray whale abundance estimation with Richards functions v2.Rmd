@@ -1023,8 +1023,9 @@ if (!file.exists(paste0("RData/WinBUGS_sim_", run.date, ".rds"))){
   
   # Changed on 2023-04-14
   # Model runs but with longer chains (jags setup is 120000/10/10000/5), Poisson 
-  # blows up during sampling. So, I reduced the # samples to 100000
-  MCMC.params <- list(n.samples = 100000,
+  # blows up during sampling. So, I reduced the # samples to 100000, and got the 
+  # same error, so reducing further to 60000
+  MCMC.params <- list(n.samples = 60000,
                       n.thin = 10,
                       n.burnin = 30000,
                       n.chains = 5)
