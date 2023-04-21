@@ -330,14 +330,14 @@ get.shift <- function(YEAR, data, ff, i){
   # by using just "S" entries, it was not removed. So, I need to fix that. 2022-03-30
   BFs.S <- data.shift %>% 
     filter(V2 == "S") %>% 
-    select(V12, begin) %>%
+    dplyr::select(V12, begin) %>%
     transmute(BF = as.numeric(V12),
               time = begin)
     #pull() %>% as.numeric()
   
   BFs.V <- data.shift %>% 
     filter(V2 == "V") %>% 
-    select(V5, begin) %>%
+    dplyr::select(V5, begin) %>%
     transmute(BF = as.numeric(V5),
               time = begin)
   
@@ -365,7 +365,7 @@ get.shift <- function(YEAR, data, ff, i){
   #   BFs <- as.numeric(data[Shifts.begin[i]:(Shifts.begin[i+1]-1), 12])    
   # } else {
   #   BFs <- data.shift %>% 
-  #     select(V12) %>% pull()
+  #     dplyr::select(V12) %>% pull()
   # }
   
   
@@ -377,14 +377,14 @@ get.shift <- function(YEAR, data, ff, i){
   
   VSs.S <- data.shift %>% 
     filter(V2 == "S") %>% 
-    select(V13, begin) %>%
+    dplyr::select(V13, begin) %>%
     transmute(VS = as.numeric(V13),
               time = begin)
   #pull() %>% as.numeric()
   
   VSs.V <- data.shift %>% 
     filter(V2 == "V") %>% 
-    select(V6, begin) %>%
+    dplyr::select(V6, begin) %>%
     transmute(VS = as.numeric(V6),
               time = begin)
   
@@ -449,10 +449,10 @@ get.shift <- function(YEAR, data, ff, i){
     if (nrow(sub.data) > 0){
       N <- sub.data %>%
         group_by(V5) %>% #group by the whale group number
-        select(V5, V9) %>%
+        dplyr::select(V5, V9) %>%
         #summarize(N = max(as.numeric(V9), na.rm = T)) %>% 
         summarize(N = last(as.numeric(V9))) %>% 
-        select(N)  %>% sum()
+        dplyr::select(N)  %>% sum()
     } else {
       N <- 0
     }
@@ -464,10 +464,10 @@ get.shift <- function(YEAR, data, ff, i){
     if (nrow(sub.data) > 0){
       N <- sub.data %>%
         group_by(V5) %>% #group by the whale group number
-        select(V5, V9) %>%
+        dplyr::select(V5, V9) %>%
         #summarize(N = max(as.numeric(V9), na.rm = T)) %>% 
         summarize(N = last(as.numeric(V9))) %>% 
-        select(N)  %>% sum()
+        dplyr::select(N)  %>% sum()
     } else {
       N <- 0
     }
@@ -517,7 +517,7 @@ compare.V0.V2.raw <- function(YEAR, obs.list){
   v0.out <- readRDS(paste0("RData/out_", YEAR, "_Joshs.rds"))
   v2.out <- readRDS(paste0("RData/out_", YEAR, "_Tomo_v2.rds"))
   
-  FinalData.v2 <- v2.out$FinalData %>% mutate(v = "V2") %>% select(-dur)
+  FinalData.v2 <- v2.out$FinalData %>% mutate(v = "V2") %>% dplyr::select(-dur)
   FinalData.v0 <- v0.out$FinalData %>% mutate(v = "V0") 
   
   FinalData.v2 <- v2.out$FinalData %>% 
@@ -541,9 +541,9 @@ compare.V0.V2.raw <- function(YEAR, obs.list){
   
   
   # replace column names
-  FinalData.v2 %>% select(-obs) %>%
+  FinalData.v2 %>% dplyr::select(-obs) %>%
     mutate(obs = ID) %>%
-    select(-ID) -> FinalData.v2
+    dplyr::select(-ID) -> FinalData.v2
   
   # rearrange the columns to match v0
   FinalData.v2 <- FinalData.v2[, names(FinalData.v0)]
@@ -650,7 +650,7 @@ compare.V0.V2.BUGSinput <- function(YEAR, idx.yr, periods, obs.list){
   FinalData.v2 <- v2.out$FinalData %>% 
     mutate(v = "V2") %>% 
     left_join(obs.list, by = "obs") %>%
-    select(-c(dur, ff, i, BeginHr)) 
+    dplyr::select(-c(dur, ff, i, BeginHr)) 
   
   # find if there is NA in ID - not in the look up table  
   ID.NA <- filter(FinalData.v2, is.na(ID))
@@ -670,9 +670,9 @@ compare.V0.V2.BUGSinput <- function(YEAR, idx.yr, periods, obs.list){
   
   # replace column names
   FinalData.v2 %>% 
-    select(-obs) %>%
+    dplyr::select(-obs) %>%
     mutate(obs = ID) %>%
-    select(-ID) -> FinalData.v2
+    dplyr::select(-ID) -> FinalData.v2
   
   # rearrange the columns to match V0
   FinalData.v2 <- FinalData.v2[, names(FinalData.V0)]
@@ -746,7 +746,7 @@ n.comparison <- function(FinalData.Both, difs.1, idx, YEAR){
     filter(time.steps == difs.1[idx, "time.step"]) %>%
     mutate(begin.time = fractional_Day2YMDhms(begin, YEAR)$hms,
            end.time = fractional_Day2YMDhms(end, YEAR)$hms) %>% 
-    select(begin.time, end.time, n, bf, vs, v) -> tmp
+    dplyr::select(begin.time, end.time, n, bf, vs, v) -> tmp
   
   tmp %>%
     filter(v == "V0") -> tmp.0

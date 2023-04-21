@@ -16,6 +16,7 @@ source("Granite_Canyon_Counts_fcns.R")
 
 
 YEAR <- 2023 #Enter the year of the data files
+min_dur <- 85
 
 # These lines need to be run just once. ############################
 # This is the merged file from Aimee Lang
@@ -26,6 +27,8 @@ YEAR <- 2023 #Enter the year of the data files
 # rather than 001. I used 001 to split the file, so they were not split
 # correctly. Edited the merged file and rerun the loop below. The latter
 # issue (Feb dates) did not make any difference to creating data. 2023-03-03
+# For 2023-01-27, no visibility code was enterd for the first 7:36:05 -
+# 8:10:14, which eliminated these lines from analyzed. I added 4s in them. 2023-04-21
 # data.file.name <- "Data/2023/EditedDataAll_2023_TE.dat"
 # 
 # all.lines <- read_lines(file = data.file.name)
@@ -77,7 +80,7 @@ out.rds.filename <- paste0("RData/V2.1_Mar2023/out_", YEAR, "_min", min_dur, "_T
 
 Data_Out.list <- list()
 
-ff <- 1
+ff <- 19
 for(ff in 1:length(FILES)){ 
   
   data <- get.data(dir = "Data/", YEAR = YEAR, ff = ff, FILES = FILES)
