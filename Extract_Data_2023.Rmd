@@ -78,13 +78,13 @@ out.rds.filename <- paste0("RData/V2.1_Mar2023/out_", YEAR, "_min", min_dur, "_T
 #out.rds.filename <- paste0("RData/V2.1_Aug2022/out_", YEAR, "_Tomo_v2.rds")
 #out.rds.filename <-  paste0("RData/V2.1_Mar2023_8weeks/out_", YEAR, "_min", min_dur, "_Tomo_v2.rds")
 
-Data_Out.list <- list()
+Data_Out.list <- data.list <- list()
 
 ff <- 19
 for(ff in 1:length(FILES)){ 
   
   data <- get.data(dir = "Data/", YEAR = YEAR, ff = ff, FILES = FILES)
-
+  data.list[[ff]] <- data
   
   #Shifts <- which(data$V2 %in% c('P','E')) #start/end of all shifts
   Shifts <- which(data$V2 %in% "P") #start of all shifts
@@ -108,7 +108,7 @@ for(ff in 1:length(FILES)){
 }#ff (files loop)         
 
 Data_Out <- do.call("rbind", Data_Out.list)
-
+all.data <- do.call("rbind", data.list)
 ```
 
 
@@ -209,7 +209,7 @@ out.obj <- list(Data_Out = Data_Out,
                 WPH = WPH)
 
 # Uncomment the following line if new file needs to be saved
-saveRDS(out.obj, file = out.rds.filename)
+#saveRDS(out.obj, file = out.rds.filename)
 
 
 ```
