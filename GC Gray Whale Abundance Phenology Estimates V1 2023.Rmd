@@ -217,12 +217,13 @@ all.years %>% mutate(Year0 = Year - 1,
 
 p.Nhat <- ggplot(data = all.years.df) + 
   geom_point(aes(x = Season, y = Nhat, color = Method)) + 
-  geom_errorbar(aes(x = Season, ymin = LCL, ymax = UCL, color = Method)) +
+  geom_errorbar(aes(x = Season, ymin = LCL, ymax = UCL, color = Method),
+                size = 1) +
   geom_tile(data = UMEs,
             aes(x = Season, y = 22500, width = 1, height = 35000),
             fill = "gold", alpha = 0.3) +
   scale_color_discrete(breaks = c("Durban", "Laake")) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5),
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 9),
         legend.position = "top") +
   xlab("") +
   ylab("Abundance + 95% CI")
@@ -544,7 +545,7 @@ knitr::include_graphics("figures/daily_estimates_2023.png")
 
 \newpage
 
-```{r Figure-nhats-v1, echo=FALSE, message=FALSE, fig.cap="Estimated abundance and 95% confidence intervals of gray whales from the visual surveys off Granite Canyon, CA, between the 1967/1968 and 2021/2022 seasons. Estimates in green indicate those from Laake et al. (2012). Estimates in red (from the 2006/2007 season) indicate those obtained using the method in Durban et al. (2016). Yello boxes represent unusual mortality events."}
+```{r Figure-nhats-v1, echo=FALSE, message=FALSE, fig.cap="Estimated abundance and 95% confidence intervals of gray whales from the visual surveys off Granite Canyon, CA, between the 1967/1968 and 2022/2023 seasons. Estimates in green indicate those from Laake et al. (2012). Estimates in red (from the 2006/2007 season) indicate those obtained using the method in Durban et al. (2016). Yello boxes represent unusual mortality events."}
 
 knitr::include_graphics("figures/nhats_2023.png")
 
