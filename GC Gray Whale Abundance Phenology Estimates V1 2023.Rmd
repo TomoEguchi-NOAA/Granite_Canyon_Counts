@@ -14,7 +14,7 @@ csl: marine-ecology-progress-series.csl
 ```{r setup, include=FALSE}
 rm(list = ls())
 knitr::opts_chunk$set(echo = TRUE)
-save.fig <- T
+save.fig <- F
 
 source("Granite_Canyon_Counts_fcns.R")
 library(tidyverse)
@@ -319,7 +319,8 @@ ns <- rbind(n[,1,], matrix(NA, nrow = 2, ncol = x))
 
 for (y in 1:x){
   for (j in 2:89){
-    daily.effort[j-1, y] <- sum(Watch.Length[day.mat[1:nrow(day.mat) , y] == j, y], na.rm = T)
+    daily.effort[j-1, y] <- sum(Watch.Length[day.mat[1:nrow(day.mat) , y] == j, y], 
+                                na.rm = T)
     daily.n[j-1, y] <- sum(ns[day.mat[1:nrow(day.mat) ,y] == j, y], na.rm = T)
     daily.N[j-1, y] <- daily.n[j-1,y]/daily.effort[j-1,y]
   }
@@ -334,6 +335,15 @@ daily.N.df %>% pivot_longer(everything(),
 
 daily.N.df.long$days <- rep(2:89, times = x)
 
+daily.n.df <- data.frame(daily.n) 
+colnames(daily.n.df) <- seasons
+daily.n.df %>% pivot_longer(everything(),
+                            names_to = "Season", 
+                            values_to = "n") %>%  
+  arrange(Season) -> daily.n.df.long
+
+daily.n.df.long$days <- rep(2:89, times = x)
+
 p.daily <- 
   ggplot(data = all.stats) +
   geom_line(aes(x = days, y = Daily.Est.median)) +
@@ -342,6 +352,8 @@ p.daily <-
                   ymax = Daily.Est.UCL),
               fill = "orange", 
               alpha = 0.5) + 
+  # geom_point(data = daily.n.df.long,
+  #            aes(x = days, y = n)) +
   geom_point(data = daily.N.df.long,
              aes(x = days, y = N)) +
   facet_wrap(vars(Season))+
