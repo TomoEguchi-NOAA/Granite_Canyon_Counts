@@ -1724,7 +1724,8 @@ p.corrected.N.hats <- ggplot() +
   theme(axis.text.x = element_text(angle = 60, vjust = 1, hjust = 1))
 
 save.fig.fcn(p.corrected.N.hats,
-             file.name = paste0("figures/corrected_N_hats_BUGS_JAGS_real_", dpi.set, "dpi.png"),
+             file.name = paste0("figures/corrected_N_hats_BUGS_JAGS_real_", 
+                                dpi.set, "dpi.png"),
              dpi = dpi.set, replace = save.fig)
 
 
