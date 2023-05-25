@@ -1384,7 +1384,7 @@ if (!file.exists(paste0("RData/WinBUGS_sim_", run.date, ".rds"))){
 # Finally, it ran on 2022-10-26.
 # The same number of MCMC runs as the jags run was completed on 2022-10-27
 
-# With new simulated data (two stations for the first year), unobserved real came back... 
+# With new simulated data (two stations for the first year), unobserved real came back... reduced the number of steps to 60000 with burn in of 30000 and it ran okay. 
 
 ```
 
@@ -1490,7 +1490,8 @@ Data from last 9 seasons were analyzed using the new approach and the results co
 ```{r new-analysis-9yr-v2, echo=FALSE, message=FALSE, warning=FALSE}
 BUGS.out <- readRDS("RData/WinBUGS_9yr_v2_10k.rds")
 run.date.real <- "2023-03-02" #Sys.Date() #"2023-01-06"   # Change it accordingly
-out.file.name <- paste0("RData/JAGS_pois_binom_9yr_v2_", run.date.real, ".rds")
+out.file.name <- paste0("RData/JAGS_pois_binom_9yr_v2_", 
+                        run.date.real, ".rds")
 
 n.station <- c(1,1,1,1,1,1,1,1,1)
 #n.station[colSums(BUGS.out$jags.data$n[,2,]) > 0] <- 2
@@ -1505,7 +1506,6 @@ jags.data.real <- list(  n = BUGS.out$BUGS.data$n,
                          bf = scale(BUGS.out$BUGS.data$bf),
                          watch.prop = (BUGS.out$BUGS.data$Watch.Length*24*60)/540,
                          day = BUGS.out$BUGS.data$day)
-
 
 if (!file.exists(out.file.name)){
 
@@ -1551,7 +1551,7 @@ LOOIC.n <- compute.LOOIC(loglik.array = jm.out.real$jm$sims.list$log.lkhd,
 
 ```
 
-Pareto k statistics indicated that the model fit reasonably well to the data. Majority of Pareto k statistics were less than 0.7 (`r which(LOOIC.n$loo.out$diagnostics$pareto_k < 0.7) %>% length()` out of `r length(LOOIC.n$loo.out$diagnostics$pareto_k)`), with the maximum value of `r signif(max(LOOIC.n$loo.out$diagnostics$pareto_k), 3)`.
+Pareto k statistics indicated that the model fit reasonably well to the data. A majority of Pareto k statistics were less than 0.7 (`r which(LOOIC.n$loo.out$diagnostics$pareto_k < 0.7) %>% length()` out of `r length(LOOIC.n$loo.out$diagnostics$pareto_k)`), with the maximum value of `r signif(max(LOOIC.n$loo.out$diagnostics$pareto_k), 3)`. Convergence of MCMC did not reach for 
 
 ```{r JAGS-results, echo=F,message=FALSE}
 Season <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011",
@@ -1635,6 +1635,8 @@ stats.list <- vector(mode = "list",
 
 for (k in 1:dim(Daily.Est.BUGS)[3]){
   stats.list[[k]] <- data.frame(Daily.Est.median = apply(Daily.Est.BUGS[,,k], 2,
+                                                         mean),
+                                Daily.Est.median = apply(Daily.Est.BUGS[,,k], 2,
                                                          median),
                                 Daily.Est.LCL = apply(Daily.Est.BUGS[,,k], 2,
                                                       quantile,0.275),
@@ -1659,7 +1661,10 @@ for (k in 1:dim(Daily.Est.BUGS)[3]){
 
 all.stats.BUGS <- do.call("rbind", stats.list) %>% group_by(Season)
 
-Corrected.Est.df.BUGS <- data.frame(total.median = apply(Corrected.Est.BUGS,
+Corrected.Est.df.BUGS <- data.frame(total.mean = apply(Corrected.Est.BUGS,
+                                                       FUN = mean,
+                                                       MARGIN = 2),
+                                    total.median = apply(Corrected.Est.BUGS,
                                                          FUN = median,
                                                          MARGIN = 2),
                                     total.LCL = apply(Corrected.Est.BUGS,
@@ -1678,8 +1683,19 @@ p.mean.N.hats.JAGS <- ggplot(mean.N.hats.JAGS %>% group_by(Season)) +
   facet_wrap(~ Season)
 
 save.fig.fcn(p.mean.N.hats.JAGS,
-             file.name = paste0("figures/mean_N_pois_bino_real_", dpi.set, "dpi.png"),
+             file.name = paste0("figures/mean_N_pois_bino_real_", 
+                                dpi.set, "dpi.png"),
              dpi = dpi.set, replace = save.fig)
+
+all.N.hats.df <- data.frame(Season = Corrected.Est.df.JAGS$Season,
+                            Mean.JAGS = Corrected.Est.df.JAGS$Mean,
+                            Median.JAGS = Corrected.Est.df.JAGS$Median,
+                            LCL.JAGS = Corrected.Est.df.JAGS$LCL,
+                            UCL.JAGS = Corrected.Est.df.JAGS$UCL,
+                            Mean.BUGS = Corrected.Est.df.BUGS$Mean,
+                            Median.BUGS = Corrected.Est.df.BUGS$Median,
+                            LCL.BUGS = Corrected.Est.df.BUGS$LCL,
+                            UCL.BUGS = Corrected.Est.df.BUGS$UCL)
 
 
 p.N.hats <- ggplot(N.hats.JAGS) +
@@ -1701,7 +1717,8 @@ p.N.hats <- ggplot(N.hats.JAGS) +
   facet_wrap(~ Season) 
 
 save.fig.fcn(p.N.hats,
-             file.name = paste0("figures/N_hats_BUGS_JAGS_real_", dpi.set, "dpi.png"),
+             file.name = paste0("figures/N_hats_BUGS_JAGS_real_", 
+                                dpi.set, "dpi.png"),
              dpi = dpi.set, replace = save.fig)
 
 p.corrected.N.hats <- ggplot() +
