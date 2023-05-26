@@ -683,18 +683,21 @@ if (!file.exists(data.sim.out.file)){
 ```{r run-jags, echo=FALSE, message=FALSE}
 #Data_True.N$obsd.n <- obsd.n
 # change this accordingly 2022-11-08 was with a common K and one station
-# 2023-03-23 is with two stations
+# 2023-03-23 and later are with two stations
 
-run.date <- "2023-04-14" #Sys.Date() #"2022-11-08" #   
+run.date <- "2023-05-26" #"2023-04-14" #Sys.Date() #"2022-11-08" #   
 
-out.file.name <- paste0("RData/Pois_Binom_sim_results_", run.date, ".rds")
+#out.file.name <- paste0("RData/Pois_Binom_sim_results_", run.date, ".rds")
+out.file.name <- paste0("RData/Pois_Binom_v2_sim_results_", run.date, ".rds")
+
 if (!file.exists(out.file.name)){
   MCMC.params <- list(n.samples = 120000,
                       n.thin = 10,
                       n.burnin = 100000,
                       n.chains = 5)
   
-  jags.model <- paste0("models/model_Richards_pois_bino.txt")
+  #jags.model <- paste0("models/model_Richards_pois_bino.txt")
+  jags.model <- paste0("models/model_Richards_pois_bino_v2.txt")
   
   jags.params <- c("OBS.RF", "OBS.Switch",
                    "BF.Switch", "BF.Fixed",
@@ -781,10 +784,10 @@ max.r.hat <- max(unlist(lapply(jm.sim.out$jm$Rhat,
 #                      value = true.values)
 Season <- simulated.data$sim.parameters$Season
 n.Season <- length(Season)
-params.to.summarize.n.Season <- c("S1", "S2", "P", "Max")
+params.to.summarize.n.Season <- c("S1", "S2", "P", "Max", "K")
 
 # Some are common among all years
-params.to.summarize.n.1 <- c("K", "mean.prob", "BF.Fixed", "VS.Fixed")
+params.to.summarize.n.1 <- c("mean.prob", "BF.Fixed", "VS.Fixed")
 
 # Add year specific indices
 param.names.n.Season <- lapply(params.to.summarize.n.Season,
@@ -805,8 +808,9 @@ params.df <- data.frame(names = param.names,
                         value = c(NA, simulated.data$sim.parameters$S1,
                                   NA, simulated.data$sim.parameters$S2,
                                   NA, simulated.data$sim.parameters$P,
+                                  
                                   NA, simulated.data$sim.parameters$Max,
-                                  simulated.data$sim.parameters$K,
+                                  NA, simulated.data$sim.parameters$K,
                                   simulated.data$sim.parameters$B0, 
                                   simulated.data$sim.parameters$B_BF, 
                                   simulated.data$sim.parameters$B_VS))
@@ -932,6 +936,7 @@ In order to evaluate the performance of the proposed method, I compared the esti
 
 ```{r WinBugs-sim-Analysis, echo=FALSE, message=FALSE}
 #run.date <- "2022-10-27"
+run.date <- "2023-04-14"
 if (!file.exists(paste0("RData/WinBUGS_sim_", run.date, ".rds"))){
   WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
   BUGS.model <- "GW_Nmix_Orig.bugs"
@@ -1490,7 +1495,10 @@ Data from last 9 seasons were analyzed using the new approach and the results co
 ```{r new-analysis-9yr-v2, echo=FALSE, message=FALSE, warning=FALSE}
 BUGS.out <- readRDS("RData/WinBUGS_9yr_v2_10k.rds")
 run.date.real <- "2023-03-02" #Sys.Date() #"2023-01-06"   # Change it accordingly
-out.file.name <- paste0("RData/JAGS_pois_binom_9yr_v2_", 
+# out.file.name <- paste0("RData/JAGS_pois_binom_9yr_v2_", 
+#                         run.date.real, ".rds")
+
+out.file.name <- paste0("RData/JAGS_pois_binom_v2_9yr_v2_", 
                         run.date.real, ".rds")
 
 n.station <- c(1,1,1,1,1,1,1,1,1)
@@ -1507,6 +1515,9 @@ jags.data.real <- list(  n = BUGS.out$BUGS.data$n,
                          watch.prop = (BUGS.out$BUGS.data$Watch.Length*24*60)/540,
                          day = BUGS.out$BUGS.data$day)
 
+MCMC.params <- jm.sim.out$MCMC.params
+jags.params <- jm.sim.out$jags.params
+jags.model <- jm.sim.out$jags.model
 if (!file.exists(out.file.name)){
 
   Start_Time<-Sys.time()
@@ -1547,9 +1558,13 @@ LOOIC.n <- compute.LOOIC(loglik.array = jm.out.real$jm$sims.list$log.lkhd,
                          data.array = data.array,
                          MCMC.params = jm.out.real$MCMC.params)
 
-
-
+# Look at Rhat statistics
+max.Rhat.real <- lapply(jm.out.real$jm$Rhat, FUN = max, na.rm = T) %>% unlist()
+max.Rhat.real.big <- max.Rhat[which(max.Rhat > 1.1)]
 ```
+
+According to the Rhat statistics, convergence did not reach for `r length(max.Rhat.big)` parameters that were monitored (`r names(max.Rhat.big)[1:(length(max.Rhat.big)-1)]`). 
+
 
 Pareto k statistics indicated that the model fit reasonably well to the data. A majority of Pareto k statistics were less than 0.7 (`r which(LOOIC.n$loo.out$diagnostics$pareto_k < 0.7) %>% length()` out of `r length(LOOIC.n$loo.out$diagnostics$pareto_k)`), with the maximum value of `r signif(max(LOOIC.n$loo.out$diagnostics$pareto_k), 3)`. Convergence of MCMC did not reach for 
 
@@ -1558,18 +1573,14 @@ Season <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011",
             "2014/2015", "2015/2016", "2019/2020", "2021/2022",
             "2022/2023")
 
-max.r.hat.real <- max(unlist(lapply(jm.out.real$jm$Rhat,
-                               FUN = max,
-                               na.rm = T)))
-
 # Create a vector of parameter names
 # Some are year specific:
 n.Season <- length(Season)
-params.to.summarize.n.Season <- c("S1", "S2", "P", "max",
+params.to.summarize.n.Season <- c("S1", "S2", "P", "Max", "K",
                                   "Corrected.Est", "Raw.Est")
 
 # Some are common among all years
-params.to.summarize.n.1 <- c("K", "mean.prob", "BF.Fixed", "VS.Fixed")
+params.to.summarize.n.1 <- c("mean.prob", "BF.Fixed", "VS.Fixed")
 
 # Add year specific indices
 param.names.n.Season <- lapply(params.to.summarize.n.Season,
@@ -1687,16 +1698,17 @@ save.fig.fcn(p.mean.N.hats.JAGS,
                                 dpi.set, "dpi.png"),
              dpi = dpi.set, replace = save.fig)
 
-all.N.hats.df <- data.frame(Season = Corrected.Est.df.JAGS$Season,
-                            Mean.JAGS = Corrected.Est.df.JAGS$Mean,
-                            Median.JAGS = Corrected.Est.df.JAGS$Median,
-                            LCL.JAGS = Corrected.Est.df.JAGS$LCL,
-                            UCL.JAGS = Corrected.Est.df.JAGS$UCL,
-                            Mean.BUGS = Corrected.Est.df.BUGS$Mean,
-                            Median.BUGS = Corrected.Est.df.BUGS$Median,
-                            LCL.BUGS = Corrected.Est.df.BUGS$LCL,
-                            UCL.BUGS = Corrected.Est.df.BUGS$UCL)
-
+Corrected.Est.df.JAGS %>% left_join(Corrected.Est.df.BUGS,
+                                    by = "Season") %>%
+  transmute(Season = Season,
+            Mean.JAGS = Mean,
+            Median.JAGS = Median,
+            LCL.JAGS = LCL,
+            UCL.JAGS = UCL,
+            Mean.BUGS = total.mean,
+            Median.BUGS = total.median,
+            LCL.BUGS = total.LCL,
+            UCL.BUGS = total.UCL) -> Corrected.Est.all
 
 p.N.hats <- ggplot(N.hats.JAGS) +
   geom_ribbon(aes(x = Day,
@@ -1721,22 +1733,18 @@ save.fig.fcn(p.N.hats,
                                 dpi.set, "dpi.png"),
              dpi = dpi.set, replace = save.fig)
 
-p.corrected.N.hats <- ggplot() +
-  geom_errorbar(data = Corrected.Est.df.JAGS,
-                aes(x = Season, ymin = LCL, ymax = UCL),
+p.corrected.N.hats <- ggplot(Corrected.Est.all) +
+  geom_errorbar(aes(x = Season, ymin = LCL.JAGS, ymax = UCL.JAGS),
                 color = "blue") +
-  geom_point(data = Corrected.Est.df.JAGS,
-             aes(x = Season, y = Mean)) +
+  geom_point(aes(x = Season, y = Mean.JAGS)) +
   #geom_point(data = Corrected.Est.df.JAGS,
   #           aes(x = Season, y = Median),
   #           shape = 0) +
-  geom_errorbar(data = Corrected.Est.df.BUGS,
-                aes(x = Season,
-                    ymin = total.LCL,
-                    ymax = total.UCL),
+  geom_errorbar(aes(x = Season,
+                    ymin = LCL.BUGS,
+                    ymax = UCL.BUGS),
                 color = "olivedrab") +
-  geom_point(data = Corrected.Est.df.BUGS,
-             aes(x = Season, y = total.median)) +
+  geom_point(aes(x = Season, y = Median.BUGS)) +
   xlab("") + ylab("Mean abundance (95% CI)") +
   theme(axis.text.x = element_text(angle = 60, vjust = 1, hjust = 1))
 

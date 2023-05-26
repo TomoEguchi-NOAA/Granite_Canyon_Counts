@@ -25,10 +25,11 @@ library(bayesplot)
 #models <- "norm_bino"
 #models <- "norm_pois"
 models <- "pois_bino"
+ver <- "v2"  # "v1" has a common K and "v2" has year-specific K
 #jags.model <- paste0("models/model_Richards_", models, ".txt")
-jags.model <- paste0("models/model_Richards_", models, ".txt")
+jags.model <- paste0("models/model_Richards_", models, "_", ver, ".txt")
 
-out.file.name <- paste0("RData/JAGS_Richards_v1_", models, 
+out.file.name <- paste0("RData/JAGS_Richards_", models, "_", ver,  
                         "_", Sys.Date(), ".RData")
 
 # Observer list gets updated as new observers are added. 
@@ -103,7 +104,8 @@ n.seasons <- length(seasons)
 data.8yr.v2 <- readRDS("RData/WinBUGS_8yr_v2.rds")
 data.WinBUGS <- data.8yr.v2$jags.data
 
-out.file.name <- paste0("RData/JAGS_Richards_v1_", models, 
+out.file.name <- paste0("RData/JAGS_Richards_", 
+                        models, "_", ver,
                         "_8yr_v2_", Sys.Date(), ".RData")
 
 ```
@@ -252,7 +254,7 @@ jm <- jags(jags.data,
              n.iter = MCMC.params$n.samples,
              DIC = T, parallel=T)
 
-
+out.list <- list()
 
 # This is the output file name
 # jags.out.file <- paste0("RData/jagam_dailyN_k", 
