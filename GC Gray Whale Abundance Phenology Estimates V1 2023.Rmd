@@ -14,7 +14,7 @@ csl: marine-ecology-progress-series.csl
 ```{r setup, include=FALSE}
 rm(list = ls())
 knitr::opts_chunk$set(echo = TRUE)
-save.fig <- F
+save.fig <- T
 
 source("Granite_Canyon_Counts_fcns.R")
 library(tidyverse)
@@ -209,7 +209,7 @@ Laake.estimates %>%
   mutate(Method = "Laake") %>%
   rbind(Durban.estimates) -> all.estimates
 
-#write.csv(all.estimates, file = "Data/all_estimates_2022.csv")
+#write.csv(all.estimates, file = "Data/all_estimates_2023.csv")
 # Create all years without skipping unobserved years:
 all.years %>% mutate(Year0 = Year - 1,
                      Season = paste(Year0, Year, sep = "/")) %>%

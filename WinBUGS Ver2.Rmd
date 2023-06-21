@@ -3,7 +3,7 @@ title: "R Notebook"
 output: html_notebook
 ---
 
-This notebook describes abundance estimation of gray whales using Durban's WinBUGS code and Ver1.0 data extraction method. Ver1.0 was developed by John Durban and updated by Josh Stewart. In this notebook, the new data from the 2021/2022 season are added to the previous data and run with WinBUGS. 
+This notebook describes abundance estimation of gray whales using Durban's WinBUGS code and Ver2.0 data extraction method. Ver1.0 was developed by John Durban and updated by Josh Stewart. I created Ver2.0, which corrected some errors in Ver1.0. In this notebook, the new data from the 2021/2022 and 2022/2023 seasons were added to the previous data and run with WinBUGS. 
 
 Set up libraries
 
