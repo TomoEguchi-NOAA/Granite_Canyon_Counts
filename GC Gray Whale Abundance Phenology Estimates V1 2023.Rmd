@@ -233,6 +233,27 @@ if (save.fig)
          plot = p.Nhat,
          device = "png", dpi = 600)
 
+
+## For Johnathan Scordino 2023-08-08
+# ggsave(ggplot(data = all.years.df %>%
+#                 filter(Year != 2023)) + 
+#   geom_point(aes(x = Season, y = Nhat, color = Method)) + 
+#   geom_errorbar(aes(x = Season, ymin = LCL, ymax = UCL, color = Method),
+#                 size = 1) +
+#   geom_tile(data = UMEs %>%
+#               filter(Year != 2022),
+#             aes(x = Season, y = 22500, width = 1, height = 35000),
+#             fill = "gold", alpha = 0.3) +
+#   scale_color_discrete(breaks = c("Durban", "Laake")) +
+#   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 9),
+#         legend.position = "top") +
+#   xlab("") +
+#   ylab("Abundance + 95% CI"),
+#   filename = "figures/Nhats_2022_for_JS.png",
+#   dpi = 600, device = "png")
+# 
+
+
 # Find daily data:
 data.2023 <- readRDS(file = "RData/V2.1_Mar2023/out_2023_min85_Tomo_v2.rds")
 # ones in the V2.1_Aug2022 folder are the same as those in V2.1_Mar2023 (at least
