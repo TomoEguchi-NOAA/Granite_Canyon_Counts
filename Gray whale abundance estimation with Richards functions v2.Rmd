@@ -1560,7 +1560,7 @@ LOOIC.n <- compute.LOOIC(loglik.array = jm.out.real$jm$sims.list$log.lkhd,
 
 # Look at Rhat statistics
 max.Rhat.real <- lapply(jm.out.real$jm$Rhat, FUN = max, na.rm = T) %>% unlist()
-max.Rhat.real.big <- max.Rhat[which(max.Rhat > 1.1)]
+max.Rhat.real.big <- max.Rhat.real[which(max.Rhat.real > 1.1)]
 ```
 
 According to the Rhat statistics, convergence did not reach for `r length(max.Rhat.big)` parameters that were monitored (`r names(max.Rhat.big)[1:(length(max.Rhat.big)-1)]`). 
