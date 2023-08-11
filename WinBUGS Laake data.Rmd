@@ -18,6 +18,21 @@ WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
 
 ```
 
+Get data from Laake paper. These csv files were created from the dataframes in the ERAnalysis project. 
+
+```{r}
+Laake_PrimarySightings <- read.csv(file = "Data/Laake_PrimarySightings.csv")
+Laake_SecondarySightings <- read.csv(file = "Data/Laake_SecondarySightings.csv")
+
+Laake_PrimaryEffort <- read.csv(file = "Data/Laake_PrimaryEffort.csv")
+Laake_SecondaryEffort <- read.csv(file = "Data/Laake_SecondaryEffort.csv")
+
+
+
+```
+
+
+
 Get data prior to the 2021/2022 season:
 
 ```{r}

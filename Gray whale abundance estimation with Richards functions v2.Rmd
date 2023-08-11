@@ -1770,4 +1770,218 @@ knitr::include_graphics(paste0("figures/N_hats_BUGS_JAGS_real_", dpi.set, "dpi.p
 knitr::include_graphics(paste0("figures/corrected_N_hats_BUGS_JAGS_real_", dpi.set, "dpi.png"))
 ```
 
+
+#### Application of the novel approach to data in Laake et al. {-}
+
+In this section, I apply the novel approach of estimating the abundance of gray whale from data collected by visual surveys at Granite Canyon from the 1967/1968 season to 2006/2007 season. The data were obtained from Jeff Laake via Github (https://github.com/jlaake/ERAnalysis/tree/master/ERAnalysis). These data were analyzed and results published (Laake et al. 2012). 
+
+##### Data {-}
+
+START FROM THIS CHUNK 2023-08-11
+
+```{r Laake-data, echo=FALSE}
+# sightings
+Laake_PrimarySightings <- read.csv(file = "Data/Laake_PrimarySightings.csv")
+Laake_SecondarySightings <- read.csv(file = "Data/Laake_SecondarySightings.csv")
+
+# effort
+Laake_PrimaryEffort <- read.csv(file = "Data/Laake_PrimaryEffort.csv") %>%
+  filter(Use)
+Laake_SecondaryEffort <- read.csv(file = "Data/Laake_SecondaryEffort.csv") %>%
+  filter(Use)
+
+# observers
+obs <- c(unique(Laake_PrimaryEffort$Observer),
+  unique(Laake_SecondaryEffort$Observer)) %>% unique()
+Laake.obs <- data.frame(obs = obs,
+                        obs.ID = seq(1:length(obs)))
+
+Laake_PrimaryEffort %>% 
+  group_by(Date) %>% 
+  summarize(sum.effort = sum(effort)) -> tmp
+# maximum daily effort was 0.447917, or 10.75 hrs.
+ 
+max.effort <- max(tmp$sum.effort)
+Laake_PrimaryEffort %>% 
+         group_by(Start.year) %>%
+  summarize(Date = Date,
+            Year = first(Start.year),
+            n = nwhales,
+            Day = as.Date(Date) - as.Date(paste0(Year, "-12-01")),
+            Season = paste0(Year, "/", Year + 1),
+            obs = Observer,
+            vs = vis,
+            bf = beaufort,
+            watch.prop = effort/max.effort) -> Laake.primary.counts
+
+# Although the maximum effort for the secondary effort was 10 hrs, I use
+# the same max effort as the primary
+# Laake_SecondaryEffort %>% 
+#   group_by(Date) %>% 
+#   summarize(sum.effort = sum(effort)) -> tmp
+
+Laake_SecondaryEffort %>% 
+         group_by(Start.year) %>%
+  summarize(Date = Date,
+            Year = first(Start.year),
+            n = nwhales,
+            Day = as.Date(Date) - as.Date(paste0(Year, "-12-01")),
+            Season = paste0(Year, "/", Year + 1),
+            obs = Observer,
+            vs = vis,
+            bf = beaufort,
+            watch.prop = effort/max.effort) -> Laake.secondary.counts
+
+Laake.primary.counts %>% 
+  group_by(Date) %>%
+  summarize(Year = first(Start.year),
+            Date = Date,
+            Day = as.Date(Date) - as.Date(paste0(Year, "-12-01")),
+            Season = paste0(Year, "/", Year + 1),
+            Daily.n = sum(n)) -> Laake.primary.daily.counts
+
+p.Laake.daily.counts <- ggplot(data = Laake.primary.daily.counts) +
+  geom_path(aes(x = Day, y = Daily.n)) +
+    facet_wrap(~ Season) 
+
+
+```
+
+```{r jags-Laake, echo=FALSE}
+
+jags.model.Laake <- "models/model_Richards_pois_bino_v2_Laake.txt"
+
+run.date.Laake <- "2023-08-11"
+out.file.name <- paste0("RData/JAGS_pois_binom_v2_Laake_", 
+                        run.date.Laake, ".rds")
+
+# Find double observer years
+double.obs.year <- unique(Laake_SecondaryEffort$Start.year) 
+all.year <- unique(Laake_PrimaryEffort$Start.year)
+
+n.station <- rep(1, length(all.year))
+n.station[all.year %in% double.obs.year] <- 2
+
+# convert the dataframe into a 3D array of sighting numbers
+# n[d, s, y] with for (y in 1:n.year)
+# 		s in 1:n.station[y]
+#			d in 1:periods[y]
+
+Laake.primary.counts %>%
+  group_by(Start.year) %>%
+  summarize(Season = first(Season),
+            periods = first(n())) -> Laake.primary.periods
+
+Laake.secondary.counts %>%
+  group_by(Start.year) %>%
+  summarize(Season = first(Season),
+            periods = first(n())) -> Laake.secondary.periods
+
+Laake.primary.periods %>% 
+  left_join(Laake.secondary.periods, by = "Season") %>%
+  select(Start.year.x, Season, periods.x, periods.y) %>%
+  transmute(Start.year = Start.year.x,
+            Season = Season,
+            periods.1 = periods.x,
+            periods.2 = periods.y) -> Laake.periods
+
+day <- bf <- vs <- watch.prop <- obs.input <- n.Laake <- array(dim = c(max(Laake.primary.periods$periods),
+                         2, length(all.year)))
+
+
+y <- 3
+y2 <- 1
+for (y in 1:length(all.year)){
+  temp.data <- Laake.primary.counts %>%
+    filter(Start.year == all.year[y]) %>%
+    arrange(Day) %>%
+    left_join(Laake.obs, by = "obs")
+  
+  n.Laake[1:Laake.primary.periods$periods[y], 1, y] <- temp.data$n
+  obs.input[1:Laake.primary.periods$periods[y], 1, y] <- temp.data$obs.ID
+  watch.prop[1:Laake.primary.periods$periods[y], 1, y] <- temp.data$watch.prop
+  bf[1:Laake.primary.periods$periods[y], 1, y] <- scale(temp.data$bf)
+  vs[1:Laake.primary.periods$periods[y], 1, y] <- scale(temp.data$vs)
+  day[1:Laake.primary.periods$periods[y], 1, y] <- as.numeric(temp.data$Day)
+  
+  # fill in the secondary observations
+  if (isTRUE(all.year[y] %in% double.obs.year)){
+    temp.data <- Laake.secondary.counts %>%
+      filter(Start.year == all.year[y])%>%
+    left_join(Laake.obs, by = "obs")
+    
+    n.Laake[1:Laake.secondary.periods$periods[y2], 2, y] <- temp.data$n
+    obs.input[1:Laake.secondary.periods$periods[y2], 2, y] <- temp.data$obs.ID
+    watch.prop[1:Laake.secondary.periods$periods[y2], 2, y] <- temp.data$watch.prop
+    bf[1:Laake.secondary.periods$periods[y2], 2, y] <- scale(temp.data$bf)
+    vs[1:Laake.secondary.periods$periods[y2], 2, y] <- scale(temp.data$vs)
+    day[1:Laake.secondary.periods$periods[y2], 2, y] <- as.numeric(temp.data$Day)
+    
+    y2 <- y2 + 1
+    
+  }
+}
+
+jags.data.Laake <- list(  n = n.Laake,
+                         n.station = n.station,
+                         n.year = length(all.year),
+                         n.obs = nrow(Laake.obs),
+                         periods = Laake.periods %>% 
+                           select(periods.1, periods.2) %>% simplify2array(),
+                         obs = obs.input,
+                         vs = vs,
+                         bf = bf,
+                         watch.prop = watch.prop,
+                         day = day)
+
+MCMC.params <- jm.sim.out$MCMC.params
+jags.params <- jm.sim.out$jags.params
+
+if (!file.exists(out.file.name)){
+
+  Start_Time<-Sys.time()
+
+  jm <- jagsUI::jags(jags.data.Laake,
+                     inits = NULL,
+                     parameters.to.save= jags.params,
+                     model.file = jags.model.Laake,
+                     n.chains = MCMC.params$n.chains,
+                     n.burnin = MCMC.params$n.burnin,
+                     n.thin = MCMC.params$n.thin,
+                     n.iter = MCMC.params$n.samples,
+                     DIC = T,
+                     parallel=T)
+
+  Run_Time <- Sys.time() - Start_Time
+  jm.out.Laake <- list(jm = jm,
+                      jags.data = jags.data.Laake,
+                      jags.params = jags.params,
+                      jags.model = jags.model.Laake,
+                      MCMC.params = MCMC.params,
+                      Run_Time = Run_Time,
+                      Sys.env = Sys.getenv())
+  
+  saveRDS(jm.out.Laake,
+          file = out.file.name)
+
+} else {
+
+  jm.out.real <- readRDS(out.file.name)
+}
+
+# need to turn zeros into NAs when there were no second station:
+data.array <- jm.out.real$jags.data$n
+data.array[,2,which(jm.out.real$jags.data$n.station == 1)] <- NA
+
+LOOIC.n <- compute.LOOIC(loglik.array = jm.out.real$jm$sims.list$log.lkhd,
+                         data.array = data.array,
+                         MCMC.params = jm.out.real$MCMC.params)
+
+# Look at Rhat statistics
+max.Rhat.real <- lapply(jm.out.real$jm$Rhat, FUN = max, na.rm = T) %>% unlist()
+max.Rhat.real.big <- max.Rhat.real[which(max.Rhat.real > 1.1)]
+```
+
+
+
 ## Literature cited {.unnumbered}
