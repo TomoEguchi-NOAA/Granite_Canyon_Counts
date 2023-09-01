@@ -99,7 +99,7 @@ FF <- Data_Out.v2.tmp[1, "ff"]
 data <- get.data("Data/", YEAR, ff = FF)
 
 shift <- 5
-out.shift <- get.shift(YEAR, data, ff=FF, i=shift)
+out.shift <- get.shift(YEAR, data, i=shift)
 
 # data %>% 
 #   filter(begin >= Data_Out.v2.tmp[shift,"begin"] & 
@@ -1055,6 +1055,7 @@ comp.table <- n.comparison(out.list$FinalData.Both, out.list$difs.1, idx, YEAR)
 out.list$Data_Out.v2 %>% 
   filter(time.steps == out.list$difs.1[idx, "time.step"]) -> Data_Out.v2.tmp
 
+# ff is not correct. 2023-09-01 
 FF <- Data_Out.v2.tmp[1, "ff"]
 
 data <- get.data("Data/", YEAR, ff = FF)

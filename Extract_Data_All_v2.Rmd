@@ -19,7 +19,7 @@ library(lubridate)
 source("Granite_Canyon_Counts_fcns.R")
 
 # Do not run 2023 with this script. Use Extract_Data_2023.Rmd for 2023. 
-YEAR <- 2022 #Enter the year of the data files
+YEAR <- 2016 # 2022 #Enter the year of the data files
 
 # For 2010 and 2011 (maybe in the previous years too but I don't have any of those files)
 # Time is entered in decimal hours, not hh:mm:ss. So, that needs to be accommodated in
@@ -34,7 +34,7 @@ FILES <- list.files(paste0("Data/", YEAR, "/"))
 
 Data_Out.list <- list()
 
-ff <- 36
+ff <- 22
 for(ff in 1:length(FILES)){ 
   
   data <- get.data("Data/", YEAR, ff = ff)
@@ -52,7 +52,7 @@ for(ff in 1:length(FILES)){
   Output.list <- list()
   #i <- 1
   for(k in 1:length(Shifts)){
-    out.shift <- get.shift(YEAR, data, ff, k)
+    out.shift <- get.shift(YEAR, data, k)
       
     Output.list[[k]] <- out.shift$out.df
   }#i
@@ -158,6 +158,6 @@ out.obj <- list(Data_Out = Data_Out,
 
 #saveRDS(out.obj, file = paste0("RData/V2_Aug2022/out_", YEAR, "_Tomo_v2.rds"))
 #saveRDS(out.obj, file = paste0("RData/V2.1_Aug2022/out_", YEAR, "_Tomo_v2.rds"))
-saveRDS(out.obj, file = paste0("RData/V2.1_Mar2023/out_", YEAR, "_min", min_dur, "_Tomo_v2.rds"))
+saveRDS(out.obj, file = paste0("RData/V2.1_Sep2023/out_", YEAR, "_min", min_dur, "_Tomo_v2.rds"))
 ```
 

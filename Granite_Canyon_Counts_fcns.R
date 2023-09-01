@@ -204,7 +204,7 @@ get.data <- function(dir, YEAR, FILES = NULL, ff){
 # 
 # A function to extract one shift from a data file. Use get.data first and
 # use the output of get.data in this function. 
-get.shift <- function(YEAR, data, ff, i){
+get.shift <- function(YEAR, data, i){
   # Each shift always begins with "P"
   Shifts.begin <- which(data$V2 %in% "P")
   Shifts.begin.df <- data.frame(event = "P",
@@ -481,7 +481,7 @@ get.shift <- function(YEAR, data, ff, i){
                                        vs = as.numeric(VS),
                                        n = N,
                                        obs = as.character(Observer),
-                                       ff = ff,
+                                       #ff = ff,
                                        i = i,
                                        BeginHr = BeginHr,
                                        BeginDay = BeginDay),
@@ -646,8 +646,8 @@ compare.V0.V2.BUGSinput <- function(YEAR, idx.yr, periods, obs.list){
                              v = "V0")
   
   # This contains the results from my version
-  v2.out <- readRDS(paste0("RData/out_", YEAR, "_Tomo_v2.rds"))
-  FinalData.v2 <- v2.out$FinalData %>% 
+  v2.out <- readRDS(paste0("RData/V2.1_Mar2023/out_", YEAR, "_min85_Tomo_v2.rds"))
+  FinalData.v2 <- v2.out$Final_Data %>% 
     mutate(v = "V2") %>% 
     left_join(obs.list, by = "obs") %>%
     dplyr::select(-c(dur, ff, i, BeginHr)) 
@@ -681,8 +681,8 @@ compare.V0.V2.BUGSinput <- function(YEAR, idx.yr, periods, obs.list){
   v2.out$Data_Out %>% 
     mutate(time.steps = floor(v2.out$Data_Out$begin)) -> Data_Out.v2 
   
-  v2.out$CorrectLength %>%
-    mutate(time.steps = floor(v2.out$CorrectLength$begin)) -> CorrectLength.v2 
+  v2.out$Correct_Length %>%
+    mutate(time.steps = floor(v2.out$Correct_Length$begin)) -> CorrectLength.v2 
   
   min.begin <- min(floor(FinalData.Both$begin))
   max.begin <- max(ceiling(FinalData.Both$begin))
@@ -767,9 +767,9 @@ n.comparison <- function(FinalData.Both, difs.1, idx, YEAR){
               Bf.Ver2.0 = bf.y) -> tmp.0.2
   
   total <- c(NA, NA, "Total", 
-           sum(tmp.0.2$n.Ver1.0, na.rm = T), 
-           sum(tmp.0.2$n.Ver2.0, na.rm = T), 
-           NA, NA, NA, NA)
+             sum(tmp.0.2$n.Ver1.0, na.rm = T), 
+             sum(tmp.0.2$n.Ver2.0, na.rm = T), 
+             NA, NA, NA, NA)
   
   return(rbind(tmp.0.2, total))  
 }
