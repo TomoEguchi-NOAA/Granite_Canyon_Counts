@@ -225,7 +225,8 @@ Sightings$corrected.podsize=NULL
 # take about 30-60 minutes to complete. (TE: Takes about 6 minutes now. But added
 # the if-else. 2023-08-31)
 if (!file.exists("RData/Laake_abundance_estimates.rds")){
-  abundance.estimates=compute.series(models,naive.abundance.models,
+  abundance.estimates=compute.series(models,
+                                     naive.abundance.models,
                                      sightings=Sightings,
                                      effort=Effort,
                                      hessian=TRUE)
@@ -407,53 +408,16 @@ p.pod.size <- ggplot(pod.size.df) +
 # legend(1990,1.35,pch=c(1,2,16),legend=c("Observed average", 
 # "Reilly correction","Expected pod size"))
 
-# Plot distributions of pod size in calibration data and for true pod size from that year
-# This is Figure 5 in Laake et al.
-data(PodsizeCalibrationTable)
-obs.1992=with(PodsizeCalibrationTable[substr(PodsizeCalibrationTable$key,1,11)=="Aerial_1992",],
-              table(cut(True,c(1,2,3,4,20),right=FALSE)))
-obs.1993=with(PodsizeCalibrationTable[substr(PodsizeCalibrationTable$key,1,11)=="Aerial_1993",],
-              table(cut(True,c(1,2,3,4,20),right=FALSE)))
-obs.1997=with(PodsizeCalibrationTable[substr(PodsizeCalibrationTable$key,1,8)=="Tracking",],
-              table(cut(True,c(1,2,3,4,20),right=FALSE)))
-obs.1992=obs.1992/sum(obs.1992)
-obs.1993=obs.1993/sum(obs.1993)
-obs.1997=obs.1997/sum(obs.1997)
+# Ran the same models on newer data since 2006.
+# I do not have raw count data from 2007 - 2014. Surveys were conducted in
+# 2007/2008, 2009/2010, and 2010/2011. For those years, only daily sum
+# are avaialable. Raw counts are available from 2014/2015, 2015/2016, 2019/2020,
+# 2021/2022, and 2022/2023 
 
-ps.1992=gammad(c(-.073,-.3474),20)
-ps.1993=gammad(c(-.07,-.474),20)
-ps.1997=gammad(c(-.598,-.674),20)
-ps.1992=c(ps.1992[1:3],sum(ps.1992[4:20]))
-ps.1993=c(ps.1993[1:3],sum(ps.1993[4:20]))
-ps.1997=c(ps.1997[1:3],sum(ps.1997[4:20]))
+# this file contains all necessary inputs:
+data.0 <- readRDS("RData/2006-2019_GC_Formatted_Data.RDS")
 
-par(mfrow=c(3,1))
-barplot(rbind(obs.1992,ps.1992),beside=TRUE,space=c(0,.1),
-        main="1992-93",ylab="Proportion")
-barplot(rbind(obs.1993,ps.1993),beside=TRUE,space=c(0,.1),
-        main="1993-94",ylab="Proportion")
-barplot(rbind(obs.1997,ps.1997),beside=TRUE,space=c(0,.1),
-        main="1997-98",ylab="Proportion",
-        xlab="True pod size",
-        legend.text=c("Calibration","Estimated"),args.legend=list(x=8,y=.8))
+# output from Ver2.0 extraction
+years <- c("2015", "2016", "2020", "2022", "2023")
 
-# Code to construct Figure 2
-par(mfrow=c(2,2))
-data(PodsizeCalibrationTable)
-psdf=PodsizeCalibrationTable
-ps1=as.matrix(psdf[psdf$True==1,3:22])
-ps2=as.matrix(psdf[psdf$True==2,3:22])
-ps3=as.matrix(psdf[psdf$True==3,3:22])
-psplus=as.matrix(psdf[psdf$True>=4,3:22])
-gpar=gamma.pod$par
-ps.results=gamma.pod
-expect.ps=create.gsS(ps.results,True=psdf$True[psdf$True>=4][1:21])
-expect.ps=colMeans(expect.ps)
-barplot(rbind(gsS[1,],colMeans(ps1/rowSums(ps1))),beside=TRUE,main="True size = 1",legend.text=c("exp","obs"))
-barplot(rbind(gsS[2,],colMeans(ps2/rowSums(ps2))),beside=TRUE,main="True size = 2",legend.text=c("exp","obs"))
-barplot(rbind(gsS[3,],colMeans(ps3/rowSums(ps3))),beside=TRUE,main="True size = 3",legend.text=c("exp","obs"))
-barplot(rbind(expect.ps,colMeans(psplus/rowSums(psplus))),
-        beside=TRUE,
-        main=paste("True size = 4+",sep=""),
-        legend.text=c("exp","obs"))
 

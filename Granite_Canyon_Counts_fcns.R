@@ -107,18 +107,14 @@ Richards_fcn <- function(d, S1, S2, K, P, min, max){
 # A function to get one data file from selected directory
 # Inputs are data directory name, year of survey (2021/2022 is 2022), and
 # which file to be extracted (sequential number from 1 to length(files)).
-get.data <- function(dir, YEAR, FILES = NULL, ff){
+get.data <- function(dir, YEAR, FILES, ff){
   # 2023-03-02 Commented the following line and added FILES input because all data for 2023
   # were combined in one file (EditedDataAll_2023.dat), which was parsed out to day-specific
   # files so they will be the same as other years. The combined file also was stored in the
   # same folder.
   
-  # if FILES input was not provided, make a list of files in the directory. This should work
-  # for other years 
-  if (is.null(FILES))
-    FILES <- list.files(paste0(dir, "/", YEAR))
-  
   all.lines <- read_lines(file = paste0(dir, "/", YEAR, "/", FILES[ff]))
+  input.file.name <- FILES[ff]   # specify file name
   
   # look at all event code
   event.code <- str_sub(all.lines, start = 5, end = 5)
@@ -146,6 +142,8 @@ get.data <- function(dir, YEAR, FILES = NULL, ff){
   
   # Files with extensive comments in sightings are problematic because they get split into multiple lines. 
   # We need to pull out lines that contain only numeric V1 (when they are converted into numeric)
+  # data %>% 
+  #   mutate(line.num = as.numeric(V1)) -> data
   
   data <- data[!is.na(as.numeric(data$V1)),]
   
@@ -198,13 +196,18 @@ get.data <- function(dir, YEAR, FILES = NULL, ff){
   data %>% 
     mutate(begin = as.numeric(BeginDay) + BeginHr/24,
            shift = cumsum(V2=="P")) -> data
+  
+  data$ff <- input.file.name
+  
   return(data)
 }
 
 # 
 # A function to extract one shift from a data file. Use get.data first and
-# use the output of get.data in this function. 
+# use the output of get.data in this function. i is the desired shift index
 get.shift <- function(YEAR, data, i){
+  ff <- data$ff[1]   # file name
+  
   # Each shift always begins with "P"
   Shifts.begin <- which(data$V2 %in% "P")
   Shifts.begin.df <- data.frame(event = "P",
@@ -481,7 +484,7 @@ get.shift <- function(YEAR, data, i){
                                        vs = as.numeric(VS),
                                        n = N,
                                        obs = as.character(Observer),
-                                       #ff = ff,
+                                       ff = ff,
                                        i = i,
                                        BeginHr = BeginHr,
                                        BeginDay = BeginDay),
@@ -515,14 +518,14 @@ fractional_Day2YMDhms <- function(x, YEAR){
 # and Extract_Data_All_v2.Rmd for Ver2.0 (saves in a .rds file).
 compare.V0.V2.raw <- function(YEAR, obs.list){
   v0.out <- readRDS(paste0("RData/out_", YEAR, "_Joshs.rds"))
-  v2.out <- readRDS(paste0("RData/out_", YEAR, "_Tomo_v2.rds"))
+  v2.out <- readRDS(paste0("RData/V2.1_Sep2023/out_", YEAR, "_min85_Tomo_v2.rds"))
   
-  FinalData.v2 <- v2.out$FinalData %>% mutate(v = "V2") %>% dplyr::select(-dur)
+  v2.out$Final_Data %>% 
+    mutate(v = "V2") %>% # -> tmp
+    dplyr::select(-dur) %>% 
+    left_join(obs.list, by = "obs") -> FinalData.v2
+  
   FinalData.v0 <- v0.out$FinalData %>% mutate(v = "V0") 
-  
-  FinalData.v2 <- v2.out$FinalData %>% 
-    mutate(v = "V2") %>% 
-    left_join(obs.list, by = "obs") 
   
   # find if there is NA in ID - not in the look up table  
   ID.NA <- filter(FinalData.v2, is.na(ID))
@@ -568,18 +571,42 @@ compare.V0.V2.raw <- function(YEAR, obs.list){
   for (k in 1:(length(time.steps)-1)){
     tmp <- filter(FinalData.Both, begin >= time.steps[k] & begin < time.steps[k+1])
     if (nrow(tmp) > 0){
+      
       tmp %>% filter(v == "V0") -> tmp.1
       tmp %>% filter(v == "V2") -> tmp.2
       
-      difs[c,] <- c(min(tmp$begin), 
-                    max(tmp$end),
-                    min(tmp.1$begin) - min(tmp.2$begin), 
-                    max(tmp.1$end) - max(tmp.2$end),
-                    nrow(tmp.1) - nrow(tmp.2),
-                    max(tmp.1$bf) - max(tmp.1$bf),
-                    max(tmp.1$vs) - max(tmp.1$vs),
-                    sum(tmp.1$n) - sum(tmp.2$n),
-                    time.steps[k])
+      if (nrow(tmp.1) > 0 & nrow(tmp.2) > 0){
+        difs[c,] <- c(min(tmp$begin), 
+                      max(tmp$end),
+                      min(tmp.1$begin) - min(tmp.2$begin), 
+                      max(tmp.1$end) - max(tmp.2$end),
+                      nrow(tmp.1) - nrow(tmp.2),
+                      max(tmp.1$bf) - max(tmp.1$bf),
+                      max(tmp.1$vs) - max(tmp.1$vs),
+                      sum(tmp.1$n) - sum(tmp.2$n),
+                      time.steps[k])
+        
+        
+      } else if (nrow(tmp.1) > 0 & nrow(tmp.2) == 0){
+        difs[c,] <- c(min(tmp$begin), 
+                      max(tmp$end),
+                      NA, NA, NA, 
+                      max(tmp.1$bf) - max(tmp.1$bf),
+                      max(tmp.1$vs) - max(tmp.1$vs),
+                      NA, time.steps[k])
+      } else if (nrow(tmp.1) == 0 & nrow(tmp.2) > 0){
+        difs[c,] <- c(min(tmp$begin), 
+                      max(tmp$end),
+                      NA, 
+                      NA,
+                      NA,
+                      NA,
+                      NA,
+                      NA,
+                      time.steps[k])
+        
+      }
+      
       c <- c + 1
       
     }
@@ -592,8 +619,8 @@ compare.V0.V2.raw <- function(YEAR, obs.list){
   v2.out$Data_Out %>% 
     mutate(time.steps = floor(v2.out$Data_Out$begin)) -> Data_Out.v2 
   
-  v2.out$CorrectLength %>%
-    mutate(time.steps = floor(v2.out$CorrectLength$begin)) -> CorrectLength.v2 
+  v2.out$Correct_Length %>%
+    mutate(time.steps = floor(v2.out$Correct_Length$begin)) -> CorrectLength.v2 
   
   return(out.list <- list(difs = difs,
                           difs.1 = difs.1,
@@ -625,28 +652,28 @@ compare.V0.V2.BUGSinput <- function(YEAR, idx.yr, periods, obs.list){
   # this file contains all input data for WinBUGS.
   V0.out <- readRDS("RData/2006-2019_GC_Formatted_Data.RDS")
   
-  # Pull out the information for 2015
-  periods.2015 <- V0.out$periods[idx.yr]
-  n.2015 <- V0.out$n[1:periods.2015,,idx.yr]
-  n.com.2015 <- V0.out$n.com[1:periods.2015,,idx.yr]
-  n.sp.2015 <- V0.out$n.sp[1:periods.2015,,idx.yr]
-  obs.2015 <- V0.out$obs[1:periods.2015,,idx.yr]
+  # Pull out the information for V0 dataset
+  periods.V0 <- V0.out$periods[idx.yr]
+  n.V0 <- V0.out$n[1:periods.V0,,idx.yr]
+  n.com.V0 <- V0.out$n.com[1:periods.V0,,idx.yr]
+  n.sp.V0 <- V0.out$n.sp[1:periods.V0,,idx.yr]
+  obs.V0 <- V0.out$obs[1:periods.V0,,idx.yr]
   
-  vs.2015 <- V0.out$vs[1:periods.2015,idx.yr]
-  bf.2015 <- V0.out$bf[1:periods.2015,idx.yr]
-  day.2015 <- V0.out$day[1:periods.2015,idx.yr]
+  vs.V0 <- V0.out$vs[1:periods.V0,idx.yr]
+  bf.V0 <- V0.out$bf[1:periods.V0,idx.yr]
+  day.V0 <- V0.out$day[1:periods.V0,idx.yr]
   
   FinalData.V0 <- data.frame(begin = begin[1:periods[idx.yr], idx.yr],
                              end = end[1:periods[idx.yr], idx.yr],
-                             bf = bf.2015,
-                             vs = vs.2015,
-                             n = n.2015[,1],
-                             obs = obs.2015[,1],
-                             BeginDay = day.2015,
+                             bf = bf.V0,
+                             vs = vs.V0,
+                             n = n.V0[,1],
+                             obs = obs.V0[,1],
+                             BeginDay = day.V0,
                              v = "V0")
   
   # This contains the results from my version
-  v2.out <- readRDS(paste0("RData/V2.1_Mar2023/out_", YEAR, "_min85_Tomo_v2.rds"))
+  v2.out <- readRDS(paste0("RData/V2.1_Sep2023/out_", YEAR, "_min85_Tomo_v2.rds"))
   FinalData.v2 <- v2.out$Final_Data %>% 
     mutate(v = "V2") %>% 
     left_join(obs.list, by = "obs") %>%
@@ -702,23 +729,47 @@ compare.V0.V2.BUGSinput <- function(YEAR, idx.yr, periods, obs.list){
   c <- k <- 1
   for (k in 1:(length(time.steps)-1)){
     tmp <- filter(FinalData.Both, begin >= time.steps[k] & begin < time.steps[k+1])
+    
     if (nrow(tmp) > 0){
+  
       tmp %>% filter(v == "V0") -> tmp.1
       tmp %>% filter(v == "V2") -> tmp.2
       
-      difs[c,] <- c(min(tmp$begin), 
-                    max(tmp$end),
-                    min(tmp.1$begin) - min(tmp.2$begin), 
-                    max(tmp.1$end) - max(tmp.2$end),
-                    nrow(tmp.1) - nrow(tmp.2),
-                    max(tmp.1$bf) - max(tmp.1$bf),
-                    max(tmp.1$vs) - max(tmp.1$vs),
-                    sum(tmp.1$n) - sum(tmp.2$n),
-                    time.steps[k])
+      if (nrow(tmp.1) > 0 & nrow(tmp.2) > 0){
+        difs[c,] <- c(min(tmp$begin), 
+                      max(tmp$end),
+                      min(tmp.1$begin) - min(tmp.2$begin), 
+                      max(tmp.1$end) - max(tmp.2$end),
+                      nrow(tmp.1) - nrow(tmp.2),
+                      max(tmp.1$bf) - max(tmp.1$bf),
+                      max(tmp.1$vs) - max(tmp.1$vs),
+                      sum(tmp.1$n) - sum(tmp.2$n),
+                      time.steps[k])
+
+        
+      } else if (nrow(tmp.1) > 0 & nrow(tmp.2) == 0){
+        difs[c,] <- c(min(tmp$begin), 
+                      max(tmp$end),
+                      NA, NA, NA, 
+                      max(tmp.1$bf) - max(tmp.1$bf),
+                      max(tmp.1$vs) - max(tmp.1$vs),
+                      NA, time.steps[k])
+      } else if (nrow(tmp.1) == 0 & nrow(tmp.2) > 0){
+        difs[c,] <- c(min(tmp$begin), 
+                      max(tmp$end),
+                      NA, 
+                      NA,
+                      NA,
+                      NA,
+                      NA,
+                      NA,
+                      time.steps[k])
+        
+      }
       c <- c + 1
       
     }
-    
+    #Sys.sleep(1.5)  
   }
   
   

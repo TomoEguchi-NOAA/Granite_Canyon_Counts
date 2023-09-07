@@ -19,7 +19,8 @@ library(lubridate)
 source("Granite_Canyon_Counts_fcns.R")
 
 # Do not run 2023 with this script. Use Extract_Data_2023.Rmd for 2023. 
-YEAR <- 2016 # 2022 #Enter the year of the data files
+# YEAR should be one of 2015, 2016, 2020, 2022, 2023 (and beyond)
+YEAR <- 2015 # 2022 #Enter the year of the data files
 
 # For 2010 and 2011 (maybe in the previous years too but I don't have any of those files)
 # Time is entered in decimal hours, not hh:mm:ss. So, that needs to be accommodated in
@@ -30,15 +31,30 @@ YEAR <- 2016 # 2022 #Enter the year of the data files
 
 ```{r}
 
-FILES <- list.files(paste0("Data/", YEAR, "/"))
+if (YEAR == 2023){
+  FILES <- list.files(path = paste0("Data/", YEAR, "/"),
+                      pattern = "EditedGW")
+  
+} else {
+  # if FILES input was not provided, make a list of files in the directory. This should work
+  # for other years 
+  FILES <- list.files(paste0("Data", "/", YEAR, "/"))
+
+}
+  
 
 Data_Out.list <- list()
 
-ff <- 22
+# The next for loop throws back "NAs introduced by coercion" but not to worry.
+# These are results of as.numeric() for the line numbers, where some lines may
+# be non-numbers, e.g., "Edited" and other text. Also, some BF and VS codes are
+# missing and they return warnings "in 'transmute()'..." They turn into NAs so 
+# they are not problems. 
+
+ff <- 30
 for(ff in 1:length(FILES)){ 
   
-  data <- get.data("Data/", YEAR, ff = ff)
-
+  data <- get.data("Data/", YEAR, FILES = FILES, ff = ff)
   
   #Shifts <- which(data$V2 %in% c('P','E')) #start/end of all shifts
   Shifts <- which(data$V2 %in% "P") #start of all shifts
@@ -50,7 +66,7 @@ for(ff in 1:length(FILES)){
   # }
   # 
   Output.list <- list()
-  #i <- 1
+  k <- 2
   for(k in 1:length(Shifts)){
     out.shift <- get.shift(YEAR, data, k)
       
@@ -58,7 +74,7 @@ for(ff in 1:length(FILES)){
   }#i
   
   Data_Out.list[[ff]] <- do.call("rbind", Output.list)
-
+  #Sys.sleep(1)
 }#ff (files loop)         
 
 Data_Out <- do.call("rbind", Data_Out.list)
