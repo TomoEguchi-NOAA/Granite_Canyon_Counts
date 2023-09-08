@@ -36,7 +36,7 @@ model{
 	# changes with the mean, while the CV remains constant. 
 	for (y in 1:n.year){
 				
-		for (t in 1:90){
+		for (t in 1:n.days){
 			# year-specific K - results in conversion issues. 2022-11-09
 			#M1[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/(-S1[y])) * (P[y] - t))) ^ (-1/exp(K[y]))
 			#M2[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K[y]))
