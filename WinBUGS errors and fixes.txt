@@ -1,5 +1,5 @@
 value of order of binomial n.sp[2,1,1] must be greater than zero -> Fixed by providing N_inits (2 x n + 2)
-value of bernoulli z[1,1] must be an integer -> moved z = matrix(1, nrow=90, ncol=length(periods)) to data from inits
+value of bernoulli z[1,1] must be an integer -> moved z = matrix(1, nrow=90, ncol=length(periods)) to data from inits (2023-09-11 This is incorrect because z is not observable.)
 value of order of binomial n.sp[1,1,1] must be greater than zero (see https://stats.stackexchange.com/questions/22850/winbugs-error-with-zero-values-in-binomial-distribution-value-of-order-of-binom) 
 -> All to do with N_inits. 
 value of binomial n.sp[116,2,3] must be between zero and order of n.sp[116,2,3]
@@ -14,8 +14,20 @@ N_inits[N_inits1 < N_inits2] <- N_inits2[N_inits1 < N_inits2]
 N_inits <- rbind(N_inits,
                  matrix(data = NA, nrow = 2, ncol = length(periods)))
 
+N_inits needs to be NAs for where there was no data. So, lines above, N_inits1 and N_inits2 need to be modified so that NAs have to be inserted where there is no data. For example...
+
+n <- BUGS.data$n
+for (k in 1:ncol(n)){
+  if (BUGS.data$periods[k] < nrow(n))
+    n[(BUGS.data$periods[k]+1):nrow(n),k] <- NA
+} 
+
+N_inits1 <- n * 2 + 2
 
 value of bernoulli z[1,1] must be an integer -> the dimensions of beta.sp, sd.b.sp, and z in jags.inits function need to be changed. I now use "x" to define the number of years to be analyzed. x is shared within the function so no need to change them individually. 2022-04-06
+
+The same problem came back when analyzing Laake's data. The fix above did not solve the problem. 2023-09-11
+This problem goes away when N, N.com, and N.sp are removed from the inits function. However, the other problem pops up: "value of order of binomial n.sp[1,1,1] must be greater than zero." This problem was solved by providing N_inits before... 
 
 # 2023-03-03 
   # ERROR: NIL dereference (read). 

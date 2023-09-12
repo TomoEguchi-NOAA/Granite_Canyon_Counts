@@ -4,7 +4,7 @@
       
   
   # count i
-  # station (Trailer) s
+  # station (Trailer) s Set to 1 for this model 2023-09-12
   # year t
   
   
@@ -62,13 +62,11 @@
   
   for(t in 1:n.year){
     for(j in 1:periods[t]){ #NOT periods + 2 because those day 1 & 90 anchor points are fixed, so N shouldn't be estimated for those, only for the days with true watch periods
-      for(s in 1:n.station){
-      
-        n[j,s,t] ~ dbin(obs.prob[j,s,t],N[j,t]) # N mixture model - two observations of 'true' N (passing whales), with different observation probabilities
-        n.com[j,s,t] ~ dbin(obs.prob.com[j,s,t],N.com[j,t]) # N mixture model for common model fit
-        n.sp[j,s,t] ~ dbin(obs.prob.sp[j,s,t],N.sp[j,t]) # N mixture model for specific model fit
+            
+        n[j,t] ~ dbin(obs.prob[j,t],N[j,t]) # N mixture model - two observations of 'true' N (passing whales), with different observation probabilities
+        n.com[j,t] ~ dbin(obs.prob.com[j,t],N.com[j,t]) # N mixture model for common model fit
+        n.sp[j,t] ~ dbin(obs.prob.sp[j,t],N.sp[j,t]) # N mixture model for specific model fit
 
-      }#s    
     }#j
   }#t
 
@@ -91,26 +89,24 @@
   # If the spline model is then forced to share the same observation probability, it will overestimate the number of whales (because the seasonal curve would lead to a very low sighting probability during those days)
   for(t in 1:n.year){
     for(j in 1:periods[t]){
-      for(s in 1:n.station){
-
+      
         #Final obs prob    = observer 1/0 * (base obs prob + BF on/off *Fixed effect of BF * BF + VS on/off *Fixed effect of VS * VS    + Obs effect on/off * Random effect of observer)
 
         #The below replicates Durban et al 2016 code:
         # Selected model:
-        logit(prob[j,s,t]) <- logit(mean.prob) + (BF.Switch*BF.Fixed*bf[j,t]) + (VS.Switch*VS.Fixed*vs[j,t]) + (OBS.Switch*OBS.RF[obs[j,s,t]])
+        logit(prob[j,t]) <- logit(mean.prob) + (BF.Switch*BF.Fixed*bf[j,t]) + (VS.Switch*VS.Fixed*vs[j,t]) + (OBS.Switch*OBS.RF[obs[j,t]])
         # the u data is whether there were observers on watch. 0 counts are often associated with years/shifts with no second observer. So if u=0, it will fix observation probability at 0
-        obs.prob[j,s,t] <- u[j,s,t]*prob[j,s,t]
+        obs.prob[j,t] <- u[j,t]*prob[j,t]
         
         # Common (com) model:
-        logit(prob.com[j,s,t]) <- logit(mean.prob.com) + (BF.Switch.com*BF.Fixed.com*bf[j,t]) + (VS.Switch.com*VS.Fixed.com*vs[j,t]) + (OBS.Switch.com*OBS.RF.com[obs[j,s,t]])
-        obs.prob.com[j,s,t] <- u[j,s,t]*prob.com[j,s,t]
+        logit(prob.com[j,t]) <- logit(mean.prob.com) + (BF.Switch.com*BF.Fixed.com*bf[j,t]) + (VS.Switch.com*VS.Fixed.com*vs[j,t]) + (OBS.Switch.com*OBS.RF.com[obs[j,t]])
+        obs.prob.com[j,t] <- u[j,t]*prob.com[j,t]
         
         # Spline (sp) model:
-        logit(prob.sp[j,s,t]) <- logit(mean.prob.sp) + (BF.Switch.sp*BF.Fixed.sp*bf[j,t]) + (VS.Switch.sp*VS.Fixed.sp*vs[j,t]) + (OBS.Switch.sp*OBS.RF.sp[obs[j,s,t]])
-        obs.prob.sp[j,s,t] <- u[j,s,t]*prob.sp[j,s,t]
+        logit(prob.sp[j,t]) <- logit(mean.prob.sp) + (BF.Switch.sp*BF.Fixed.sp*bf[j,t]) + (VS.Switch.sp*VS.Fixed.sp*vs[j,t]) + (OBS.Switch.sp*OBS.RF.sp[obs[j,t]])
+        obs.prob.sp[j,t] <- u[j,t]*prob.sp[j,t]
         
         
-      }#s
     }#j
   }#t
   
