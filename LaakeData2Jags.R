@@ -86,21 +86,29 @@ Sightings = Sightings[order(Sightings$seq),]
 # Count the number of whales per day and daily effort
 # In early years, surveys were conducted 10 hrs. So, the watch proportion
 # can be > 1.0, because we have used 9 hrs as maximum. 
+
+# Summarizing by day worked fine but the model requires counts per observation
+# period. Needs to be redone. 2023-09-15 DONE.
+
 Effort %>% 
   mutate(Day1 = as.Date(paste0(Start.year, "-12-01")),
-         dt = as.numeric(as.Date(Date) - Day1) + 1) %>%
-  select(Start.year, nwhales, effort, vis, beaufort, Observer, dt) %>%
-  group_by(Start.year, dt) %>%
-  summarise(Start.year = first(Start.year),
-            dt = first(dt),
-            vs = max(vis),
-            bf = max(beaufort),
-            obs = first(Observer),
-            effort = sum(effort),
-            n = sum(nwhales)) %>%
+         dt = as.numeric(as.Date(Date) - Day1) + 1,
+         obs = Observer) %>%
+  select(Start.year, nwhales, effort, vis, beaufort, obs, dt) %>%
+  group_by(Start.year) %>%
   mutate(effort.min = effort * 24 * 60,
-         watch.prop = effort.min/540) -> Effort.by.day
+         watch.prop = effort.min/540) -> Effort.by.period
 
+  # group_by(Start.year, dt) %>%
+  # summarise(Start.year = first(Start.year),
+  #           dt = first(dt),
+  #           vs = max(vis),
+  #           bf = max(beaufort),
+  #           obs = first(Observer),
+  #           effort = sum(effort),
+  #           n = sum(nwhales)) %>%
+  # mutate(effort.min = effort * 24 * 60,
+  #        watch.prop = effort.min/540) -> Effort.by.day
 
 # Need to give numeric IDs to observers
 Observer %>%
@@ -109,31 +117,33 @@ Observer %>%
 # Lines 68 and 69 are duplicates. 
 Observer.1 <- Observer[1:67,]
 
-Effort.by.day %>%
+#Effort.by.day %>%
+Effort.by.period %>%
   mutate(Initials = obs) %>%
   left_join(Observer, by = "Initials") %>%
   dplyr::select(-c(Initials, Observer, Name, Sex)) %>%
   rename(ID.1 = ID) %>%
   mutate(ID.char = obs) %>%
   left_join(Observer.1, by = "ID.char") %>%
-  dplyr::select(-c(Initials, Observer, Name, Sex, ID.char)) -> Effort.by.day.1
+  dplyr::select(-c(Initials, Observer, Name, Sex, ID.char)) -> Effort.by.period.1
 
-Effort.by.day.1$ID[is.na(Effort.by.day.1$ID)] <- Effort.by.day.1$ID.1[is.na(Effort.by.day.1$ID)]
-  
-create.jags.data <- function(Effort.by.day.1){
+#Effort.by.day.1$ID[is.na(Effort.by.day.1$ID)] <- Effort.by.day.1$ID.1[is.na(Effort.by.day.1$ID)]
+Effort.by.period.1$ID[is.na(Effort.by.period.1$ID)] <- Effort.by.period.1$ID.1[is.na(Effort.by.period.1$ID)]
+
+create.jags.data <- function(Effort.by.period.1){
   # the number of years in the dataset. A lot! 
-  all.years <- unique(Effort.by.day.1$Start.year)
+  all.years <- unique(Effort.by.period.1$Start.year)
   
-  Effort.by.day.1 %>% 
+  Effort.by.period.1 %>% 
     select(Start.year) %>% 
     summarise(n = n()) -> n.year
 
   # re-index observers
-  obs.df <- data.frame(ID = unique(Effort.by.day.1$ID %>% sort),
-                       seq.ID = seq(1, length(unique(Effort.by.day.1$ID))))
+  obs.df <- data.frame(ID = unique(Effort.by.period.1$ID %>% sort),
+                       seq.ID = seq(1, length(unique(Effort.by.period.1$ID))))
   
-  Effort.by.day.1 %>% 
-    left_join(obs.df, by = "ID") -> Effort.by.day.1
+  Effort.by.period.1 %>% 
+    left_join(obs.df, by = "ID") -> Effort.by.period.1
   
   # create matrices - don't know how to do this in one line...  
   bf <- vs <- watch.prop <- day <- matrix(nrow = max(n.year$n), ncol = length(all.years))
@@ -143,13 +153,13 @@ create.jags.data <- function(Effort.by.day.1){
   periods <- vector(mode = "numeric", length = length(all.years))
   k <- 1
   for (k in 1:length(all.years)){
-    Effort.by.day.1 %>% 
+    Effort.by.period.1 %>% 
       filter(Start.year == all.years[k]) -> tmp
     
-    n[1:nrow(tmp), 1, k] <- tmp$n
+    n[1:nrow(tmp), 1, k] <- tmp$nwhales
     day[1:nrow(tmp), k] <- tmp$dt
-    bf[1:nrow(tmp), k] <- tmp$bf
-    vs[1:nrow(tmp), k] <- tmp$vs
+    bf[1:nrow(tmp), k] <- tmp$beaufort
+    vs[1:nrow(tmp), k] <- tmp$vis
     watch.prop[1:nrow(tmp), k] <- tmp$watch.prop
     obs[1:nrow(tmp), 1, k] <- tmp$seq.ID
 
@@ -159,7 +169,7 @@ create.jags.data <- function(Effort.by.day.1){
   jags.data <- list(n = n, 
                     n.station = rep(1, length(all.years)),
                     n.year = length(all.years),
-                    n.obs = length(unique(Effort.by.day.1$seq.ID)),
+                    n.obs = length(unique(Effort.by.period.1$seq.ID)),
                     periods = periods,
                     obs = obs,
                     vs = scale(vs),
@@ -168,12 +178,12 @@ create.jags.data <- function(Effort.by.day.1){
                     bf.raw = bf,
                     watch.prop = watch.prop,
                     day = day,
-                    n.days = max(Effort.by.day.1$dt))
+                    n.days = max(Effort.by.period.1$dt))
   
   return(jags.data)
 }
 
-jags.data <- create.jags.data(Effort.by.day.1)
+jags.data <- create.jags.data(Effort.by.period.1)
 
 jags.params <- c("OBS.RF", "OBS.Switch",
                  "BF.Switch", "BF.Fixed", 
@@ -188,7 +198,13 @@ MCMC.params <- list(n.samples = 250000,
                     n.burnin = 200000,
                     n.chains = 5)
 
-out.file.name <- "RData/JAGS_pois_binom_results_Laake_Data.rds"
+# The first attempt used counts per day, which worked fine and estimates were
+# pretty close to Laake's estimates. But, the model uses all data at observation
+# period level
+#out.file.name <- "RData/JAGS_pois_binom_results_Laake_Data.rds"
+
+# v2 uses data from the observation period level. 
+out.file.name <- "RData/JAGS_pois_binom_results_Laake_Data_v2.rds"
 jags.model <- paste0("models/model_Richards_pois_bino.txt")
 
 

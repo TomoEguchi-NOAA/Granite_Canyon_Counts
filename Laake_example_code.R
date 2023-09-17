@@ -4,10 +4,13 @@
 # (Thanks to Jeff Laake!)
 # 1. Install devtools package
 # 2. Copy ERAnalysis folder into R working directory (the inner ERAnalysis folder 
-# in his GitHub repository: https://github.com/jlaake/ERAnalysis/tree/master/ERAnalysis)
+# in his GitHub repository: https://github.com/jlaake/ERAnalysis/tree/master/
 # 3. Create a new project - existing folder - select ERAnalysis
 # 4. Click on the "Build" tab
 # 5. Click "Install"
+# 
+# It may complain about not having certain libraries. Install them and re-install.
+# 
 # 
 library(ERAnalysis)  
 
