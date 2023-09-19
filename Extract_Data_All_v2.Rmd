@@ -20,7 +20,7 @@ source("Granite_Canyon_Counts_fcns.R")
 
 # Do not run 2023 with this script. Use Extract_Data_2023.Rmd for 2023. 
 # YEAR should be one of 2015, 2016, 2020, 2022, 2023 (and beyond)
-YEAR <- 2015 # 2022 #Enter the year of the data files
+YEAR <- 2022 #Enter the year of the data files
 
 # For 2010 and 2011 (maybe in the previous years too but I don't have any of those files)
 # Time is entered in decimal hours, not hh:mm:ss. So, that needs to be accommodated in
@@ -174,6 +174,6 @@ out.obj <- list(Data_Out = Data_Out,
 
 #saveRDS(out.obj, file = paste0("RData/V2_Aug2022/out_", YEAR, "_Tomo_v2.rds"))
 #saveRDS(out.obj, file = paste0("RData/V2.1_Aug2022/out_", YEAR, "_Tomo_v2.rds"))
-saveRDS(out.obj, file = paste0("RData/V2.1_Sep2023/out_", YEAR, "_min", min_dur, "_Tomo_v2.rds"))
+#saveRDS(out.obj, file = paste0("RData/V2.1_Sep2023/out_", YEAR, "_min", min_dur, "_Tomo_v2.rds"))
 ```
 

@@ -33,8 +33,7 @@
 model{
 
 	# Define Richards function - this is the mean of "true" daily abundance
-	# The realization is a normal deviate with the mean and variance, which
-	# changes with the mean, while the CV remains constant. 
+	# The realization is a Poisson deviate. 
 	for (y in 1:n.year){
 				
 		for (t in 1:n.days){
