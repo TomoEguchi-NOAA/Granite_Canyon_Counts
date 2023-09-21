@@ -1149,10 +1149,11 @@ ggplot() +
 ```
 
 
-Compare BUGS vs. Laake vs. Jags for 1967 - 2016
+Compare BUGS vs. Laake vs. Jags for 1967 - 2006
 
 ```{r}
-Laake.estimates <- read.csv("Data/Abundance.csv")
+Laake.estimates <- read.csv("Data/Abundance.csv") %>%
+  filter(Method == "Laake")
 Durban.estimates.Laake.data <- readRDS("RData/WinBUGS_Laake_Data.rds")
 Eguchi.estimates.Laake.data <- readRDS("RData/JAGS_pois_binom_results_Laake_Data_v2.rds")
 
@@ -1171,17 +1172,23 @@ Nhats.Eguchi.Laake.data <- data.frame(Year = Laake.estimates[1:23, "Year"],
                                       UCL =  Eguchi.estimates.Laake.data$jm$q97.5$Corrected.Est)
 
 ggplot() +
-  geom_point(data = Laake.estimates, aes(x = Year, y = Abundance),
+  geom_point(data = Laake.estimates,
+             aes(x = Year, y = Abundance),
              color = "orange") +
-  geom_errorbar(data = Laake.estimates, aes(x = Year, ymin = X2.5, ymax = X97.5),
+  geom_errorbar(data = Laake.estimates, 
+                aes(x = Year, ymin = X2.5, ymax = X97.5),
                 color = "orange") + 
-  geom_point(data = Nhats.Durban.Laake.data, aes(x = Year, y = Nhat),
+  geom_point(data = Nhats.Durban.Laake.data, 
+             aes(x = Year, y = Nhat),
              color = "blue") +
-  geom_errorbar(data = Nhats.Durban.Laake.data, aes(x = Year, ymin = LCL, ymax = UCL),
+  geom_errorbar(data = Nhats.Durban.Laake.data, 
+                aes(x = Year, ymin = LCL, ymax = UCL),
                 color = "blue") +
-  geom_point(data = Nhats.Eguchi.Laake.data, aes(x = Year, y = Nhat),
+  geom_point(data = Nhats.Eguchi.Laake.data, 
+             aes(x = Year, y = Nhat),
              color = "darkred") +
-  geom_errorbar(data = Nhats.Eguchi.Laake.data, aes(x = Year, ymin = LCL, ymax = UCL),
+  geom_errorbar(data = Nhats.Eguchi.Laake.data, 
+                aes(x = Year, ymin = LCL, ymax = UCL),
                 color = "darkred")  
   
 
