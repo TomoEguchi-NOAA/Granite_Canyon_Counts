@@ -1156,11 +1156,26 @@ df.Eguchi.plot <- data.frame(day = rep(1:90, times = x),
                              q2.5 = as.vector(jm.out$jm$q2.5$mean.N),
                              q97.5= as.vector(jm.out$jm$q97.5$mean.N))
 
+df.primary.obs.n <- data.frame(obsd.n = as.vector(jm.out$jags.data$n[,1,]),
+                               season = rep(c("2006/2007", "2007/2008", "2009/2010",
+                                          "2010/2011", "2014/2015", "2015/2016",
+                                          "2019/2020", "2021/2022", "2022/2023"),
+                                          each = dim(jm.out$jags.data$n)[1]),
+                               day = as.vector(jm.out$jags.data$day[1:dim(jm.out$jags.data$n)[1],])) %>%
+  group_by(season, day) %>%
+  summarise(daily.n = sum(obsd.n),
+         season = first(season),
+         day = first(day))
 
-ggplot(df.Eguchi.plot %>% group_by(season)) + 
-  geom_path(aes(x = day, y = mean.N)) +
-  geom_ribbon(aes(x = day,ymin = q2.5, max = q97.5),
+
+ggplot() + 
+  geom_path(data = df.Eguchi.plot,
+            aes(x = day, y = mean.N)) +
+  geom_ribbon(data = df.Eguchi.plot,
+              aes(x = day,ymin = q2.5, max = q97.5),
               fill = "blue", alpha = 0.5) +
+  geom_point(data = df.primary.obs.n,
+             aes(x = day, y = daily.n)) +
   facet_wrap(~ season)
 
 ```
