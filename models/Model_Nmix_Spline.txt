@@ -12,9 +12,11 @@ model{
     
   ### Linking Lambda from N Mixture to Common Model
   # In the original model, day 1 and 90 were used to anchor the number of whales to be zero.
-  # But this may not be the case... so, I decided to not anchor.
+  # But this may not be the case... so, I decided to not anchor. This does not work... 
+  # The anchoring is needed... 
+  
   for(t in 1:n.year){
-    for(j in 1:(periods[t])){
+    for(j in 1:(periods[t]+2)){
               
 		log(lambda.sp[j,t]) <- log(Watch.Length[j,t]) + sp[day[j,t],t] #specific model daily lambda fit
         
@@ -24,11 +26,12 @@ model{
   ### N Mixture process
   
   for(t in 1:n.year){
-    for(j in 1:periods[t]){ 
+    for(j in 1:(periods[t])){ 
                             
       for(s in 1:n.station[t]){
       
-        # N mixture model - two observations of 'true' N (passing whales), with different observation probabilities        
+        # N mixture model - two observations of 'true' N (passing whales), 
+		# with different observation probabilities        
         n.sp[j,s,t] ~ dbin(obs.prob.sp[j,s,t], N.sp[j,t]) # N mixture model for specific model fit
 
       }#s    
@@ -36,7 +39,7 @@ model{
   }#t
 
   for(t in 1:n.year){
-    for(j in 1:(periods[t])){ 
+    for(j in 1:(periods[t]+2)){ 
 
       # Then, the 'true' N's from a given day are distributed around a poisson mean whales per watch (lambda) 
       N.sp[j,t] ~ dpois(lambda.sp[j,t]) 
@@ -46,13 +49,6 @@ model{
   
   
   ### Observation probability
-  # It's necessary to have three separate observation probabilities 
-  # for the three different models (common, spline, and selected)
-  # The reason: the common model will force a 'normal' seasonal curve, 
-  # even if the number of whales in the middle of the season drops substantially
-  # If the spline model is then forced to share the same observation probability, 
-  # it will overestimate the number of whales (because the seasonal curve would 
-  # lead to a very low sighting probability during those days)
   for(t in 1:n.year){
     for(j in 1:periods[t]){
       for(s in 1:n.station[t]){

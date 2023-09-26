@@ -4,6 +4,11 @@
 # Model_Nmix_Spline.txt. This model is identical to Durban's Nmixture model, except
 # the normal (common) model was removed (consequently the cut function was removed).
 # 
+# The spline needs anchor points (days 1 and 90 in Durban's model) to work. In some years,
+# data were collected after day 90. So, the end point needs to be redefined. Perhaps,
+# it is 90, if survey ends before 90, but it is x days after the last survey day if
+# the last day is after 90. x = 5, 10, ...?
+
 # Code chunks with var1 = expressions are by Laake. I use var1 <- expressions
 
 rm(list = ls())
@@ -233,6 +238,8 @@ MCMC.params <- list(n.samples = 250000,
                     n.burnin = 200000,
                     n.chains = 5)
 
+# Needs initial values for N to avoid errors. N has to be significantly larger
+# than observed n.
 jags.inits <- function() list(N.sp = jags.data$n.sp[,1,] * 2 + 2)
 
 # The first attempt used counts per day, which worked fine and estimates were
@@ -240,8 +247,7 @@ jags.inits <- function() list(N.sp = jags.data$n.sp[,1,] * 2 + 2)
 # period level
 #out.file.name <- "RData/JAGS_pois_binom_results_Laake_Data.rds"
 
-# v2 uses data from the observation period level. 
-out.file.name <- "RData/JAGS_Spline_results_Laake_Data_v2.rds"
+out.file.name <- "RData/JAGS_Spline_results_Laake_Data.rds"
 jags.model <- paste0("models/Model_Nmix_Spline.txt")
 
 
