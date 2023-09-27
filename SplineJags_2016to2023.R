@@ -6,6 +6,10 @@ library(tidyverse)
 library(jagsUI)
 library(ggplot2)
 
+seasons <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011", 
+             "2014/2015", "2015/2016", "2019/2020", "2021/2022",
+             "2022/2023")
+
 # Bring in the output from a successful run of WinBUGS (a rare event...)
 # BUGS input and output
 x <- 9
@@ -80,7 +84,7 @@ MCMC.params <- list(n.samples = 250000,
 # than observed n.
 jags.inits <- function() list(N.sp = (jags.data$n.sp[,1,] * 2) + 10)
 
-out.file.name <- "RData/JAGS_Spline_results_2016_2023.rds"
+out.file.name <- "RData/JAGS_Spline_results_2006_2023.rds"
 jags.model <- paste0("models/Model_Nmix_Spline.txt")
 
 
@@ -114,4 +118,12 @@ if (!file.exists(out.file.name)){
   jm.out <- readRDS(out.file.name)
 }
 
+Nhat.df <- data.frame(median = jm.out$jm$q50$Corrected.Est,
+                      LCL = jm.out$jm$q2.5$Corrected.Est,
+                      UCL = jm.out$jm$q97.5$Corrected.Est,
+                      mean = jm.out$jm$mean$Corrected.Est,
+                      saesons = seasons)
 
+ggplot(Nhat.df) +
+  geom_point(aes(x = seasons, y = median )) +
+  geom_errorbar(aes(x = seasons, ymin = LCL, ymax = UCL))
