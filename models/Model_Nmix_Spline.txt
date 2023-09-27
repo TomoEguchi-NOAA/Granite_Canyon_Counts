@@ -13,7 +13,9 @@ model{
   ### Linking Lambda from N Mixture to Common Model
   # In the original model, day 1 and 90 were used to anchor the number of whales to be zero.
   # But this may not be the case... so, I decided to not anchor. This does not work... 
-  # The anchoring is needed... 
+  # The anchoring is needed... For Laake's dataset, they surveyed beyond day 90 (max is 95).
+  # So, n.days needs to be defined for either (1) each year differently, (2) a larger number, 
+  # e.g., 100, or (3) 90 if max day is < 90, but something else, e.g., 100, if > 90. 
   
   for(t in 1:n.year){
     for(j in 1:(periods[t]+2)){
