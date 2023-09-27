@@ -1,5 +1,5 @@
-#SplineJags_2016to2023
-# Analyzed recent data (from 2016) with spline only model
+#SplineJags_2006to2023
+# Analyzed recent data (from 2006) with spline only model
 
 rm(list = ls())
 library(tidyverse)
@@ -14,8 +14,8 @@ seasons <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011",
 # BUGS input and output
 x <- 9
 min.duration <- 85
-out.file.name <- paste0("RData/WinBUGS_", x, "yr_v2_min", min.duration, ".rds")
-BUGS.9yr.results <- readRDS(out.file.name)
+in.file.name <- paste0("RData/WinBUGS_", x, "yr_v2_min", min.duration, ".rds")
+BUGS.9yr.results <- readRDS(in.file.name)
 BUGS.data <- BUGS.9yr.results$BUGS.data
 
 n.sp <- BUGS.data$n.sp
