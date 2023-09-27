@@ -80,7 +80,7 @@ MCMC.params <- list(n.samples = 250000,
 # than observed n.
 jags.inits <- function() list(N.sp = (jags.data$n.sp[,1,] * 2) + 10)
 
-out.file.name <- "RData/JAGS_Spline_results_2016_2023.rds"
+out.file.name <- "RData/JAGS_Spline_results_2006_2023.rds"
 jags.model <- paste0("models/Model_Nmix_Spline.txt")
 
 

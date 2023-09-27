@@ -152,8 +152,11 @@ create.jags.data <- function(Effort.by.period.1){
     left_join(obs.df, by = "ID") -> Effort.by.period.1
   
   # create matrices - don't know how to do this in one line...  
-  effort <- bf <- vs <- watch.prop <- day <- matrix(nrow = max(n.year$n), ncol = length(all.years))
+  bf <- vs <- matrix(nrow = max(n.year$n), ncol = length(all.years))
 
+  day <- effort <- matrix(nrow = (max(n.year$n) + 2), 
+                          ncol = length(all.years))
+  
   n <- obs <- array(dim = c(max(n.year$n), 2, length(all.years)))
   
    periods <- vector(mode = "numeric", length = length(all.years))
@@ -164,10 +167,13 @@ create.jags.data <- function(Effort.by.period.1){
     
     n[1:nrow(tmp), 1, k] <- tmp$nwhales
     day[1:nrow(tmp), k] <- tmp$dt
+    
+    day[(nrow(tmp)+1):(nrow(tmp)+2), k] <- c(1,100)
     bf[1:nrow(tmp), k] <- tmp$beaufort
     vs[1:nrow(tmp), k] <- tmp$vis
-    watch.prop[1:nrow(tmp), k] <- tmp$watch.prop
+    #watch.prop[1:nrow(tmp), k] <- tmp$watch.prop
     effort[1:nrow(tmp), k] <- tmp$effort
+    effort[(nrow(tmp)+1):(nrow(tmp)+2), k] <- c(1,1)
     obs[1:nrow(tmp), 1, k] <- tmp$seq.ID
 
     periods[k] <- nrow(tmp)
@@ -178,7 +184,9 @@ create.jags.data <- function(Effort.by.period.1){
     summarise(max.dt = max(dt)) %>%
     pull(max.dt) -> max.dt
   
-  jags.data <- list(n.sp = n, 
+  jags.data <- list(n.sp = abind::abind(n, 
+                                        array(NA, dim = c(2, 2, dim(n)[3])), 
+                                        along = 1), 
                     n.station = rep(1, length(all.years)),
                     n.year = length(all.years),
                     n.obs = length(unique(Effort.by.period.1$seq.ID)),
@@ -190,7 +198,7 @@ create.jags.data <- function(Effort.by.period.1){
                     bf.raw = bf,
                     Watch.Length = effort,
                     day = day,
-                    n.days = max.dt) #max(Effort.by.period.1$dt))
+                    n.days = rep(100, times = dim(n)[3])) #max(Effort.by.period.1$dt))
   
   jags.data$knot <-  c(-1.46,-1.26,-1.02,-0.78,
                        -0.58,-0.34,-0.10,0.10,
@@ -240,7 +248,7 @@ MCMC.params <- list(n.samples = 250000,
 
 # Needs initial values for N to avoid errors. N has to be significantly larger
 # than observed n.
-jags.inits <- function() list(N.sp = jags.data$n.sp[,1,] * 2 + 2)
+jags.inits <- function() list(N.sp = jags.data$n.sp[,1,] * 2 + 10)
 
 # The first attempt used counts per day, which worked fine and estimates were
 # pretty close to Laake's estimates. But, the model uses all data at observation
