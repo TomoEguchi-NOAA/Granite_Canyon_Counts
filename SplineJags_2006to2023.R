@@ -72,8 +72,10 @@ jags.params <- c("lambda.sp",
                  "Raw.Est",
                  "z",
                  "sp",
-                 "Daily.Est","mean.beta",
-                 "beta.sigma","beta","beta.sp","b.sp","sd.b.sp")
+                 "Daily.Est",
+                 "beta.sp",
+                 "b.sp",
+                 "sd.b.sp")
 
 MCMC.params <- list(n.samples = 250000,
                     n.thin = 100,
