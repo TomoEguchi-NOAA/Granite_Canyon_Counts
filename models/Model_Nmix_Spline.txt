@@ -114,7 +114,8 @@ model{
 	for(d in 1:n.days[t]){ 
     
 		time.sp[d,t] <- d
-        covariate.sp[d,t]<-(time.sp[d,t]-mean.time.sp[t])/sd.time.sp[t] # this makes a 'covariate', which is just a straight line
+		# this makes a 'covariate', which is just a straight line
+        covariate.sp[d,t]<-(time.sp[d,t]-mean.time.sp[t])/sd.time.sp[t] 
 
 	}#d
   }#t
@@ -132,11 +133,11 @@ model{
   for(t in 1:n.year){
 	for(d in 1:n.days[t]){
 		for (l in 1:2){
-      
-        X.sp[d,l,t] <- pow(covariate.sp[d,t], l-1) # this makes three vectors related to day 'd' - one a flat line, one a straight increasing line 
-      }#l
+			# this makes three vectors related to day 'd' - one a flat line, one a straight increasing line 
+			X.sp[d,l,t] <- pow(covariate.sp[d,t], l-1) 
+		}#l
     }#d
-  }#t
+   }#t
     
   for(t in 1:n.year){  
     for(k in 1:n.knots){
