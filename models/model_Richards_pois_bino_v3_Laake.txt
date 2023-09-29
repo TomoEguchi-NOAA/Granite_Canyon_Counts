@@ -82,8 +82,8 @@ model{
 
 	}
 
-	Max.alpha ~ dunif(1, 6)
-	Max.beta ~ dunif(0, 1)
+	Max.alpha ~ dunif(3, 6)
+	Max.beta ~ dunif(0, 0.01)
 	S1.alpha ~ dunif(1, 4)
 	S1.beta ~ dunif(0.5, 1.5)
 	S2.alpha ~ dunif(1, 4)
