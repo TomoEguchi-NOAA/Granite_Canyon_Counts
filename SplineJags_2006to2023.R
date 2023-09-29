@@ -124,7 +124,7 @@ Nhat.df <- data.frame(median = jm.out$jm$q50$Corrected.Est,
                       LCL = jm.out$jm$q2.5$Corrected.Est,
                       UCL = jm.out$jm$q97.5$Corrected.Est,
                       mean = jm.out$jm$mean$Corrected.Est,
-                      saesons = seasons)
+                      Season = seasons)
 
 ggplot(Nhat.df) +
   geom_point(aes(x = seasons, y = median )) +

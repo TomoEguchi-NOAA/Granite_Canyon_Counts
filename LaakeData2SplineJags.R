@@ -17,6 +17,25 @@ library(ERAnalysis)
 library(tidyverse)
 library(ggplot2)
 
+# Estimates from Laake et al. are here:
+col.defs <- cols(Year = col_character(),
+                 Nhat = col_double(),
+                 CV = col_double())
+
+Laake.estimates <- read_csv(file = "Data/Laake et al 2012 Table 9 Nhats.csv",
+                            col_types = col.defs) %>% 
+  mutate(SE = CV * Nhat,
+         LCL = Nhat - 1.96 * SE,
+         UCL = Nhat + 1.96 * SE,
+         Season = lapply(strsplit(Year, "_"), 
+                         FUN = function(x) paste0(x[1], "/", x[2])) %>% 
+           unlist) %>%
+  dplyr::select(Season, Nhat, SE, LCL, UCL)  %>%
+  mutate(Year = lapply(str_split(Season, "/"), 
+                       FUN = function(x) x[2]) %>% 
+           unlist() %>% 
+           as.numeric())
+
 # From example code in the ERAnalysis library
 # 
 # The recent survey data 1987 and after are stored in ERSurveyData and those data
@@ -177,7 +196,7 @@ create.jags.data <- function(Effort.by.period.1){
     bf[1:nrow(tmp), k] <- tmp$beaufort
     vs[1:nrow(tmp), k] <- tmp$vis
     #watch.prop[1:nrow(tmp), k] <- tmp$watch.prop
-    effort[1:nrow(tmp), k] <- tmp$effort
+    effort[1:nrow(tmp), k] <- tmp$watch.prop #tmp$effort
     effort[(nrow(tmp)+1):(nrow(tmp)+2), k] <- c(1,1)
     obs[1:nrow(tmp), 1, k] <- tmp$seq.ID
 
@@ -292,5 +311,24 @@ if (!file.exists(out.file.name)){
   jm.out <- readRDS(out.file.name)
 }
 
+Nhat.df <- data.frame(median = jm.out$jm$q50$Corrected.Est,
+                      LCL = jm.out$jm$q2.5$Corrected.Est,
+                      UCL = jm.out$jm$q97.5$Corrected.Est,
+                      mean = jm.out$jm$mean$Corrected.Est,
+                      Season =  Laake.estimates$Season)
+
+Nhat.df %>% 
+  left_join(Laake.estimates, by = "Season") %>%
+  mutate(delta_Nhat = median - Nhat) -> all.estimates
+
+ggplot(all.estimates) +
+  geom_point(aes(x = Season, y = median ),
+             color = "blue") +
+  #geom_errorbar(aes(x = Season, ymin = LCL.x, ymax = UCL.x),
+  #              color = "blue") +
+  geom_point(aes(x = Season, y = Nhat ),
+             color = "green") +
+  geom_errorbar(aes(x = Season, ymin = LCL.y, ymax = UCL.y),
+                color = "green")
 
 
