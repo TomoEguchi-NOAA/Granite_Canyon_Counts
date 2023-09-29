@@ -42,6 +42,25 @@ data(Primary)      # on-effort sightings
 data(ERSurveyData)
 data("Observer")
 
+# Estimates from Laake et al. are here:
+col.defs <- cols(Year = col_character(),
+                 Nhat = col_double(),
+                 CV = col_double())
+
+Laake.estimates <- read_csv(file = "Data/Laake et al 2012 Table 9 Nhats.csv",
+                            col_types = col.defs) %>% 
+  mutate(SE = CV * Nhat,
+         LCL = Nhat - 1.96 * SE,
+         UCL = Nhat + 1.96 * SE,
+         Season = lapply(strsplit(Year, "_"), 
+                         FUN = function(x) paste0(x[1], "/", x[2])) %>% 
+           unlist) %>%
+  dplyr::select(Season, Nhat, SE, LCL, UCL)  %>%
+  mutate(Year = lapply(str_split(Season, "/"), 
+                       FUN = function(x) x[2]) %>% 
+           unlist() %>% 
+           as.numeric())
+
 # The data in PrimarySightings are all southbound sightings for all years in which visibility and beaufort
 # are less than or equal to 4. Below the counts are shown for the 2 dataframes for
 # recent surveys since 1987/88.
@@ -356,6 +375,32 @@ if (!file.exists(out.file.name)){
 } else {
   BUGS.out <- readRDS(out.file.name)
 }
+
+BUGS.out$BUGS_out$summary %>% 
+  as.data.frame() %>%
+  rownames_to_column(var = "Parameter") -> Summary.stats
+
+Corrected.Est <- Summary.stats[grep("Corrected", Summary.stats$Parameter),]
+
+Nhat.df <- data.frame(median = Corrected.Est$`50%`,
+                      LCL = Corrected.Est$`2.5%`,
+                      UCL = Corrected.Est$`97.5%`,
+                      mean = Corrected.Est$mean,
+                      Season =  Laake.estimates$Season)
+
+Nhat.df %>% 
+  left_join(Laake.estimates, by = "Season") %>%
+  mutate(delta_Nhat = median - Nhat) -> all.estimates
+
+ggplot(all.estimates) +
+  geom_point(aes(x = Season, y = median ),
+             color = "blue") +
+  geom_errorbar(aes(x = Season, ymin = LCL.x, ymax = UCL.x),
+                color = "blue") +
+  geom_point(aes(x = Season, y = Nhat ),
+             color = "green") +
+  geom_errorbar(aes(x = Season, ymin = LCL.y, ymax = UCL.y),
+                color = "green")
 
 
                     
