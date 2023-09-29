@@ -37,8 +37,6 @@
 model{
 
 	# Define Richards function - this is the mean of "true" daily abundance
-	# The realization is a normal deviate with the mean and variance, which
-	# changes with the mean, while the CV remains constant. 
 	
 	# In Laake data, the maximum number of days was 94, not 90.
 	for (y in 1:n.year){
