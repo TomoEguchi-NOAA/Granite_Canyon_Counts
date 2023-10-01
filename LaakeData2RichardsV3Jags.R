@@ -267,7 +267,7 @@ if (!file.exists(out.file.name)){
   jm.out.Laake <- list(jm = jm,
                        jags.data = jags.data.Laake,
                        jags.params = jags.params,
-                       jags.model = ,
+                       jags.model = jags.model,
                        MCMC.params = MCMC.params,
                        Run_Time = Run_Time,
                        Sys.env = Sys.getenv())
