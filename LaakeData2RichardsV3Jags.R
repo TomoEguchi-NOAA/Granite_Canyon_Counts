@@ -17,6 +17,9 @@ rm(list = ls())
 library(ERAnalysis)
 library(tidyverse)
 library(ggplot2)
+library(loo)
+
+source("Granite_Canyon_Counts_fcns.R")
 
 jags.model <- "models/model_Richards_pois_bino_v3_Laake.txt"
 
@@ -155,7 +158,7 @@ Laake.primary.counts %>%
 
 
 # Richards function fit starts here:
-run.date.Laake <- Sys.Date() #"2023-08-11"
+run.date.Laake <- Sys.Date() #"2023-09-29" # "2023-08-11"
 out.file.name <- paste0("RData/JAGS_Richards_v3_Laake_", 
                         run.date.Laake, ".rds")
 
@@ -267,7 +270,7 @@ if (!file.exists(out.file.name)){
   jm.out.Laake <- list(jm = jm,
                        jags.data = jags.data.Laake,
                        jags.params = jags.params,
-                       jags.model = ,
+                       jags.model = jags.model,
                        MCMC.params = MCMC.params,
                        Run_Time = Run_Time,
                        Sys.env = Sys.getenv())
@@ -291,7 +294,7 @@ LOOIC.n.Laake <- compute.LOOIC(loglik.array = jm.out.Laake$jm$sims.list$log.lkhd
 # Look at Rhat statistics
 max.Rhat.Laake <- lapply(jm.out.Laake$jm$Rhat, FUN = max, na.rm = T) %>%
   unlist()
-max.Rhat.Laake.big <- max.Rhat.Laake[which(max.Rhat.real > 1.1)]
+max.Rhat.Laake.big <- max.Rhat.Laake[which(max.Rhat.Laake > 1.1)]
 
 
 

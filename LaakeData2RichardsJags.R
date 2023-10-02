@@ -264,7 +264,7 @@ if (!file.exists(out.file.name)){
   jm.out.Laake <- list(jm = jm,
                        jags.data = jags.data.Laake,
                        jags.params = jags.params,
-                       jags.model = ,
+                       jags.model = jags.model,
                        MCMC.params = MCMC.params,
                        Run_Time = Run_Time,
                        Sys.env = Sys.getenv())
@@ -305,8 +305,8 @@ Nhat.Laake.df %>%
 ggplot(all.estimates) +
   geom_point(aes(x = Season, y = median ),
              color = "blue") +
-  #geom_errorbar(aes(x = Season, ymin = LCL.x, ymax = UCL.x),
-  #              color = "blue") +
+  geom_errorbar(aes(x = Season, ymin = LCL.x, ymax = UCL.x),
+                color = "blue") +
   geom_point(aes(x = Season, y = Nhat ),
              color = "green") +
   geom_errorbar(aes(x = Season, ymin = LCL.y, ymax = UCL.y),
