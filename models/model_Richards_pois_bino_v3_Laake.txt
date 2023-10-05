@@ -73,19 +73,24 @@ model{
 	# priors for Richards function parameters. 
 	for (y in 1:n.year){
 		Max[y] ~ dgamma(Max.alpha, Max.beta)  #dgamma(4, 0.002)
-		S1[y] ~ dgamma(S1.alpha, S1.beta) T(,5) #dgamma(2.1,1) T(,5) dunif(-5, -0.3) 
-		S2[y] ~ dgamma(S2.alpha, S2.beta) T(,5)  #dgamma(2.1,1) T(,5) dunif(0.3, 5) 
+		S1[y] ~ dgamma(S1.alpha, S1.beta) #T(,5) #dgamma(2.1,1) T(,5) dunif(-5, -0.3) 
+		S2[y] ~ dgamma(S2.alpha, S2.beta) #T(,5)  #dgamma(2.1,1) T(,5) dunif(0.3, 5) 
 		K[y] ~ dunif(0.1, 5)   #dnorm(0, 0.01)T(0.3, 3)
-		P[y] ~ dunif(30, 60)
+		P[y] ~ dgamma(20, 0.45) #dunif(30, 60) # T(30, 60)  #
 
 	}
 
-	Max.alpha ~ dunif(3, 7)
-	Max.beta ~ dunif(0, 0.01)
-	S1.alpha ~ dunif(1, 5)
-	S1.beta ~ dunif(0.2, 1.5)
-	S2.alpha ~ dunif(1, 5)
-	S2.beta ~ dunif(0.2, 1.5)
+	Max.alpha ~ dunif(1, 20)
+	Max.beta ~ dunif(0, 0.02)  # seems to be <~ 0.02 for it to work.
+	
+	S1.alpha ~ dunif(0.1, 25)
+	S1.beta ~ dunif(0.01, 5)
+	
+	S2.alpha ~ dunif(0.1, 10)
+	S2.beta ~ dunif(0.01, 2.5)
+	
+	#P.alpha ~ dunif(42, 48)
+	#P.beta ~ dunif(0.1, 1.5)
 	
 	### Observation probability - include the watch period durations
 	for(y in 1:n.year){
