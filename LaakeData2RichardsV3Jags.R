@@ -18,6 +18,7 @@ library(ERAnalysis)
 library(tidyverse)
 library(ggplot2)
 library(loo)
+library(bayesplot)
 
 source("Granite_Canyon_Counts_fcns.R")
 
@@ -244,6 +245,7 @@ jags.params <- c("OBS.RF", "OBS.Switch",
                  "Max.alpha", "Max.beta",
                  "S1.alpha", "S2.alpha",
                  "S1.beta", "S2.beta",
+                 "P.alpha", "P.beta",
                  "log.lkhd")
 
 MCMC.params <- list(n.samples = 250000,
