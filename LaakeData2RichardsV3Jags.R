@@ -159,7 +159,7 @@ Laake.primary.counts %>%
 
 
 # Richards function fit starts here:
-run.date.Laake <- Sys.Date() #"2023-09-29" # "2023-08-11"
+run.date.Laake <- "2023-10-06" #Sys.Date() # # "2023-08-11"
 out.file.name <- paste0("RData/JAGS_Richards_v3_Laake_", 
                         run.date.Laake, ".rds")
 
@@ -275,6 +275,7 @@ if (!file.exists(out.file.name)){
                        jags.model = jags.model,
                        MCMC.params = MCMC.params,
                        Run_Time = Run_Time,
+                       Run_Date = Start_Time,
                        Sys.env = Sys.getenv())
   
   saveRDS(jm.out.Laake,
@@ -313,8 +314,8 @@ Nhat.Laake.df %>%
 ggplot(all.estimates) +
   geom_point(aes(x = Season, y = median ),
              color = "blue") +
-  #geom_errorbar(aes(x = Season, ymin = LCL.x, ymax = UCL.x),
-  #              color = "blue") +
+  geom_errorbar(aes(x = Season, ymin = LCL.x, ymax = UCL.x),
+                color = "blue") +
   geom_point(aes(x = Season, y = Nhat ),
              color = "green") +
   geom_errorbar(aes(x = Season, ymin = LCL.y, ymax = UCL.y),

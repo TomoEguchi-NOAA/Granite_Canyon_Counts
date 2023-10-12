@@ -16,6 +16,9 @@ library(abind)
 library(jagsUI)
 library(tidyverse)
 library(bayesplot)
+library(loo)
+
+source("Granite_Canyon_Counts_fcns.R")
 # library(mgcv)
 # library(splines)
 
@@ -25,7 +28,9 @@ library(bayesplot)
 #models <- "norm_bino"
 #models <- "norm_pois"
 models <- "pois_bino"
-ver <- "v2"  # "v1" has a common K and "v2" has year-specific K
+#ver <- "v2"  # "v1" has a common K and "v2" has year-specific K
+ver <- "v3"  # "v3" has year-specific K parameters with hyper-parameters.
+
 #jags.model <- paste0("models/model_Richards_", models, ".txt")
 jags.model <- paste0("models/model_Richards_", models, "_", ver, ".txt")
 
@@ -36,7 +41,8 @@ out.file.name <- paste0("RData/JAGS_Richards_", models, "_", ver,
 # obs.list <- read.csv("Data/Observer list.csv", header = T) 
 # colnames(obs.list) <- c("obs", "ID")
 seasons <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011",
-             "2014/2015", "2015/2016", "2019/2020", "2021/2022")
+             "2014/2015", "2015/2016", "2019/2020", "2021/2022",
+             "2022/2023")
 
 #seasons <- c("2014/2015", "2015/2016", "2019/2020", "2021/2022")
 
@@ -101,12 +107,12 @@ n.seasons <- length(seasons)
 # 
 # years <- unique(Final_Data.all$Year)
 
-data.8yr.v2 <- readRDS("RData/WinBUGS_8yr_v2.rds")
-data.WinBUGS <- data.8yr.v2$jags.data
+data.9yr.v2 <- readRDS("RData/WinBUGS_9yr_v2.rds")
+data.WinBUGS <- data.9yr.v2$BUGS.data
 
 out.file.name <- paste0("RData/JAGS_Richards_", 
                         models, "_", ver,
-                        "_8yr_v2_", Sys.Date(), ".RData")
+                        "_9yr_v2_", Sys.Date(), ".RData")
 
 ```
 
@@ -216,35 +222,55 @@ $max_N >> min_N$
 
 
 ```{r run-jags}
-MCMC.params <- list(n.samples = 100000,
-                    n.thin = 10,
-                    n.burnin = 80000,
+MCMC.params <- list(n.samples = 250000,
+                    n.thin = 100,
+                    n.burnin = 200000,
                     n.chains = 5)
 
-jags.params <- c("lambda","OBS.RF","OBS.Switch",
-                "BF.Switch","BF.Fixed","VS.Switch",
-                "VS.Fixed","mean.prob",
-                "BF.Fixed",
-                "VS.Fixed", "mean.N", "max",
-                "Corrected.Est","Raw.Est","N",
-                "K", "S1", "S2", "P", "cv.N",
-                "sigma.N", "log.lkhd")
+# list(n.samples = 100000,
+#                     n.thin = 10,
+#                     n.burnin = 80000,
+#                     n.chains = 5)
+
+# jags.params <- c("lambda","OBS.RF","OBS.Switch",
+#                 "BF.Switch","BF.Fixed","VS.Switch",
+#                 "VS.Fixed","mean.prob",
+#                 "BF.Fixed",
+#                 "VS.Fixed", "mean.N", "max",
+#                 "Corrected.Est","Raw.Est","N",
+#                 "K", "S1", "S2", "P", "log.lkhd")
+
+jags.params.v3 <- c("OBS.RF", "OBS.Switch",
+                    "BF.Switch", "BF.Fixed",
+                    "VS.Switch", "VS.Fixed",
+                    "mean.prob", "mean.N", "Max",
+                    "Corrected.Est", "Raw.Est", "N",
+                    "K", "S1", "S2", "P",
+                    "Max.alpha", "Max.beta",
+                    "S1.alpha", "S2.alpha",
+                    "S1.beta", "S2.beta",
+                    "P.alpha", "P.beta",
+                    "log.lkhd")
+
+jags.params <- jags.params.v3
 
 jags.data <- list(  n = data.WinBUGS$n,
-                    n.station = rep(1, times = 8),
+                    n.station = rep(1, times = 9),
                     n.year = length(seasons),
                     n.obs = data.WinBUGS$n.obs,
                     #Daily.N = daily.N,
                     periods = data.WinBUGS$periods,
+                    n.days = 90,
                     #first.day = unlist(as.vector(first.day)),
                     obs = data.WinBUGS$obs,
-                    vs = data.WinBUGS$vs,
-                    bf = data.WinBUGS$bf,
-                    watch.prop = data.WinBUGS$Watch.Length,
-                    day = data.WinBUGS$day,
-                    max.vec = rep(1000, times = 4))
+                    vs = scale(data.WinBUGS$vs),
+                    bf = scale(data.WinBUGS$bf),
+                    watch.prop = (data.WinBUGS$Watch.Length*24*60)/540,
+                    day = data.WinBUGS$day)
+if (!file.exists(out.file.name)){
 
-jm <- jags(jags.data,
+  Start_Time<-Sys.time()
+  jm <- jags(jags.data,
              inits = NULL,
              parameters.to.save= jags.params,
              model.file = jags.model,
@@ -253,8 +279,38 @@ jm <- jags(jags.data,
              n.thin = MCMC.params$n.thin,
              n.iter = MCMC.params$n.samples,
              DIC = T, parallel=T)
+  Run_Time <- Sys.time() - Start_Time
+  
+  jm.out <- list(jm = jm,
+                 jags.data = jags.data,
+                 jags.params = jags.params,
+                 jags.model = jags.model,
+                 MCMC.params = MCMC.params,
+                 Run_Time = Run_Time,
+                 Run_Date = Start_Time,
+                 Sys.env = Sys.getenv())
+  saveRDS(jm.out,
+          file = out.file.name)
+  
+} else {
+  
+  jm.out.Laake <- readRDS(out.file.name)
+}
 
-out.list <- list()
+# need to turn zeros into NAs when there were no second station:
+data.array <- jags.data$n
+data.array[,2,which(jags.data$n.station == 1)] <- NA
+
+LOOIC.n <- compute.LOOIC(loglik.array = jm$sims.list$log.lkhd,
+                               data.array = data.array,
+                               MCMC.params = MCMC.params)
+
+# Look at Rhat statistics
+max.Rhat <- lapply(jm$Rhat, FUN = max, na.rm = T) %>%
+  unlist()
+max.Rhat.big <- max.Rhat[which(max.Rhat > 1.1)]
+
+
 
 # This is the output file name
 # jags.out.file <- paste0("RData/jagam_dailyN_k", 
@@ -266,10 +322,12 @@ out.list <- list()
 
 
 ```{r}
-# mcmc_trace(jm$samples, c("K[1]", "K[2]",
-#                          "K[3]", "K[4]"))
+mcmc_trace(jm$samples, c("K[1]", "K[2]",
+                         "K[3]", "K[4]",
+                         "K[5]", "K[6]",
+                         "K[7]", "K[8]", "K[9]"))
 
-mcmc_trace(jm$samples, "K")
+#mcmc_trace(jm$samples, "K")
 
 ```
 
@@ -279,7 +337,7 @@ mcmc_trace(jm$samples, "K")
 #mcmc_dens(jm$samples, c("K[1]", "K[2]",
 #                         "K[3]", "K[4]"))
 
-mcmc_dens(jm$samples, "K")
+#mcmc_dens(jm$samples, "K")
 
 ```
 
@@ -289,7 +347,7 @@ mcmc_dens(jm$samples, "K")
 mcmc_trace(jm$samples, c("S1[1]", "S1[2]",
                          "S1[3]", "S1[4]",
                          "S1[5]", "S1[6]",
-                         "S1[7]", "S1[8]"))
+                         "S1[7]", "S1[8]", "S1[9]"))
 
 ```
 
@@ -300,7 +358,7 @@ mcmc_trace(jm$samples, c("S1[1]", "S1[2]",
 mcmc_dens(jm$samples, c("S1[1]", "S1[2]",
                          "S1[3]", "S1[4]",
                          "S1[5]", "S1[6]",
-                         "S1[7]", "S1[8]"))
+                         "S1[7]", "S1[8]", "S1[9]"))
 
 ```
 
@@ -310,7 +368,7 @@ mcmc_dens(jm$samples, c("S1[1]", "S1[2]",
 mcmc_trace(jm$samples, c("S2[1]", "S2[2]",
                          "S2[3]", "S2[4]",
                          "S2[5]", "S2[6]",
-                         "S2[7]", "S2[8]"))
+                         "S2[7]", "S2[8]", "S2[9]"))
 
 ```
 
@@ -321,7 +379,7 @@ mcmc_trace(jm$samples, c("S2[1]", "S2[2]",
 mcmc_dens(jm$samples, c("S2[1]", "S2[2]",
                          "S2[3]", "S2[4]",
                          "S2[5]", "S2[6]",
-                         "S2[7]", "S2[8]"))
+                         "S2[7]", "S2[8]", "S2[9]"))
 
 ```
 
@@ -336,20 +394,24 @@ mcmc_trace(jm$samples, c("BF.Fixed", "VS.Fixed"))
 
 
 ```{r}
-# mcmc_trace(jm$samples, c("max[1]", "max[2]",
-#                          "max[3]", "max[4]"))
+mcmc_trace(jm$samples, c("Max[1]", "Max[2]",
+                          "Max[3]", "Max[4]",
+                         "Max[5]", "Max[6]",
+                          "Max[7]", "Max[8]", "Max[9]"))
 
-mcmc_trace(jm$samples, "max")
+#mcmc_trace(jm$samples, "Max")
 
 ```
 
 
 
 ```{r}
-#mcmc_dens(jm$samples, c("max[1]", "max[2]",
-#                         "max[3]", "max[4]"))
+mcmc_dens(jm$samples, c("Max[1]", "Max[2]",
+                          "Max[3]", "Max[4]",
+                         "Max[5]", "Max[6]",
+                          "Max[7]", "Max[8]", "Max[9]"))
 
-mcmc_dens(jm$samples, c("max"))
+#mcmc_dens(jm$samples, c("max"))
 
 ```
 
@@ -360,12 +422,12 @@ How do estimates look?
 ```{r}
 
 mean.N.hats <- data.frame(Season = rep(seasons, each = 90),
-                     Day = rep(1:90, times = 4),
-                     Mean = as.vector(jm$mean$mean.N),
-                     LCL = as.vector(jm$q2.5$mean.N),
-                     UCL = as.vector(jm$q97.5$mean.N))
+                          Day = rep(1:90, times = length(seasons)),
+                          Mean = as.vector(jm$mean$mean.N),
+                          LCL = as.vector(jm$q2.5$mean.N),
+                          UCL = as.vector(jm$q97.5$mean.N))
 
-                     
+
 ggplot(mean.N.hats %>% group_by(Season)) + 
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
               fill = "blue", alpha = 0.5) +
@@ -381,7 +443,7 @@ ggplot(mean.N.hats %>% group_by(Season)) +
 ```{r}
 
 N.hats <- data.frame(Season = rep(seasons, each = 90),
-                     Day = rep(1:90, times = 4),
+                     Day = rep(1:90, times = length(seasons)),
                      Mean = as.vector(jm$mean$N),
                      LCL = as.vector(jm$q2.5$N),
                      UCL = as.vector(jm$q97.5$N))
@@ -415,7 +477,7 @@ ggplot(obsd.n %>% group_by(Season)) +
 mcmc_trace(jm$samples, c("Corrected.Est[1]", "Corrected.Est[2]",
                          "Corrected.Est[3]", "Corrected.Est[4]",
                          "Corrected.Est[5]", "Corrected.Est[6]",
-                         "Corrected.Est[7]", "Corrected.Est[8]"))
+                         "Corrected.Est[7]", "Corrected.Est[8]", "Corrected.Est[9]"))
 
 ```
 
@@ -424,12 +486,8 @@ mcmc_trace(jm$samples, c("Corrected.Est[1]", "Corrected.Est[2]",
 mcmc_dens(jm$samples, c("Corrected.Est[1]", "Corrected.Est[2]",
                          "Corrected.Est[3]", "Corrected.Est[4]",
                          "Corrected.Est[5]", "Corrected.Est[6]",
-                         "Corrected.Est[7]", "Corrected.Est[8]"))
+                         "Corrected.Est[7]", "Corrected.Est[8]", "Corrected.Est[9]"))
 
 ```
 
-```{r}
-save.image(file = out.file.name)
-
-```
 
