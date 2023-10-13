@@ -3,9 +3,8 @@
 # Creates JAGS input data from Laake's ERAnalysis library and runs JAGS on 
 # model_Richards_pois_bino_v3_Laake.txt. 
 # 
-# This v2 version has year spcific K parameters. It has conversion issues but so was
-# v1 with a common K parameter.
-
+# This v3 version has year specific K parameters with hyperparameters.
+#
 # This Laake version allows different numbers of sampling periods between primary
 # and secondary sampling stations.
 # 

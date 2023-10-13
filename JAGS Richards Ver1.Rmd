@@ -35,7 +35,7 @@ ver <- "v3"  # "v3" has year-specific K parameters with hyper-parameters.
 jags.model <- paste0("models/model_Richards_", models, "_", ver, ".txt")
 
 out.file.name <- paste0("RData/JAGS_Richards_", models, "_", ver,  
-                        "_", Sys.Date(), ".RData")
+                        "_", Sys.Date(), ".rds")
 
 # Observer list gets updated as new observers are added. 
 # obs.list <- read.csv("Data/Observer list.csv", header = T) 
@@ -255,7 +255,7 @@ jags.params.v3 <- c("OBS.RF", "OBS.Switch",
 jags.params <- jags.params.v3
 
 jags.data <- list(  n = data.WinBUGS$n,
-                    n.station = rep(1, times = 9),
+                    n.station = c(1, 1, 2, 2, rep(1, times = 5)),
                     n.year = length(seasons),
                     n.obs = data.WinBUGS$n.obs,
                     #Daily.N = daily.N,
