@@ -42,14 +42,10 @@ model{
 	for (y in 1:n.year){
 				
 		for (t in 1:94){
-			# year-specific K - results in conversion issues. 2022-11-09
+			# year-specific K 
 			M1[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/(-S1[y])) * (P[y] - t))) ^ (-1/exp(K[y]))
 			M2[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K[y]))
-			
-			# or common K
-			#M1[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/(-S1[y])) * (P[y] - t))) ^ (-1/exp(K))
-			#M2[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K))
-			
+						
 			mean.N[t, y] <- (Max[y]) * (M1[t, y] * M2[t, y])
 			
 			N[t, y] ~ dpois(mean.N[t,y])
@@ -75,7 +71,8 @@ model{
 		Max[y] ~ dgamma(Max.alpha, Max.beta)  #dgamma(4, 0.002)
 		S1[y] ~ dgamma(S1.alpha, S1.beta) #T(,5) #dgamma(2.1,1) T(,5) dunif(-5, -0.3) 
 		S2[y] ~ dgamma(S2.alpha, S2.beta) #T(,5)  #dgamma(2.1,1) T(,5) dunif(0.3, 5) 
-		K[y] ~ dunif(0.1, 5) #dgamma(2.8, 3.75) T(0.1,)  #dunif(0.1, 5)   #dnorm(0, 0.01)T(0.3, 3)
+		K[y] ~ dgamma(K.alpha, K.beta)  # dunif(0.1, 5) #<- this works (U(0.1, 5)) 
+				#dgamma(2.8, 3.75) T(0.1,)  #dunif(0.1, 5)   #dnorm(0, 0.01)T(0.3, 3)
 		P[y] ~ dgamma(P.alpha, P.beta) # dgamma(20, 0.45) #dunif(30, 60) # T(30, 60)  #
 
 	}
@@ -91,6 +88,9 @@ model{
 	
 	P.alpha ~ dunif(18, 22)
 	P.beta ~ dunif(0.01, 1.5)
+	
+	K.alpha ~ dunif(0, 1)
+	K.beta ~ dunif(1, 10)
 	
 	### Observation probability - include the watch period durations
 	for(y in 1:n.year){
