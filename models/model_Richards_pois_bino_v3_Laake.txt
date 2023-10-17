@@ -31,7 +31,6 @@
 # All these parameters have gamma priors with uniform hyper priors. The ranges of 
 # hyper priors had to be adjusted in order to avoid errors during MCMC sampling. 
 
-
 # This Laake version allows different numbers of sampling periods between primary
 # and secondary sampling stations. 2023-08-11
 
