@@ -27,7 +27,9 @@
 # Bayes approach. Biometrika 75:223-228), I use a Poisson distribution as the prior
 # for N. 
 
-# This v3 version has year spcific K parameters with hyperparameters. 
+# This v3 version has year spcific K, Max, S1, S2, and P parameters with hyperparameters. 
+# All these parameters have gamma priors with uniform hyper priors. The ranges of 
+# hyper priors had to be adjusted in order to avoid errors during MCMC sampling. 
 
 
 # This Laake version allows different numbers of sampling periods between primary
@@ -89,8 +91,11 @@ model{
 	P.alpha ~ dunif(18, 22)
 	P.beta ~ dunif(0.01, 1.5)
 	
-	K.alpha ~ dunif(0, 1)
-	K.beta ~ dunif(1, 10)
+	# K.beta <= K.alpha seems to work better with the gamma distribution for K
+	# So, I subtract a random number from K.alpha to create K.beta
+	K.alpha ~ dunif(1, 3)
+	K.unif ~ dunif(0, 1)
+	K.beta <- K.alpha - K.unif
 	
 	### Observation probability - include the watch period durations
 	for(y in 1:n.year){

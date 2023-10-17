@@ -140,6 +140,7 @@ jags.params <- c("OBS.RF", "OBS.Switch",
                  "S1.alpha", "S2.alpha",
                  "S1.beta", "S2.beta",
                  "P.alpha", "P.beta",
+                 "K.alpha", "K.beta",
                  "log.lkhd")
 
 MCMC.params <- list(n.samples = 250000,
@@ -202,51 +203,19 @@ max.Rhat.big <- max.Rhat[which(max.Rhat > 1.1)]
 mcmc_dens(jm.out$jm$samples, c("Max.alpha", "Max.beta",
                                "S1.alpha", "S1.beta",
                                "S2.alpha", "S2.beta",
-                               "P.alpha", "P.beta"))
+                               "P.alpha", "P.beta",
+                               "K.alpha", "K.beta"))
 
 mcmc_dens(jm.out$jm$samples, c("BF.Fixed", "VS.Fixed"))
 
+par.idx <- c(1:nrow(jm.out$jm$mean$P))
 
-P1 <- c("P[1]", "P[2]", "P[3]", "P[4]", "P[5]", "P[6]", "P[7]", "P[8]", "P[9]")
-P2 <- c("P[10]", "P[11]", "P[12]", "P[13]", "P[14]", "P[15]", "P[16]", "P[17]", "P[18]")
-P3 <- c("P[19]", "P[20]", "P[21]", "P[22]", "P[23]", "P[24]", "P[25]", "P[26]", "P[27]")
-P4 <- c("P[28]", "P[29]", "P[30]", "P[31]")
+mcmc_trace(jm.out$jm$samples, paste0("P[", par.idx, "]"))
+mcmc_trace(jm.out$jm$samples, paste0("K[", par.idx, "]"))
+mcmc_trace(jm.out$jm$samples, paste0("S1[", par.idx, "]"))
+mcmc_trace(jm.out$jm$samples, paste0("S2[", par.idx, "]"))
+mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
 
-mcmc_trace(jm.out$jm$samples, P1)
-mcmc_trace(jm.out$jm$samples, P2)
-mcmc_trace(jm.out$jm$samples, P3)
-mcmc_trace(jm.out$jm$samples, P4)
-
-
-K2 <- c("K[10]", "K[11]", "K[12]", "K[13]", "K[14]", "K[15]", "K[16]", "K[17]", "K[18]")
-K1 <- c("K[1]", "K[2]", "K[3]", "K[4]", "K[5]", "K[6]", "K[7]", "K[8]", "K[9]")
-K3 <- c("K[19]", "K[20]", "K[21]", "K[22]", "K[23]", "K[24]", "K[25]", "K[26]", "K[27]")
-K4 <- c("K[28]", "K[29]", "K[30]", "K[31]")
-
-mcmc_trace(jm.out$jm$samples, K1)
-mcmc_trace(jm.out$jm$samples, K2)
-mcmc_trace(jm.out$jm$samples, K3)
-mcmc_trace(jm.out$jm$samples, K4)
-
-S1.1 <- c("S1[1]", "S1[2]", "S1[3]", "S1[4]", "S1[5]", "S1[6]", "S1[7]", "S1[8]", "S1[9]")
-S1.2 <- c("S1[10]", "S1[11]", "S1[12]", "S1[13]", "S1[14]", "S1[15]", "S1[16]", "S1[17]", "S1[18]")
-S1.3 <- c("S1[19]", "S1[20]", "S1[21]", "S1[22]", "S1[23]", "S1[24]", "S1[25]", "S1[26]", "S1[27]")
-S1.4 <- c("S1[28]", "S1[29]", "S1[30]", "S1[31]")
-
-mcmc_trace(jm.out$jm$samples, S1.1)
-mcmc_trace(jm.out$jm$samples, S1.2)
-mcmc_trace(jm.out$jm$samples, S1.3)
-mcmc_trace(jm.out$jm$samples, S1.4)
-
-S2.1 <- c("S2[1]", "S2[2]", "S2[3]", "S2[4]", "S2[5]", "S2[6]", "S2[7]", "S2[8]", "S2[9]")
-S2.2 <- c("S2[10]", "S2[11]", "S2[12]", "S2[13]", "S2[14]", "S2[15]", "S2[16]", "S2[17]", "S2[18]")
-S2.3 <- c("S2[19]", "S2[20]", "S2[21]", "S2[22]", "S2[23]", "S2[24]", "S2[25]", "S2[26]", "S2[27]")
-S2.4 <- c("S2[28]", "S2[29]", "S2[30]", "S2[31]")
-
-mcmc_trace(jm.out$jm$samples, S2.1)
-mcmc_trace(jm.out$jm$samples, S2.2)
-mcmc_trace(jm.out$jm$samples, S2.3)
-mcmc_trace(jm.out$jm$samples, S2.4)
 
 # Look at the abudance estimates:
 Nhat. <- data.frame(median = jm.out$jm$q50$Corrected.Est,
