@@ -299,6 +299,62 @@ get.shift <- function(YEAR, data, i){
   data.shift <- data %>% filter(begin >= Begin & 
                                   begin <= End)
   
+  if (data.shift[nrow(data.shift), "V2"] != "E")
+    data.shift <- rbind(data.shift, 
+                        data.frame(V1 = NA, 
+                                   V2 = "E", 
+                                   V3 = data.shift[1, "V3"],
+                                   V4 = format(as.POSIXct(as.Date("2022-12-01 00:00:00") + End),
+                                               format = "%H:%M:%S"),
+                                   V5 = NA,
+                                   V6 = NA,
+                                   V7 = NA,
+                                   V8 = NA,
+                                   V9 = NA,
+                                   V10 = NA,
+                                   V11 = NA,
+                                   V12 = NA,
+                                   V13 = NA,
+                                   V14 = NA,
+                                   V15 = NA,
+                                   V16 = NA,
+                                   begin = End,
+                                   shift = i, ff = ff))
+  
+  # Add "key" variable, which defines was a segment with constant environmental 
+  # data like visibility and wind force (beaufort). It is in the format of 
+  # Date_Shift_ID. ID is the sequential identification number within the shift.
+  idx.V <- which(data.shift$V2 == "V")
+  if (max(idx.V) < nrow(data.shift))
+    idx.V <- c(idx.V, nrow(data.shift))
+  
+  key.num <- vector(mode = "numeric", length = nrow(data.shift))
+  k1 <- 1
+  k2 <- 0
+  for (k in 1:length(idx.V)){
+    key.num[k1:idx.V[k]] <- k2
+    k1 <- idx.V[k] + 1
+    k2 <- k2 + 1
+  }
+
+  data.shift$key <- key.num
+  data.shift$effort <- NA
+  
+  # Compute effort
+  for (k in 0:(max(key.num)-1)){
+    tmp.1 <- data.shift %>%
+      filter(key == k) %>%
+      summarise(time = first(begin)) %>%
+      pull(time) %>% as.numeric()
+    
+    tmp.2 <- data.shift %>%
+      filter(key == (k + 1)) %>%
+      summarise(time = first(begin)) %>%
+      pull(time) %>% as.numeric()
+    
+    data.shift$effort[data.shift$key == k+1] <- tmp.2 - tmp.1
+  }
+  
   if (i < max.shifts){
     # when there are multiple Es in one file: Take the first of positive values
     if (length(NextBeginHr) > 1){
@@ -456,8 +512,10 @@ get.shift <- function(YEAR, data, i){
         #summarize(N = max(as.numeric(V9), na.rm = T)) %>% 
         summarize(N = last(as.numeric(V9))) %>% 
         dplyr::select(N)  %>% sum()
+      npods <- length(unique(sub.data$V5))
     } else {
       N <- 0
+      npods <- 0
     }
     
   } else {   # if there were no spillover
@@ -471,8 +529,11 @@ get.shift <- function(YEAR, data, i){
         #summarize(N = max(as.numeric(V9), na.rm = T)) %>% 
         summarize(N = last(as.numeric(V9))) %>% 
         dplyr::select(N)  %>% sum()
+      npods <- length(unique(sub.data$V5))
+      
     } else {
       N <- 0
+      npods <- 0
     }
     
   }
@@ -483,6 +544,7 @@ get.shift <- function(YEAR, data, i){
                                        bf = as.numeric(BF),
                                        vs = as.numeric(VS),
                                        n = N,
+                                       npods = npods,
                                        obs = as.character(Observer),
                                        ff = ff,
                                        i = i,

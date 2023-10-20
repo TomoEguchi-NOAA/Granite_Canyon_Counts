@@ -19,8 +19,9 @@ library(lubridate)
 source("Granite_Canyon_Counts_fcns.R")
 
 # Do not run 2023 with this script. Use Extract_Data_2023.Rmd for 2023. 
+# I ran 2023 data and seemed to work fine... 2023-10-19
 # YEAR should be one of 2015, 2016, 2020, 2022, 2023 (and beyond)
-YEAR <- 2022 #Enter the year of the data files
+YEAR <- 2015 #Enter the year of the data files
 
 # For 2010 and 2011 (maybe in the previous years too but I don't have any of those files)
 # Time is entered in decimal hours, not hh:mm:ss. So, that needs to be accommodated in
@@ -43,7 +44,7 @@ if (YEAR == 2023){
 }
   
 
-Data_Out.list <- list()
+all.data.list <- Data_Out.list <- all.sightings.list <- list()
 
 # The next for loop throws back "NAs introduced by coercion" but not to worry.
 # These are results of as.numeric() for the line numbers, where some lines may
@@ -51,7 +52,7 @@ Data_Out.list <- list()
 # missing and they return warnings "in 'transmute()'..." They turn into NAs so 
 # they are not problems. 
 
-ff <- 30
+ff <- 10
 for(ff in 1:length(FILES)){ 
   
   data <- get.data("Data/", YEAR, FILES = FILES, ff = ff)
@@ -65,20 +66,71 @@ for(ff in 1:length(FILES)){
   #   i.max <- length(Shifts) - 1
   # }
   # 
-  Output.list <- list()
-  k <- 2
+  all.data <- Output.list <- all.sightings <- list()
+  k <- 1
   for(k in 1:length(Shifts)){
     out.shift <- get.shift(YEAR, data, k)
       
     Output.list[[k]] <- out.shift$out.df
+    all.sightings[[k]] <- out.shift$data  # added for Laake's analysis
+    all.data[[k]] <- out.shift$data.shift  # for computing effort for Laake's analysis
   }#i
   
   Data_Out.list[[ff]] <- do.call("rbind", Output.list)
+  all.sightings.list[[ff]] <- do.call("rbind", all.sightings)
+  all.data.list[[ff]] <- do.call("rbind", all.data)
+  
   #Sys.sleep(1)
 }#ff (files loop)         
 
 Data_Out <- do.call("rbind", Data_Out.list)
+Data4Laake <- do.call("rbind", all.sightings.list) %>%
+  
+  mutate(key.1 = paste0(as.Date(V3, format = "%m/%d/%Y"), "_", shift, "_", key)) %>%
+  dplyr::select(-c("V15", "V16", "key")) %>%
+  rename(c( "Event_ID" = "V1",
+            "Event_Code" = "V2",
+            "Date" = "V3",
+            "Time_PST" = "V4",
+            "Group_ID" = "V5",
+            "Bearing" = "V6",
+            "Reticle" = "V7",
+            "Distance" = "V8",
+            "n" = "V9",
+            "Observer1" = "V10",
+            "Observer2" = "V11",
+            "Beaufort" = "V12",
+            "Visibility" = "V13",
+            "Direction" = "V14",
+            "Decimal_Day" = "begin",
+            "Shift" = "shift",
+            "Input_Filename" = "ff",
+            "key" = "key.1"))
 
+Effort4Laake <- do.call("rbind", all.data.list) %>%
+  filter(key > 0) %>%
+  
+  mutate(key.1 = paste0(as.Date(V3, format = "%m/%d/%Y"), "_", shift, "_", key)) %>%
+  dplyr::select(-c("V15", "V16", "key")) %>%
+  rename(c( "Event_ID" = "V1",
+            "Event_Code" = "V2",
+            "Date" = "V3",
+            "Time_PST" = "V4",
+            "Group_ID" = "V5",
+            "Bearing" = "V6",
+            "Reticle" = "V7",
+            "Distance" = "V8",
+            "n" = "V9",
+            "Observer1" = "V10",
+            "Observer2" = "V11",
+            "Beaufort" = "V12",
+            "Visibility" = "V13",
+            "Direction" = "V14",
+            "Decimal_Day" = "begin",
+            "Shift" = "shift",
+            "Input_Filename" = "ff",
+            "effort" = "effort",
+            "key" = "key.1"))
 ```
 
 
@@ -174,6 +226,10 @@ out.obj <- list(Data_Out = Data_Out,
 
 #saveRDS(out.obj, file = paste0("RData/V2_Aug2022/out_", YEAR, "_Tomo_v2.rds"))
 #saveRDS(out.obj, file = paste0("RData/V2.1_Aug2022/out_", YEAR, "_Tomo_v2.rds"))
-#saveRDS(out.obj, file = paste0("RData/V2.1_Sep2023/out_", YEAR, "_min", min_dur, "_Tomo_v2.rds"))
+# saveRDS(out.obj, file = paste0("RData/V2.1_Oct2023/out_", YEAR, "_min", min_dur, "_Tomo_v2.rds"))
+# write.csv(Data4Laake,
+#           file = paste0("data/all_sightings_", YEAR, "_Tomo_v2.rds"))
+# write.csv(Effort4Laake,
+#          file = paste0("data/all_effort_", YEAR, "_Tomo_v2.rds"))
 ```
 
