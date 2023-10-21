@@ -59,6 +59,7 @@ years <- c(2015, 2016, 2020, 2022, 2023)
 
 # sightings and efort
 sightings.list <- effort.list <- list()
+k <- 1
 for (k in 1:length(years)){
   # These raw data files contain repeated observations of all groups.
   # 
@@ -90,10 +91,11 @@ for (k in 1:length(years)){
               key = first(key)) %>%
     arrange(Date, Group_ID) -> sightings.list[[k]]
   
-  # EFFORT FILE INCLUDES ALL SIGHTINGS AS WELL. THAT'S OKAY BUT UNNECESSARY
-  # FILTER DOWN TO ONE LINE PER UNIQUE KEY CODE 2023-10-20.
+  WHEN THERE WAS NO SIGHTING WITHIN A SHIFT, EFFORT IS NOT CALCULATED CORRECTLY.
+  NEED TO FIX THIS 2023-10-21
+  
   tmp.effort <- read.csv(paste0("data/all_effort_", 
-                                years[k], "_Tomo_v2.rds")) #$Final_Data %>%
+                                years[k], "_Tomo_v2.rds")) %>%
     mutate(Start.year = years[k] - 1)
     
     effort.list[[k]]

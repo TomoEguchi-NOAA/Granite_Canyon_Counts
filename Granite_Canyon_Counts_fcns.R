@@ -339,21 +339,102 @@ get.shift <- function(YEAR, data, i){
 
   data.shift$key <- key.num
   data.shift$effort <- NA
+  data.shift$start <- NA
+  data.shift$end <- NA
+  data.shift$time <- NA
   
   # Compute effort
   for (k in 0:(max(key.num)-1)){
     tmp.1 <- data.shift %>%
       filter(key == k) %>%
-      summarise(time = first(begin)) %>%
+      summarise(time = last(begin)) %>%
       pull(time) %>% as.numeric()
     
     tmp.2 <- data.shift %>%
       filter(key == (k + 1)) %>%
-      summarise(time = first(begin)) %>%
+      summarise(time = last(begin)) %>%
       pull(time) %>% as.numeric()
     
     data.shift$effort[data.shift$key == k+1] <- tmp.2 - tmp.1
+    data.shift$start[data.shift$key == k+1] <- tmp.1
+    data.shift$end[data.shift$key == k+1] <- tmp.2
+    data.shift$time[data.shift$key == k+1] <- tmp.1 + (tmp.2-tmp.1)/2
   }
+  
+  WHEN THERE WAS NO SIGHTING WITHIN A SHIFT, EFFORT IS NOT CALCULATED CORRECTLY.
+  NEED TO FIX THIS 2023-10-21
+  
+  if (which(data.shift$V2 == "S") > 0){
+    data.shift %>%
+      filter(V2 == "S") %>%
+      transmute(Date = V3, 
+                Time = V4, 
+                Group_ID = V5, 
+                n = V9, 
+                bft = V12, 
+                vis = V13, 
+                shift = shift, 
+                key = key, 
+                begin = start,
+                end = end,
+                time = time,
+                effort = effort) %>%
+      group_by(Group_ID) %>%
+      summarise(Date = first(Date),
+                Time = first(Time),
+                n = max(n, na.rm = T),
+                bft = first(bft),
+                vis = first(vis),
+                shift = first(shift),
+                key = first(key),
+                begin = first(begin),
+                end = first(end),
+                time = first(time),
+                effort = first(effort)) #-> tmp# %>%
+    #arrange(key) %>%
+    group_by(key) %>%
+      summarise(Date = first(Date),
+                ngroup = n(),
+                nwhales = sum(n, na.rm = T),
+                bft = first(bft),
+                vis = first(vis),
+                shift = first(shift),
+                key = first(key),
+                begin = first(begin),
+                end = first(end),
+                time = first(time),
+                effort = first(effort)) -> data.shift.effort
+  } else {
+    data.shift %>%
+      filter(V2 != "P")  %>%
+      transmute(Date = V3, 
+                Time = V4, 
+                Group_ID = V5, 
+                n = V9, 
+                bft = V12, 
+                vis = V13, 
+                shift = shift, 
+                key = key, 
+                begin = start,
+                end = end,
+                time = time,
+                effort = effort) %>% 
+    #arrange(key) %>%
+    group_by(key) %>%
+      summarise(Date = first(Date),
+                ngroup = 0,
+                nwhales = 0,
+                bft = first(bft),
+                vis = first(vis),
+                shift = first(shift),
+                key = first(key),
+                begin = first(begin),
+                end = first(end),
+                time = first(time),
+                effort = first(effort))-> tmp
+    
+  }
+
   
   if (i < max.shifts){
     # when there are multiple Es in one file: Take the first of positive values
@@ -552,6 +633,7 @@ get.shift <- function(YEAR, data, i){
                                        BeginDay = BeginDay),
                    data = sub.data,
                    data.shift = data.shift,
+                   shift.effort = data.shift.effort,
                    data.next.shift = data.shift2)
   return( out.list )
 }
