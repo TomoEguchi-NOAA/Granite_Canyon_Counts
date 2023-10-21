@@ -197,6 +197,10 @@ get.data <- function(dir, YEAR, FILES, ff){
     mutate(begin = as.numeric(BeginDay) + BeginHr/24,
            shift = cumsum(V2=="P")) -> data
   
+  # People like to enter comments on "E" lines... remove all extra comments:
+  data[data$V2 == "E", c("V5", "V6", "V7", "V8", "V9", "V10", 
+                         "V11", "V12", "V13", "V14", "V15", "V16")] <- NA
+  
   data$ff <- input.file.name
   
   return(data)
@@ -299,144 +303,7 @@ get.shift <- function(YEAR, data, i){
   data.shift <- data %>% filter(begin >= Begin & 
                                   begin <= End)
   
-  if (data.shift[nrow(data.shift), "V2"] != "E")
-    data.shift <- rbind(data.shift, 
-                        data.frame(V1 = NA, 
-                                   V2 = "E", 
-                                   V3 = data.shift[1, "V3"],
-                                   V4 = format(as.POSIXct(as.Date("2022-12-01 00:00:00") + End),
-                                               format = "%H:%M:%S"),
-                                   V5 = NA,
-                                   V6 = NA,
-                                   V7 = NA,
-                                   V8 = NA,
-                                   V9 = NA,
-                                   V10 = NA,
-                                   V11 = NA,
-                                   V12 = NA,
-                                   V13 = NA,
-                                   V14 = NA,
-                                   V15 = NA,
-                                   V16 = NA,
-                                   begin = End,
-                                   shift = i, ff = ff))
-  
-  # Add "key" variable, which defines was a segment with constant environmental 
-  # data like visibility and wind force (beaufort). It is in the format of 
-  # Date_Shift_ID. ID is the sequential identification number within the shift.
-  idx.V <- which(data.shift$V2 == "V")
-  if (max(idx.V) < nrow(data.shift))
-    idx.V <- c(idx.V, nrow(data.shift))
-  
-  key.num <- vector(mode = "numeric", length = nrow(data.shift))
-  k1 <- 1
-  k2 <- 0
-  for (k in 1:length(idx.V)){
-    key.num[k1:idx.V[k]] <- k2
-    k1 <- idx.V[k] + 1
-    k2 <- k2 + 1
-  }
-
-  data.shift$key <- key.num
-  data.shift$effort <- NA
-  data.shift$start <- NA
-  data.shift$end <- NA
-  data.shift$time <- NA
-  
-  # Compute effort
-  for (k in 0:(max(key.num)-1)){
-    tmp.1 <- data.shift %>%
-      filter(key == k) %>%
-      summarise(time = last(begin)) %>%
-      pull(time) %>% as.numeric()
-    
-    tmp.2 <- data.shift %>%
-      filter(key == (k + 1)) %>%
-      summarise(time = last(begin)) %>%
-      pull(time) %>% as.numeric()
-    
-    data.shift$effort[data.shift$key == k+1] <- tmp.2 - tmp.1
-    data.shift$start[data.shift$key == k+1] <- tmp.1
-    data.shift$end[data.shift$key == k+1] <- tmp.2
-    data.shift$time[data.shift$key == k+1] <- tmp.1 + (tmp.2-tmp.1)/2
-  }
-  
-  WHEN THERE WAS NO SIGHTING WITHIN A SHIFT, EFFORT IS NOT CALCULATED CORRECTLY.
-  NEED TO FIX THIS 2023-10-21
-  
-  if (which(data.shift$V2 == "S") > 0){
-    data.shift %>%
-      filter(V2 == "S") %>%
-      transmute(Date = V3, 
-                Time = V4, 
-                Group_ID = V5, 
-                n = V9, 
-                bft = V12, 
-                vis = V13, 
-                shift = shift, 
-                key = key, 
-                begin = start,
-                end = end,
-                time = time,
-                effort = effort) %>%
-      group_by(Group_ID) %>%
-      summarise(Date = first(Date),
-                Time = first(Time),
-                n = max(n, na.rm = T),
-                bft = first(bft),
-                vis = first(vis),
-                shift = first(shift),
-                key = first(key),
-                begin = first(begin),
-                end = first(end),
-                time = first(time),
-                effort = first(effort)) #-> tmp# %>%
-    #arrange(key) %>%
-    group_by(key) %>%
-      summarise(Date = first(Date),
-                ngroup = n(),
-                nwhales = sum(n, na.rm = T),
-                bft = first(bft),
-                vis = first(vis),
-                shift = first(shift),
-                key = first(key),
-                begin = first(begin),
-                end = first(end),
-                time = first(time),
-                effort = first(effort)) -> data.shift.effort
-  } else {
-    data.shift %>%
-      filter(V2 != "P")  %>%
-      transmute(Date = V3, 
-                Time = V4, 
-                Group_ID = V5, 
-                n = V9, 
-                bft = V12, 
-                vis = V13, 
-                shift = shift, 
-                key = key, 
-                begin = start,
-                end = end,
-                time = time,
-                effort = effort) %>% 
-    #arrange(key) %>%
-    group_by(key) %>%
-      summarise(Date = first(Date),
-                ngroup = 0,
-                nwhales = 0,
-                bft = first(bft),
-                vis = first(vis),
-                shift = first(shift),
-                key = first(key),
-                begin = first(begin),
-                end = first(end),
-                time = first(time),
-                effort = first(effort))-> tmp
-    
-  }
-
-  
-  if (i < max.shifts){
+    if (i < max.shifts){
     # when there are multiple Es in one file: Take the first of positive values
     if (length(NextBeginHr) > 1){
       dif.BeginHr <- NextBeginHr - BeginHr
@@ -619,6 +486,162 @@ get.shift <- function(YEAR, data, i){
     
   }
   
+  if (data.shift[nrow(data.shift), "V2"] != "E")
+    data.shift <- rbind(data.shift, 
+                        data.frame(V1 = NA, 
+                                   V2 = "E", 
+                                   V3 = data.shift[1, "V3"],
+                                   V4 = format(as.POSIXct(as.Date("2022-12-01 00:00:00") + End),
+                                               format = "%H:%M:%S"),
+                                   V5 = NA,
+                                   V6 = NA,
+                                   V7 = NA,
+                                   V8 = NA,
+                                   V9 = NA,
+                                   V10 = NA,
+                                   V11 = NA,
+                                   V12 = NA,
+                                   V13 = NA,
+                                   V14 = NA,
+                                   V15 = NA,
+                                   V16 = NA,
+                                   begin = End,
+                                   shift = i, ff = ff))
+  
+  # Add "key" variable, which defines was a segment with constant environmental 
+  # data like visibility and wind force (beaufort). It is in the format of 
+  # Date_Shift_ID. ID is the sequential identification number within the shift.
+  idx.V <- which(data.shift$V2 == "V")
+  bft <- c(NA, as.numeric(data.shift$V5[idx.V]))
+  vis <- c(NA, as.numeric(data.shift$V6[idx.V]))
+  
+  if (max(idx.V) < nrow(data.shift))
+    idx.V <- c(idx.V, nrow(data.shift))
+  
+  bft.num <- vis.num <- key.num <- vector(mode = "numeric", length = nrow(data.shift))
+  k1 <- 1
+  k2 <- 0
+  for (k in 1:length(idx.V)){
+    key.num[k1:idx.V[k]] <- k2
+    bft.num[k1:idx.V[k]] <- bft[k]
+    vis.num[k1:idx.V[k]] <- vis[k]
+    k1 <- idx.V[k] + 1
+    k2 <- k2 + 1
+  }
+  
+  data.shift$key <- key.num
+  data.shift$effort <- NA
+  data.shift$start <- NA
+  data.shift$end <- NA
+  data.shift$time <- NA
+  
+  # Compute effort
+  for (k in 0:(max(key.num)-1)){
+    tmp.1 <- data.shift %>%
+      filter(key == k) %>%
+      summarise(time = last(begin)) %>%
+      pull(time) %>% as.numeric()
+    
+    tmp.2 <- data.shift %>%
+      filter(key == (k + 1)) %>%
+      summarise(time = last(begin)) %>%
+      pull(time) %>% as.numeric()
+    
+    data.shift$effort[data.shift$key == k+1] <- tmp.2 - tmp.1
+    data.shift$start[data.shift$key == k+1] <- tmp.1
+    data.shift$end[data.shift$key == k+1] <- tmp.2
+    data.shift$time[data.shift$key == k+1] <- tmp.1 + (tmp.2-tmp.1)/2
+  }
+  
+  # Need to remove the spillover groups in order to count npods and nwhales
+  
+  if (length(which(data.shift$V2 == "S")) != 0){
+    data.shift %>%
+      select(V1, key, effort, start, end, time) %>%
+      right_join(sub.data, by = "V1")  %>%
+      transmute(Date = V3, 
+                Time = V4, 
+                Group_ID = V5, 
+                n = as.numeric(V9), 
+                bft = as.numeric(V12), 
+                vis = as.numeric(V13),
+                Bearing = as.numeric(V6),
+                Reticle = as.numeric(V7),
+                Distance = as.numeric(V8),
+                shift = shift, 
+                key = key, 
+                begin = start,
+                end = end,
+                time = time,
+                effort = effort) %>%
+      group_by(Group_ID) %>%
+      summarise(Date = first(Date),
+                Time = first(Time),
+                n = max(n, na.rm = T),
+                bft = first(bft),
+                vis = first(vis),
+                Bearing = first(Bearing[n == max(n)]),
+                Reticle = first(Reticle[n == max(n)]),
+                Distance = first(Distance[n == max(n)]),
+                shift = first(shift),
+                key = first(key),
+                begin = first(begin),
+                end = first(end),
+                time = first(time),
+                effort = first(effort)) -> sub.data.shift
+      
+      sub.data.shift %>%
+      group_by(key) %>%
+      summarise(Date = first(Date),
+                ngroup = n(),
+                nwhales = sum(n, na.rm = T),
+                bft = first(bft),
+                vis = first(vis),
+                shift = first(shift),
+                key = first(key),
+                begin = first(begin),
+                end = first(end),
+                time = first(time),
+                effort = first(effort)) -> data.shift.effort
+  } else {
+    
+    data.shift$bft <- bft.num
+    data.shift$vis <- vis.num
+    
+    data.shift %>%
+      filter(V2 != "P", key > 0)  %>%
+      transmute(Group_ID = NA,
+                Date = V3, 
+                Time = V4, 
+                n = 0,
+                bft = bft, 
+                vis = vis, 
+                Bearing = NA,
+                Reticle = NA,
+                Distance = NA,
+                shift = shift, 
+                key = key, 
+                begin = start,
+                end = end,
+                time = time,
+                effort = effort) -> sub.data.shift 
+      #arrange(key) %>%
+      sub.data.shift %>%
+      group_by(key) %>%
+      summarise(Date = first(Date),
+                ngroup = 0,
+                nwhales = 0,
+                bft = first(bft),
+                vis = first(vis),
+                shift = first(shift),
+                key = first(key),
+                begin = first(begin),
+                end = first(end),
+                time = first(time),
+                effort = first(effort))-> data.shift.effort
+    
+  }
+  
   out.list <- list(out.df = data.frame(begin = as.numeric(Begin),
                                        end = as.numeric(End),
                                        dur = as.numeric(End) - as.numeric(Begin),
@@ -631,7 +654,7 @@ get.shift <- function(YEAR, data, i){
                                        i = i,
                                        BeginHr = BeginHr,
                                        BeginDay = BeginDay),
-                   data = sub.data,
+                   data = sub.data.shift,
                    data.shift = data.shift,
                    shift.effort = data.shift.effort,
                    data.next.shift = data.shift2)

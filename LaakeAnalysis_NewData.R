@@ -65,7 +65,7 @@ for (k in 1:length(years)){
   # 
    
   tmp.sightings <- read.csv(paste0("data/all_sightings_", 
-                         years[k], "_Tomo_v2.rds")) 
+                         years[k], "_Tomo_v2.csv")) 
   
   tmp.sightings %>%
     mutate(Date1 = as.Date(Date, format = "%m/%d/%Y"),
@@ -91,11 +91,8 @@ for (k in 1:length(years)){
               key = first(key)) %>%
     arrange(Date, Group_ID) -> sightings.list[[k]]
   
-  WHEN THERE WAS NO SIGHTING WITHIN A SHIFT, EFFORT IS NOT CALCULATED CORRECTLY.
-  NEED TO FIX THIS 2023-10-21
-  
   tmp.effort <- read.csv(paste0("data/all_effort_", 
-                                years[k], "_Tomo_v2.rds")) %>%
+                                years[k], "_Tomo_v2.csv")) %>%
     mutate(Start.year = years[k] - 1)
     
     effort.list[[k]]

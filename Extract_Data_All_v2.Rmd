@@ -21,7 +21,7 @@ source("Granite_Canyon_Counts_fcns.R")
 # Do not run 2023 with this script. Use Extract_Data_2023.Rmd for 2023. 
 # I ran 2023 data and seemed to work fine... 2023-10-19
 # YEAR should be one of 2015, 2016, 2020, 2022, 2023 (and beyond)
-YEAR <- 2020 #Enter the year of the data files
+YEAR <- 2023 #Enter the year of the data files
 
 # For 2010 and 2011 (maybe in the previous years too but I don't have any of those files)
 # Time is entered in decimal hours, not hh:mm:ss. So, that needs to be accommodated in
@@ -54,7 +54,7 @@ all.effort.list <- Data_Out.list <- all.sightings.list <- list()
 
 ff <- 1
 for(ff in 1:length(FILES)){ 
-  
+  print(paste0("file = ", ff))
   data <- get.data("Data/", YEAR, FILES = FILES, ff = ff)
   
   #Shifts <- which(data$V2 %in% c('P','E')) #start/end of all shifts
@@ -69,6 +69,7 @@ for(ff in 1:length(FILES)){
   all.effort <- Output.list <- all.sightings <- list()
   k <- 1
   for(k in 1:length(Shifts)){
+    #print(paste0("Shift = ", k))
     out.shift <- get.shift(YEAR, data, k)
       
     Output.list[[k]] <- out.shift$out.df
@@ -85,28 +86,23 @@ for(ff in 1:length(FILES)){
 
 Data_Out <- do.call("rbind", Data_Out.list)
 Data4Laake <- do.call("rbind", all.sightings.list) %>%
-  
-  mutate(key.1 = paste0(as.Date(V3, format = "%m/%d/%Y"), "_", shift, "_", key)) %>%
-  dplyr::select(-c("V15", "V16", "key")) %>%
-  rename(c( "Event_ID" = "V1",
-            "Event_Code" = "V2",
-            "Date" = "V3",
-            "Time_PST" = "V4",
-            "Group_ID" = "V5",
-            "Bearing" = "V6",
-            "Reticle" = "V7",
-            "Distance" = "V8",
-            "n" = "V9",
-            "Observer1" = "V10",
-            "Observer2" = "V11",
-            "Beaufort" = "V12",
-            "Visibility" = "V13",
-            "Direction" = "V14",
-            "Decimal_Day" = "begin",
-            "Shift" = "shift",
-            "Input_Filename" = "ff",
-            "key" = "key.1"))
+  mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key)) %>%
+  transmute(Date = Date,
+            key = key.1,
+            Group_ID = Group_ID,
+            nwhales = n,
+            beaufort = bft,
+            vis = vis,
+            Bearing = Bearing,
+            Reticle = Reticle,
+            Distance = Distance,
+            Shift = shift,
+            begin = begin,
+            end = end,
+            time = time,
+            effort = effort)
 
+  
 Effort4Laake <-  do.call("rbind", all.effort.list) %>%
   mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key)) %>%
   transmute(Date = Date,
@@ -216,9 +212,9 @@ out.obj <- list(Data_Out = Data_Out,
 #saveRDS(out.obj, file = paste0("RData/V2_Aug2022/out_", YEAR, "_Tomo_v2.rds"))
 #saveRDS(out.obj, file = paste0("RData/V2.1_Aug2022/out_", YEAR, "_Tomo_v2.rds"))
 # saveRDS(out.obj, file = paste0("RData/V2.1_Oct2023/out_", YEAR, "_min", min_dur, "_Tomo_v2.rds"))
-# write.csv(Data4Laake,
-#           file = paste0("data/all_sightings_", YEAR, "_Tomo_v2.rds"))
+write.csv(Data4Laake,
+          file = paste0("data/all_sightings_", YEAR, "_Tomo_v2.csv"))
 write.csv(Effort4Laake,
-         file = paste0("data/all_effort_", YEAR, "_Tomo_v2.rds"))
+        file = paste0("data/all_effort_", YEAR, "_Tomo_v2.csv"))
 ```
 
