@@ -88,7 +88,9 @@ for (k in 1:length(years)){
               Start.year = years[k]-1,
               Observer = observer,
               key = key) %>%
-    arrange(Date, Group_ID) -> sightings.list[[k]]
+    arrange(Date, Group_ID) %>%
+    filter(vis < 5, beaufort < 5) %>%
+    na.omit() -> sightings.list[[k]]
   
   tmp.effort <- read.csv(paste0("data/all_effort_", 
                                 years[k], "_Tomo_v2.csv")) 
@@ -104,7 +106,10 @@ for (k in 1:length(years)){
               effort = effort,
               vis = vis,
               beaufort = beaufort,
-              Date = as.Date(Date, format = "%m/%d/%Y")) -> effort.list[[k]]
+              Date = as.Date(Date, format = "%m/%d/%Y"),
+              Use = T) %>%
+    filter(vis < 5, beaufort < 5) %>%
+    na.omit() -> effort.list[[k]]
 }
 
 sightings <- do.call("rbind", sightings.list) %>%
@@ -136,5 +141,39 @@ effort <- do.call("rbind", effort.list)  %>%
   #           beaufort = bf,
   #           Observer = obs,
   #           watch = i)
+  #           
 
+# 2019/2020 AND 2022/2023 SEASONS ARE NOT WORKING WELL. SOME DATA ARE NOT COMPLETE... FIX
+# 2023-10-25
+
+naive.abundance.models <- list()
+for (k in 1:length(years)){
+  naive.abundance.models[[k]] <- estimate.abundance(spar=NULL,
+                                                    dpar=NULL,
+                                                    gsS=gsS,
+                                                    effort=effort.list[[k]], 
+                                                    sightings=sightings.list[[k]], 
+                                                    final.time= 90,
+                                                    lower.time=0,
+                                                    gformula=~s(time),
+                                                    dformula=NULL)
+  
+}
+
+# Define set of models to be evaluated for detection
+models=c("podsize+Dist+Observer",
+         "podsize+Dist+Observer+beaufort",
+         "podsize+Dist+Observer+vis",
+         "podsize+Dist+Observer+Vis")
+
+#Next compute the series of abundance estimates for the most recent 8 years by
+# fitting and selecting the best detection model but not applying the pod size correction.
+# From those 8 estimates and the naive estimates, compute an average ratio and 
+# apply it to generate the estimates for the first 15 surveys prior to 1987.
+sightings$corrected.podsize=sightings$podsize
+abundance.estimates.nops.correction=compute.series(models, 
+                                                   naive.abundance.models,
+                                                   sightings=sightings,
+                                                   effort=effort,
+                                                   TruePS=FALSE)
 
