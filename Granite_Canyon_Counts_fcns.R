@@ -303,7 +303,7 @@ get.shift <- function(YEAR, data, i){
   data.shift <- data %>% filter(begin >= Begin & 
                                   begin <= End)
   
-    if (i < max.shifts){
+  if (i < max.shifts){
     # when there are multiple Es in one file: Take the first of positive values
     if (length(NextBeginHr) > 1){
       dif.BeginHr <- NextBeginHr - BeginHr
@@ -318,7 +318,7 @@ get.shift <- function(YEAR, data, i){
     data.shift2 <- NA
   }
 
-    # pull out the data for this shift
+  # pull out the data for this shift
   # if (i < max.shifts){
   #   data.shift <- data[(Shifts.begin[i]):(Shifts.begin[i+1]-1),]    
   # } else {
@@ -568,6 +568,7 @@ get.shift <- function(YEAR, data, i){
                 Bearing = as.numeric(V6),
                 Reticle = as.numeric(V7),
                 Distance = as.numeric(V8),
+                Observer = V10,
                 shift = shift, 
                 key = key, 
                 begin = start,
@@ -583,6 +584,7 @@ get.shift <- function(YEAR, data, i){
                 Bearing = first(Bearing[n == max(n)]),
                 Reticle = first(Reticle[n == max(n)]),
                 Distance = first(Distance[n == max(n)]),
+                Observer = first(Observer),
                 shift = first(shift),
                 key = first(key),
                 begin = first(begin),
@@ -598,6 +600,7 @@ get.shift <- function(YEAR, data, i){
                 bft = first(bft),
                 vis = first(vis),
                 shift = first(shift),
+                Observer = first(Observer),
                 key = first(key),
                 begin = first(begin),
                 end = first(end),
@@ -619,6 +622,7 @@ get.shift <- function(YEAR, data, i){
                 Bearing = NA,
                 Reticle = NA,
                 Distance = NA,
+                Observer = NA,
                 shift = shift, 
                 key = key, 
                 begin = start,
@@ -634,6 +638,7 @@ get.shift <- function(YEAR, data, i){
                 bft = first(bft),
                 vis = first(vis),
                 shift = first(shift),
+                Observer = first(Observer),
                 key = first(key),
                 begin = first(begin),
                 end = first(end),

@@ -68,60 +68,73 @@ for (k in 1:length(years)){
                          years[k], "_Tomo_v2.csv")) 
   
   tmp.sightings %>%
-    mutate(Date1 = as.Date(Date, format = "%m/%d/%Y"),
-           group = paste0(Date1, "_", Group_ID)) %>%
-    group_by(group) %>%
-    summarise(Date = first(Date1),
-              Time = first(Time_PST[n == max(n)]), 
+    mutate(Date1 = as.Date(Date, format = "%m/%d/%Y")) %>%
+    #group_by(group) %>%
+    transmute(Date = Date1,
+              Time = Time_PST, 
               day = day(Date),
               month = month(Date),
               year = year(Date),
-              watch = first(Shift),
+              watch = Shift,
               t241 = difftime((paste(Date, Time)),
                               (paste0((years[k] - 1), 
                                              "-12-01 00:00:00"))) %>%
                 as.numeric(),
-              Group_ID = first(Group_ID),
-              distance = first(Distance[n == max(n)]),
-              podsize = max(n),
-              vis = first(Visibility[n == max(n)]),
-              beaufort = first(Beaufort[n == max(n)]),
+              Group_ID = Group_ID,
+              distance = Distance,
+              podsize = nwhales,
+              vis = vis,
+              beaufort = beaufort,
               Start.year = years[k]-1,
-              Observer = first(Observer1),
-              key = first(key)) %>%
+              Observer = observer,
+              key = key) %>%
     arrange(Date, Group_ID) -> sightings.list[[k]]
   
   tmp.effort <- read.csv(paste0("data/all_effort_", 
-                                years[k], "_Tomo_v2.csv")) %>%
-    mutate(Start.year = years[k] - 1)
-    
-    effort.list[[k]]
+                                years[k], "_Tomo_v2.csv")) 
+  
+  tmp.effort %>%
+    transmute(Start.year = years[k] - 1,
+              key = key,
+              begin = begin,
+              end = end,
+              npods = npods,
+              nwhales = nwhales,
+              time = time,
+              effort = effort,
+              vis = vis,
+              beaufort = beaufort,
+              Date = as.Date(Date, format = "%m/%d/%Y")) -> effort.list[[k]]
 }
 
 sightings <- do.call("rbind", sightings.list) %>%
-  select(Date, Shift, Distance, n, Visibility, Beaufort, Observer1) %>%
-  transmute(Date = as.Date(Date, format = "%m/%d/%Y"),
-            day = day(Date),
-            month = month(Date),
-            year = year(Date),
-            watch = Shift,
-            t241 = NA,
-            distance = Distance,
-            podsize = n,
-            vis = Visibility,
-            beaufort = Beaufort,
-            Start.year = years[k]-1,
-            Observer = Observer1) 
+  na.omit()
+  #select(Date, Shift, Distance, n, Visibility, Beaufort, Observer1) %>%
+  # transmute(Date = as.Date(Date, format = "%m/%d/%Y"),
+  #           day = day(Date),
+  #           month = month(Date),
+  #           year = year(Date),
+  #           watch = Shift,
+  #           t241 = NA,
+  #           distance = Distance,
+  #           podsize = n,
+  #           vis = Visibility,
+  #           beaufort = Beaufort,
+  #           Start.year = years[k]-1,
+  #           Observer = Observer1) 
 
 # Effort
-effort <- do.call("rbind", effort.list) %>%
-  select(-ff) %>%
-  transmute(Start.year = Start.year,
-            begin = begin,
-            end = end,
-            nwhales = n,
-            effort = dur,
-            vis = vs,
-            beaufort = bf,
-            Observer = obs,
-            watch = i)
+effort <- do.call("rbind", effort.list)  %>%
+  na.omit()
+  # select(-ff) %>%
+  # transmute(Start.year = Start.year,
+  #           begin = begin,
+  #           end = end,
+  #           nwhales = n,
+  #           effort = dur,
+  #           vis = vs,
+  #           beaufort = bf,
+  #           Observer = obs,
+  #           watch = i)
+
+

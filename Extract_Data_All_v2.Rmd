@@ -88,6 +88,7 @@ Data_Out <- do.call("rbind", Data_Out.list)
 Data4Laake <- do.call("rbind", all.sightings.list) %>%
   mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key)) %>%
   transmute(Date = Date,
+            Time_PST = Time,
             key = key.1,
             Group_ID = Group_ID,
             nwhales = n,
@@ -97,6 +98,7 @@ Data4Laake <- do.call("rbind", all.sightings.list) %>%
             Reticle = Reticle,
             Distance = Distance,
             Shift = shift,
+            observer = Observer,
             begin = begin,
             end = end,
             time = time,
@@ -215,6 +217,7 @@ out.obj <- list(Data_Out = Data_Out,
 write.csv(Data4Laake,
           file = paste0("data/all_sightings_", YEAR, "_Tomo_v2.csv"))
 write.csv(Effort4Laake,
-        file = paste0("data/all_effort_", YEAR, "_Tomo_v2.csv"))
+       file = paste0("data/all_effort_", YEAR, "_Tomo_v2.csv"))
+#         
 ```
 
