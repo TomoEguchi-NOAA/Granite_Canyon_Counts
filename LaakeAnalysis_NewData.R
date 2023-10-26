@@ -57,6 +57,7 @@ Laake_SecondaryEffort <- read.csv(file = "Data/Laake_SecondaryEffort.csv") %>%
 # 
 years <- c(2015, 2016, 2020, 2022, 2023)
 
+#years <- 2015
 # sightings and efort
 sightings.list <- effort.list <- list()
 k <- 1
@@ -112,68 +113,40 @@ for (k in 1:length(years)){
     na.omit() -> effort.list[[k]]
 }
 
+# sightings
 sightings <- do.call("rbind", sightings.list) %>%
   na.omit()
-  #select(Date, Shift, Distance, n, Visibility, Beaufort, Observer1) %>%
-  # transmute(Date = as.Date(Date, format = "%m/%d/%Y"),
-  #           day = day(Date),
-  #           month = month(Date),
-  #           year = year(Date),
-  #           watch = Shift,
-  #           t241 = NA,
-  #           distance = Distance,
-  #           podsize = n,
-  #           vis = Visibility,
-  #           beaufort = Beaufort,
-  #           Start.year = years[k]-1,
-  #           Observer = Observer1) 
+
+# Need to replace observer code to integers.
+all.observers <- unique(sightings$Observer)
+observer.df <- data.frame(Observer = all.observers,
+                          code = c(1:length(all.observers)))
+
+sightings %>% left_join(observer.df, by = "Observer") %>%
+  select(-Observer) %>%
+  rename(Observer = code) -> sightings
 
 # Effort
 effort <- do.call("rbind", effort.list)  %>%
   na.omit()
-  # select(-ff) %>%
-  # transmute(Start.year = Start.year,
-  #           begin = begin,
-  #           end = end,
-  #           nwhales = n,
-  #           effort = dur,
-  #           vis = vs,
-  #           beaufort = bf,
-  #           Observer = obs,
-  #           watch = i)
-  #           
 
-# 2019/2020 AND 2022/2023 SEASONS ARE NOT WORKING WELL. SOME DATA ARE NOT COMPLETE... FIX
-# 2023-10-25
-
+# gsS: nmax x nmax pod size calibration matrix; each row is a true pod size 
+# from 1 to nmax and the value for each column is the probability that a pod of 
+# a true size S is recorded as a size s (1..nmax columns)
+# 
 naive.abundance.models <- list()
 for (k in 1:length(years)){
-  naive.abundance.models[[k]] <- estimate.abundance(spar=NULL,
-                                                    dpar=NULL,
-                                                    gsS=gsS,
-                                                    effort=effort.list[[k]], 
-                                                    sightings=sightings.list[[k]], 
-                                                    final.time= 90,
-                                                    lower.time=0,
-                                                    gformula=~s(time),
-                                                    dformula=NULL)
+  naive.abundance.models[[k]] <- estimate.abundance(spar = NULL,
+                                                    dpar = NULL,
+                                                    gsS = gsS,  # Does not matter when spar = NULL and dpar = NULL
+                                                    effort =effort.list[[k]], 
+                                                    sightings =sightings.list[[k]], 
+                                                    final.time = 90,
+                                                    lower.time = 0,
+                                                    gformula = ~s(time),
+                                                    dformula = NULL)
   
 }
 
-# Define set of models to be evaluated for detection
-models=c("podsize+Dist+Observer",
-         "podsize+Dist+Observer+beaufort",
-         "podsize+Dist+Observer+vis",
-         "podsize+Dist+Observer+Vis")
 
-#Next compute the series of abundance estimates for the most recent 8 years by
-# fitting and selecting the best detection model but not applying the pod size correction.
-# From those 8 estimates and the naive estimates, compute an average ratio and 
-# apply it to generate the estimates for the first 15 surveys prior to 1987.
-sightings$corrected.podsize=sightings$podsize
-abundance.estimates.nops.correction=compute.series(models, 
-                                                   naive.abundance.models,
-                                                   sightings=sightings,
-                                                   effort=effort,
-                                                   TruePS=FALSE)
 
