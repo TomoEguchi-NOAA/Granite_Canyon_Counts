@@ -97,18 +97,20 @@ for (k in 1:length(years)){
                                 years[k], "_Tomo_v2.csv")) 
   
   tmp.effort %>%
-    transmute(Start.year = years[k] - 1,
+    transmute(watch.key = watch.key,
+              Start.year = years[k] - 1,
               key = key,
               begin = begin,
               end = end,
               npods = npods,
               nwhales = nwhales,
-              time = time,
               effort = effort,
               vis = vis,
               beaufort = beaufort,
-              Date = as.Date(Date, format = "%m/%d/%Y"),
-              Use = T) %>%
+              time = time,
+              watch = shift,
+              Use = T,
+              Date = as.Date(Date, format = "%m/%d/%Y")) %>%
     filter(vis < 5, beaufort < 5) %>%
     na.omit() -> effort.list[[k]]
 }
@@ -148,5 +150,32 @@ for (k in 1:length(years)){
   
 }
 
+# How do I adjust these estimates for other factors...? Perhaps... I can add these
+# new data to Laake's primary dataframes (sightings and effort)
 
+sightings %>%
+  transmute(X = seq(from = 35608, to = 35608 + nrow(sightings) - 1),
+            Date = Date, day = day, month = month,
+            year = year, 
+            watch = watch,
+            t241 = t241, distance = distance,
+            podsize = podsize,
+            vis = vis,
+            beaufort = beaufort,
+            wind.direction = NA,
+            key = key,
+            pphr = NA,
+            Start.year = Start.year,
+            original.watch = watch,
+            only = TRUE,
+            hours = NA,
+            Sex = NA,
+            Observer = Observer) -> sightings.Laake.format
 
+sightings.all <- rbind(Laake_PrimarySightings, sightings.Laake.format)
+
+# Need to add watch.key, which is yyyy_seq, where seq is the sequential number 
+# of watch. 
+effort %>%
+  transmute(X = seq(from = 7293, to = 7292 + nrow(effort)),
+            watch.key = )

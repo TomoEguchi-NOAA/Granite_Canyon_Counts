@@ -21,7 +21,7 @@ source("Granite_Canyon_Counts_fcns.R")
 # Do not run 2023 with this script. Use Extract_Data_2023.Rmd for 2023. 
 # I ran 2023 data and seemed to work fine... 2023-10-19
 # YEAR should be one of 2015, 2016, 2020, 2022, 2023 (and beyond)
-YEAR <- 2020 #Enter the year of the data files
+YEAR <- 2023 #Enter the year of the data files
 
 # For 2010 and 2011 (maybe in the previous years too but I don't have any of those files)
 # Time is entered in decimal hours, not hh:mm:ss. So, that needs to be accommodated in
@@ -105,11 +105,14 @@ Data4Laake <- do.call("rbind", all.sightings.list) %>%
             effort = effort) %>%
   filter(nwhales > 0)
 
-  
 Effort4Laake <-  do.call("rbind", all.effort.list) %>%
-  mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key)) %>%
+  mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
+         year.shift = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift)) %>%
   transmute(Date = Date,
+            Start.year = YEAR - 1,
             key = key.1,
+            shift = shift,
+            year.shift = year.shift,
             npods = ngroup,
             nwhales = nwhales,
             beaufort = bft,
@@ -118,6 +121,17 @@ Effort4Laake <-  do.call("rbind", all.effort.list) %>%
             end = end,
             time = time,
             effort = effort)
+
+seq.year.shift <- data.frame(year.shift = unique(Effort4Laake$year.shift),
+                             Start.year = YEAR - 1,
+                             seq = 1:length(unique(Effort4Laake$year.shift))) %>%
+  mutate(watch.key = paste0(Start.year, "_", seq)) %>%
+  select(-c(seq, Start.year))
+
+Effort4Laake %>%
+  left_join(seq.year.shift, by = "year.shift") -> Effort4Laake
+
+
 
 ```
 
@@ -167,8 +181,8 @@ WhalesDays <- Final_Data %>%
   mutate(PropDay = end-begin) %>%
   summarize(TotalWatch = sum(PropDay), TotalWhales=sum(n))
 
-ggplot(data = WhalesDays) + 
-  geom_point(aes(x = as.numeric(BeginDay), y = TotalWhales/TotalWatch))
+# ggplot(data = WhalesDays) + 
+#   geom_point(aes(x = as.numeric(BeginDay), y = TotalWhales/TotalWatch))
 #plot(x=WhalesDays$BeginDay,y=WhalesDays$TotalWhales/WhalesDays$TotalWatch)
 
 ShiftsPerDay <- Final_Data %>%
