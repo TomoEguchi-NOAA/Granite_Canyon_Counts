@@ -21,7 +21,7 @@ source("Granite_Canyon_Counts_fcns.R")
 # Do not run 2023 with this script. Use Extract_Data_2023.Rmd for 2023. 
 # I ran 2023 data and seemed to work fine... 2023-10-19
 # YEAR should be one of 2015, 2016, 2020, 2022, 2023 (and beyond)
-YEAR <- 2023 #Enter the year of the data files
+YEAR <- 2020 #Enter the year of the data files
 
 # For 2010 and 2011 (maybe in the previous years too but I don't have any of those files)
 # Time is entered in decimal hours, not hh:mm:ss. So, that needs to be accommodated in
@@ -52,6 +52,8 @@ all.effort.list <- Data_Out.list <- all.sightings.list <- list()
 # missing and they return warnings "in 'transmute()'..." They turn into NAs so 
 # they are not problems. 
 
+#2023-11-28: Shift IDs are incorrect. They need to be defined from 7:30, rather than
+#the first shift of each day
 ff <- 1
 for(ff in 1:length(FILES)){ 
   print(paste0("file = ", ff))
@@ -122,15 +124,10 @@ Effort4Laake <-  do.call("rbind", all.effort.list) %>%
             time = time,
             effort = effort)
 
-seq.year.shift <- data.frame(year.shift = unique(Effort4Laake$year.shift),
-                             Start.year = YEAR - 1,
-                             seq = 1:length(unique(Effort4Laake$year.shift))) %>%
-  mutate(watch.key = paste0(Start.year, "_", seq)) %>%
-  select(-c(seq, Start.year))
-
-Effort4Laake %>%
-  left_join(seq.year.shift, by = "year.shift") -> Effort4Laake
-
+Effort4Laake %>% 
+  mutate(seq = 1:nrow(Effort4Laake),
+         watch.key = paste0(Start.year, "_", seq)) %>%
+  select(-c(seq)) -> Effort4Laake
 
 
 ```
@@ -226,9 +223,13 @@ out.obj <- list(Data_Out = Data_Out,
                 Complete_Data = Complete_Data,
                 WPH = WPH)
 
+# Saving RDS file for Bayesian analyses (Durban and Eguchi)
 #saveRDS(out.obj, file = paste0("RData/V2_Aug2022/out_", YEAR, "_Tomo_v2.rds"))
 #saveRDS(out.obj, file = paste0("RData/V2.1_Aug2022/out_", YEAR, "_Tomo_v2.rds"))
 # saveRDS(out.obj, file = paste0("RData/V2.1_Oct2023/out_", YEAR, "_min", min_dur, "_Tomo_v2.rds"))
+# 
+
+# Saving csv files for Laake analysis
 write.csv(Data4Laake,
           file = paste0("data/all_sightings_", YEAR, "_Tomo_v2.csv"))
 write.csv(Effort4Laake,

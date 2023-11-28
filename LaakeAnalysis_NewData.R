@@ -175,7 +175,10 @@ sightings %>%
 sightings.all <- rbind(Laake_PrimarySightings, sightings.Laake.format)
 
 # Need to add watch.key, which is yyyy_seq, where seq is the sequential number 
-# of watch. 
-effort %>%
-  transmute(X = seq(from = 7293, to = 7292 + nrow(effort)),
-            watch.key = )
+# of watch, where the environmental conditions are the same. This needs to be
+# created in new data. 
+
+# effort %>%
+#   transmute(X = seq(from = 7293, to = 7292 + nrow(effort)),
+#             watch.key = )
+

@@ -486,6 +486,8 @@ get.shift <- function(YEAR, data, i){
     
   }
   
+  # v4 is just time and End is the number of days. So, it doesn't matter what year
+  # I use as the starting point. I use 2022-12-01 00:00:00
   if (data.shift[nrow(data.shift), "V2"] != "E")
     data.shift <- rbind(data.shift, 
                         data.frame(V1 = NA, 
@@ -508,7 +510,7 @@ get.shift <- function(YEAR, data, i){
                                    begin = End,
                                    shift = i, ff = ff))
   
-  # Add "key" variable, which defines was a segment with constant environmental 
+  # Add "key" variable, which defines a segment with constant environmental 
   # data like visibility and wind force (beaufort). It is in the format of 
   # Date_Shift_ID. ID is the sequential identification number within the shift.
   idx.V <- which(data.shift$V2 == "V")
