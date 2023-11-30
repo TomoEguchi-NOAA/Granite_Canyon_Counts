@@ -21,7 +21,7 @@ source("Granite_Canyon_Counts_fcns.R")
 # Do not run 2023 with this script. Use Extract_Data_2023.Rmd for 2023. 
 # I ran 2023 data and seemed to work fine... 2023-10-19
 # YEAR should be one of 2015, 2016, 2020, 2022, 2023 (and beyond)
-YEAR <- 2020 #Enter the year of the data files
+YEAR <- 2016 #Enter the year of the data files
 
 # For 2010 and 2011 (maybe in the previous years too but I don't have any of those files)
 # Time is entered in decimal hours, not hh:mm:ss. So, that needs to be accommodated in
@@ -43,7 +43,6 @@ if (YEAR == 2023){
 
 }
   
-
 all.effort.list <- Data_Out.list <- all.sightings.list <- list()
 
 # The next for loop throws back "NAs introduced by coercion" but not to worry.
@@ -53,11 +52,28 @@ all.effort.list <- Data_Out.list <- all.sightings.list <- list()
 # they are not problems. 
 
 #2023-11-28: Shift IDs are incorrect. They need to be defined from 7:30, rather than
-#the first shift of each day
+#the first shift of each day. Need to... extract all data first using get.data.
+#combine them to make one data frame, then send that to get.shift by selecting 
+#one day at a time. Need to change the ff loop and create another loop (or apply)
+#to extract shifts/day. 
+
+data.list <- list()
 ff <- 1
 for(ff in 1:length(FILES)){ 
-  print(paste0("file = ", ff))
-  data <- get.data("Data/", YEAR, FILES = FILES, ff = ff)
+  #print(paste0("file = ", ff))
+  data.list[[ff]] <- get.data("Data/", YEAR, FILES = FILES, ff = ff)
+}
+
+# combine all data
+data.all <- do.call("rbind", data.list)
+#data.all$Shift <- shift.definition(as.Date(data.all$V3, format = "%m/%d/%Y"), data.all$V4)
+
+unique.dates <- unique(data.all$V3)
+c <- 15
+for (c in 1:length(unique.dates)){
+  #print(paste0("Date = ", c))
+  data.all %>% 
+    filter(V3 == unique.dates[c]) -> data  
   
   #Shifts <- which(data$V2 %in% c('P','E')) #start/end of all shifts
   Shifts <- which(data$V2 %in% "P") #start of all shifts
@@ -77,18 +93,18 @@ for(ff in 1:length(FILES)){
     Output.list[[k]] <- out.shift$out.df
     all.sightings[[k]] <- out.shift$data  # added for Laake's analysis
     all.effort[[k]] <- out.shift$shift.effort  # for computing effort for Laake's analysis
-  }#i
+  }
   
-  Data_Out.list[[ff]] <- do.call("rbind", Output.list)
-  all.sightings.list[[ff]] <- do.call("rbind", all.sightings)
-  all.effort.list[[ff]] <- do.call("rbind", all.effort)
+  Data_Out.list[[c]] <- do.call("rbind", Output.list)
+  all.sightings.list[[c]] <- do.call("rbind", all.sightings)
+  all.effort.list[[c]] <- do.call("rbind", all.effort)
   
   #Sys.sleep(1)
 }#ff (files loop)         
 
 Data_Out <- do.call("rbind", Data_Out.list)
 Data4Laake <- do.call("rbind", all.sightings.list) %>%
-  mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key)) %>%
+  mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", Shift, "_", Group_ID)) %>%
   transmute(Date = Date,
             Time_PST = Time,
             key = key.1,
@@ -107,9 +123,10 @@ Data4Laake <- do.call("rbind", all.sightings.list) %>%
             effort = effort) %>%
   filter(nwhales > 0)
 
+# 2023-11-29 Double check on what the "key" should be in the effort file.
 Effort4Laake <-  do.call("rbind", all.effort.list) %>%
-  mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
-         year.shift = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift)) %>%
+  mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", Shift, "_", key),
+         year.shift = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", Shift)) %>%
   transmute(Date = Date,
             Start.year = YEAR - 1,
             key = key.1,
@@ -224,16 +241,16 @@ out.obj <- list(Data_Out = Data_Out,
                 WPH = WPH)
 
 # Saving RDS file for Bayesian analyses (Durban and Eguchi)
-#saveRDS(out.obj, file = paste0("RData/V2_Aug2022/out_", YEAR, "_Tomo_v2.rds"))
-#saveRDS(out.obj, file = paste0("RData/V2.1_Aug2022/out_", YEAR, "_Tomo_v2.rds"))
-# saveRDS(out.obj, file = paste0("RData/V2.1_Oct2023/out_", YEAR, "_min", min_dur, "_Tomo_v2.rds"))
+# saveRDS(out.obj, file = paste0("RData/V2.1_Nov2023/out_", YEAR, "_Tomo_v2.rds"))
+# saveRDS(out.obj, file = paste0("RData/V2.1_Nov2023/out_", YEAR, "_Tomo_v2.rds"))
+# saveRDS(out.obj, file = paste0("RData/V2.1_Nov2023/out_", YEAR, "_min", min_dur, "_Tomo_v2.rds"))
 # 
 
 # Saving csv files for Laake analysis
-write.csv(Data4Laake,
-          file = paste0("data/all_sightings_", YEAR, "_Tomo_v2.csv"))
-write.csv(Effort4Laake,
-       file = paste0("data/all_effort_", YEAR, "_Tomo_v2.csv"))
+# write.csv(Data4Laake,
+#           file = paste0("data/all_sightings_", YEAR, "_Tomo_v2.csv"))
+# write.csv(Effort4Laake,
+#        file = paste0("data/all_effort_", YEAR, "_Tomo_v2.csv"))
 #         
 ```
 

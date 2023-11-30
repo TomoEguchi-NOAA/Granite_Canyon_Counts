@@ -1,6 +1,18 @@
 
 # define some functions
 
+shift.definition <- function(date, time){
+  dur.since.midnight <- difftime(paste(date, time), paste(date, "00:00:00"), units = "hours")
+  shift.id <- ifelse(dur.since.midnight <= 7.5, 0,
+                     ifelse(dur.since.midnight <= 9, 1,
+                            ifelse(dur.since.midnight <= 10.5, 2,
+                                   ifelse(dur.since.midnight <= 12, 3,
+                                          ifelse(dur.since.midnight <= 13.5, 4,
+                                                 ifelse(dur.since.midnight <= 15, 5,
+                                                        ifelse(dur.since.midnight <= 16.5, 6, 7)))))))
+  return(shift.id)
+}
+
 
 compute.LOOIC <- function(loglik.array, data.array, MCMC.params){
   n.per.chain <- (MCMC.params$n.samples - MCMC.params$n.burnin)/MCMC.params$n.thin
@@ -150,7 +162,7 @@ get.data <- function(dir, YEAR, FILES, ff){
   Starts <- which(data$V2=="B") #Find all start times
   Ends <- which(data$V2=="E") #Find all end times
   
-  # if there is no "E" at the end, Add "E" with time equal to 5 seconds after
+  # if there is no "E" at the end, Add "E" with time equal to 1 second after
   # the last entry.
   if (length(Ends) == 0 | max(Ends) != nrow(data)){
     row.num <- as.numeric(data[nrow(data), 1])
@@ -159,7 +171,7 @@ get.data <- function(dir, YEAR, FILES, ff){
                            as.character(row.num + 1))
     tmp <- hour(hms(data[nrow(data),4])) + 
       minute(hms(data[nrow(data),4]))/60 + 
-      (second(hms(data[nrow(data),4])) + 5)/3600 
+      (second(hms(data[nrow(data),4])) + 1)/3600 
     
     h <- trunc(tmp)
     m <- trunc((tmp - h) * 60)
@@ -208,9 +220,23 @@ get.data <- function(dir, YEAR, FILES, ff){
 
 # 
 # A function to extract one shift from a data file. Use get.data first and
-# use the output of get.data in this function. i is the desired shift index
+# use the output of get.data in this function. i indicates a shift number within
+# the day, which can be different from the defined shifts which are identified
+# below. The first shift of a survey day may not start at any time of the day due 
+# to the environmental conditions. 
+# 
+# Defined shifts are;
+# 1: 7:30:01 - 9:00:00
+# 2: 9:00:01 - 10:30:00
+# 3: 10:30:01 - 12:00:00
+# 4: 12:00:01 - 13:30:00
+# 5: 13:30:01 - 15:00:00
+# 6: 15:00:01 - 16:30:00
+
 get.shift <- function(YEAR, data, i){
   ff <- data$ff[1]   # file name
+  
+  data$Shift <- shift.definition(as.Date(data$V3, format = "%m/%d/%Y"), data$V4)
   
   # Each shift always begins with "P"
   Shifts.begin <- which(data$V2 %in% "P")
@@ -335,6 +361,11 @@ get.shift <- function(YEAR, data, i){
   # However... there were shifts (e.g., 2/5/2015 9:00-10:30) where BF changed to
   # 5 in the middle of the shift (1 hr in), so that shift should be removed. But
   # by using just "S" entries, it was not removed. So, I need to fix that. 2022-03-30
+  # 
+  # These issues become moot if we use the method of Laake et al., in which data
+  # are pooled by a constant continuing viewing condition, rather than arbitrary
+  # 90 minute chunks.
+
   BFs.S <- data.shift %>% 
     filter(V2 == "S") %>% 
     dplyr::select(V12, begin) %>%
@@ -441,7 +472,8 @@ get.shift <- function(YEAR, data, i){
       distinct(V5) %>%
       pull()
     
-    # Which groups from watch i were also observed in watch i+1? They should be excluded from i and counted in i+1
+    # Which groups from watch i were also observed in watch i+1? 
+    # They should be excluded from i and counted in i+1
     Spillover <- GroupsThisWatch[GroupsThisWatch %in% GroupsNextWatch] 
     
   }
@@ -449,10 +481,12 @@ get.shift <- function(YEAR, data, i){
   # Changed V14 != "North" to tolower(V14) != "north" because of entries using
   # uppercase "NORTH" in 2015 (file 11), which was not filtered out correctly in V2. 
   if(length(Spillover > 0)){ #if there are groups that spill over into following watch, 
+    is.spillover <- T
     # figure out if there were any sightings that need to be considered:
     sub.data <- data.shift %>% #data[(Shifts.begin[i]):(Shifts.begin[i+1]-1),] %>% 
       filter(V2 == "S", !(V5 %in% Spillover), tolower(V14) != "north")
     
+    # 2023-11-29, In the following if statement, non-spillover groups are counted.
     if (nrow(sub.data) > 0){
       N <- sub.data %>%
         group_by(V5) %>% #group by the whale group number
@@ -461,12 +495,14 @@ get.shift <- function(YEAR, data, i){
         summarize(N = last(as.numeric(V9))) %>% 
         dplyr::select(N)  %>% sum()
       npods <- length(unique(sub.data$V5))
+    
     } else {
       N <- 0
       npods <- 0
     }
     
   } else {   # if there were no spillover
+    is.spillover <- F
     sub.data <- data.shift %>% #data[Shifts.begin[i]:(Shifts.begin[i+1]-1),]  %>%  
       filter(V2 == "S", tolower(V14) != "north")
     
@@ -508,7 +544,11 @@ get.shift <- function(YEAR, data, i){
                                    V15 = NA,
                                    V16 = NA,
                                    begin = End,
-                                   shift = i, ff = ff))
+                                   shift = i, 
+                                   ff = ff,
+                                   Shift = shift.definition(as.Date(data.shift[1,"V3"], format = "%m/%d/%Y"),
+                                                            format(as.POSIXct(as.Date("2022-12-01 00:00:00") + End),
+                                                                   format = "%H:%M:%S"))))
   
   # Add "key" variable, which defines a segment with constant environmental 
   # data like visibility and wind force (beaufort). It is in the format of 
@@ -524,12 +564,16 @@ get.shift <- function(YEAR, data, i){
   k1 <- 1
   k2 <- 0
   for (k in 1:length(idx.V)){
-    key.num[k1:idx.V[k]] <- k2
-    bft.num[k1:idx.V[k]] <- bft[k]
-    vis.num[k1:idx.V[k]] <- vis[k]
-    k1 <- idx.V[k] + 1
+    key.num[k1:(idx.V[k]-1)] <- k2
+    bft.num[k1:(idx.V[k]-1)] <- bft[k]
+    vis.num[k1:(idx.V[k]-1)] <- vis[k]
+    k1 <- idx.V[k]
     k2 <- k2 + 1
   }
+  
+  key.num[last(idx.V):length(key.num)] <- max(key.num)
+  bft.num[last(idx.V):length(key.num)] <- last(bft)
+  vis.num[last(idx.V):length(key.num)] <- last(vis)
   
   data.shift$key <- key.num
   data.shift$effort <- NA
@@ -538,63 +582,114 @@ get.shift <- function(YEAR, data, i){
   data.shift$time <- NA
   
   # Compute effort
-  for (k in 0:(max(key.num)-1)){
+  k <- 1
+  for (k in 1:max(key.num)){
     tmp.1 <- data.shift %>%
       filter(key == k) %>%
-      summarise(time = last(begin)) %>%
+      summarise(time = first(begin)) %>%
       pull(time) %>% as.numeric()
     
-    tmp.2 <- data.shift %>%
-      filter(key == (k + 1)) %>%
-      summarise(time = last(begin)) %>%
-      pull(time) %>% as.numeric()
+    if (k < max(key.num)){
+      tmp.2 <- data.shift %>%
+        filter(key == (k + 1)) %>%
+        summarise(time = first(begin)) %>%
+        pull(time) %>% as.numeric()
+      
+    } else {
+      tmp.2 <- data.shift[nrow(data.shift), "begin"]
+    }
     
-    data.shift$effort[data.shift$key == k+1] <- tmp.2 - tmp.1
-    data.shift$start[data.shift$key == k+1] <- tmp.1
-    data.shift$end[data.shift$key == k+1] <- tmp.2
-    data.shift$time[data.shift$key == k+1] <- tmp.1 + (tmp.2-tmp.1)/2
+    data.shift$effort[data.shift$key == k] <- tmp.2 - tmp.1
+    data.shift$start[data.shift$key == k] <- tmp.1
+    data.shift$end[data.shift$key == k] <- tmp.2
+    data.shift$time[data.shift$key == k] <- tmp.1 + (tmp.2-tmp.1)/2
   }
   
   # Need to remove the spillover groups in order to count npods and nwhales
+  # if there was a spillover
   
   if (length(which(data.shift$V2 == "S")) != 0){
-    data.shift %>%
-      select(V1, key, effort, start, end, time) %>%
-      right_join(sub.data, by = "V1")  %>%
-      transmute(Date = V3, 
-                Time = V4, 
-                Group_ID = V5, 
-                n = as.numeric(V9), 
-                bft = as.numeric(V12), 
-                vis = as.numeric(V13),
-                Bearing = as.numeric(V6),
-                Reticle = as.numeric(V7),
-                Distance = as.numeric(V8),
-                Observer = V10,
-                shift = shift, 
-                key = key, 
-                begin = start,
-                end = end,
-                time = time,
-                effort = effort) %>%
-      group_by(Group_ID) %>%
-      summarise(Date = first(Date),
-                Time = first(Time),
-                n = max(n, na.rm = T),
-                bft = first(bft),
-                vis = first(vis),
-                Bearing = first(Bearing[n == max(n)]),
-                Reticle = first(Reticle[n == max(n)]),
-                Distance = first(Distance[n == max(n)]),
-                Observer = first(Observer),
-                shift = first(shift),
-                key = first(key),
-                begin = first(begin),
-                end = first(end),
-                time = first(time),
-                effort = first(effort)) -> sub.data.shift
+
+    if (is.spillover & nrow(sub.data) > 0){
+      data.shift %>%
+        select(V1, key, effort, start, end, time) %>%
+        right_join(sub.data, by = "V1")  %>%
+        transmute(Date = V3, 
+                  Time = V4, 
+                  Group_ID = V5, 
+                  n = as.numeric(V9), 
+                  bft = as.numeric(V12), 
+                  vis = as.numeric(V13),
+                  Bearing = as.numeric(V6),
+                  Reticle = as.numeric(V7),
+                  Distance = as.numeric(V8),
+                  Observer = V10,
+                  shift = shift, 
+                  key = key, 
+                  begin = start,
+                  end = end,
+                  time = time,
+                  effort = effort,
+                  Shift = Shift) %>%
+        group_by(Group_ID) %>%
+        summarise(Date = first(Date),
+                  Time = first(Time),
+                  n = max(n, na.rm = T),
+                  bft = first(bft),
+                  vis = first(vis),
+                  Bearing = first(Bearing[n == max(n)]),
+                  Reticle = first(Reticle[n == max(n)]),
+                  Distance = first(Distance[n == max(n)]),
+                  Observer = first(Observer),
+                  shift = first(shift),
+                  key = first(key),
+                  begin = first(begin),
+                  end = first(end),
+                  time = first(time),
+                  effort = first(effort),
+                  Shift = first(Shift)) -> sub.data.shift
       
-      sub.data.shift %>%
+    } else {
+      data.shift %>%
+        filter(V2 == "S") %>%
+        transmute(Date = V3, 
+                  Time = V4, 
+                  Group_ID = V5, 
+                  n = as.numeric(V9), 
+                  bft = as.numeric(V12), 
+                  vis = as.numeric(V13),
+                  Bearing = as.numeric(V6),
+                  Reticle = as.numeric(V7),
+                  Distance = as.numeric(V8),
+                  Observer = V10,
+                  shift = shift, 
+                  key = key, 
+                  begin = start,
+                  end = end,
+                  time = time,
+                  effort = effort,
+                  Shift = Shift) %>%
+        group_by(Group_ID) %>%
+        summarise(Date = first(Date),
+                  Time = first(Time),
+                  n = max(n, na.rm = T),
+                  bft = first(bft),
+                  vis = first(vis),
+                  Bearing = first(Bearing[n == max(n)]),
+                  Reticle = first(Reticle[n == max(n)]),
+                  Distance = first(Distance[n == max(n)]),
+                  Observer = first(Observer),
+                  shift = first(shift),
+                  key = first(key),
+                  begin = first(begin),
+                  end = first(end),
+                  time = first(time),
+                  effort = first(effort),
+                  Shift = first(Shift)) -> sub.data.shift
+      
+    }
+    
+    sub.data.shift %>%
       group_by(key) %>%
       summarise(Date = first(Date),
                 ngroup = n(),
@@ -607,7 +702,8 @@ get.shift <- function(YEAR, data, i){
                 begin = first(begin),
                 end = first(end),
                 time = first(time),
-                effort = first(effort)) -> data.shift.effort
+                effort = first(effort),
+                Shift = first(Shift)) -> data.shift.effort
   } else {
     
     data.shift$bft <- bft.num
@@ -630,7 +726,8 @@ get.shift <- function(YEAR, data, i){
                 begin = start,
                 end = end,
                 time = time,
-                effort = effort) -> sub.data.shift 
+                effort = effort,
+                Shift = Shift) -> sub.data.shift 
       #arrange(key) %>%
       sub.data.shift %>%
       group_by(key) %>%
@@ -645,7 +742,8 @@ get.shift <- function(YEAR, data, i){
                 begin = first(begin),
                 end = first(end),
                 time = first(time),
-                effort = first(effort))-> data.shift.effort
+                effort = first(effort),
+                Shift = first(Shift))-> data.shift.effort
     
   }
   
