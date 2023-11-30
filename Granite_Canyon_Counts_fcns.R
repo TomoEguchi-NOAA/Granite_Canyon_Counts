@@ -406,7 +406,6 @@ get.shift <- function(YEAR, data, i){
   #     dplyr::select(V12) %>% pull()
   # }
   
-  
   if (sum(!is.na(BFs)) == 0){
     BF <- NA
   } else {
@@ -608,6 +607,10 @@ get.shift <- function(YEAR, data, i){
   # Need to remove the spillover groups in order to count npods and nwhales
   # if there was a spillover
   
+  # shift and Shift are the same if the first shift of a day started before 0900.
+  # key is the sequential number within each shift that defines an equal 
+  # environmental condition.
+  
   if (length(which(data.shift$V2 == "S")) != 0){
 
     if (is.spillover & nrow(sub.data) > 0){
@@ -692,7 +695,7 @@ get.shift <- function(YEAR, data, i){
     sub.data.shift %>%
       group_by(key) %>%
       summarise(Date = first(Date),
-                ngroup = n(),
+                npods = n(),
                 nwhales = sum(n, na.rm = T),
                 bft = first(bft),
                 vis = first(vis),
@@ -732,7 +735,7 @@ get.shift <- function(YEAR, data, i){
       sub.data.shift %>%
       group_by(key) %>%
       summarise(Date = first(Date),
-                ngroup = 0,
+                npods = 0,
                 nwhales = 0,
                 bft = first(bft),
                 vis = first(vis),
