@@ -179,144 +179,147 @@ for (k in 1:length(years)){
   
 }
 
-
+# Without sightings from the secondary team, it seems that I can't go beyond
+# computing naive abundance estimates. 2023-12-01
 
 # How do I adjust these estimates for other factors...? Perhaps... I can add these
 # new data to Laake's primary dataframes (sightings and effort)
 
-sightings %>%
-  transmute(X = (max(Laake_PrimarySightings$X) + 1) : (max(Laake_PrimarySightings$X) + 1 + nrow(sightings) - 1),
-            Date = Date, day = day, month = month,
-            year = year, 
-            watch = watch,
-            t241 = t241, distance = distance,
-            podsize = podsize,
-            vis = vis,
-            beaufort = beaufort,
-            wind.direction = NA,
-            key = key,
-            pphr = NA,
-            Start.year = Start.year,
-            original.watch = watch,
-            only = TRUE,
-            hours = NA,
-            Sex = NA,
-            Observer = Observer) -> sightings.Laake.format
-
-sightings.all <- rbind(Laake_PrimarySightings, sightings.Laake.format)
-
-effort.Laake.format <- data.frame(X = (max(Laake_PrimaryEffort$X) + 1) : (max(Laake_PrimaryEffort$X) + 1 + nrow(effort) - 1),
-                                  watch.key = effort$watch.key,
-                                  Start.year = effort$Start.year,
-                                  key = effort$key,
-                                  begin = effort$begin,
-                                  end = effort$end,
-                                  npods = effort$npods,
-                                  nwhales = effort$nwhales,
-                                  effort = effort$effort,
-                                  vis = effort$vis,
-                                  beaufort = effort$beaufort,
-                                  Observer = effort$Observer,
-                                  time = effort$time, 
-                                  watch = effort$watch,
-                                  Use = effort$Use,
-                                  Date = effort$Date)
-
-effort.all <- rbind(Laake_PrimaryEffort, effort.Laake.format)
-
-
-final.time = sapply(tapply(floor(effort.all$time), effort.all$Start.year, max), function(x) ifelse(x>90,100,90))
-lower.time = rep(0,length(final.time))
-
-all.years <- unique(sightings.all$Start.year)
-naive.abundance.models=vector("list", length(all.years))
-i <- 0
-for (year in all.years)
-{
-  i <- i+1
-  primary <- sightings.all[sightings.all$Start.year==year,]
-  primary$Start.year=factor(primary$Start.year)
-  ern=subset(effort.all,
-             subset=as.character(Start.year)==year,
-             select=c("Start.year","key","begin","end","effort","time","vis","beaufort"))
-  
-  ern$Start.year=factor(ern$Start.year)
-  naive.abundance.models[[i]]=estimate.abundance(spar=NULL,
-                                                 dpar=NULL,
-                                                 gsS=gsS,
-                                                 effort=ern, 
-                                                 sightings=primary, 
-                                                 final.time=final.time[i],
-                                                 lower.time=lower.time[i],
-                                                 gformula=~s(time),
-                                                 dformula=NULL)
-}
-
-# Define set of models to be evaluated for detection
-models=c("podsize+Dist+Observer",
-         "podsize+Dist+Observer+beaufort",
-         "podsize+Dist+Observer+vis",
-         "podsize+Dist+Observer+Vis")
-
-# Needs functions in the following script
-source("~/R/ERAnalysis/R/MatchingLinking.r")
-source("compute.series.new.r")
-source("~/R/ERAnalysis/R/io.glm.R")
-
-select.detection.models=function(x,models,cutoff=4){
-  mod=vector("list",length(models))      
-  for(i in 1:length(models))
-    mod[[i]]=io.glm(x,as.formula(paste("seen~",models[i],sep="")))
-  AICValues=sapply(mod,function(x) AIC(x))
-  DeltaAIC=AICValues-min(AICValues)
-  mod.numbers=(1:length(models))[order(DeltaAIC)]
-  return(mod[mod.numbers[sort(DeltaAIC)<cutoff]])
-}
-
-#Next compute the series of abundance estimates for the most recent 8 years plus 
-# most recent 5 years (2015, 2016, 2020, 2022, 2023) by
-# fitting and selecting the best detection model but not applying the pod size correction.
-# From those 8 estimates and the naive estimates, compute an average ratio and 
-# apply it to generate the estimates for the first 15 surveys prior to 1987.
-# I created a new function compute.series.new by adding the recent 5 years.
-recent.years <- c(1987,1992,1993,1995,1997,2000,2001,2006,2014,2015,2019,2021,2022)
-DistBreaks=c(0,1,2,3,4,20)
-cutoff=4
-
-# To fit binomial models, I need to have the response variable, which is 0 or 1,
-# I don't see such line in Laake's code. Sightings doesn't contain non-sighting
-# data. So, effort data frame needs to be joined with sightings, which Laake
-# does it in Line 40 of compute.series.r. But... that doesn't work... 
-# 2023-11-30 
-
-tmp <- merge(sightings.all, subset(effort.all,
-                                   select=c("key","Use")), by="key")
-
-data.fit <- sightings.all %>%
-  select(Start.year, podsize, distance, vis, beaufort, Observer) %>%
-  mutate(seen = ifelse(podsize > ))
-
-initial.models=vector("list",length(recent.years))
-i=0
-for (year in recent.years){
-  i=i+1
-  zz=data.fit[data.fit$Start.year==year, ]
-  zz$Start.year=factor(zz$Start.year)
-  zz$Dist=cut(zz$distance,DistBreaks)
-  zz$Observer=factor(zz$Observer)
-  zz$Vis=cut(zz$vis,c(0,3,6))
-  initial.models[[i]]=select.detection.models(zz,models,cutoff)
-  print(summary(initial.models[[i]][[1]]))
-  cat("\n",length(initial.models[[i]]))
-}
-
-
-
-
-sightings.all$corrected.podsize = sightings.all$podsize
-abundance.estimates.nops.correction=compute.series.new(models, 
-                                                       naive.abundance.models,
-                                                       sightings=sightings.all,
-                                                       effort=effort.all,
-                                                       TruePS=FALSE)
+# sightings %>%
+#   transmute(X = (max(Laake_PrimarySightings$X) + 1) : (max(Laake_PrimarySightings$X) + 1 + nrow(sightings) - 1),
+#             Date = Date, day = day, month = month,
+#             year = year, 
+#             watch = watch,
+#             t241 = t241, distance = distance,
+#             podsize = podsize,
+#             vis = vis,
+#             beaufort = beaufort,
+#             wind.direction = NA,
+#             key = key,
+#             pphr = NA,
+#             Start.year = Start.year,
+#             original.watch = watch,
+#             only = TRUE,
+#             hours = NA,
+#             Sex = NA,
+#             Observer = Observer) -> sightings.Laake.format
+# 
+# sightings.all <- rbind(Laake_PrimarySightings, sightings.Laake.format)
+# 
+# effort.Laake.format <- data.frame(X = (max(Laake_PrimaryEffort$X) + 1) : (max(Laake_PrimaryEffort$X) + 1 + nrow(effort) - 1),
+#                                   watch.key = effort$watch.key,
+#                                   Start.year = effort$Start.year,
+#                                   key = effort$key,
+#                                   begin = effort$begin,
+#                                   end = effort$end,
+#                                   npods = effort$npods,
+#                                   nwhales = effort$nwhales,
+#                                   effort = effort$effort,
+#                                   vis = effort$vis,
+#                                   beaufort = effort$beaufort,
+#                                   Observer = effort$Observer,
+#                                   time = effort$time, 
+#                                   watch = effort$watch,
+#                                   Use = effort$Use,
+#                                   Date = effort$Date)
+# 
+# effort.all <- rbind(Laake_PrimaryEffort, effort.Laake.format)
+# 
+# 
+# final.time = sapply(tapply(floor(effort.all$time), effort.all$Start.year, max), function(x) ifelse(x>90,100,90))
+# lower.time = rep(0,length(final.time))
+# 
+# all.years <- unique(sightings.all$Start.year)
+# naive.abundance.models=vector("list", length(all.years))
+# i <- 0
+# for (year in all.years)
+# {
+#   i <- i+1
+#   primary <- sightings.all[sightings.all$Start.year==year,]
+#   primary$Start.year=factor(primary$Start.year)
+#   ern=subset(effort.all,
+#              subset=as.character(Start.year)==year,
+#              select=c("Start.year","key","begin","end","effort","time","vis","beaufort"))
+#   
+#   ern$Start.year=factor(ern$Start.year)
+#   naive.abundance.models[[i]]=estimate.abundance(spar=NULL,
+#                                                  dpar=NULL,
+#                                                  gsS=gsS,
+#                                                  effort=ern, 
+#                                                  sightings=primary, 
+#                                                  final.time=final.time[i],
+#                                                  lower.time=lower.time[i],
+#                                                  gformula=~s(time),
+#                                                  dformula=NULL)
+# }
+# 
+# # Define set of models to be evaluated for detection
+# models=c("podsize+Dist+Observer",
+#          "podsize+Dist+Observer+beaufort",
+#          "podsize+Dist+Observer+vis",
+#          "podsize+Dist+Observer+Vis")
+# 
+# # Needs functions in the following script
+# source("~/R/ERAnalysis/R/MatchingLinking.r")
+# source("compute.series.new.r")
+# source("~/R/ERAnalysis/R/io.glm.R")
+# 
+# # This function is in compute.series.r (or compute.series.new.r)
+# select.detection.models=function(x, models, cutoff=4){
+#   mod=vector("list",length(models))      
+#   for(i in 1:length(models))
+#     mod[[i]]=io.glm(x,as.formula(paste("seen~",models[i],sep="")))
+#   
+#   AICValues=sapply(mod,function(x) AIC(x))
+#   DeltaAIC=AICValues-min(AICValues)
+#   mod.numbers=(1:length(models))[order(DeltaAIC)]
+#   return(mod[mod.numbers[sort(DeltaAIC)<cutoff]])
+# }
+# 
+# #Next compute the series of abundance estimates for the most recent 8 years plus 
+# # most recent 5 years (2015, 2016, 2020, 2022, 2023) by
+# # fitting and selecting the best detection model but not applying the pod size correction.
+# # From those 8 estimates and the naive estimates, compute an average ratio and 
+# # apply it to generate the estimates for the first 15 surveys prior to 1987.
+# # I created a new function compute.series.new by adding the recent 5 years.
+# recent.years <- c(1987,1992,1993,1995,1997,2000,2001,2006,2014,2015,2019,2021,2022)
+# DistBreaks=c(0,1,2,3,4,20)
+# cutoff=4
+# 
+# # To fit binomial models, I need to have the response variable, which is 0 or 1,
+# # I don't see such line in Laake's code. Sightings doesn't contain non-sighting
+# # data. So, effort data frame needs to be joined with sightings, which Laake
+# # does it in Line 40 of compute.series.r. But... that doesn't work... 
+# # 2023-11-30 
+# 
+# tmp <- merge(sightings.all, subset(effort.all,
+#                                    select=c("key","Use")), by="key")
+# 
+# data.fit <- sightings.all %>%
+#   select(Start.year, podsize, distance, vis, beaufort, Observer) %>%
+#   mutate(seen = ifelse(podsize > ))
+# 
+# initial.models=vector("list",length(recent.years))
+# i=0
+# for (year in recent.years){
+#   i=i+1
+#   zz=data.fit[data.fit$Start.year==year, ]
+#   zz$Start.year=factor(zz$Start.year)
+#   zz$Dist=cut(zz$distance,DistBreaks)
+#   zz$Observer=factor(zz$Observer)
+#   zz$Vis=cut(zz$vis,c(0,3,6))
+#   initial.models[[i]]=select.detection.models(zz,models,cutoff)
+#   print(summary(initial.models[[i]][[1]]))
+#   cat("\n",length(initial.models[[i]]))
+# }
+# 
+# 
+# 
+# 
+# sightings.all$corrected.podsize = sightings.all$podsize
+# abundance.estimates.nops.correction=compute.series.new(models, 
+#                                                        naive.abundance.models,
+#                                                        sightings=sightings.all,
+#                                                        effort=effort.all,
+#                                                        TruePS=FALSE)
 

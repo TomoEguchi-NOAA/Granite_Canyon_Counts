@@ -12,6 +12,7 @@
 # It may complain about not having certain libraries. Install them and re-install.
 # 
 # 
+rm(list=ls())
 library(ERAnalysis)  
 
 #Run example code from the help file
@@ -143,9 +144,9 @@ whales.counted=with(Sightings,
 
 # Compute simple minded population estimate and plot it
 period.estimate=apply(whales.counted/sampled.fraction,1,sum,na.rm=TRUE)
-pdf("SimpleMindedEstimates.pdf")
+#pdf("SimpleMindedEstimates.pdf")
 plot(all.years,period.estimate,xlab="Survey year",ylab="Estimated gray whale population size")
-dev.off()
+#dev.off()
 
 # Compute naive estimates of abundance for the 23 surveys.  These use the uncorrected
 # counts of whales from the primary observer during watches in which neither Beaufort nor
@@ -154,7 +155,7 @@ dev.off()
 # during the sampled periods.  There is no correction for missed pods or for measurement
 # error in podsize. Each fitted migration gam is plotted with the observed values and
 # saved in the file NaiveMigration.pdf.
-pdf("NaiveMigration.pdf")
+#pdf("NaiveMigration.pdf")
 naive.abundance.models=vector("list",23)
 i=0
 for (year in all.years)
@@ -177,15 +178,15 @@ for (year in all.years)
                                                  gformula=~s(time),
                                                  dformula=NULL)
 }
-dev.off()
+#dev.off()
 
 Nhat.naive=sapply(naive.abundance.models,function(x) x$Total)
-pdf("NaiveMigrationEstimates.pdf")
+#pdf("NaiveMigrationEstimates.pdf")
 plot(all.years,
      Nhat.naive,
      xlab="Survey year",
      ylab="Estimated gray whale population size",pch=16)
-dev.off()
+#dev.off()
 
 # Define set of models to be evaluated for detection
 models=c("podsize+Dist+Observer",
@@ -202,7 +203,7 @@ Sightings$corrected.podsize[Sightings$Start.year<=1987]=reilly.cf(Sightings$pods
                                                                   add.cf.reilly)
 Sightings$corrected.podsize[Sightings$Start.year>1987]=reilly.cf(Sightings$podsize[Sightings$Start.year>1987],
                                                                  add.cf.laake)
-pdf("ReillyApproach.pdf")
+#pdf("ReillyApproach.pdf")
 reilly.estimates=compute.series(models,
                                 naive.abundance.models,
                                 sightings=Sightings,
@@ -211,11 +212,12 @@ reilly.estimates=compute.series(models,
 Nhat.reilly=reilly.estimates$Nhat
 Nhat.reilly[1:15]=Nhat.naive[1:15]*(Nhat.reilly[16]/Nhat.naive[16])
 avg.Reilly.podsize=tapply(Sightings$corrected.podsize,Sightings$Start.year,mean)
-dev.off()
+#dev.off()
 
-pdf("ReillyEstimates.pdf")
-plot(all.years,Nhat.reilly,xlab="Survey year",ylab="Estimated gray whale population size",pch=16)
-dev.off()
+#pdf("ReillyEstimates.pdf")
+plot(all.years,Nhat.reilly,
+     xlab="Survey year",ylab="Estimated gray whale population size",pch=16)
+#dev.off()
 
 #Next compute the series of abundance estimates for the most recent 8 years by
 # fitting and selecting the best detection model but not applying the pod size correction.
@@ -238,22 +240,22 @@ print(cbind(Year=all.years,ratio=abundance.estimates.nops.correction$Nhat/Nhat.n
 # take about 30-60 minutes to complete. (TE: Takes about 6 minutes now. But added
 # the if-else. 2023-08-31)
 if (!file.exists("RData/Laake_abundance_estimates.rds")){
-  pdf("Migration.pdf")
+#  pdf("Migration.pdf")
   abundance.estimates=compute.series(models,naive.abundance.models,
                                      sightings=Sightings,
                                      effort=Effort,
                                      hessian=TRUE)
-  dev.off()
-  saveRDS(abundance.estimates,
-          file = "RData/Laake_abundance_estimates.rds")  
+#  dev.off()
+#  saveRDS(abundance.estimates,
+#          file = "RData/Laake_abundance_estimates.rds")  
 } else {
   abundance.estimates <- readRDS("RData/Laake_abundance_estimates.rds")
 }
 
-pdf("CurrentEstimates.pdf")
+#pdf("CurrentEstimates.pdf")
 plot(all.years,
      abundance.estimates$Nhat,xlab="Survey year",ylab="Estimated gray whale population size")
-dev.off()
+#dev.off()
 cat("\nCorrection factor for pod size error\n")
 print(cbind(Year=all.years, ratio=abundance.estimates$Nhat/abundance.estimates.nops.correction$Nhat))
 
@@ -284,9 +286,73 @@ ES.var=function(par,hessian,gsS,nmax=20)
 
 data(gsS)
 
+# in podsize.calibration.matrix.r
+expected.podsize=function(spar,gsS,nmax=20)
+{
+  # Compute true pod size distribution and ES
+  fS=gammad(spar,nmax)
+  ES=sum(fS*(1:nmax))
+  # Compute conditional distribution and conditional expectation for
+  # true pod size given an observed pod size
+  fSs=fS*gsS/matrix(colSums(fS*gsS),nrow=nmax,ncol=nmax,byrow=TRUE)
+  ESs=apply(fSs,2,function(x) sum((1:nmax)*x))
+  return(list(fS=fS,ES=ES,fSs=fSs,ESs=ESs))
+}
+
+# in psfit.gamma.R
+gammad <- function(par,nmax,True=NULL,shape=TRUE)
+{
+  # This function creates a discretized gamma function from 1 to nmax
+  #
+  # Arguments:
+  #
+  #  par  - parameters for gamma
+  #  nmax - maximum pod size
+  #  True - values of true pod size for a range of pod sizes (eg 4+) in which
+  #          a common distribution is being fitted with a relationship on
+  #          either the shape (if shape=TRUE), or the scale=1/rate
+  #  shape - TRUE/FALSE; see above
+  #
+  # The parameters:
+  #  True = NULL then log(shape)=par[1], log(rate)=par[2] and scale=1/rate
+  #  True is not null and !shape then log(shape)=par[1], log(rate)=-par[2]-par[3]*True
+  #  True is not null and shape=TRUE then log(shape)=par[2]+par[3]*True, log(rate)=par[1]
+  if(is.null(True))
+  {
+    pp=pgamma(1:nmax,shape=exp(par[1]),rate=exp(par[2]))
+    ps=diff(c(0,pp))/pp[nmax]
+    ps[ps==0]=1e-12
+    ps=ps/sum(ps)
+  }
+  else
+  {
+    if(!shape)
+    {
+      pp= do.call("rbind",lapply(True, function(x) pgamma(1:nmax,shape=exp(par[1]),rate=exp(-par[2]-par[3]*x))))
+      ps=t(apply(cbind(rep(0,nrow(pp)),pp),1,diff))/pp[,nmax]
+    }
+    else
+    {
+      pp= do.call("rbind",lapply(True, function(x) pgamma(1:nmax,shape=exp(par[2]+par[3]*x),rate=exp(par[1]))))
+      ps=t(apply(cbind(rep(0,nrow(pp)),pp),1,diff))/pp[,nmax]
+    }
+    ps[ps==0]=1e-12
+    ps=ps/rowSums(ps)
+  }
+  return(ps)
+}
+
+
 for(i in 1:8)
   print( ES.var(abundance.estimates$detection.models[[i]][[1]]$model$par,
                 abundance.estimates$detection.models[[i]][[1]]$model$hessian,gsS))
+
+# Error in expected.podsize(sparest, gsS = gsS, nmax = nmax) :
+#   could not find function "expected.podsize"
+#   
+#   The function is in podsize.calibration.matrix.r. The package directs the working
+#   directory to Laake's desktop... that may be a problem. 
+
 # NOT RUN: Compute the var-cov matrix of the estimates.  These are not run by default
 # because it takes a very long time to run. To run copy code from documentation into R.
 ## Not run: 
@@ -411,7 +477,7 @@ for(i in 1:8)
 
 # Plot for each year average observed pod size and previously used corrected pod size 
 data(gsS)
-pdf("PodsizeComparisons.pdf")
+#pdf("PodsizeComparisons.pdf")
 avg.podsize=tapply(Sightings$podsize, Sightings$Start.year,mean)
 plot(all.years, 
      avg.podsize, 
@@ -444,7 +510,7 @@ expected.ps=sapply(abundance.estimates$detection.models,
 points(recent.years,expected.ps, pch=16)
 points(recent.years,avg.Reilly.podsize[16:23], pch=2)
 legend(1990,1.35,pch=c(1,2,16),legend=c("Observed average","Reilly correction","Expected pod size"))
-dev.off()
+#dev.off()
 
 
 # Plot distributions of pod size in calibration data and for true pod size from that year
@@ -493,3 +559,4 @@ barplot(rbind(expect.ps,colMeans(psplus/rowSums(psplus))),
         beside=TRUE,
         main=paste("True size = 4+",sep=""),
         legend.text=c("exp","obs"))
+
