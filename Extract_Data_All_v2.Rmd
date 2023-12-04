@@ -20,10 +20,10 @@ source("Granite_Canyon_Counts_fcns.R")
 
 # Do not run 2023 with this script. Use Extract_Data_2023.Rmd for 2023. 
 # I ran 2023 data and seemed to work fine... 2023-10-19
-# YEAR should be one of 2015, 2016, 2020, 2022, 2023 (and beyond)
-YEAR <- 2015 #Enter the year of the data files
+# YEAR should be one of 2009, 2010, 2015, 2016, 2020, 2022, 2023 (and beyond)
+YEAR <- 2010 #Enter the year of the data files
 
-# For 2010 and 2011 (maybe in the previous years too but I don't have any of those files)
+# For 2009 (maybe in the previous years too but I don't have any of those files),
 # Time is entered in decimal hours, not hh:mm:ss. So, that needs to be accommodated in
 # data extraction code. 2022-10-05
 
@@ -43,13 +43,14 @@ if (YEAR == 2023){
 
 }
   
-all.effort.list <- Data_Out.list <- all.sightings.list <- list()
+all.effort.list.1 <- Data_Out.list.1 <- all.sightings.list.1 <- list()
+all.effort.list.2 <- Data_Out.list.2 <- all.sightings.list.2 <- list()
 
 # The next for loop throws back "NAs introduced by coercion" but not to worry.
 # These are results of as.numeric() for the line numbers, where some lines may
 # be non-numbers, e.g., "Edited" and other text. Also, some BF and VS codes are
 # missing and they return warnings "in 'transmute()'..." They turn into NAs so 
-# they are not problems. 
+# they are not problems. But... it'd be best to remove the first comment line.
 
 # 2023-11-28: Shift IDs are incorrect. They need to be defined from 7:30, rather than
 # the first shift of each day. Need to... extract all data first using get.data.
@@ -69,42 +70,74 @@ for(ff in 1:length(FILES)){
 data.all <- do.call("rbind", data.list)
 #data.all$Shift <- shift.definition(as.Date(data.all$V3, format = "%m/%d/%Y"), data.all$V4)
 
+# The next loop doesn't work when there were two teams. 
+# This needs to be fixed - 2023-12-04
 unique.dates <- unique(data.all$V3)
-c <- 5
+c <-9
 for (c in 1:length(unique.dates)){
-  #print(paste0("Date = ", c))
+  print(paste0("Date = ", c))
   data.all %>% 
     filter(V3 == unique.dates[c]) -> data  
   
-  #Shifts <- which(data$V2 %in% c('P','E')) #start/end of all shifts
-  Shifts <- which(data$V2 %in% "P") #start of all shifts
-  # # if there is no "E"
-  # if (length(which(data$V2 %in% "E")) == 0){
-  #   i.max <- length(Shifts)
-  # } else {
-  #   i.max <- length(Shifts) - 1
-  # }
-  # 
-  all.effort <- Output.list <- all.sightings <- list()
-  k <- 1
-  for(k in 1:length(Shifts)){
-    #print(paste0("Shift = ", k))
-    out.shift <- get.shift(YEAR, data, k)
-      
-    Output.list[[k]] <- out.shift$out.df
-    all.sightings[[k]] <- out.shift$data  # added for Laake's analysis
-    all.effort[[k]] <- out.shift$shift.effort  # for computing effort for Laake's analysis
+  n.stations <- length(unique(data$ff))
+  
+  if (n.stations == 2){
+    data.1 <- filter(data, ff == unique(data$ff)[1])
+  } else {
+    data.1 <- data    
   }
   
-  Data_Out.list[[c]] <- do.call("rbind", Output.list)
-  all.sightings.list[[c]] <- do.call("rbind", all.sightings) %>% filter(n > 0)
-  all.effort.list[[c]] <- do.call("rbind", all.effort)
+  Shifts.1 <- which(data.1$V2 %in% "P") #start of all shifts
+  
+  all.effort.1 <- Output.list.1 <- all.sightings.1 <- list()
+  
+  k <- 1
+  for(k in 1:length(Shifts.1)){
+    print(paste0("Shift = ", k))
+    out.shift.1 <- get.shift(YEAR, data.1, k)
+    
+    Output.list.1[[k]] <- out.shift.1$out.df
+    all.sightings.1[[k]] <- out.shift.1$data  # added for Laake's analysis
+    all.effort.1[[k]] <- out.shift.1$shift.effort  # for computing effort for Laake's analysis
+  }
+  
+  Data_Out.list.1[[c]] <- do.call("rbind", Output.list.1)
+  all.sightings.list.1[[c]] <- do.call("rbind", all.sightings.1) %>% filter(n > 0)
+  all.effort.list.1[[c]] <- do.call("rbind", all.effort.1)
+  
+  if (n.stations == 2){
+    
+    data.2 <- filter(data, ff == unique(data$ff)[2])
+    
+    Shifts.2 <- which(data.2$V2 %in% "P") #start of all shifts
+    all.effort.2 <- Output.list.2 <- all.sightings.2 <- list()
+    k <- 1
+  
+    for(k in 1:length(Shifts.2)){
+      print(paste0("Shift = ", k))
+      out.shift.2 <- get.shift(YEAR, data.2, k)
+      
+      Output.list.2[[k]] <- out.shift.2$out.df
+      all.sightings.2[[k]] <- out.shift.2$data  # added for Laake's analysis
+      all.effort.2[[k]] <- out.shift.2$shift.effort  # for computing effort for Laake's analysis
+    }
+    
+    Data_Out.list.2[[c]] <- do.call("rbind", Output.list.2)
+    all.sightings.list.2[[c]] <- do.call("rbind", all.sightings.2) %>% filter(n > 0)
+    all.effort.list.2[[c]] <- do.call("rbind", all.effort.2)
+        
+  }
   
   #Sys.sleep(1)
-}#ff (files loop)         
+}         
 
-Data_Out <- do.call("rbind", Data_Out.list)
-Data4Laake <- do.call("rbind", all.sightings.list) %>%
+# Start from here 2023-12-04
+# Data need to be saved differently depending on whether or not there was a secondary
+# station. 
+
+# For primary:
+Data_Out_1 <- do.call("rbind", Data_Out.list.1)
+Data4Laake_1 <- do.call("rbind", all.sightings.list.1) %>%
   mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", Shift, "_", key)) %>%
   transmute(Date = Date,
             Time_PST = Time,
@@ -126,7 +159,7 @@ Data4Laake <- do.call("rbind", all.sightings.list) %>%
 
 # 2023-11-29 Double check on what the "key" should be in the effort file. In Laake's
 # analysis, key is Date_Shift. 
-Effort4Laake <-  do.call("rbind", all.effort.list) %>%
+Effort4Laake_1 <-  do.call("rbind", all.effort.list.1) %>%
   mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", Shift, "_", key),
          year.shift = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", Shift)) %>%
   transmute(Date = Date,
@@ -144,10 +177,10 @@ Effort4Laake <-  do.call("rbind", all.effort.list) %>%
             time = time,
             effort = effort)
 
-Effort4Laake %>% 
+Effort4Laake_1 %>% 
   mutate(seq = 1:nrow(Effort4Laake),
          watch.key = paste0(Start.year, "_", seq)) %>%
-  select(-c(seq)) -> Effort4Laake
+  select(-c(seq)) -> Effort4Laake_1
 
 
 ```

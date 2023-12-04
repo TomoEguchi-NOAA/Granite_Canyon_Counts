@@ -182,8 +182,6 @@ for (k in 1:length(years)){
 # Without sightings from the secondary team, it seems that I can't go beyond
 # computing naive abundance estimates. 2023-12-01
 
-# How do I adjust these estimates for other factors...? Perhaps... I can add these
-# new data to Laake's primary dataframes (sightings and effort)
 
 # sightings %>%
 #   transmute(X = (max(Laake_PrimarySightings$X) + 1) : (max(Laake_PrimarySightings$X) + 1 + nrow(sightings) - 1),

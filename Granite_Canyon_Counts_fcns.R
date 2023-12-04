@@ -128,6 +128,12 @@ get.data <- function(dir, YEAR, FILES, ff){
   all.lines <- read_lines(file = paste0(dir, "/", YEAR, "/", FILES[ff]))
   input.file.name <- FILES[ff]   # specify file name
   
+  # look at the first three letters of the first line
+  first.3 <- str_sub(all.lines[1], start = 1, end = 3)
+  
+  if (is.na(as.numeric(first.3)))
+    all.lines <- all.lines[2:length(all.lines)]
+  
   # look at all event code
   event.code <- str_sub(all.lines, start = 5, end = 5)
   

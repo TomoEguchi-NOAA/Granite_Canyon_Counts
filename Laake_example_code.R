@@ -246,15 +246,15 @@ if (!file.exists("RData/Laake_abundance_estimates.rds")){
                                      effort=Effort,
                                      hessian=TRUE)
 #  dev.off()
-#  saveRDS(abundance.estimates,
-#          file = "RData/Laake_abundance_estimates.rds")  
+ saveRDS(abundance.estimates,
+          file = "RData/Laake_abundance_estimates.rds")  
 } else {
   abundance.estimates <- readRDS("RData/Laake_abundance_estimates.rds")
 }
 
 #pdf("CurrentEstimates.pdf")
 plot(all.years,
-     abundance.estimates$Nhat,xlab="Survey year",ylab="Estimated gray whale population size")
+     abundance.estimates$Nhat,xlab="Survey year", ylab="Estimated gray whale population size")
 #dev.off()
 cat("\nCorrection factor for pod size error\n")
 print(cbind(Year=all.years, ratio=abundance.estimates$Nhat/abundance.estimates.nops.correction$Nhat))
@@ -358,7 +358,7 @@ for(i in 1:8)
 ## Not run: 
 #
 # Load the fitted mixed-effects gamma model with a random pod effect -- this was the most parsimonious model
-# data(gamma.pod)
+data(gamma.pod)
 # #
 # ps.results=gamma.pod
 # ps.results$vc=solve(ps.results$hessian)
