@@ -73,7 +73,7 @@ data.all <- do.call("rbind", data.list)
 # The next loop doesn't work when there were two teams. 
 # This needs to be fixed - 2023-12-04
 unique.dates <- unique(data.all$V3)
-c <-9
+c <-39
 for (c in 1:length(unique.dates)){
   print(paste0("Date = ", c))
   data.all %>% 
@@ -91,9 +91,9 @@ for (c in 1:length(unique.dates)){
   
   all.effort.1 <- Output.list.1 <- all.sightings.1 <- list()
   
-  k <- 1
+  k <- 2
   for(k in 1:length(Shifts.1)){
-    print(paste0("Shift = ", k))
+    #print(paste0("Shift = ", k))
     out.shift.1 <- get.shift(YEAR, data.1, k)
     
     Output.list.1[[k]] <- out.shift.1$out.df
@@ -114,7 +114,7 @@ for (c in 1:length(unique.dates)){
     k <- 1
   
     for(k in 1:length(Shifts.2)){
-      print(paste0("Shift = ", k))
+      #print(paste0("Shift = ", k))
       out.shift.2 <- get.shift(YEAR, data.2, k)
       
       Output.list.2[[k]] <- out.shift.2$out.df
