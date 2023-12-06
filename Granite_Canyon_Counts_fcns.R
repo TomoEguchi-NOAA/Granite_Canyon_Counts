@@ -25,6 +25,10 @@ shift.definition.2010 <- function(time.dec.hrs){
   return(shift.id)
 }
 
+shift.hrs <- data.frame(shift = c(1:6),
+                        begin.hr = c(7.5,9,10.5,12,13.5,15),
+                        end.hr = c(9,10.5,12,13.5,15,16.5))
+
 
 compute.LOOIC <- function(loglik.array, data.array, MCMC.params){
   n.per.chain <- (MCMC.params$n.samples - MCMC.params$n.burnin)/MCMC.params$n.thin
@@ -269,8 +273,12 @@ get.data <- function(dir, YEAR, FILES, ff){
 get.shift <- function(YEAR, data, i){
   ff <- data$ff[1]   # file name
   
-  data$Shift <- shift.definition(as.Date(data$V3, format = "%m/%d/%Y"), data$V4)
-  
+  if (YEAR == 2010){
+    data$Shift <- shift.definition.2010(data$V4)
+  } else {
+    data$Shift <- shift.definition(as.Date(data$V3, format = "%m/%d/%Y"), data$V4)
+  }
+
   # Each shift always begins with "P"
   Shifts.begin <- which(data$V2 %in% "P")
   Shifts.begin.df <- data.frame(event = "P",
@@ -531,7 +539,8 @@ get.shift <- function(YEAR, data, i){
     is.spillover <- T
     # figure out if there were any sightings that need to be considered:
     sub.data <- data.shift %>% #data[(Shifts.begin[i]):(Shifts.begin[i+1]-1),] %>% 
-      filter(V2 == "S", !(V5 %in% Spillover), tolower(V14) != "north")
+      filter(V2 == "S", !(V5 %in% Spillover), 
+             tolower(V14) != "north", tolower(V14) != "northbound")
     
     # 2023-11-29, In the following if statement, non-spillover groups are counted.
     if (nrow(sub.data) > 0){
@@ -551,7 +560,7 @@ get.shift <- function(YEAR, data, i){
   } else {   # if there were no spillover
     is.spillover <- F
     sub.data <- data.shift %>% #data[Shifts.begin[i]:(Shifts.begin[i+1]-1),]  %>%  
-      filter(V2 == "S", tolower(V14) != "north")
+      filter(V2 == "S", tolower(V14) != "north", tolower(V14) != "northbound")
     
     if (nrow(sub.data) > 0){
       N <- sub.data %>%
@@ -571,13 +580,23 @@ get.shift <- function(YEAR, data, i){
   
   # v4 is just time and End is the number of days. So, it doesn't matter what year
   # I use as the starting point. I use 2022-12-01 00:00:00
-  if (data.shift[nrow(data.shift), "V2"] != "E")
+  # If the last one is not E, add an E line. 
+  if (data.shift[nrow(data.shift), "V2"] != "E"){
+    if (YEAR == 2010){
+      Shift.End <- shift.definition.2010(data.shift$V4[nrow(data.shift)])
+      V4 <- shift.hrs %>% filter(shift == Shift.End) %>% select(end.hr) %>% pull()
+    } else {
+      Shift.End <- shift.definition(as.Date(data.shift$V3[nrow(data.shift)], 
+                                            format = "%m/%d/%Y"), data.shift$V4[nrow(data.shift)])
+      
+      V4 <- format(as.POSIXct(as.Date("2022-12-01 00:00:00") + End),
+                   format = "%H:%M:%S")
+    }
     data.shift <- rbind(data.shift, 
                         data.frame(V1 = NA, 
                                    V2 = "E", 
                                    V3 = data.shift[1, "V3"],
-                                   V4 = format(as.POSIXct(as.Date("2022-12-01 00:00:00") + End),
-                                               format = "%H:%M:%S"),
+                                   V4 = V4,
                                    V5 = NA,
                                    V6 = NA,
                                    V7 = NA,
@@ -593,11 +612,9 @@ get.shift <- function(YEAR, data, i){
                                    begin = End,
                                    shift = i, 
                                    ff = ff,
-                                   Shift = ifelse(YEAR != 2010,
-                                                  shift.definition(as.Date(data.shift[1,"V3"], format = "%m/%d/%Y"),
-                                                                   format(as.POSIXct(as.Date("2022-12-01 00:00:00") + End),
-                                                                          format = "%H:%M:%S")),
-                                                  shift.definition.2010(as.numeric(data.shift[1, "V3"])))))
+                                   Shift = Shift.End))
+  }
+
   
   # Add "key" variable, which defines a segment with constant environmental 
   # data like visibility and wind force (beaufort). It is in the format of 
@@ -669,7 +686,7 @@ get.shift <- function(YEAR, data, i){
         right_join(sub.data, by = "V1")  %>%
         transmute(Date = V3, 
                   Time = V4, 
-                  Group_ID = V5, 
+                  Group_ID = as.numeric(V5), 
                   n = as.numeric(V9), 
                   bft = as.numeric(V12), 
                   vis = as.numeric(V13),
@@ -707,7 +724,7 @@ get.shift <- function(YEAR, data, i){
         filter(V2 == "S") %>%
         transmute(Date = V3, 
                   Time = V4, 
-                  Group_ID = V5, 
+                  Group_ID = as.numeric(V5), 
                   n = as.numeric(V9), 
                   bft = as.numeric(V12), 
                   vis = as.numeric(V13),

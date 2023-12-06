@@ -84,7 +84,7 @@ all.observers <- rbind(Observer %>% select(ID, Initials), tmp.3) %>%
 # extending from shed at angle of 241; Used south or north time prior 1979; 
 # 1979+ calculated value using 3.24 nm whale speed
 # 
-years <- c(2015, 2016, 2020, 2022, 2023)
+years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023)
 
 #years <- 2015
 # sightings and efort
