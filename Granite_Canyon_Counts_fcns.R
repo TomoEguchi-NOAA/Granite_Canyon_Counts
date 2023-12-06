@@ -175,9 +175,15 @@ get.data <- function(dir, YEAR, FILES, ff){
     row.num.char <- ifelse(row.num < 100, 
                            paste0("0", as.character(row.num+1)),
                            as.character(row.num + 1))
-    tmp <- hour(hms(data[nrow(data),4])) + 
-      minute(hms(data[nrow(data),4]))/60 + 
-      (second(hms(data[nrow(data),4])) + 1)/3600 
+    
+    if (YEAR != 2010){
+      tmp <- hour(hms(data[nrow(data),4])) + 
+        minute(hms(data[nrow(data),4]))/60 + 
+        (second(hms(data[nrow(data),4])) + 1)/3600 
+      
+    } else {
+      tmp <- data[nrow(data), 4]
+    }
     
     h <- trunc(tmp)
     m <- trunc((tmp - h) * 60)
@@ -196,7 +202,12 @@ get.data <- function(dir, YEAR, FILES, ff){
       # before a start time, that's probably an error)
       # TE: I added [t] to Ends in the following line. I think it's needed. NO... 
       # Ends does not need the subscript. 
-      Diffs[t,] <- seconds(hms(data[Starts[t],4])) - seconds(hms(data[Ends,4])) 
+      if (YEAR != 2010){
+        Diffs[t,] <- seconds(hms(data[Starts[t],4])) - seconds(hms(data[Ends,4]))         
+      } else {
+        Diffs[t,] <- (as.numeric(data[Starts[t], 4]) - as.numeric(data[Ends, 4])) * 24 * 60 * 60
+      }
+
     }
     
     #Select the differences that are likely errors (End, <90 seconds, Start. Oops!)
@@ -209,8 +220,12 @@ get.data <- function(dir, YEAR, FILES, ff){
   
   BeginDay <- mdy(data$V3) - mdy(paste0("11/30/", (YEAR - 1)))
   # Decimal hour of shift start time
-  BeginHr <- hour(hms(data$V4)) + minute(hms(data$V4))/60 + second(hms(data$V4))/3600
-  
+  if (YEAR != 2010){
+    BeginHr <- hour(hms(data$V4)) + minute(hms(data$V4))/60 + second(hms(data$V4))/3600    
+  } else {
+    BeginHr <- as.numeric(data$V4)
+  }
+
   data %>% 
     mutate(begin = as.numeric(BeginDay) + BeginHr/24,
            shift = cumsum(V2=="P")) -> data
@@ -268,28 +283,37 @@ get.shift <- function(YEAR, data, i){
   # in a 2020 data file (file 41, 2020-02-04)
   
   # Beginning hr of the shift.
-  BeginHr <- (hour(hms(data[Shifts.begin[i], 4])) + 
-                (minute(hms(data[Shifts.begin[i], 4]))/60) 
-              + (second(hms(data[Shifts.begin[i], 4]))/3600))
-  
+  BeginHr <- ifelse(YEAR != 2010,
+                    (hour(hms(data[Shifts.begin[i], 4])) + 
+                       (minute(hms(data[Shifts.begin[i], 4]))/60) 
+                     + (second(hms(data[Shifts.begin[i], 4]))/3600)),
+                    as.numeric(data[Shifts.begin[i], 4]))
+    
   # Decimal hour of next shift start time
   if (i < max.shifts){
     event.idx <- which(Shifts.df$shift %in% i)
     next.event <- Shifts.df[event.idx + 1,]
     if (next.event$event == "P"){
-      NextBeginHr <- (hour(hms(data[next.event$row, 4])) + 
-                        (minute(hms(data[next.event$row, 4]))/60)
-                      + (second(hms(data[next.event$row, 4]))/3600))
+      NextBeginHr <- ifelse(YEAR != 2010,
+                            (hour(hms(data[next.event$row, 4])) + 
+                               (minute(hms(data[next.event$row, 4]))/60)
+                             + (second(hms(data[next.event$row, 4]))/3600)),
+                            as.numeric(data[next.event$row, 4]))
+      
       EndHr <- NextBeginHr - 0.00001
     } else {  # if the event is "E"
       next.P <- Shifts.df[event.idx+2,]
-      NextBeginHr <- (hour(hms(data[next.P$row, 4])) + 
-                        (minute(hms(data[next.P$row, 4]))/60) 
-                      + (second(hms(data[next.P$row, 4]))/3600))
+      NextBeginHr <- ifelse(YEAR != 2010, 
+                            (hour(hms(data[next.P$row, 4])) + 
+                               (minute(hms(data[next.P$row, 4]))/60) 
+                             + (second(hms(data[next.P$row, 4]))/3600)),
+                            as.numeric(data[next.P$row, 4]))
       
-      EndHr <- (hour(hms(data[next.event$row, 4])) + 
-                  (minute(hms(data[next.event$row, 4]))/60) + 
-                  (second(hms(data[next.event$row, 4]))/3600))
+      EndHr <- ifelse(YEAR != 2010,
+                      (hour(hms(data[next.event$row, 4])) + 
+                         (minute(hms(data[next.event$row, 4]))/60) + 
+                         (second(hms(data[next.event$row, 4]))/3600)),
+                      as.numeric(data[next.event$row, 4]))
     }
 
     # Find next end hr to find the next shift to figure out spillovers
@@ -297,14 +321,18 @@ get.shift <- function(YEAR, data, i){
     next.event2 <- Shifts.df[event.idx2+1,]
     
     if (next.event2$event == "P"){   # if the next event is also "P"
-       NextEndHr <- (hour(hms(data[next.event2$row, 4])) + 
-                       (minute(hms(data[next.event2$row, 4]))/60) + 
-                       (second(hms(data[next.event2$row, 4]))/3600) ) - 0.00001
+       NextEndHr <- ifelse(YEAR != 2010,
+                           (hour(hms(data[next.event2$row, 4])) + 
+                              (minute(hms(data[next.event2$row, 4]))/60) + 
+                              (second(hms(data[next.event2$row, 4]))/3600) ) - 0.00001,
+                           as.numeric(data[next.event2$row, 4]) - 0.00001)
        # 
     } else {  # if the event is "E"
-       NextEndHr <- (hour(hms(data[next.event2$row, 4])) + 
-                       (minute(hms(data[next.event2$row, 4]))/60) 
-                     + (second(hms(data[next.event2$row, 4]))/3600))
+       NextEndHr <- ifelse(YEAR != 2010,
+                           (hour(hms(data[next.event2$row, 4])) + 
+                              (minute(hms(data[next.event2$row, 4]))/60) 
+                            + (second(hms(data[next.event2$row, 4]))/3600)),
+                           as.numeric(data[next.event2$row, 4]))
     }
     
 
@@ -316,9 +344,11 @@ get.shift <- function(YEAR, data, i){
     } else {
       end.row <- next.event$row
     }
-    EndHr <-  (hour(hms(data[end.row, 4])) + 
-                 (minute(hms(data[end.row, 4]))/60) + 
-                 (second(hms(data[end.row, 4]))/3600))
+    EndHr <-  ifelse(YEAR != 2010,
+                     (hour(hms(data[end.row, 4])) + 
+                        (minute(hms(data[end.row, 4]))/60) + 
+                        (second(hms(data[end.row, 4]))/3600)),
+                     as.numeric(data[end.row, 4]))
   }
   
   
