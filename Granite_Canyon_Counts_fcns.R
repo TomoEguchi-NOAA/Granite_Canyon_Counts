@@ -13,6 +13,18 @@ shift.definition <- function(date, time){
   return(shift.id)
 }
 
+shift.definition.2010 <- function(time.dec.hrs){
+  
+  shift.id <- ifelse(time.dec.hrs <= 7.5, 0,
+                     ifelse(time.dec.hrs <= 9, 1,
+                            ifelse(time.dec.hrs <= 10.5, 2,
+                                   ifelse(time.dec.hrs <= 12, 3,
+                                          ifelse(time.dec.hrs <= 13.5, 4,
+                                                 ifelse(time.dec.hrs <= 15, 5,
+                                                        ifelse(time.dec.hrs <= 16.5, 6, 7)))))))
+  return(shift.id)
+}
+
 
 compute.LOOIC <- function(loglik.array, data.array, MCMC.params){
   n.per.chain <- (MCMC.params$n.samples - MCMC.params$n.burnin)/MCMC.params$n.thin
@@ -581,9 +593,11 @@ get.shift <- function(YEAR, data, i){
                                    begin = End,
                                    shift = i, 
                                    ff = ff,
-                                   Shift = shift.definition(as.Date(data.shift[1,"V3"], format = "%m/%d/%Y"),
-                                                            format(as.POSIXct(as.Date("2022-12-01 00:00:00") + End),
-                                                                   format = "%H:%M:%S"))))
+                                   Shift = ifelse(YEAR != 2010,
+                                                  shift.definition(as.Date(data.shift[1,"V3"], format = "%m/%d/%Y"),
+                                                                   format(as.POSIXct(as.Date("2022-12-01 00:00:00") + End),
+                                                                          format = "%H:%M:%S")),
+                                                  shift.definition.2010(as.numeric(data.shift[1, "V3"])))))
   
   # Add "key" variable, which defines a segment with constant environmental 
   # data like visibility and wind force (beaufort). It is in the format of 
