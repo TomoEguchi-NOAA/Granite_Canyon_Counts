@@ -78,10 +78,14 @@ data.all <- do.call("rbind", data.list)
 # get.shift is not working for 2010 - Shift is not defined. 2023-12-05
 # This has been fixed. I created a dataframe that defines the beginning
 # and the end of each shift in Granite_Canyon_Counts_fcns.R 
+# 
+# 2023-12-08: Group ID 5 on Jan 1, 2010 was double counted in watch 4 and 5!
+# This has been fixed. 
+
 unique.dates <- unique(data.all$V3)
-c <-23
+c <-14
 for (c in 1:length(unique.dates)){
-  #print(paste0("Date = ", c))
+  print(paste0("Date = ", c))
   data.all %>% 
     filter(V3 == unique.dates[c]) -> data  
   
@@ -100,7 +104,7 @@ for (c in 1:length(unique.dates)){
   
   k <- 6
   for(k in 1:length(Shifts.1)){
-    #print(paste0("Shift.p = ", k))
+    print(paste0("Shift.p = ", k))
     out.shift.1 <- get.shift(YEAR, data.1, k)
     
     Output.list.1[[k]] <- out.shift.1$out.df
@@ -118,10 +122,10 @@ for (c in 1:length(unique.dates)){
     
     Shifts.2 <- which(data.2$V2 %in% "P") #start of all shifts
     all.effort.2 <- Output.list.2 <- all.sightings.2 <- list()
-    k <- 4
+    k <- 6
   
     for(k in 1:length(Shifts.2)){
-      #print(paste0("Shift.s = ", k))
+      print(paste0("Shift.s = ", k))
       out.shift.2 <- get.shift(YEAR, data.2, k)
       
       Output.list.2[[k]] <- out.shift.2$out.df
@@ -138,16 +142,35 @@ for (c in 1:length(unique.dates)){
   #Sys.sleep(1)
 }         
 
-# Start from here 2023-12-04
-# Data need to be saved differently depending on whether or not there was a secondary
-# station. 
+# Because I defined "shift" by observer changes, not by time definitions, there are 
+# occasions where one pod was sighted over more than two shifts (e.g., 1/14/2010, pod ID = 66).
+# These need to be dealt with by removing earlier recordings. This is done when 
+# one or more pods are found in two consecutive shifts within get.shift function.
+# 
+# 2023-12-08 This needs to be fixed! 
+
+
+
+# For 2020, time was recorded in decimal hours, which need to be converted to H:M:S
+# There is a function for that fractional_Hrs2HMS in Granite_Canyon_Counts_fcns.R
 
 # For primary:
 Data_Out_1 <- do.call("rbind", Data_Out.list.1)
-Data4Laake_1 <- do.call("rbind", all.sightings.list.1) %>%
-  mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", Shift, "_", key)) %>%
+
+if (YEAR == 2010){
+  Data4Laake <- do.call("rbind", all.sightings.list.1) %>%
+    mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", Shift, "_", key),
+           Time_HMS = fractional_Hr2HMS(Time))
+  
+} else {
+  Data4Laake <- do.call("rbind", all.sightings.list.1) %>%  
+    mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", Shift, "_", key),
+           Time_HMS = Time)
+} 
+
+Data4Laake  %>%
   transmute(Date = Date,
-            Time_PST = Time,
+            Time_PST = Time_HMS,
             key = key.1,
             Group_ID = Group_ID,
             nwhales = n,
@@ -163,7 +186,7 @@ Data4Laake_1 <- do.call("rbind", all.sightings.list.1) %>%
             time = time,
             effort = effort,
             station = "P") %>%
-  filter(nwhales > 0)
+  filter(nwhales > 0) -> Data4Laake_1
 
 # 2023-11-29 Double check on what the "key" should be in the effort file. In Laake's
 # analysis, key is Date_Shift. 
@@ -194,10 +217,20 @@ Effort4Laake_1 %>%
 # For secondary if exists:
 Data_Out_2 <- do.call("rbind", Data_Out.list.2)
 if (!is.null(Data_Out_2)){
-  Data4Laake_2 <- do.call("rbind", all.sightings.list.2) %>%
-    mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", Shift, "_", key)) %>%
+  if (YEAR == 2010){
+    Data4Laake <- do.call("rbind", all.sightings.list.2) %>%
+      mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", Shift, "_", key),
+             Time_HMS = fractional_Hr2HMS(Time))
+    
+  } else {
+    Data4Laake <- do.call("rbind", all.sightings.list.2) %>%  
+      mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", Shift, "_", key),
+             Time_HMS = Time)
+  } 
+  
+    Data4Laake %>%
     transmute(Date = Date,
-              Time_PST = Time,
+              Time_PST = Time_HMS,
               key = key.1,
               Group_ID = Group_ID,
               nwhales = n,
@@ -213,7 +246,7 @@ if (!is.null(Data_Out_2)){
               time = time,
               effort = effort,
               station = "S") %>%
-    filter(nwhales > 0)
+    filter(nwhales > 0) -> Data4Laake_2
   
   Data_Out <- rbind(Data_Out_1, Data_Out_2) %>%
     arrange(by = begin)
@@ -319,16 +352,6 @@ ShiftsPerDay <- Final_Data %>%
 
 
 ```{r}
-#Spot Checks:
-
-#Check shifts that passed muster to confirm the compiled data is correct
-# set.seed(1199)
-# Final_Data[sample(1:196,20,replace=F),]
-# 
-# #Check shifts that were thrown out to make sure they deserved it
-# set.seed(1200)
-# Chaff[sample(1:54,10,replace=F),]
-
 
 #Summary Stats for Report
 Complete_Data <- Final_Data[complete.cases(Final_Data),]

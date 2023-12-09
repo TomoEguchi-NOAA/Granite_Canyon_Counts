@@ -201,11 +201,12 @@ get.data <- function(dir, YEAR, FILES, ff){
       tmp <- data[nrow(data), 4]
     }
     
-    h <- trunc(tmp)
-    m <- trunc((tmp - h) * 60)
-    s <- (((tmp - h) * 60) - m) * 60
+    HMS <- fractional_Hr2HMS(as.numeric(tmp))
+    # h <- trunc(tmp)
+    # m <- trunc((tmp - h) * 60)
+    # s <- (((tmp - h) * 60) - m) * 60
     data <- rbind(data, c(row.num.char, "E", data[nrow(data), 3],
-                          paste(h,m,s, sep = ":"),
+                          HMS,
                           rep(NA, times = 12)))
   }
   
@@ -259,7 +260,7 @@ get.data <- function(dir, YEAR, FILES, ff){
 # A function to extract one shift from a data file. Use get.data first and
 # use the output of get.data in this function. i indicates a shift number within
 # the day, which can be different from the defined shifts which are identified
-# below. The first shift of a survey day may not start at any time of the day due 
+# below. The first shift of a survey day may start at any time of the day due 
 # to the environmental conditions. 
 # 
 # Defined shifts are;
@@ -279,7 +280,8 @@ get.shift <- function(YEAR, data, i){
     data$Shift <- shift.definition(as.Date(data$V3, format = "%m/%d/%Y"), data$V4)
   }
 
-  # Each shift always begins with "P"
+  # Each shift always begins with "P" - change in observers
+  # Note that this can happen in the middle of an official shift... 
   Shifts.begin <- which(data$V2 %in% "P")
   Shifts.begin.df <- data.frame(event = "P",
                                 shift = 1:length(Shifts.begin),
@@ -371,7 +373,8 @@ get.shift <- function(YEAR, data, i){
                      as.numeric(data[end.row, 4]))
   }
   
-  
+  # Effort <- EndHr - BeginHr
+  # 
   # End time is just before next start time (replicating J Durban's calculations)
   # TE: This is incorrect. If there was "E", we should use it. 
   #EndHr <- NextBeginHr - 0.00001 
@@ -539,8 +542,10 @@ get.shift <- function(YEAR, data, i){
     is.spillover <- T
     # figure out if there were any sightings that need to be considered:
     sub.data <- data.shift %>% #data[(Shifts.begin[i]):(Shifts.begin[i+1]-1),] %>% 
-      filter(V2 == "S", !(V5 %in% Spillover), 
-             tolower(V14) != "north", tolower(V14) != "northbound")
+      filter(V2 == "S", !(V5 %in% Spillover))  
+    
+    north.idx <- grep("north", tolower(sub.data$V14))
+    if (length(north.idx) > 0) sub.data <- sub.data [-north.idx,]   
     
     # 2023-11-29, In the following if statement, non-spillover groups are counted.
     if (nrow(sub.data) > 0){
@@ -560,7 +565,10 @@ get.shift <- function(YEAR, data, i){
   } else {   # if there were no spillover
     is.spillover <- F
     sub.data <- data.shift %>% #data[Shifts.begin[i]:(Shifts.begin[i+1]-1),]  %>%  
-      filter(V2 == "S", tolower(V14) != "north", tolower(V14) != "northbound")
+      filter(V2 == "S")
+    
+    north.idx <- grep("north", tolower(sub.data$V14))
+    if (length(north.idx) > 0) sub.data <- sub.data [-north.idx,]   
     
     if (nrow(sub.data) > 0){
       N <- sub.data %>%
@@ -584,13 +592,21 @@ get.shift <- function(YEAR, data, i){
   if (data.shift[nrow(data.shift), "V2"] != "E"){
     if (YEAR == 2010){
       Shift.End <- shift.definition.2010(data.shift$V4[nrow(data.shift)])
-      V4 <- shift.hrs %>% filter(shift == Shift.End) %>% select(end.hr) %>% pull()
+      if (NextBeginHr > (BeginHr + 1.5)){
+        V4 <- shift.hrs %>% filter(shift == Shift.End) %>% select(end.hr) %>% pull()        
+      } else {
+        V4 <- NextBeginHr - 0.00001
+      }
+
     } else {
       Shift.End <- shift.definition(as.Date(data.shift$V3[nrow(data.shift)], 
                                             format = "%m/%d/%Y"), data.shift$V4[nrow(data.shift)])
-      
-      V4 <- format(as.POSIXct(as.Date("2022-12-01 00:00:00") + End),
+      if (NextBeginHr > (BeginHr + 1.5)){
+        V4 <- format(as.POSIXct(as.Date("2022-12-01 00:00:00") + End),
                    format = "%H:%M:%S")
+      } else {
+        V4 <- NextBeginHr - 0.00001
+      }
     }
     data.shift <- rbind(data.shift, 
                         data.frame(V1 = NA, 
@@ -615,7 +631,6 @@ get.shift <- function(YEAR, data, i){
                                    Shift = Shift.End))
   }
 
-  
   # Add "key" variable, which defines a segment with constant environmental 
   # data like visibility and wind force (beaufort). It is in the format of 
   # Date_Shift_ID. ID is the sequential identification number within the shift.
@@ -647,7 +662,7 @@ get.shift <- function(YEAR, data, i){
   data.shift$end <- NA
   data.shift$time <- NA
   
-  # Compute effort
+  # Compute effort for each block of constant environment
   k <- 1
   for (k in 1:max(key.num)){
     tmp.1 <- data.shift %>%
@@ -852,6 +867,21 @@ fractional_Day2YMDhms <- function(x, YEAR){
               hms = paste(ifelse(hr < 10, paste0("0", hr), hr), 
                           ifelse(m < 10, paste0("0", m), m), 
                           ifelse(s < 10, paste0("0", s), s), sep = ":")))  
+}
+
+fractional_Hr2HMS <- function(tmp){
+  tmp[tmp>24] <- tmp[tmp>24] %% 24
+  
+  h <- trunc(tmp)
+  m <- trunc((tmp - h) * 60)
+  s <- round((((tmp - h) * 60) - m) * 60)
+  
+  HMS <- paste(ifelse(h < 10, paste0("0", h), h), 
+               ifelse(m < 10, paste0("0", m), m), 
+               ifelse(s < 10, paste0("0", s), s), sep = ":")
+  
+  return(HMS)
+
 }
 
 # This function compares Ver1.0 and Ver2.0 data extraction code for using
