@@ -425,6 +425,8 @@ get.shift <- function(YEAR, data, i){
   # are pooled by a constant continuing viewing condition, rather than arbitrary
   # 90 minute chunks.
 
+  # extract all Beaufort and visibility information from "V" and "S"
+  
   BFs.S <- data.shift %>% 
     filter(V2 == "S") %>% 
     dplyr::select(V12, begin) %>%
@@ -458,12 +460,6 @@ get.shift <- function(YEAR, data, i){
       BFs <- BFs.dt$BF
     }
   }
-  # if (i < max.shifts){
-  #   BFs <- as.numeric(data[Shifts.begin[i]:(Shifts.begin[i+1]-1), 12])    
-  # } else {
-  #   BFs <- data.shift %>% 
-  #     dplyr::select(V12) %>% pull()
-  # }
   
   if (sum(!is.na(BFs)) == 0){
     BF <- NA
@@ -483,8 +479,6 @@ get.shift <- function(YEAR, data, i){
     dplyr::select(V6, begin) %>%
     transmute(VS = as.numeric(V6),
               time = begin)
-  
-  #pull()%>% as.numeric()
   
   VSs.dt <- rbind(VSs.S, VSs.V) %>%
     arrange(time) %>%
@@ -609,7 +603,7 @@ get.shift <- function(YEAR, data, i){
       }
     }
     data.shift <- rbind(data.shift, 
-                        data.frame(V1 = NA, 
+                        data.frame(V1 = max(as.numeric(data.shift$V1), na.rm = T) + 1, 
                                    V2 = "E", 
                                    V3 = data.shift[1, "V3"],
                                    V4 = V4,
@@ -689,12 +683,16 @@ get.shift <- function(YEAR, data, i){
   # Need to remove the spillover groups in order to count npods and nwhales
   # if there was a spillover
   
-  # shift and Shift are the same if the first shift of a day started before 0900.
+  # shift and Shift are the same if the first shift of a day started before 0900 
+  # and observations didn't stop until 1630. 
   # key is the sequential number within each shift that defines an equal 
   # environmental condition.
   
+  # When there were at least one sighting
   if (length(which(data.shift$V2 == "S")) != 0){
 
+    # There were at least one spillover to the next shift and at least one group
+    # was recorded within the shift
     if (is.spillover & nrow(sub.data) > 0){
       data.shift %>%
         select(V1, key, effort, start, end, time) %>%
@@ -734,7 +732,29 @@ get.shift <- function(YEAR, data, i){
                   effort = first(effort),
                   Shift = first(Shift)) -> sub.data.shift
       
-    } else {
+      data.shift %>%
+        filter(key > 0) %>%
+        select(V3, begin, shift, Shift, key, effort, start, end, time) %>%
+        mutate(Date = V3) %>%
+        group_by(key) %>%
+        summarise(Date = first(Date),
+                  npods = n(),
+                  nwhales = sum(n, na.rm = T),
+                  bft = first(bft),
+                  vis = first(vis),
+                  shift = first(shift),
+                  Observer = first(Observer),
+                  key = first(key),
+                  begin = first(begin),
+                  end = first(end),
+                  time = first(time),
+                  effort = first(effort),
+                  Shift = first(Shift)) -> data.shift.effort
+      
+      # There were no spillover to the next shift and at least one group
+      # was sighted within the shift
+      
+    } else if (!is.spillover & nrow(sub.data) > 0) {
       data.shift %>%
         filter(V2 == "S") %>%
         transmute(Date = V3, 
@@ -772,63 +792,148 @@ get.shift <- function(YEAR, data, i){
                   effort = first(effort),
                   Shift = first(Shift)) -> sub.data.shift
       
+      data.shift %>%
+        filter(key > 0) %>%
+        select(V3, begin, shift, Shift, key, effort, start, end, time) %>%
+        mutate(Date = V3) %>%
+        group_by(key) %>%
+        summarise(Date = first(Date),
+                  npods = n(),
+                  nwhales = sum(n, na.rm = T),
+                  bft = first(bft),
+                  vis = first(vis),
+                  shift = first(shift),
+                  Observer = first(Observer),
+                  key = first(key),
+                  begin = first(begin),
+                  end = first(end),
+                  time = first(time),
+                  effort = first(effort),
+                  Shift = first(Shift)) -> data.shift.effort
+      
+      # There were only spillover sightings, which means no sightings were
+      # recorded for this shift, meaning (is.spillover & nrow(sub.data) == 0)
+      # or !is.spillover & nrow(sub.data == 0). All differing sighting conditions have
+      # to be separated
+    } else {
+      data.shift %>%
+        filter(key > 0) %>%
+        transmute(Date = V3, 
+                  Time = V4, 
+                  Group_ID = NA, 
+                  n = 0, 
+                  bft = NA, 
+                  vis = NA,
+                  Bearing = NA,
+                  Reticle = NA,
+                  Distance = NA,
+                  Observer = Observer,
+                  shift = shift, 
+                  key = key, 
+                  begin = start,
+                  end = end,
+                  time = time,
+                  effort = effort,
+                  Shift = Shift) -> tmp
+      
+      # fix beaufort and visibility 
+      for (k1 in 1:nrow(BFs.dt)){
+        tmp[tmp$begin == BFs.dt$time[k1], "bft"] <- BFs.dt$BF[k1]
+        tmp[tmp$begin == VSs.dt$time[k1], "vis"] <- VSs.dt$VS[k1]      
+      }
+      
+      tmp %>%
+        group_by(key) %>%
+        summarise(Date = first(Date),
+                  Time = first(Time),
+                  n = max(n, na.rm = T),
+                  bft = max(bft, na.rm = T),
+                  vis = max(vis, na.rm = T),
+                  Bearing = NA,
+                  Reticle = NA,
+                  Distance = NA,
+                  Observer = first(Observer),
+                  shift = first(shift),
+                  key = first(key),
+                  begin = first(begin),
+                  end = first(end),
+                  time = first(time),
+                  effort = first(effort),
+                  Shift = first(Shift)) -> sub.data.shift
+      
+      sub.data.shift %>%
+        mutate(npods = 0, nwhales = 0) %>%
+        select(-n) %>%
+        relocate(npods, .after = Date) %>%
+        relocate(nwhaels, .after = npods) -> data.shift.effort
+      
+        
     }
     
-    sub.data.shift %>%
-      group_by(key) %>%
-      summarise(Date = first(Date),
-                npods = n(),
-                nwhales = sum(n, na.rm = T),
-                bft = first(bft),
-                vis = first(vis),
-                shift = first(shift),
-                Observer = first(Observer),
-                key = first(key),
-                begin = first(begin),
-                end = first(end),
-                time = first(time),
-                effort = first(effort),
-                Shift = first(Shift)) -> data.shift.effort
+    # if there were no sighting - still needs to be seprated by the environmental
+    # conditions
   } else {
     
-    data.shift$bft <- bft.num
-    data.shift$vis <- vis.num
-    
     data.shift %>%
-      filter(V2 != "P", key > 0)  %>%
-      transmute(Group_ID = NA,
-                Date = V3, 
+      filter(key > 0) %>%
+      transmute(Date = V3, 
                 Time = V4, 
-                n = 0,
-                bft = bft, 
-                vis = vis, 
+                Group_ID = NA, 
+                n = 0, 
+                bft = NA, 
+                vis = NA,
                 Bearing = NA,
                 Reticle = NA,
                 Distance = NA,
-                Observer = NA,
+                Observer = Observer,
                 shift = shift, 
                 key = key, 
                 begin = start,
                 end = end,
                 time = time,
                 effort = effort,
-                Shift = Shift) -> sub.data.shift 
-      #arrange(key) %>%
-      sub.data.shift %>%
+                Shift = Shift) -> tmp
+    
+    # fix beaufort and visibility 
+    for (k1 in 1:nrow(BFs.dt)){
+      tmp[tmp$begin == BFs.dt$time[k1], "bft"] <- BFs.dt$BF[k1]
+      tmp[tmp$begin == VSs.dt$time[k1], "vis"] <- VSs.dt$VS[k1]      
+    }
+    
+    tmp %>%
       group_by(key) %>%
       summarise(Date = first(Date),
-                npods = 0,
-                nwhales = 0,
-                bft = first(bft),
-                vis = first(vis),
-                shift = first(shift),
+                Time = first(Time),
+                n = max(n, na.rm = T),
+                bft = max(bft, na.rm = T),
+                vis = max(vis, na.rm = T),
+                Bearing = NA,
+                Reticle = NA,
+                Distance = NA,
                 Observer = first(Observer),
+                shift = first(shift),
                 key = first(key),
                 begin = first(begin),
                 end = first(end),
                 time = first(time),
                 effort = first(effort),
-                Shift = first(Shift))-> data.shift.effort
+                Shift = first(Shift)) -> sub.data.shift
+    
+    sub.data.shift %>%
+      mutate(npods = 0, nwhales = 0) %>%
+      select(-n) %>%
+      relocate(npods, .after = Date) %>%
+      relocate(nwhaels, .after = npods) -> data.shift.effort
+    
+  }
+  
+ 
+  
+    data.shift$bft <- bft.num
+    data.shift$vis <- vis.num
+    
+    
+      #arrange(key) %>%
     
   }
   

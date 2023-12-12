@@ -82,8 +82,14 @@ data.all <- do.call("rbind", data.list)
 # 2023-12-08: Group ID 5 on Jan 1, 2010 was double counted in watch 4 and 5!
 # This has been fixed. 
 
+# 2023-12-11: There are still some issues for 2010 when shifts are not exactly
+# 1.5 hr long and when observers change within a shift. get.shift function
+# needs to be tested more thoroughly. I changed the part where effort and sightings
+# are extracted for Laake's analysis (lines 691-928). That needs to be tested
+# further. 
+
 unique.dates <- unique(data.all$V3)
-c <-14
+c <-35
 for (c in 1:length(unique.dates)){
   print(paste0("Date = ", c))
   data.all %>% 
@@ -102,7 +108,7 @@ for (c in 1:length(unique.dates)){
   
   all.effort.1 <- Output.list.1 <- all.sightings.1 <- list()
   
-  k <- 6
+  k <- 1
   for(k in 1:length(Shifts.1)){
     print(paste0("Shift.p = ", k))
     out.shift.1 <- get.shift(YEAR, data.1, k)
@@ -141,15 +147,6 @@ for (c in 1:length(unique.dates)){
   
   #Sys.sleep(1)
 }         
-
-# Because I defined "shift" by observer changes, not by time definitions, there are 
-# occasions where one pod was sighted over more than two shifts (e.g., 1/14/2010, pod ID = 66).
-# These need to be dealt with by removing earlier recordings. This is done when 
-# one or more pods are found in two consecutive shifts within get.shift function.
-# 
-# 2023-12-08 This needs to be fixed! 
-
-
 
 # For 2020, time was recorded in decimal hours, which need to be converted to H:M:S
 # There is a function for that fractional_Hrs2HMS in Granite_Canyon_Counts_fcns.R
@@ -209,10 +206,36 @@ Effort4Laake_1 <-  do.call("rbind", all.effort.list.1) %>%
             effort = effort,
             station = "P")
 
+
+# Because I defined "shift" by observer changes, not by time definitions, there are 
+# occasions where one pod was sighted over more than two shifts (e.g., 1/14/2010, 
+# Group_ID = 66, secondary observer).
+# These need to be dealt with by removing earlier recordings. This is done when 
+# one or more pods are found in two consecutive shifts within get.shift function.
+# 
+Data4Laake_1 %>% 
+  group_by(Date, Group_ID) %>%
+  summarise(n = n()) %>%
+  filter(n > 1) -> n_data.1
+
+# Look at n_data.1, which lists groups that were recorded more than once. 
+tmp.1 <- list()
+k <- 1
+if (nrow(n_data.1) > 0){
+  for (k in 1:nrow(n_data.1)){
+    Data4Laake_1 %>%
+      filter(Date == n_data.1$Date[k],  
+             Group_ID == n_data.1$Group_ID[k]) -> tmp.1[[k]]
+    
+  }
+}
+
 Effort4Laake_1 %>% 
   mutate(seq = 1:nrow(Effort4Laake_1),
          watch.key = paste0(Start.year, "_", seq)) %>%
   select(-c(seq)) -> Effort4Laake_1
+
+
 
 # For secondary if exists:
 Data_Out_2 <- do.call("rbind", Data_Out.list.2)
@@ -275,6 +298,29 @@ if (!is.null(Data_Out_2)){
            watch.key = paste0(Start.year, "_", seq)) %>%
     select(-c(seq)) -> Effort4Laake_2
   
+  # Because I defined "shift" by observer changes, not by time definitions, there are 
+  # occasions where one pod was sighted over more than two shifts (e.g., 1/14/2010, 
+  # Group_ID = 66, secondary observer).
+  # These need to be dealt with by removing earlier recordings. This is done when 
+  # one or more pods are found in two consecutive shifts within get.shift function.
+  # 
+  Data4Laake_2 %>% 
+    group_by(Date, Group_ID) %>%
+    summarise(n = n()) %>%
+    filter(n > 1) -> n_data.2
+  
+  # Look at n_data.1, which lists groups that were recorded more than once. 
+  tmp.2 <- list()
+  k <- 1
+  if (nrow(n_data.1) > 0){
+    for (k in 1:nrow(n_data.1)){
+      Data4Laake_2 %>%
+        filter(Date == n_data.2$Date[k],  
+               Group_ID == n_data.1$Group_ID[k]) -> tmp.2[[k]]
+      
+    }
+  }
+  
   Data4Laake_all <- rbind(Data4Laake_1, Data4Laake_2) %>%
     arrange(by = begin)
   
@@ -290,6 +336,7 @@ if (!is.null(Data_Out_2)){
   Effort4Laake_all <- Effort4Laake_1  %>%
     arrange(by = begin)  
 }
+
 
 
 ```
