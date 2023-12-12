@@ -17,11 +17,11 @@ rm(list=ls())
 library(tidyverse)
 library(lubridate)
 source("Granite_Canyon_Counts_fcns.R")
-
+options(dplyr.summarise.inform = FALSE)
 # Do not run 2023 with this script. Use Extract_Data_2023.Rmd for 2023. 
 # I ran 2023 data and seemed to work fine... 2023-10-19
 # YEAR should be one of 2010, 2011, 2015, 2016, 2020, 2022, 2023 (and beyond)
-YEAR <- 2010 #Enter the year of the data files
+YEAR <- 2023 #Enter the year of the data files
 
 # For 2009/2010 (maybe in the previous years too but I don't have any of those files),
 # Time is entered in decimal hours, not hh:mm:ss. So, that needs to be accommodated in
@@ -86,12 +86,12 @@ data.all <- do.call("rbind", data.list)
 # 1.5 hr long and when observers change within a shift. get.shift function
 # needs to be tested more thoroughly. I changed the part where effort and sightings
 # are extracted for Laake's analysis (lines 691-928). That needs to be tested
-# further. 
+# further. I think... this is all taken care of now. 2023-12-12
 
 unique.dates <- unique(data.all$V3)
 c <-35
 for (c in 1:length(unique.dates)){
-  print(paste0("Date = ", c))
+  #print(paste0("Date = ", c))
   data.all %>% 
     filter(V3 == unique.dates[c]) -> data  
   
@@ -108,9 +108,9 @@ for (c in 1:length(unique.dates)){
   
   all.effort.1 <- Output.list.1 <- all.sightings.1 <- list()
   
-  k <- 1
+  k <- 3
   for(k in 1:length(Shifts.1)){
-    print(paste0("Shift.p = ", k))
+    #print(paste0("Shift.p = ", k))
     out.shift.1 <- get.shift(YEAR, data.1, k)
     
     Output.list.1[[k]] <- out.shift.1$out.df
@@ -131,7 +131,7 @@ for (c in 1:length(unique.dates)){
     k <- 6
   
     for(k in 1:length(Shifts.2)){
-      print(paste0("Shift.s = ", k))
+      #print(paste0("Shift.s = ", k))
       out.shift.2 <- get.shift(YEAR, data.2, k)
       
       Output.list.2[[k]] <- out.shift.2$out.df
@@ -230,12 +230,10 @@ if (nrow(n_data.1) > 0){
   }
 }
 
-Effort4Laake_1 %>% 
-  mutate(seq = 1:nrow(Effort4Laake_1),
-         watch.key = paste0(Start.year, "_", seq)) %>%
+Effort4Laake_1$seq <- seq(from = 1, to = nrow(Effort4Laake_1)) 
+Effort4Laake_1 %>%
+  mutate(watch.key = paste0(Start.year, "_", seq)) %>%
   select(-c(seq)) -> Effort4Laake_1
-
-
 
 # For secondary if exists:
 Data_Out_2 <- do.call("rbind", Data_Out.list.2)
@@ -293,9 +291,9 @@ if (!is.null(Data_Out_2)){
               effort = effort,
               station = "S")
   
-  Effort4Laake_2 %>% 
-    mutate(seq = 1:nrow(Effort4Laake_2),
-           watch.key = paste0(Start.year, "_", seq)) %>%
+  Effort4Laake_2$seq <- seq(from = 1, to = nrow(Effort4Laake_2)) 
+  Effort4Laake_2 %>%
+    mutate(watch.key = paste0(Start.year, "_", seq)) %>%
     select(-c(seq)) -> Effort4Laake_2
   
   # Because I defined "shift" by observer changes, not by time definitions, there are 
