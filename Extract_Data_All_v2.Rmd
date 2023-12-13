@@ -17,7 +17,10 @@ rm(list=ls())
 library(tidyverse)
 library(lubridate)
 source("Granite_Canyon_Counts_fcns.R")
+
+# https://statisticsglobe.com/dplyr-message-summarise-has-grouped-output-r
 options(dplyr.summarise.inform = FALSE)
+
 # Do not run 2023 with this script. Use Extract_Data_2023.Rmd for 2023. 
 # I ran 2023 data and seemed to work fine... 2023-10-19
 # YEAR should be one of 2010, 2011, 2015, 2016, 2020, 2022, 2023 (and beyond)
@@ -156,13 +159,15 @@ Data_Out_1 <- do.call("rbind", Data_Out.list.1)
 
 if (YEAR == 2010){
   Data4Laake <- do.call("rbind", all.sightings.list.1) %>%
-    mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", Shift, "_", key),
-           Time_HMS = fractional_Hr2HMS(Time))
+    mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
+           Time_HMS = fractional_Hr2HMS(Time),
+           Date.shift = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift))
   
 } else {
   Data4Laake <- do.call("rbind", all.sightings.list.1) %>%  
-    mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", Shift, "_", key),
-           Time_HMS = Time)
+    mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
+           Time_HMS = Time,
+           Date.shift = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift))
 } 
 
 Data4Laake  %>%
@@ -176,7 +181,8 @@ Data4Laake  %>%
             Bearing = Bearing,
             Reticle = Reticle,
             Distance = Distance,
-            Shift = shift,
+            shift = shift,
+            date.shift = Date.shift,
             observer = Observer,
             begin = begin,
             end = end,
@@ -188,13 +194,13 @@ Data4Laake  %>%
 # 2023-11-29 Double check on what the "key" should be in the effort file. In Laake's
 # analysis, key is Date_Shift. 
 Effort4Laake_1 <-  do.call("rbind", all.effort.list.1) %>%
-  mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", Shift, "_", key),
-         year.shift = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", Shift)) %>%
+  mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
+         Date.shift = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift)) %>%
   transmute(Date = Date,
             Start.year = YEAR - 1,
             key = key.1,
             shift = shift,
-            year.shift = year.shift,
+            date.shift = Date.shift,
             npods = npods,
             nwhales = nwhales,
             beaufort = bft,
@@ -240,13 +246,15 @@ Data_Out_2 <- do.call("rbind", Data_Out.list.2)
 if (!is.null(Data_Out_2)){
   if (YEAR == 2010){
     Data4Laake <- do.call("rbind", all.sightings.list.2) %>%
-      mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", Shift, "_", key),
-             Time_HMS = fractional_Hr2HMS(Time))
+      mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
+             Time_HMS = fractional_Hr2HMS(Time),
+             Date.shift = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift))
     
   } else {
     Data4Laake <- do.call("rbind", all.sightings.list.2) %>%  
-      mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", Shift, "_", key),
-             Time_HMS = Time)
+      mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
+             Time_HMS = Time,
+             Date.shift = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift))
   } 
   
     Data4Laake %>%
@@ -260,7 +268,8 @@ if (!is.null(Data_Out_2)){
               Bearing = Bearing,
               Reticle = Reticle,
               Distance = Distance,
-              Shift = shift,
+              shift = shift,
+              date.shift = Date.shift,
               observer = Observer,
               begin = begin,
               end = end,
@@ -273,13 +282,13 @@ if (!is.null(Data_Out_2)){
     arrange(by = begin)
   
   Effort4Laake_2 <-  do.call("rbind", all.effort.list.2) %>%
-    mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", Shift, "_", key),
-           year.shift = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", Shift)) %>%
+    mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
+           Date.shift = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift)) %>%
     transmute(Date = Date,
               Start.year = YEAR - 1,
               key = key.1,
               shift = shift,
-              year.shift = year.shift,
+              date.shift = Date.shift,
               npods = npods,
               nwhales = nwhales,
               beaufort = bft,

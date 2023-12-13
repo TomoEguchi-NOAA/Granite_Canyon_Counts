@@ -95,7 +95,7 @@ all.observers <- rbind(all.observers, data.frame(ID = c("21", "21"),
 # Only 2010 and 2011 had two observation stations, which are needed for applying
 # Laake's method beyond naive estimates
 
-years <- c(2010, 2011) #, 2015, 2016, 2020, 2022, 2023)
+years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023)
 
 #years <- 2015
 # sightings and efort
@@ -117,10 +117,10 @@ for (k in 1:length(years)){
               day = day(Date),
               month = month(Date),
               year = year(Date),
-              watch = Shift,
+              watch = shift,
               t241 = difftime((paste(Date, Time)),
                               (paste0((years[k] - 1), 
-                                             "-12-01 00:00:00"))) %>%
+                                             "-11-30 00:00:00"))) %>%
                 as.numeric(),
               Group_ID = Group_ID,
               distance = Distance,
@@ -130,6 +130,7 @@ for (k in 1:length(years)){
               Start.year = years[k]-1,
               Observer = toupper(observer),
               key = key,
+              date.shift = date.shift,
               station = station) %>%
     arrange(Date, Group_ID) %>%
     filter(vis < 5, beaufort < 5) %>%
@@ -158,6 +159,7 @@ for (k in 1:length(years)){
               Observer = toupper(observer),
               time = time,
               watch = shift,
+              date.shift = date.shift,
               Use = T,
               Date = as.Date(Date, format = "%m/%d/%Y"),
               station = station) %>%
@@ -310,14 +312,28 @@ source("~/R/ERAnalysis/R/io.glm.R")
 
 Match.Laake <- read.csv("Data/match_1987_2006.csv")
 
+# for new datasets, only 2010 and 2011 have the secondary observers:
 # need to create the "seen" variable, which is 0/1
 sightings.primary %>%
+  filter(Start.year == 2009 | Start.year == 2010)  %>%
   mutate(seen = 1,
-         new.key = paste0(Date, "-", Group_ID)) -> sightings.primary
+         new.key = paste0(Date, "-", Group_ID)) -> sightings.primary.1
 
 sightings.secondary %>%
+  filter(Start.year == 2009 | Start.year == 2010)  %>%
   mutate(seen = 1,
-         new.key = paste0(Date, "-", Group_ID)) -> sightings.secondary
+         new.key = paste0(Date, "-", Group_ID)) -> sightings.secondary.1
+
+# Need to reduce the primary sightings to match secondary survey dates:
+unique.secondary.dates <- unique(sightings.secondary.1$Date)
+filtered.primary.sightings.1 <- sightings.primary.1[sightings.primary.1$Date %in% unique.secondary.dates, ]
+filtered.primary.effort <- effort.primary[effort.primary$Date %in% unique.secondary.dates, ]
+
+#START FROM HERE! 2023-12-12
+
+# Combine with the secondary sightings
+rbind(filtered.primary.sightings.1, sightings.secondary.1) %>%
+  arrange(by = new.key) -> sightings.all.1
 
 new.key <- unique(c(sightings.primary$new.key, sightings.secondary$new.key))
 
@@ -389,6 +405,7 @@ sightings.primary.new.key %>%
 sightings.secondary.new.key %>%
   filter(seen == 1) %>%
   select(Date, Observer, watch) -> secondary.observers
+
 
 seen.0 <- which(sightings.all$seen == 0)
 k <- 1

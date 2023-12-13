@@ -597,7 +597,7 @@ get.shift <- function(YEAR, data, i){
 
   # Add the "key" variable, which defines a segment with constant environmental 
   # data like visibility and wind force (beaufort). It is in the format of 
-  # Date_Shift_ID. ID is the sequential identification number within the Shift.
+  # Date_shift_ID. ID is the sequential identification number within the shift.
   # Find changes in the viewing condition
   idx.V <- which(data.shift$V2 == "V")
   bft <- c(NA, as.numeric(data.shift$V5[idx.V]))
