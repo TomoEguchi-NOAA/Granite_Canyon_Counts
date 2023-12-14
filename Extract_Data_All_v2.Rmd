@@ -319,11 +319,11 @@ if (!is.null(Data_Out_2)){
   # Look at n_data.1, which lists groups that were recorded more than once. 
   tmp.2 <- list()
   k <- 1
-  if (nrow(n_data.1) > 0){
-    for (k in 1:nrow(n_data.1)){
+  if (nrow(n_data.2) > 0){
+    for (k in 1:nrow(n_data.2)){
       Data4Laake_2 %>%
         filter(Date == n_data.2$Date[k],  
-               Group_ID == n_data.1$Group_ID[k]) -> tmp.2[[k]]
+               Group_ID == n_data.2$Group_ID[k]) -> tmp.2[[k]]
       
     }
   }
@@ -347,6 +347,29 @@ if (!is.null(Data_Out_2)){
 
 
 ```
+
+
+```{r}
+# Check tmp.1 and tmp.2 for possible double counting of pods, when they were sighted 
+# over more than two shifts. If one of these messages appear, check the corresponding
+# list (i.e., tmp.1 or tmp.2). The raw data file may be edited. 
+# 
+if (length(tmp.1) > 0){
+  print("Multiple sightings were found in primary observers")
+  
+}
+
+if (exists("tmp.2")){
+  if (length(tmp.2) > 0){
+    print("Multiple sightings were found in secondary observers")
+  }
+  
+}
+
+
+```
+
+
 
 
 ```{r}
@@ -403,6 +426,7 @@ ShiftsPerDay <- Final_Data %>%
   summarize(Watches = n())
 
 ```
+
 
 
 ```{r}
