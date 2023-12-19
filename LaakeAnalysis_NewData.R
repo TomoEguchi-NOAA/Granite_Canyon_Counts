@@ -8,6 +8,8 @@ library(tidyverse)
 library(ggplot2)
 library(lubridate)
 
+source("Granite_Canyon_Counts_fcns.R")
+
 # For Laake's approach, I need primary effort, primary sightings, secondary effort,
 # secondary sightings, distance, podsize, and associated visibility and Beaufort 
 # sea state
@@ -130,6 +132,7 @@ for (k in 1:length(years)){
               Start.year = years[k]-1,
               Observer = toupper(observer),
               key = key,
+              pphr = pphr,
               date.shift = date.shift,
               station = station) %>%
     arrange(Date, Group_ID) %>%
@@ -244,13 +247,14 @@ sightings.primary %>%
             Date = Date, day = day, month = month,
             year = year,
             watch = watch,
-            t241 = t241, distance = distance,
+            t241 = t241, 
+            distance = distance,
             podsize = podsize,
             vis = vis,
             beaufort = beaufort,
             wind.direction = NA,
             key = key,
-            pphr = NA,
+            pphr = pphr,
             Start.year = Start.year,
             original.watch = watch,
             only = TRUE,
@@ -262,12 +266,15 @@ sightings.all <- rbind(Laake_PrimarySightings, sightings.Laake.format)
 
 effort.primary %>%
   mutate(X = (max(Laake_PrimaryEffort$X) + 1) : (max(Laake_PrimaryEffort$X) + 1 + nrow(effort.primary) - 1)) %>%
-  select(-c(station)) %>%
-  relocate(Observer, .after = beaufort) -> effort.Laake.format
+  select(-c(station, date.shift)) %>%
+  relocate(Observer, .after = beaufort) %>%
+  relocate(X, .before = watch.key) -> effort.Laake.format
   
 effort.all <- rbind(Laake_PrimaryEffort, effort.Laake.format)
 
-final.time = sapply(tapply(floor(effort.all$time), effort.all$Start.year, max), function(x) ifelse(x>90,100,90))
+final.time = sapply(tapply(floor(effort.all$time), 
+                           effort.all$Start.year, max), 
+                    function(x) ifelse(x>90,100,90))
 lower.time = rep(0,length(final.time))
  
 all.years <- unique(sightings.all$Start.year)
@@ -317,161 +324,120 @@ Match.Laake <- read.csv("Data/match_1987_2006.csv")
 sightings.primary %>%
   filter(Start.year == 2009 | Start.year == 2010)  %>%
   mutate(seen = 1,
-         new.key = paste0(Date, "-", Group_ID)) -> sightings.primary.1
+         new.key = ifelse(Group_ID > 9, 
+                          paste0(Date, "-", Group_ID),
+                          paste0(Date, "-0", Group_ID))) -> sightings.primary.1
 
 sightings.secondary %>%
   filter(Start.year == 2009 | Start.year == 2010)  %>%
   mutate(seen = 1,
-         new.key = paste0(Date, "-", Group_ID)) -> sightings.secondary.1
+         new.key = ifelse(Group_ID > 9, 
+                          paste0(Date, "-", Group_ID),
+                          paste0(Date, "-0", Group_ID))) -> sightings.secondary.1
 
 # Need to reduce the primary sightings to match secondary survey dates:
 unique.secondary.dates <- unique(sightings.secondary.1$Date)
 filtered.primary.sightings.1 <- sightings.primary.1[sightings.primary.1$Date %in% unique.secondary.dates, ]
 filtered.primary.effort <- effort.primary[effort.primary$Date %in% unique.secondary.dates, ]
 
-#START FROM HERE! 2023-12-12
-
 # Combine with the secondary sightings
 rbind(filtered.primary.sightings.1, sightings.secondary.1) %>%
-  arrange(by = new.key) -> sightings.all.1
+  arrange(new.key) -> sightings.all.1
 
-new.key <- unique(c(sightings.primary$new.key, sightings.secondary$new.key))
+# Seen by both primary and secondary
+filtered.primary.sightings.1 %>%
+  semi_join(sightings.secondary.1 %>%
+              select(new.key), by = "new.key") -> seen.by.both
+                           
+sightings.all.1 %>%
+  filter(new.key %in% seen.by.both$new.key) -> sightings.seen.by.both
 
-new.key.df <- data.frame(new.key = new.key)
-         
-new.key.df %>%
-  left_join(sightings.primary, by = "new.key") -> sightings.primary.new.key
+# Seen by primary, but not seen by secondary
+filtered.primary.sightings.1 %>%
+  anti_join(sightings.secondary.1 %>%
+              select(new.key), by = "new.key") -> seen.by.primary.only
 
-sightings.primary.new.key$seen[is.na(sightings.primary.new.key$seen)] <- 0
+seen.by.primary <- seen.by.primary.only
+seen.by.primary$seen <- 0
+seen.by.primary$station <- "S"
+sightings.by.primary <- rbind(seen.by.primary.only, seen.by.primary) 
 
-# Fill in data when "seen" is 0
-sightings.primary.new.key %>%
-  filter(seen == 0) %>%
-  mutate(Date = new.key %>% str_sub(start = 1, end = 10),
-         Time = NA,
-         day = new.key %>% str_sub(start = 9, end = 10) %>% as.numeric(),
-         month = new.key %>% str_sub(start = 6, end = 7)%>% as.numeric(),
-         year = new.key %>% str_sub(start = 1, end = 4)%>% as.numeric(),
-         watch = NA,
-         t241 = NA,
-         Group_ID = new.key %>% str_sub(start = 12, end = 13)%>% as.numeric(),
-         distance = NA, podsize = NA, vis = NA, beaufort = NA,
-         Start.year = ifelse(month > 10, year, year-1),
-         key = NA,
-         station = "P",
-         Observer = NA,
-         seen = seen) -> tmp
+# Seen by secondary, but not seen by primary
+sightings.secondary.1 %>%
+  anti_join(sightings.primary.1 %>%
+              select(new.key), by = "new.key") -> seen.by.secondary.only
 
-sightings.primary.all <- rbind(sightings.primary.new.key %>% filter(seen == 1),
-                               tmp) %>%
-  arrange(by = new.key)
+seen.by.secondary <- seen.by.secondary.only
+seen.by.secondary$seen <- 0
+seen.by.secondary$station <- "P"
+sightings.by.secondary <- rbind(seen.by.secondary.only, seen.by.secondary) 
 
-# Because there were less effort for the secondary team than the primary team,
-# I match primary to secondary.
-new.key.df %>%
-  left_join(sightings.secondary, by = "new.key") -> sightings.secondary.new.key
+sightings.all.2 <- rbind(sightings.seen.by.both,
+                         sightings.by.primary,
+                         sightings.by.secondary) %>%
+  arrange(new.key) 
+  
+sightings.all.2$seq <- seq(1, nrow(sightings.all.2))
 
-sightings.secondary.new.key$seen[is.na(sightings.secondary.new.key$seen)] <- 0
-
-# Fill in data when "seen" is 0
-sightings.secondary.new.key %>%
-  filter(seen == 0) %>%
-  mutate(Date = new.key %>% str_sub(start = 1, end = 10),
-         Time = NA,
-         day = new.key %>% str_sub(start = 9, end = 10)%>% as.numeric(),
-         month = new.key %>% str_sub(start = 6, end = 7)%>% as.numeric(),
-         year = new.key %>% str_sub(start = 1, end = 4)%>% as.numeric(),
-         watch = NA,
-         t241 = NA,
-         Group_ID = new.key %>% str_sub(start = 12, end = 13)%>% as.numeric(),
-         distance = NA, podsize = NA, vis = NA, beaufort = NA,
-         Start.year = ifelse(month > 10, year, year-1),
-         key = NA,
-         station = "S",Observer = NA,
-         seen = seen) -> tmp
-
-sightings.secondary.all <- rbind(sightings.secondary.new.key %>% filter(seen == 1),
-                               tmp) %>%
-  arrange(by = new.key)
-
-sightings.all <- rbind(sightings.primary.all, sightings.secondary.all) %>%
-  arrange(by = new.key)
-
-# fill in watch and observer for not-seen pods.
-sightings.primary.new.key %>% 
-  filter(seen == 1) %>%
-  select(Date, Observer, watch) -> primary.observers
-
-sightings.secondary.new.key %>%
-  filter(seen == 1) %>%
-  select(Date, Observer, watch) -> secondary.observers
-
-
-seen.0 <- which(sightings.all$seen == 0)
+# Need to find right observers for not-seen pods.
+# date.shift is the index for date and observer combinations
+not.seen <- filter(sightings.all.2, seen == 0)
 k <- 1
-for (k in 1:length(seen.0)){
-  tmp.0 <- sightings.all[seen.0[k],]
-  tmp <- sightings.all %>% filter(new.key == tmp.0$new.key)
-  sightings.all[seen.0[k], "watch"] <- na.omit(tmp$watch)
-  sightings.all[seen.0[k], "key"] <- na.omit(tmp$key)
-  
-  if (tmp.0$station == "S"){   # if secondary is missing
-    secondary.observers %>%
-      filter(Date == tmp.0$Date,
-             watch == sightings.all[seen.0[k], "watch"]) %>%
-      select(Observer) %>%
-      pull() -> obs
-    
-    sightings.all[seen.0[k], "watch"] <- ifelse(length(obs) == 0,
-                                                NA, obs)
+for (k in 1:nrow(not.seen)){
+  if (not.seen$station[k] == "S"){
+    effort.secondary %>%
+      filter(date.shift == not.seen$date.shift[k]) -> effort.k
+    if (nrow(effort.k) > 0){
+      not.seen$Observer[k] <- effort.k$Observer[1]
+    } else {
+      not.seen$Observer[k] <- NA
+    }
   } else {
-    primary.observers %>%
-      filter(Date == tmp.0$Date,
-             watch == sightings.all[seen.0[k], "watch"]) %>%
-      select(Observer) %>%
-      pull() -> obs
-    
-    sightings.all[seen.0[k], "watch"] <- ifelse(length(obs) == 0,
-                                                NA, obs)
-    
+    filtered.primary.effort %>%
+      filter(date.shift == not.seen$date.shift[k]) -> effort.k
+    if (nrow(effort.k) > 0){
+      not.seen$Observer[k] <- effort.k$Observer[1]
+    } else {
+      not.seen$Observer[k] <- NA
+    }
   }
-  
 }
 
-         mutate(wind.direction = NA,
-         seq = seq(1:nrow(sightings.primary)),
-         hours = NA,
-         pphr = NA,
-         Sex = NA,
-         Use = T) %>%
-  
-  select(c(key, Date, seen, station, day, watch, t241, distance, podsize, vis, beaufort, wind.direction,
-           Start.year, seq, hours, pphr, Sex, Observer, Use)) -> Match.primary
+sightings.all.3 <- rbind(sightings.all.2 %>% filter(seen == 1),
+                         not.seen) %>% 
+  arrange(new.key) 
 
+sightings.all.3 %>%
+  transmute(X = seq(1, nrow(sightings.all.2)),
+            key = key,
+            Date = Date,
+            seen = seen, 
+            station = station,
+            day = day,
+            watch = watch,
+            t241 = t241,
+            distance = distance,
+            podsize = podsize,
+            vis = vis,
+            beaufort = beaufort,
+            wind.direction = NA,
+            Start.year = Start.year,
+            seq = seq,
+            hours = NA,
+            pphr = pphr,
+            Sex = NA,
+            Observer = Observer,
+            Use = TRUE,
+            new.key = new.key) -> Match.new
 
-         wind.direction = NA,
-         seq = seq(1:nrow(sightings.primary)),
-         hours = NA,
-         pphr = NA,
-         Sex = NA,
-         Use = T) %>%
-  select(c(key, Date, seen, station, day, watch, t241, distance, podsize, vis, beaufort, wind.direction,
-           Start.year, seq, hours, pphr, Sex, Observer, Use)) -> Match.secondary
-
-
-
-
-# This function is in compute.series.r (or compute.series.new.r)
-# select.detection.models=function(x, models, cutoff=4){
-#   mod=vector("list",length(models))
-#   for(i in 1:length(models))
-#     mod[[i]]=io.glm(x,as.formula(paste("seen~",models[i],sep="")))
-# 
-#   AICValues=sapply(mod,function(x) AIC(x))
-#   DeltaAIC=AICValues-min(AICValues)
-#   mod.numbers=(1:length(models))[order(DeltaAIC)]
-#   return(mod[mod.numbers[sort(DeltaAIC)<cutoff]])
-# }
+# In Match.new, it appears that there are 2544 Primary and 2534 Secondary...
+# There should be the same number of primary and secondary...  
+# Debugging here...
+Match.new %>% group_by(new.key) %>% summarize(n.new.key = n()) -> new.key.summary
+new.key.summary %>% filter(n.new.key > 2) -> problem.new.keys
+Match.new %>%
+  filter(new.key == problem.new.keys$new.key[1])
+#2010-01-25-38 in 2010-01-25_4 pphr is 14.446 AND 0.963 in two lines at 12:00:30
 
 # Next compute the series of abundance estimates for 8 years plus 
 # 2 years for which secondary observers exist (2010, 2011) by
@@ -485,20 +451,62 @@ for (k in 1:length(seen.0)){
 # cutoff=4
 # 
 
-Sightings <- merge(sightings.primary, subset(effort.primary,
-                                             select=c("key","Use")), by="key")
+# Sightings <- merge(sightings.primary,
+#                    subset(effort.primary,
+#                           select=c("key","Use")), by="key")
+
+# 2023-12-15 Need to find correct inputs here; sightings, effort, and match
+# Have to combine Laake's inputs and new ones here
+sightings.primary %>%
+  transmute(X = seq((max(Laake_PrimarySightings$X)+1):(max(Laake_PrimarySightings$X) + nrow(sightings.primary))),
+            Date = Date,
+            day = day,
+            month = month,
+            year = year,
+            watch = watch,
+            t241 = t241,
+            distance = distance,
+            podsize = podsize,
+            vis = vis,
+            beaufort = beaufort,
+            wind.direction = NA,
+            key = key,
+            pphr = pphr,
+            Start.year = Start.year,
+            original.watch = watch,
+            only = TRUE,
+            hours = NA,
+            Sex = NA,
+            Observer = Observer) -> sightings.
+
+Sightings <- rbind(Laake_PrimarySightings, sightings.)
 
 # Filter effort and sightings and store in dataframes Effort and Sightings
-Effort <- effort.primary 
+effort.primary %>%
+  transmute(X = seq((max(Laake_PrimaryEffort$X)+1), (max(Laake_PrimaryEffort$X) + nrow(effort.primary))),
+            watch.key = watch.key,
+            Start.year = Start.year,
+            key = key,
+            begin = begin,
+            end = end,
+            npods = npods,
+            nwhales = nwhales,
+            effort = effort,
+            vis = vis,
+            beaufort = beaufort,
+            Observer = Observer,
+            time = time,
+            watch = watch,
+            Use = Use,
+            Date = Date) -> effort.
+ 
+Effort <- rbind(Laake_PrimaryEffort, effort.) 
 
-# Sightings$seq=1:nrow(Sightings)
-# Sightings=merge(Sightings,subset(Effort,select=c("key")))
-# Sightings=Sightings[order(Sightings$seq),]
-
-Sightings$corrected.podsize=Sightings$podsize
+Sightings$corrected.podsize = Sightings$podsize
 abundance.estimates.nops.correction=compute.series.new(models, 
                                                        naive.abundance.models,
                                                        sightings=Sightings,
+                                                       Match = Match.new,
                                                        effort=Effort,
                                                        TruePS=FALSE)
 

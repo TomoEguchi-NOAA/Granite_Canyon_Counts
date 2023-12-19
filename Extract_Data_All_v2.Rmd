@@ -5,10 +5,12 @@ output: html_notebook
 
 In this version, I use the new function that was used to compare Josh's and my results. 
 
-This fix may work for all years. At least, 2015 and 2016 files were processed without any errors. Results need to be compared with Josh's outputs. 
+This fix may work for all years. At least, 2015 and 2016 files were processed without any errors. Results need to be compared with Josh's outputs. The old extraction missed many things, although the differences are minor. I think it's now (December 2023) a lot better extraction method than old versions. I tested it for data since 2010 (2010, 2011, 2015, 2016, 2020, 2022, 2023). They worked fine and picked up some strange data, which were fixed in the input files. 
+
+The recent vesion as of December 2023 also creates input files for Laake's approach. That approach requires double-observer data, which are only available for 2010 and 2011 in the recent data. Years without double observers are adjusted by using the average observation probability from years with double observers. Use LaakeAnalysis_NewData.R for the analysis. It is incomplete as of December 2023. 
 
 
-The station information needs to be added. The data files that I have don't have that info... this needs to be fixed in the future. 
+The station information needs to be added. The data files that I have don't have that info... this needs to be fixed in the future. This has been fixed. 2023-12-12.
 
 
 ```{r}
@@ -24,7 +26,7 @@ options(dplyr.summarise.inform = FALSE)
 # Do not run 2023 with this script. Use Extract_Data_2023.Rmd for 2023. 
 # I ran 2023 data and seemed to work fine... 2023-10-19
 # YEAR should be one of 2010, 2011, 2015, 2016, 2020, 2022, 2023 (and beyond)
-YEAR <- 2023 #Enter the year of the data files
+YEAR <- 2010 #Enter the year of the data files
 
 # For 2009/2010 (maybe in the previous years too but I don't have any of those files),
 # Time is entered in decimal hours, not hh:mm:ss. So, that needs to be accommodated in
@@ -92,7 +94,7 @@ data.all <- do.call("rbind", data.list)
 # further. I think... this is all taken care of now. 2023-12-12
 
 unique.dates <- unique(data.all$V3)
-c <-35
+c <-20
 for (c in 1:length(unique.dates)){
   #print(paste0("Date = ", c))
   data.all %>% 
@@ -111,7 +113,7 @@ for (c in 1:length(unique.dates)){
   
   all.effort.1 <- Output.list.1 <- all.sightings.1 <- list()
   
-  k <- 3
+  k <- 4
   for(k in 1:length(Shifts.1)){
     #print(paste0("Shift.p = ", k))
     out.shift.1 <- get.shift(YEAR, data.1, k)
@@ -210,6 +212,7 @@ Effort4Laake_1 <-  do.call("rbind", all.effort.list.1) %>%
             end = end,
             time = time,
             effort = effort,
+            pphr = npods/(24*effort),
             station = "P")
 
 
@@ -240,6 +243,12 @@ Effort4Laake_1$seq <- seq(from = 1, to = nrow(Effort4Laake_1))
 Effort4Laake_1 %>%
   mutate(watch.key = paste0(Start.year, "_", seq)) %>%
   select(-c(seq)) -> Effort4Laake_1
+
+# pphr (pods per hour) is in the sightings data, rather than in the effort in 
+# Laake's analysis. So, I move the variable.
+Data4Laake_1 %>%
+  left_join(Effort4Laake_1 %>%
+              select(key, pphr), by = "key") -> Data4Laake_1
 
 # For secondary if exists:
 Data_Out_2 <- do.call("rbind", Data_Out.list.2)
@@ -298,6 +307,7 @@ if (!is.null(Data_Out_2)){
               end = end,
               time = time,
               effort = effort,
+              pphr = npods/(24*effort),
               station = "S")
   
   Effort4Laake_2$seq <- seq(from = 1, to = nrow(Effort4Laake_2)) 
@@ -328,6 +338,13 @@ if (!is.null(Data_Out_2)){
     }
   }
   
+  # pphr (pods per hour) is in the sightings data, rather than in the effort in 
+  # Laake's analysis. So, I move the variable.
+  Data4Laake_2 %>%
+    left_join(Effort4Laake_2 %>%
+              select(key, pphr), by = "key") -> Data4Laake_2
+
+  
   Data4Laake_all <- rbind(Data4Laake_1, Data4Laake_2) %>%
     arrange(by = begin)
   
@@ -345,9 +362,15 @@ if (!is.null(Data_Out_2)){
 }
 
 
-
 ```
 
+2023-12-14 There were a few questionable entries for 2020. I emailed Aimée Lang on 2023-12-14 to verify the data. Email below:
+
+"Please take a look at the data files attached (raw and edited). On Jan 6, 2020, Group 17 was first detected at 12:57:23. The same animal was detected at 15:27:54 (what?) and 15:33:00. Is it reasonable to change the group ID at 15:27:54, and the remaining groups for the day (18 and 19), accordingly?" 
+
+She's on leave until 2023-12-19. 
+
+2023-12-15 She agreed on my suggestion. Data file has been edited.
 
 ```{r}
 # Check tmp.1 and tmp.2 for possible double counting of pods, when they were sighted 
@@ -463,9 +486,9 @@ saveRDS(out.obj, file = paste0("RData/V2.1_Nov2023/out_", YEAR, "_min", min_dur,
 
 # Saving csv files for Laake analysis
 write.csv(Data4Laake_all,
-          file = paste0("data/all_sightings_", YEAR, "_Tomo_v2.csv"))
+          file = paste0("Data/all_sightings_", YEAR, "_Tomo_v2.csv"))
 write.csv(Effort4Laake_all,
-       file = paste0("data/all_effort_", YEAR, "_Tomo_v2.csv"))
+       file = paste0("Data/all_effort_", YEAR, "_Tomo_v2.csv"))
 
 ```
 

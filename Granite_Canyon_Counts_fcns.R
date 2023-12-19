@@ -596,7 +596,7 @@ get.shift <- function(YEAR, data, i){
   }
 
   # Add the "key" variable, which defines a segment with constant environmental 
-  # data like visibility and wind force (beaufort). It is in the format of 
+  # data like visibility and wind force (beaufort) and observer. It is in the format of 
   # Date_shift_ID. ID is the sequential identification number within the shift.
   # Find changes in the viewing condition
   idx.V <- which(data.shift$V2 == "V")
@@ -628,7 +628,7 @@ get.shift <- function(YEAR, data, i){
   data.shift$end <- NA
   data.shift$time <- NA
   
-  # Compute effort for each block of constant environment
+  # Compute effort for each block of constant environment and observer
   k <- 1
   for (k in 1:max(key.num)){
     tmp.1 <- data.shift %>%
@@ -703,119 +703,119 @@ get.shift <- function(YEAR, data, i){
   
   # When there were at least one sighting
   #if (length(which(data.shift$V2 == "S")) != 0){
-
-    # There were at least one spillover to the next shift and at least one group
-    # was recorded within the shift other than the spilled over groups
-    #if (is.spillover & nrow(sub.data) > 0){
-    if (nrow(sub.data) > 0){
-      # sightings summary
-      sub.data %>%
-        transmute(Date = V3, 
-                  Time = V4, 
-                  Group_ID = as.numeric(V5), 
-                  n = as.numeric(V9), 
-                  bft = as.numeric(V12), 
-                  vis = as.numeric(V13),
-                  Bearing = as.numeric(V6),
-                  Reticle = as.numeric(V7),
-                  Distance = as.numeric(V8),
-                  Observer = V10,
-                  shift = shift, 
-                  key = key, 
-                  begin = start,
-                  end = end,
-                  time = time,
-                  effort = effort,
-                  Shift = Shift) %>%
-        group_by(Group_ID) %>%
-        summarise(Date = first(Date),
-                  Time = first(Time),
-                  n = max(n, na.rm = T),
-                  bft = first(bft),
-                  vis = first(vis),
-                  Bearing = first(Bearing[n == max(n)]),
-                  Reticle = first(Reticle[n == max(n)]),
-                  Distance = first(Distance[n == max(n)]),
-                  Observer = first(Observer),
-                  shift = first(shift),
-                  key = first(key),
-                  begin = first(begin),
-                  end = first(end),
-                  time = first(time),
-                  effort = first(effort),
-                  Shift = first(Shift)) -> sub.data.shift
-      
-      # effort summary
-      # Rare occasions when observer changes within a shift... this needs to be
-      # separated because "observer" is a covariate
-      
-      sub.data.shift %>%
-        filter(key > 0) %>%
-        group_by(key, Observer) %>%
-        summarise(Date = first(Date),
-                  npods = n(),
-                  nwhales = sum(n, na.rm = T),
-                  bft = first(bft),
-                  vis = first(vis),
-                  shift = first(shift),
-                  Observer = first(Observer),
-                  key = first(key),
-                  begin = first(begin),
-                  end = first(end),
-                  time = first(time),
-                  effort = first(effort),
-                  Shift = first(Shift)) -> data.shift.effort
-      
-      
   
-    } else {
-      # There were only spillover sightings, which means no sightings were
-      # recorded for this shift, meaning (is.spillover & nrow(sub.data) == 0)
-      # or !is.spillover & nrow(sub.data == 0). All differing sighting conditions have
-      # to be separated
-      data.shift %>%
-        filter(key > 0, V2 != "E") %>%
-        transmute(Group_ID = NA,
-                  Date = V3, 
-                  Time = V4, 
-                  n = 0, 
-                  bft = NA, 
-                  vis = NA,
-                  Bearing = NA,
-                  Reticle = NA,
-                  Distance = NA,
-                  Observer = Observer,
-                  shift = shift, 
-                  key = key, 
-                  begin = start,
-                  end = end,
-                  time = time,
-                  effort = effort,
-                  Shift = Shift) -> sub.data.shift
-      
-      # fix beaufort and visibility 
-      for (k1 in 1:nrow(BFs.dt)){
-        sub.data.shift$bft[sub.data.shift$begin == BFs.dt$time[k1]] <- BFs.dt$BF[k1]
-        sub.data.shift$vis[sub.data.shift$begin == VSs.dt$time[k1]] <- VSs.dt$VS[k1]      
-      }
-      
-      sub.data.shift %>%
-        group_by(key, Observer) %>%
-        summarise(Date = first(Date),
-                  npods = 0,
-                  nwhales = 0,
-                  bft = first(bft),
-                  vis = first(vis),
-                  shift = first(shift),
-                  Observer = first(Observer),
-                  key = first(key),
-                  begin = first(begin),
-                  end = first(end),
-                  time = first(time),
-                  effort = first(effort),
-                  Shift = first(Shift)) -> data.shift.effort
-      
+  # There were at least one spillover to the next shift and at least one group
+  # was recorded within the shift other than the spilled over groups
+  #if (is.spillover & nrow(sub.data) > 0){
+  if (nrow(sub.data) > 0){
+    # sightings summary
+    sub.data %>%
+      transmute(Date = V3, 
+                Time = V4, 
+                Group_ID = as.numeric(V5), 
+                n = as.numeric(V9), 
+                bft = as.numeric(V12), 
+                vis = as.numeric(V13),
+                Bearing = as.numeric(V6),
+                Reticle = as.numeric(V7),
+                Distance = as.numeric(V8),
+                Observer = V10,
+                shift = shift, 
+                key = key, 
+                begin = start,
+                end = end,
+                time = time,
+                effort = effort,
+                Shift = Shift) %>%
+      group_by(Group_ID) %>%
+      summarise(Date = first(Date),
+                Time = first(Time),
+                n = max(n, na.rm = T),
+                bft = first(bft),
+                vis = first(vis),
+                Bearing = first(Bearing[n == max(n)]),
+                Reticle = first(Reticle[n == max(n)]),
+                Distance = first(Distance[n == max(n)]),
+                Observer = first(Observer),
+                shift = first(shift),
+                key = first(key),
+                begin = first(begin),
+                end = first(end),
+                time = first(time),
+                effort = first(effort),
+                Shift = first(Shift)) -> sub.data.shift
+    
+    # effort summary
+    # Rare occasions when observer changes within a shift... this needs to be
+    # separated because "observer" is a covariate
+    
+    sub.data.shift %>%
+      filter(key > 0) %>%
+      group_by(key, Observer) %>%
+      summarise(Date = first(Date),
+                npods = n(),
+                nwhales = sum(n, na.rm = T),
+                bft = first(bft),
+                vis = first(vis),
+                shift = first(shift),
+                Observer = first(Observer),
+                key = first(key),
+                begin = first(begin),
+                end = first(end),
+                time = first(time),
+                effort = first(effort),
+                Shift = first(Shift)) -> data.shift.effort
+    
+    
+    
+  } else {
+    # There were only spillover sightings, which means no sightings were
+    # recorded for this shift, meaning (is.spillover & nrow(sub.data) == 0)
+    # or !is.spillover & nrow(sub.data == 0). All differing sighting conditions have
+    # to be separated
+    data.shift %>%
+      filter(key > 0, V2 != "E") %>%
+      transmute(Group_ID = NA,
+                Date = V3, 
+                Time = V4, 
+                n = 0, 
+                bft = NA, 
+                vis = NA,
+                Bearing = NA,
+                Reticle = NA,
+                Distance = NA,
+                Observer = Observer,
+                shift = shift, 
+                key = key, 
+                begin = start,
+                end = end,
+                time = time,
+                effort = effort,
+                Shift = Shift) -> sub.data.shift
+    
+    # fix beaufort and visibility 
+    for (k1 in 1:nrow(BFs.dt)){
+      sub.data.shift$bft[sub.data.shift$begin == BFs.dt$time[k1]] <- BFs.dt$BF[k1]
+      sub.data.shift$vis[sub.data.shift$begin == VSs.dt$time[k1]] <- VSs.dt$VS[k1]      
     }
+    
+    sub.data.shift %>%
+      group_by(key, Observer) %>%
+      summarise(Date = first(Date),
+                npods = 0,
+                nwhales = 0,
+                bft = first(bft),
+                vis = first(vis),
+                shift = first(shift),
+                Observer = first(Observer),
+                key = first(key),
+                begin = first(begin),
+                end = first(end),
+                time = first(time),
+                effort = first(effort),
+                Shift = first(Shift)) -> data.shift.effort
+    
+  }
   
   out.list <- list(out.df = data.frame(begin = as.numeric(Begin),
                                        end = as.numeric(End),
