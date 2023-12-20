@@ -430,14 +430,34 @@ sightings.all.3 %>%
             Use = TRUE,
             new.key = new.key) -> Match.new
 
+# Somehow we need to remove NAs in Observers... but can't remove just those lines
+# because Primary and Secondary observations need to match.
+# When there was no secondary or primary observers, the other has to be removed.
+Match.new %>% 
+  filter(is.na(Observer)) %>%
+  select(new.key) %>%
+  unique() -> new.key.obs.NA
+
+Match.new %>% 
+  anti_join(new.key.obs.NA, by = "new.key") -> Match.new.1
+
+Match.all <- rbind(Match.Laake, Match.new.1 %>% select(-new.key)) 
+
 # In Match.new, it appears that there are 2544 Primary and 2534 Secondary...
 # There should be the same number of primary and secondary...  
 # Debugging here...
-Match.new %>% group_by(new.key) %>% summarize(n.new.key = n()) -> new.key.summary
-new.key.summary %>% filter(n.new.key > 2) -> problem.new.keys
-Match.new %>%
-  filter(new.key == problem.new.keys$new.key[1])
-#2010-01-25-38 in 2010-01-25_4 pphr is 14.446 AND 0.963 in two lines at 12:00:30
+# Match.new %>% group_by(new.key) %>% summarize(n.new.key = n()) -> new.key.summary
+# new.key.summary %>% filter(n.new.key > 2) -> problem.new.keys
+# Match.new %>%
+#   filter(new.key == problem.new.keys$new.key[1])
+
+# 2010-01-25-38 in 2010-01-25_4 pphr is 14.446 AND 0.963 in two lines at 12:00:30
+# The data file has been fixed for 2010-01-25. The problem was when the observers
+# didn't change until a few minutes after 1200. Sightings occurred and observers
+# changed without specifically having a line to define it (I might have deleted
+# the line...). I created a short "shift" that consisted of the observers from 
+# the previous shift and a new shift starting right after with new observers.
+
 
 # Next compute the series of abundance estimates for 8 years plus 
 # 2 years for which secondary observers exist (2010, 2011) by
@@ -506,9 +526,38 @@ Sightings$corrected.podsize = Sightings$podsize
 abundance.estimates.nops.correction=compute.series.new(models, 
                                                        naive.abundance.models,
                                                        sightings=Sightings,
-                                                       Match = Match.new,
+                                                       Match = Match.all,
                                                        effort=Effort,
                                                        TruePS=FALSE)
+
+# Debugging purposes  #######################################
+models <- models 
+naive.abundance <- naive.abundance.models 
+sightings <- Sightings
+effort <- Effort
+gsS=NULL
+best=TRUE
+Match=Match.all
+cutoff=4
+final.time=c(rep(90,20),100,100,90)
+lower.time=rep(0,23) 
+lcut=0.2
+mcut=1.0
+twt=0.18
+dwt=3.95
+pwt=0.05
+crittype="ellipse"
+DistBreaks=c(0,1,2,3,4,20)
+Use=TRUE
+hessian=FALSE
+debug=FALSE
+TruePS=TRUE
+recent.years=c(1987,1992,1993,1995,1997,2000,2001,2006,2009, 2010)
+fn=1.0817
+
+# Then go into compute.series.new.r and run each line separately
+#############################################################
+
 
 # 
 # data.fit <- sightings.all %>%
