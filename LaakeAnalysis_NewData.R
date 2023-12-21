@@ -701,6 +701,10 @@ Nhats = c(sapply(naive.abundance.models.new,
 fn=1.0817
 Nhats <- fn * Nhats
 
+# Need to add CI or SE and var-cov matrix. 
+# start from here 2023-12-20
+
+
 
 # Debugging purposes  #######################################
 # models <- models 
