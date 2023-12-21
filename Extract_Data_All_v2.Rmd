@@ -26,7 +26,7 @@ options(dplyr.summarise.inform = FALSE)
 # Do not run 2023 with this script. Use Extract_Data_2023.Rmd for 2023. 
 # I ran 2023 data and seemed to work fine... 2023-10-19
 # YEAR should be one of 2010, 2011, 2015, 2016, 2020, 2022, 2023 (and beyond)
-YEAR <- 2010 #Enter the year of the data files
+YEAR <- 2011 #Enter the year of the data files
 
 # For 2009/2010 (maybe in the previous years too but I don't have any of those files),
 # Time is entered in decimal hours, not hh:mm:ss. So, that needs to be accommodated in

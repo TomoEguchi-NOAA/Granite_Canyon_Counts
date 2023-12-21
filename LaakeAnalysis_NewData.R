@@ -214,7 +214,7 @@ effort.secondary %>%
 # from 1 to nmax and the value for each column is the probability that a pod of 
 # a true size S is recorded as a size s (1..nmax columns)
 # 
-naive.abundance.models <- list()
+naive.abundance.models.new <- list()
 for (k in 1:length(years)){
   sightings.primary %>%
     filter(Start.year == (years[k]-1)) -> sightings
@@ -222,15 +222,15 @@ for (k in 1:length(years)){
   effort.primary %>%
     filter(Start.year == (years[k]-1)) -> effort
   
-  naive.abundance.models[[k]] <- estimate.abundance(spar = NULL,
-                                                    dpar = NULL,
-                                                    gsS = gsS,  # Does not matter when spar = NULL and dpar = NULL
-                                                    effort =effort, 
-                                                    sightings =sightings, 
-                                                    final.time = 90,
-                                                    lower.time = 0,
-                                                    gformula = ~s(time),
-                                                    dformula = NULL)
+  naive.abundance.models.new[[k]] <- estimate.abundance(spar = NULL,
+                                                        dpar = NULL,
+                                                        gsS = gsS,  # Does not matter when spar = NULL and dpar = NULL
+                                                        effort =effort, 
+                                                        sightings =sightings, 
+                                                        final.time = 90,
+                                                        lower.time = 0,
+                                                        gformula = ~s(time),
+                                                        dformula = NULL)
   
 }
 
@@ -241,64 +241,400 @@ for (k in 1:length(years)){
 # years with two stations. Then the average of those conversion factors was used for years without
 # two stations. Here, I compute those factors for the 2009/2010 and 2010/2011 seasons, which were
 # not part of Laake's analysis. 
+# 
+# sightings.primary %>%
+#   transmute(X = (max(Laake_PrimarySightings$X) + 1) : (max(Laake_PrimarySightings$X) + 1 + nrow(sightings.primary) - 1),
+#             Date = Date, day = day, month = month,
+#             year = year,
+#             watch = watch,
+#             t241 = t241, 
+#             distance = distance,
+#             podsize = podsize,
+#             vis = vis,
+#             beaufort = beaufort,
+#             wind.direction = NA,
+#             key = key,
+#             pphr = pphr,
+#             Start.year = Start.year,
+#             original.watch = watch,
+#             only = TRUE,
+#             hours = NA,
+#             Sex = NA,
+#             Observer = Observer) -> sightings.Laake.format
+# 
+# sightings.all <- rbind(Laake_PrimarySightings, sightings.Laake.format)
+# 
+# effort.primary %>%
+#   mutate(X = (max(Laake_PrimaryEffort$X) + 1) : (max(Laake_PrimaryEffort$X) + 1 + nrow(effort.primary) - 1)) %>%
+#   select(-c(station, date.shift)) %>%
+#   relocate(Observer, .after = beaufort) %>%
+#   relocate(X, .before = watch.key) -> effort.Laake.format
+#   
+# effort.all <- rbind(Laake_PrimaryEffort, effort.Laake.format)
+# 
+# final.time = sapply(tapply(floor(effort.all$time), 
+#                            effort.all$Start.year, max), 
+#                     function(x) ifelse(x>90,100,90))
+# lower.time = rep(0,length(final.time))
+#  
+# all.years <- unique(sightings.all$Start.year)
+# naive.abundance.models=vector("list", length(all.years))
+# i <- 0
+# for (year in all.years){
+#   i <- i+1
+#   primary <- sightings.all[sightings.all$Start.year==year,]
+#   primary$Start.year=factor(primary$Start.year)
+#   ern=subset(effort.all,
+#              subset=as.character(Start.year)==year,
+#              select=c("Start.year","key","begin","end","effort","time","vis","beaufort"))
+# 
+#   ern$Start.year=factor(ern$Start.year)
+#   naive.abundance.models[[i]]=estimate.abundance(spar=NULL,
+#                                                  dpar=NULL,
+#                                                  gsS=gsS,
+#                                                  effort=ern,
+#                                                  sightings=primary,
+#                                                  final.time=final.time[i],
+#                                                  lower.time=lower.time[i],
+#                                                  gformula=~s(time),
+#                                                  dformula=NULL)
+# }
+# 
+# # Define set of models to be evaluated for detection
+# models=c("podsize+Dist+Observer",
+#          "podsize+Dist+Observer+beaufort",
+#          "podsize+Dist+Observer+vis",
+#          "podsize+Dist+Observer+Vis")
+# 
+# # Needs functions in the following scripts
+# source("~/R/ERAnalysis/R/MatchingLinking.r")
+# source("compute.series.new.r")
+# source("~/R/ERAnalysis/R/io.glm.R")
+# 
+# # compute.series (or compute.series.new) can take a Match dataframe, which
+# # contains information about sighting and non-sighting of each whale pod by
+# # primary and secondary observers. The match dataframe from Laake's analysis
+# # was obtained from running their code and saving the output Match to a .csv
+# # file. A similar dataframe needs to be created for 2010 and 2011.
+# 
+# Match.Laake <- read.csv("Data/match_1987_2006.csv")
+# 
+# # for new datasets, only 2010 and 2011 have the secondary observers:
+# # need to create the "seen" variable, which is 0/1
+# sightings.primary %>%
+#   filter(Start.year == 2009 | Start.year == 2010)  %>%
+#   mutate(seen = 1,
+#          new.key = ifelse(Group_ID > 9, 
+#                           paste0(Date, "-", Group_ID),
+#                           paste0(Date, "-0", Group_ID))) -> sightings.primary.1
+# 
+# sightings.secondary %>%
+#   filter(Start.year == 2009 | Start.year == 2010)  %>%
+#   mutate(seen = 1,
+#          new.key = ifelse(Group_ID > 9, 
+#                           paste0(Date, "-", Group_ID),
+#                           paste0(Date, "-0", Group_ID))) -> sightings.secondary.1
+# 
+# # Need to reduce the primary sightings to match secondary survey dates:
+# unique.secondary.dates <- unique(sightings.secondary.1$Date)
+# filtered.primary.sightings.1 <- sightings.primary.1[sightings.primary.1$Date %in% unique.secondary.dates, ]
+# filtered.primary.effort <- effort.primary[effort.primary$Date %in% unique.secondary.dates, ]
+# 
+# # Combine with the secondary sightings
+# rbind(filtered.primary.sightings.1, sightings.secondary.1) %>%
+#   arrange(new.key) -> sightings.all.1
+# 
+# # Seen by both primary and secondary
+# filtered.primary.sightings.1 %>%
+#   semi_join(sightings.secondary.1 %>%
+#               select(new.key), by = "new.key") -> seen.by.both
+#                            
+# sightings.all.1 %>%
+#   filter(new.key %in% seen.by.both$new.key) -> sightings.seen.by.both
+# 
+# # Seen by primary, but not seen by secondary
+# filtered.primary.sightings.1 %>%
+#   anti_join(sightings.secondary.1 %>%
+#               select(new.key), by = "new.key") -> seen.by.primary.only
+# 
+# seen.by.primary <- seen.by.primary.only
+# seen.by.primary$seen <- 0
+# seen.by.primary$station <- "S"
+# sightings.by.primary <- rbind(seen.by.primary.only, seen.by.primary) 
+# 
+# # Seen by secondary, but not seen by primary
+# sightings.secondary.1 %>%
+#   anti_join(sightings.primary.1 %>%
+#               select(new.key), by = "new.key") -> seen.by.secondary.only
+# 
+# seen.by.secondary <- seen.by.secondary.only
+# seen.by.secondary$seen <- 0
+# seen.by.secondary$station <- "P"
+# sightings.by.secondary <- rbind(seen.by.secondary.only, seen.by.secondary) 
+# 
+# sightings.all.2 <- rbind(sightings.seen.by.both,
+#                          sightings.by.primary,
+#                          sightings.by.secondary) %>%
+#   arrange(new.key) 
+#   
+# sightings.all.2$seq <- seq(1, nrow(sightings.all.2))
+# 
+# # Need to find right observers for not-seen pods.
+# # date.shift is the index for date and observer combinations
+# not.seen <- filter(sightings.all.2, seen == 0)
+# k <- 1
+# for (k in 1:nrow(not.seen)){
+#   if (not.seen$station[k] == "S"){
+#     effort.secondary %>%
+#       filter(date.shift == not.seen$date.shift[k]) -> effort.k
+#     if (nrow(effort.k) > 0){
+#       not.seen$Observer[k] <- effort.k$Observer[1]
+#     } else {
+#       not.seen$Observer[k] <- NA
+#     }
+#   } else {
+#     filtered.primary.effort %>%
+#       filter(date.shift == not.seen$date.shift[k]) -> effort.k
+#     if (nrow(effort.k) > 0){
+#       not.seen$Observer[k] <- effort.k$Observer[1]
+#     } else {
+#       not.seen$Observer[k] <- NA
+#     }
+#   }
+# }
+# 
+# sightings.all.3 <- rbind(sightings.all.2 %>% filter(seen == 1),
+#                          not.seen) %>% 
+#   arrange(new.key) 
+# 
+# sightings.all.3 %>%
+#   transmute(X = seq(1, nrow(sightings.all.2)),
+#             key = key,
+#             Date = Date,
+#             seen = seen, 
+#             station = station,
+#             day = day,
+#             watch = watch,
+#             t241 = t241,
+#             distance = distance,
+#             podsize = podsize,
+#             vis = vis,
+#             beaufort = beaufort,
+#             wind.direction = NA,
+#             Start.year = Start.year,
+#             seq = seq,
+#             hours = NA,
+#             pphr = pphr,
+#             Sex = NA,
+#             Observer = Observer,
+#             Use = TRUE,
+#             new.key = new.key) -> Match.new
+# 
+# # Somehow we need to remove NAs in Observers... but can't remove just those lines
+# # because Primary and Secondary observations need to match.
+# # When there was no secondary or primary observers, the other has to be removed.
+# Match.new %>% 
+#   filter(is.na(Observer)) %>%
+#   select(new.key) %>%
+#   unique() -> new.key.obs.NA
+# 
+# Match.new %>% 
+#   anti_join(new.key.obs.NA, by = "new.key") -> Match.new.1
+# 
+# Match.all <- rbind(Match.Laake, Match.new.1 %>% select(-new.key)) 
+# 
+# # In Match.new, it appears that there are 2544 Primary and 2534 Secondary...
+# # There should be the same number of primary and secondary...  
+# # Debugging here...
+# # Match.new %>% group_by(new.key) %>% summarize(n.new.key = n()) -> new.key.summary
+# # new.key.summary %>% filter(n.new.key > 2) -> problem.new.keys
+# # Match.new %>%
+# #   filter(new.key == problem.new.keys$new.key[1])
+# 
+# # 2010-01-25-38 in 2010-01-25_4 pphr is 14.446 AND 0.963 in two lines at 12:00:30
+# # The data file has been fixed for 2010-01-25. The problem was when the observers
+# # didn't change until a few minutes after 1200. Sightings occurred and observers
+# # changed without specifically having a line to define it (I might have deleted
+# # the line...). I created a short "shift" that consisted of the observers from 
+# # the previous shift and a new shift starting right after with new observers.
+# 
+# 
+# # Next compute the series of abundance estimates for 8 years plus 
+# # 2 years for which secondary observers exist (2010, 2011) by
+# # fitting and selecting the best detection model but not applying the pod size correction.
+# # From those 10 estimates and the naive estimates, compute an average ratio and 
+# # apply it to generate the estimates for the first 15 surveys prior to 1987 and the most
+# # recent 5 years (2015, 2016, 2020, 2022, 2023).
+# # years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023)
+# # # I created a new function compute.series.new by adding 2010 and 2011.
+# # DistBreaks=c(0,1,2,3,4,20)
+# # cutoff=4
+# # 
+# 
+# # Sightings <- merge(sightings.primary,
+# #                    subset(effort.primary,
+# #                           select=c("key","Use")), by="key")
+# 
+# # 2023-12-15 Need to find correct inputs here; sightings, effort, and match
+# # Have to combine Laake's inputs and new ones here
+# sightings.primary %>%
+#   transmute(X = seq((max(Laake_PrimarySightings$X)+1):(max(Laake_PrimarySightings$X) + nrow(sightings.primary))),
+#             Date = Date,
+#             day = day,
+#             month = month,
+#             year = year,
+#             watch = watch,
+#             t241 = t241,
+#             distance = distance,
+#             podsize = podsize,
+#             vis = vis,
+#             beaufort = beaufort,
+#             wind.direction = NA,
+#             key = key,
+#             pphr = pphr,
+#             Start.year = Start.year,
+#             original.watch = watch,
+#             only = TRUE,
+#             hours = NA,
+#             Sex = NA,
+#             Observer = Observer) -> sightings.
+# 
+# Sightings <- rbind(Laake_PrimarySightings, sightings.)
+# 
+# # Filter effort and sightings and store in dataframes Effort and Sightings
+# effort.primary %>%
+#   transmute(X = seq((max(Laake_PrimaryEffort$X)+1), (max(Laake_PrimaryEffort$X) + nrow(effort.primary))),
+#             watch.key = watch.key,
+#             Start.year = Start.year,
+#             key = key,
+#             begin = begin,
+#             end = end,
+#             npods = npods,
+#             nwhales = nwhales,
+#             effort = effort,
+#             vis = vis,
+#             beaufort = beaufort,
+#             Observer = Observer,
+#             time = time,
+#             watch = watch,
+#             Use = Use,
+#             Date = Date) -> effort.
+#  
+# Effort <- rbind(Laake_PrimaryEffort, effort.) 
+# 
+# # The following line is needed even if there was no correction made. 
+# Sightings$corrected.podsize = Sightings$podsize
 
-sightings.primary %>%
-  transmute(X = (max(Laake_PrimarySightings$X) + 1) : (max(Laake_PrimarySightings$X) + 1 + nrow(sightings.primary) - 1),
-            Date = Date, day = day, month = month,
-            year = year,
-            watch = watch,
-            t241 = t241, 
-            distance = distance,
-            podsize = podsize,
-            vis = vis,
-            beaufort = beaufort,
-            wind.direction = NA,
-            key = key,
-            pphr = pphr,
-            Start.year = Start.year,
-            original.watch = watch,
-            only = TRUE,
-            hours = NA,
-            Sex = NA,
-            Observer = Observer) -> sightings.Laake.format
+# There was a podsize estimate of 50 on 2011-01-31 11:43:21. This value is a bit
+# dubious given others are almost all less than 10, and the maximum is usually
+# 20 or less. So, I changed it to 5. 
 
-sightings.all <- rbind(Laake_PrimarySightings, sightings.Laake.format)
+# I give up... 2023-12-20 I was unable to use 2010 and 2011 data to update the 
+# ratio between naive and "true" estimates. So, I will use the analysis up to 
+# 2006 by Laake et al. and apply the ratio to the new estimates from 2010 to 2023. 
+# 
 
-effort.primary %>%
-  mutate(X = (max(Laake_PrimaryEffort$X) + 1) : (max(Laake_PrimaryEffort$X) + 1 + nrow(effort.primary) - 1)) %>%
-  select(-c(station, date.shift)) %>%
-  relocate(Observer, .after = beaufort) %>%
-  relocate(X, .before = watch.key) -> effort.Laake.format
-  
-effort.all <- rbind(Laake_PrimaryEffort, effort.Laake.format)
+library(ERAnalysis)  
 
-final.time = sapply(tapply(floor(effort.all$time), 
-                           effort.all$Start.year, max), 
-                    function(x) ifelse(x>90,100,90))
-lower.time = rep(0,length(final.time))
- 
-all.years <- unique(sightings.all$Start.year)
-naive.abundance.models=vector("list", length(all.years))
-i <- 0
+#Run example code from the help file
+#
+# The recent survey data 1987 and after are stored in ERSurveyData and those data
+# are processed by the ERAbund program to produce files of sightings and effort.
+# The sightings files are split into Primary observer and Secondary observer sightings.
+# Primary observer sightings are whales that are not travelling North and are defined by
+# those when EXPERIMENT==1 (single observer) or a designated LOCATION when EXPERIMENT==2.
+#  For surveys 2000/2001 and 2001/2002, the primary observer was at LOCATION=="N"
+# and for all other years, LOCATION=="S".
+#
+# Based on the projected timing of the passage of the whale (t241) perpendicular to the 
+# watch station, the sighting was either contained in the watch (on effort) or not (off effort).
+# The dataframe Primary contains all of the on effort sightings and PrimaryOff contains all
+# of the off-effort sightings.  The code below shows that the counts of primary
+# sighting records matches the total counts of the on and off effort sightings split into
+# the 2 dataframes.
+#
+data(PrimaryOff)
+data(Primary)
+data(ERSurveyData)
+NorthYears=c(2000,2001)
+
+data(PrimarySightings)
+data(PrimaryEffort)
+
+PrimarySightings=PrimarySightings[!(PrimarySightings$Observer=="MAS"&PrimarySightings$Start.year==1995),]
+PrimaryEffort=PrimaryEffort[!(PrimaryEffort$Observer=="MAS"&PrimaryEffort$Start.year==1995),]
+
+# Define arguments used in the analysis
+all.years=unique(PrimaryEffort$Start.year)
+recent.years=all.years[all.years>=1987]
+early.years=all.years[all.years<1987]
+final.time=sapply(tapply(floor(PrimaryEffort$time),PrimaryEffort$Start.year,max),function(x) ifelse(x>90,100,90))
+lower.time=rep(0,length(final.time))
+fn=1.0817
+se.fn=0.0338
+
+# These are the number of sightings that were included/excluded based on Use
+Sightings=PrimarySightings
+Sightings=merge(Sightings,subset(PrimaryEffort,select=c("key","Use")))
+
+# Filter effort and sightings and store in dataframes Effort and Sightings
+Effort=PrimaryEffort[PrimaryEffort$Use,]  
+Sightings=PrimarySightings
+Sightings$seq=1:nrow(Sightings)
+Sightings=merge(Sightings,subset(Effort,select=c("key")))
+Sightings=Sightings[order(Sightings$seq),]
+
+# Using the filtered data, compute simple minded abundance estimates by treating the 
+# sampled periods (watches) as a random sample of a period of a specified number
+# of days (e.g., 4 days).  It uses raw counts with no correction for pod size or missed pods.
+period=4
+# compute the fraction of each period that was sampled (eg. 12 hours / (4 days *24 hrs/day))
+sampled.fraction=with(Effort,
+                      {
+                        Day=as.numeric(as.Date(Date)-as.Date(paste(Start.year,"-12-01",sep="")))
+                        tapply(effort,list(Start.year,cut(Day,seq(0,100,period))),sum)/period
+                      })
+# compute the number of whales counted in each period
+whales.counted=with(Sightings,
+                    {
+                      Day=as.numeric(as.Date(Date)-as.Date(paste(Start.year,"-12-01",sep="")))
+                      tapply(podsize,list(Start.year,cut(Day,seq(0,100,period))),sum)
+                    })
+
+# Compute simple minded population estimate and plot it
+period.estimate=apply(whales.counted/sampled.fraction,1,sum,na.rm=TRUE)
+
+# Compute naive estimates of abundance for the 23 surveys.  These use the uncorrected
+# counts of whales from the primary observer during watches in which neither Beaufort nor
+# vis exceeded 4.  For each year a gam with a smooth over time is fitted and this is
+# used to predict total abundance throughout the migration from the counts of whales
+# during the sampled periods.  There is no correction for missed pods or for measurement
+# error in podsize. Each fitted migration gam is plotted with the observed values and
+# saved in the file NaiveMigration.pdf.
+#pdf("NaiveMigration.pdf")
+naive.abundance.models=vector("list",23)
+i=0
 for (year in all.years){
-  i <- i+1
-  primary <- sightings.all[sightings.all$Start.year==year,]
+  i=i+1
+  primary=Sightings[Sightings$Start.year==year,]
   primary$Start.year=factor(primary$Start.year)
-  ern=subset(effort.all,
+  ern=subset(Effort,
              subset=as.character(Start.year)==year,
              select=c("Start.year","key","begin","end","effort","time","vis","beaufort"))
-
+  
   ern$Start.year=factor(ern$Start.year)
   naive.abundance.models[[i]]=estimate.abundance(spar=NULL,
                                                  dpar=NULL,
                                                  gsS=gsS,
-                                                 effort=ern,
-                                                 sightings=primary,
+                                                 effort=ern, 
+                                                 sightings=primary, 
                                                  final.time=final.time[i],
                                                  lower.time=lower.time[i],
                                                  gformula=~s(time),
                                                  dformula=NULL)
 }
+#dev.off()
+Nhat.naive=sapply(naive.abundance.models,function(x) x$Total)
 
 # Define set of models to be evaluated for detection
 models=c("podsize+Dist+Observer",
@@ -306,254 +642,90 @@ models=c("podsize+Dist+Observer",
          "podsize+Dist+Observer+vis",
          "podsize+Dist+Observer+Vis")
 
-# Needs functions in the following scripts
-source("~/R/ERAnalysis/R/MatchingLinking.r")
-source("compute.series.new.r")
-source("~/R/ERAnalysis/R/io.glm.R")
+# Create time series of estimates based on previous approach using Reilly pod size
+# correction method but using 1978 data for surveys <=1987 and 1992-1994 aerial data
+# for surveys >=1992
+data(add.cf.reilly)
+data(add.cf.laake)
+Sightings$corrected.podsize[Sightings$Start.year<=1987]=reilly.cf(Sightings$podsize[Sightings$Start.year<=1987],
+                                                                  add.cf.reilly)
+Sightings$corrected.podsize[Sightings$Start.year>1987]=reilly.cf(Sightings$podsize[Sightings$Start.year>1987],
+                                                                 add.cf.laake)
+#pdf("ReillyApproach.pdf")
+reilly.estimates=compute.series(models,
+                                naive.abundance.models,
+                                sightings=Sightings,
+                                effort=Effort,TruePS=FALSE)
 
-# compute.series (or compute.series.new) can take a Match dataframe, which
-# contains information about sighting and non-sighting of each whale pod by
-# primary and secondary observers. The match dataframe from Laake's analysis
-# was obtained from running their code and saving the output Match to a .csv
-# file. A similar dataframe needs to be created for 2010 and 2011.
+Nhat.reilly=reilly.estimates$Nhat
+Nhat.reilly[1:15]=Nhat.naive[1:15]*(Nhat.reilly[16]/Nhat.naive[16])
+avg.Reilly.podsize=tapply(Sightings$corrected.podsize,Sightings$Start.year,mean)
 
-Match.Laake <- read.csv("Data/match_1987_2006.csv")
+#Next compute the series of abundance estimates for the most recent 8 years by
+# fitting and selecting the best detection model but not applying the pod size correction.
+# From those 8 estimates and the naive estimates, compute an average ratio and 
+# apply it to generate the estimates for the first 15 surveys prior to 1987.
+Sightings$corrected.podsize=Sightings$podsize
+abundance.estimates.nops.correction=compute.series(models, 
+                                                   naive.abundance.models,
+                                                   sightings=Sightings,
+                                                   effort=Effort,
+                                                   TruePS=FALSE)
+Sightings$corrected.podsize=NULL
 
-# for new datasets, only 2010 and 2011 have the secondary observers:
-# need to create the "seen" variable, which is 0/1
-sightings.primary %>%
-  filter(Start.year == 2009 | Start.year == 2010)  %>%
-  mutate(seen = 1,
-         new.key = ifelse(Group_ID > 9, 
-                          paste0(Date, "-", Group_ID),
-                          paste0(Date, "-0", Group_ID))) -> sightings.primary.1
-
-sightings.secondary %>%
-  filter(Start.year == 2009 | Start.year == 2010)  %>%
-  mutate(seen = 1,
-         new.key = ifelse(Group_ID > 9, 
-                          paste0(Date, "-", Group_ID),
-                          paste0(Date, "-0", Group_ID))) -> sightings.secondary.1
-
-# Need to reduce the primary sightings to match secondary survey dates:
-unique.secondary.dates <- unique(sightings.secondary.1$Date)
-filtered.primary.sightings.1 <- sightings.primary.1[sightings.primary.1$Date %in% unique.secondary.dates, ]
-filtered.primary.effort <- effort.primary[effort.primary$Date %in% unique.secondary.dates, ]
-
-# Combine with the secondary sightings
-rbind(filtered.primary.sightings.1, sightings.secondary.1) %>%
-  arrange(new.key) -> sightings.all.1
-
-# Seen by both primary and secondary
-filtered.primary.sightings.1 %>%
-  semi_join(sightings.secondary.1 %>%
-              select(new.key), by = "new.key") -> seen.by.both
-                           
-sightings.all.1 %>%
-  filter(new.key %in% seen.by.both$new.key) -> sightings.seen.by.both
-
-# Seen by primary, but not seen by secondary
-filtered.primary.sightings.1 %>%
-  anti_join(sightings.secondary.1 %>%
-              select(new.key), by = "new.key") -> seen.by.primary.only
-
-seen.by.primary <- seen.by.primary.only
-seen.by.primary$seen <- 0
-seen.by.primary$station <- "S"
-sightings.by.primary <- rbind(seen.by.primary.only, seen.by.primary) 
-
-# Seen by secondary, but not seen by primary
-sightings.secondary.1 %>%
-  anti_join(sightings.primary.1 %>%
-              select(new.key), by = "new.key") -> seen.by.secondary.only
-
-seen.by.secondary <- seen.by.secondary.only
-seen.by.secondary$seen <- 0
-seen.by.secondary$station <- "P"
-sightings.by.secondary <- rbind(seen.by.secondary.only, seen.by.secondary) 
-
-sightings.all.2 <- rbind(sightings.seen.by.both,
-                         sightings.by.primary,
-                         sightings.by.secondary) %>%
-  arrange(new.key) 
-  
-sightings.all.2$seq <- seq(1, nrow(sightings.all.2))
-
-# Need to find right observers for not-seen pods.
-# date.shift is the index for date and observer combinations
-not.seen <- filter(sightings.all.2, seen == 0)
-k <- 1
-for (k in 1:nrow(not.seen)){
-  if (not.seen$station[k] == "S"){
-    effort.secondary %>%
-      filter(date.shift == not.seen$date.shift[k]) -> effort.k
-    if (nrow(effort.k) > 0){
-      not.seen$Observer[k] <- effort.k$Observer[1]
-    } else {
-      not.seen$Observer[k] <- NA
-    }
-  } else {
-    filtered.primary.effort %>%
-      filter(date.shift == not.seen$date.shift[k]) -> effort.k
-    if (nrow(effort.k) > 0){
-      not.seen$Observer[k] <- effort.k$Observer[1]
-    } else {
-      not.seen$Observer[k] <- NA
-    }
-  }
+# Next compute the series of abundance estimates for the most recent 8 years by
+# fitting and selecting the best detection model.  From those 8 estimates and the
+# naive estimates, compute an average ratio and apply it to generate the estimates
+# for the first 15 surveys prior to 1987. Note with hessian=TRUE, the analysis can
+# take about 30-60 minutes to complete. (TE: Takes about 6 minutes now. But added
+# the if-else. 2023-08-31)
+if (!file.exists("RData/Laake_abundance_estimates.rds")){
+  #  pdf("Migration.pdf")
+  abundance.estimates=compute.series(models,naive.abundance.models,
+                                     sightings=Sightings,
+                                     effort=Effort,
+                                     hessian=TRUE)
+  #  dev.off()
+  saveRDS(abundance.estimates,
+          file = "RData/Laake_abundance_estimates.rds")  
+} else {
+  abundance.estimates <- readRDS("RData/Laake_abundance_estimates.rds")
 }
 
-sightings.all.3 <- rbind(sightings.all.2 %>% filter(seen == 1),
-                         not.seen) %>% 
-  arrange(new.key) 
+ratio <- abundance.estimates$ratio
+# Compute series of estimates for 2009-2022 without nighttime correction factor (eqn 24)  
+Nhats = c(sapply(naive.abundance.models.new, 
+                 function(x)x$Total)*ratio)
 
-sightings.all.3 %>%
-  transmute(X = seq(1, nrow(sightings.all.2)),
-            key = key,
-            Date = Date,
-            seen = seen, 
-            station = station,
-            day = day,
-            watch = watch,
-            t241 = t241,
-            distance = distance,
-            podsize = podsize,
-            vis = vis,
-            beaufort = beaufort,
-            wind.direction = NA,
-            Start.year = Start.year,
-            seq = seq,
-            hours = NA,
-            pphr = pphr,
-            Sex = NA,
-            Observer = Observer,
-            Use = TRUE,
-            new.key = new.key) -> Match.new
+# Apply nighttime correction factor (eqn 29)
+fn=1.0817
+Nhats <- fn * Nhats
 
-# Somehow we need to remove NAs in Observers... but can't remove just those lines
-# because Primary and Secondary observations need to match.
-# When there was no secondary or primary observers, the other has to be removed.
-Match.new %>% 
-  filter(is.na(Observer)) %>%
-  select(new.key) %>%
-  unique() -> new.key.obs.NA
-
-Match.new %>% 
-  anti_join(new.key.obs.NA, by = "new.key") -> Match.new.1
-
-Match.all <- rbind(Match.Laake, Match.new.1 %>% select(-new.key)) 
-
-# In Match.new, it appears that there are 2544 Primary and 2534 Secondary...
-# There should be the same number of primary and secondary...  
-# Debugging here...
-# Match.new %>% group_by(new.key) %>% summarize(n.new.key = n()) -> new.key.summary
-# new.key.summary %>% filter(n.new.key > 2) -> problem.new.keys
-# Match.new %>%
-#   filter(new.key == problem.new.keys$new.key[1])
-
-# 2010-01-25-38 in 2010-01-25_4 pphr is 14.446 AND 0.963 in two lines at 12:00:30
-# The data file has been fixed for 2010-01-25. The problem was when the observers
-# didn't change until a few minutes after 1200. Sightings occurred and observers
-# changed without specifically having a line to define it (I might have deleted
-# the line...). I created a short "shift" that consisted of the observers from 
-# the previous shift and a new shift starting right after with new observers.
-
-
-# Next compute the series of abundance estimates for 8 years plus 
-# 2 years for which secondary observers exist (2010, 2011) by
-# fitting and selecting the best detection model but not applying the pod size correction.
-# From those 10 estimates and the naive estimates, compute an average ratio and 
-# apply it to generate the estimates for the first 15 surveys prior to 1987 and the most
-# recent 5 years (2015, 2016, 2020, 2022, 2023).
-# years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023)
-# # I created a new function compute.series.new by adding 2010 and 2011.
-# DistBreaks=c(0,1,2,3,4,20)
-# cutoff=4
-# 
-
-# Sightings <- merge(sightings.primary,
-#                    subset(effort.primary,
-#                           select=c("key","Use")), by="key")
-
-# 2023-12-15 Need to find correct inputs here; sightings, effort, and match
-# Have to combine Laake's inputs and new ones here
-sightings.primary %>%
-  transmute(X = seq((max(Laake_PrimarySightings$X)+1):(max(Laake_PrimarySightings$X) + nrow(sightings.primary))),
-            Date = Date,
-            day = day,
-            month = month,
-            year = year,
-            watch = watch,
-            t241 = t241,
-            distance = distance,
-            podsize = podsize,
-            vis = vis,
-            beaufort = beaufort,
-            wind.direction = NA,
-            key = key,
-            pphr = pphr,
-            Start.year = Start.year,
-            original.watch = watch,
-            only = TRUE,
-            hours = NA,
-            Sex = NA,
-            Observer = Observer) -> sightings.
-
-Sightings <- rbind(Laake_PrimarySightings, sightings.)
-
-# Filter effort and sightings and store in dataframes Effort and Sightings
-effort.primary %>%
-  transmute(X = seq((max(Laake_PrimaryEffort$X)+1), (max(Laake_PrimaryEffort$X) + nrow(effort.primary))),
-            watch.key = watch.key,
-            Start.year = Start.year,
-            key = key,
-            begin = begin,
-            end = end,
-            npods = npods,
-            nwhales = nwhales,
-            effort = effort,
-            vis = vis,
-            beaufort = beaufort,
-            Observer = Observer,
-            time = time,
-            watch = watch,
-            Use = Use,
-            Date = Date) -> effort.
- 
-Effort <- rbind(Laake_PrimaryEffort, effort.) 
-
-Sightings$corrected.podsize = Sightings$podsize
-abundance.estimates.nops.correction=compute.series.new(models, 
-                                                       naive.abundance.models,
-                                                       sightings=Sightings,
-                                                       Match = Match.all,
-                                                       effort=Effort,
-                                                       TruePS=FALSE)
 
 # Debugging purposes  #######################################
-models <- models 
-naive.abundance <- naive.abundance.models 
-sightings <- Sightings
-effort <- Effort
-gsS=NULL
-best=TRUE
-Match=Match.all
-cutoff=4
-final.time=c(rep(90,20),100,100,90)
-lower.time=rep(0,23) 
-lcut=0.2
-mcut=1.0
-twt=0.18
-dwt=3.95
-pwt=0.05
-crittype="ellipse"
-DistBreaks=c(0,1,2,3,4,20)
-Use=TRUE
-hessian=FALSE
-debug=FALSE
-TruePS=TRUE
-recent.years=c(1987,1992,1993,1995,1997,2000,2001,2006,2009, 2010)
-fn=1.0817
+# models <- models 
+# naive.abundance <- naive.abundance.models 
+# sightings <- Sightings
+# effort <- Effort
+# gsS=NULL
+# best=TRUE
+# Match=Match.all
+# cutoff=4
+# final.time=c(rep(90,20),100,100,90)
+# lower.time=rep(0,23) 
+# lcut= -0.05 # 0.2 #  without linking sightings, the function does not run
+# mcut=1.0
+# twt= 0.01 #0.18 in minutes - make is short to keep all?
+# dwt= 3.95
+# pwt=0.05
+# crittype="ellipse"
+# DistBreaks=c(0,1,2,3,4,20)
+# Use=TRUE
+# hessian=FALSE
+# debug=FALSE
+# TruePS=FALSE
+# recent.years=c(1987,1992,1993,1995,1997,2000,2001,2006,2009, 2010)
+# fn=1.0817
 
 # Then go into compute.series.new.r and run each line separately
 #############################################################
