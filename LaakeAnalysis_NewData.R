@@ -240,7 +240,8 @@ for (k in 1:length(years)){
 # In Laake's analysis, they computed the multiplication factor for naive-to-true conversion from 
 # years with two stations. Then the average of those conversion factors was used for years without
 # two stations. Here, I compute those factors for the 2009/2010 and 2010/2011 seasons, which were
-# not part of Laake's analysis. 
+# not part of Laake's analysis. This didn't work out so well... 
+# 
 # 
 # sightings.primary %>%
 #   transmute(X = (max(Laake_PrimarySightings$X) + 1) : (max(Laake_PrimarySightings$X) + 1 + nrow(sightings.primary) - 1),
@@ -661,16 +662,16 @@ Nhat.reilly=reilly.estimates$Nhat
 Nhat.reilly[1:15]=Nhat.naive[1:15]*(Nhat.reilly[16]/Nhat.naive[16])
 avg.Reilly.podsize=tapply(Sightings$corrected.podsize,Sightings$Start.year,mean)
 
-#Next compute the series of abundance estimates for the most recent 8 years by
+# Next compute the series of abundance estimates for the most recent 8 years by
 # fitting and selecting the best detection model but not applying the pod size correction.
 # From those 8 estimates and the naive estimates, compute an average ratio and 
 # apply it to generate the estimates for the first 15 surveys prior to 1987.
-Sightings$corrected.podsize=Sightings$podsize
-abundance.estimates.nops.correction=compute.series(models, 
-                                                   naive.abundance.models,
-                                                   sightings=Sightings,
-                                                   effort=Effort,
-                                                   TruePS=FALSE)
+Sightings$corrected.podsize = Sightings$podsize
+abundance.estimates.nops.correction = compute.series(models, 
+                                                     naive.abundance.models,
+                                                     sightings=Sightings,
+                                                     effort=Effort,
+                                                     TruePS=FALSE)
 Sightings$corrected.podsize=NULL
 
 # Next compute the series of abundance estimates for the most recent 8 years by
@@ -693,16 +694,54 @@ if (!file.exists("RData/Laake_abundance_estimates.rds")){
 }
 
 ratio <- abundance.estimates$ratio
-# Compute series of estimates for 2009-2022 without nighttime correction factor (eqn 24)  
-Nhats = c(sapply(naive.abundance.models.new, 
+ratio.SE <- 0.03  # from Laake et al 2012, Table 8
+
+# Compute series of estimates for before 1987 without nighttime correction factor (eqn 24)  
+W.hat.1 <- c(sapply(naive.abundance.models[1:15], 
                  function(x)x$Total)*ratio)
 
 # Apply nighttime correction factor (eqn 29)
-fn=1.0817
-Nhats <- fn * Nhats
+fn = 1.0817
+SE.fn <- 0.0338
+#Nhats.fn <- fn * Nhats
 
 # Need to add CI or SE and var-cov matrix. 
-# start from here 2023-12-20
+# Var(W.hat) for year < 1987
+W.tilde.1 <- c(sapply(naive.abundance.models[1:15], function(x) x$Total))
+var.W.tilde.1 <- c(sapply(naive.abundance.models[1:15], function(x) x$var.Total))
+var.W.hat.1 <- W.tilde.1^2 * ratio.SE^2 * 9 + ratio^2 * var.W.tilde.1   # eqn 27
+
+N.hat.1 <- W.hat.1 * fn
+
+# the following four lines are not quite right - see Table 9 to compare CV values 2024-01-31
+var.Nhat.1 <- (fn * W.hat.1)^2 * ((SE.fn/fn)^2 + (var.W.hat.1/((W.hat.1)^2)))  # eqn 30
+SE.Nhat.1 <- sqrt(var.Nhat.1)
+CV.Nhat.1 <- SE.Nhat.1/N.hat.1
+
+
+# var(What) for year > 1985 eqn. 25
+# Also start here 2024-01-31
+# From Table 8 in Laake et al. 2012
+W.hat.2 <- setNames(c(24883, 14571, 18585, 19362, 19539, 15133, 14822, 17682),
+                    c("1987", "1992", "1993", "1995", "1997", "2000", "2001", "2006"))
+
+#W.hat <- c(W.hat.1, W.hat.2)
+N.hat.2 <- W.hat.2 * fn
+
+
+# The same approach will be used for years 2009 - 2022
+W.tilde.3 <- c(sapply(naive.abundance.models.new, function(x) x$Total))
+var.W.tilde.3 <- c(sapply(naive.abundance.models.new, function(x) x$var.Total))
+W.hat.3 <- c(sapply(naive.abundance.models.new, 
+                    function(x)x$Total)*ratio)
+
+var.W.hat.3 <- W.tilde.3^2 * ratio.SE^2 * 9 + ratio^2 * var.W.tilde.3   # eqn 27
+N.hat.3 <- W.hat.3 * fn
+
+# Fix the following three lines according to what I find on lines 721-724
+var.Nhat.3 <- (fn * W.hat.3)^2 * ((SE.fn/fn)^2 + (var.W.hat.3/((W.hat.3)^2)))  # eqn 30
+SE.Nhat.3 <- sqrt(var.Nhat.3)
+CV.Nhat.3 <- SE.Nhat.3/N.hat.3
 
 
 
