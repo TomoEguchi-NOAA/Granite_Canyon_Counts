@@ -554,6 +554,7 @@ library(ERAnalysis)
 # sighting records matches the total counts of the on and off effort sightings split into
 # the 2 dataframes.
 #
+
 data(PrimaryOff)
 data(Primary)
 data(ERSurveyData)
@@ -635,44 +636,44 @@ for (year in all.years){
                                                  dformula=NULL)
 }
 #dev.off()
-Nhat.naive=sapply(naive.abundance.models,function(x) x$Total)
-
-# Define set of models to be evaluated for detection
-models=c("podsize+Dist+Observer",
-         "podsize+Dist+Observer+beaufort",
-         "podsize+Dist+Observer+vis",
-         "podsize+Dist+Observer+Vis")
-
-# Create time series of estimates based on previous approach using Reilly pod size
-# correction method but using 1978 data for surveys <=1987 and 1992-1994 aerial data
-# for surveys >=1992
-data(add.cf.reilly)
-data(add.cf.laake)
-Sightings$corrected.podsize[Sightings$Start.year<=1987]=reilly.cf(Sightings$podsize[Sightings$Start.year<=1987],
-                                                                  add.cf.reilly)
-Sightings$corrected.podsize[Sightings$Start.year>1987]=reilly.cf(Sightings$podsize[Sightings$Start.year>1987],
-                                                                 add.cf.laake)
-#pdf("ReillyApproach.pdf")
-reilly.estimates=compute.series(models,
-                                naive.abundance.models,
-                                sightings=Sightings,
-                                effort=Effort,TruePS=FALSE)
-
-Nhat.reilly=reilly.estimates$Nhat
-Nhat.reilly[1:15]=Nhat.naive[1:15]*(Nhat.reilly[16]/Nhat.naive[16])
-avg.Reilly.podsize=tapply(Sightings$corrected.podsize,Sightings$Start.year,mean)
-
-# Next compute the series of abundance estimates for the most recent 8 years by
-# fitting and selecting the best detection model but not applying the pod size correction.
-# From those 8 estimates and the naive estimates, compute an average ratio and 
-# apply it to generate the estimates for the first 15 surveys prior to 1987.
-Sightings$corrected.podsize = Sightings$podsize
-abundance.estimates.nops.correction = compute.series(models, 
-                                                     naive.abundance.models,
-                                                     sightings=Sightings,
-                                                     effort=Effort,
-                                                     TruePS=FALSE)
-Sightings$corrected.podsize=NULL
+# Nhat.naive=sapply(naive.abundance.models,function(x) x$Total)
+# 
+# # Define set of models to be evaluated for detection
+# models=c("podsize+Dist+Observer",
+#          "podsize+Dist+Observer+beaufort",
+#          "podsize+Dist+Observer+vis",
+#          "podsize+Dist+Observer+Vis")
+# 
+# # Create time series of estimates based on previous approach using Reilly pod size
+# # correction method but using 1978 data for surveys <=1987 and 1992-1994 aerial data
+# # for surveys >=1992
+# data(add.cf.reilly)
+# data(add.cf.laake)
+# Sightings$corrected.podsize[Sightings$Start.year<=1987]=reilly.cf(Sightings$podsize[Sightings$Start.year<=1987],
+#                                                                   add.cf.reilly)
+# Sightings$corrected.podsize[Sightings$Start.year>1987]=reilly.cf(Sightings$podsize[Sightings$Start.year>1987],
+#                                                                  add.cf.laake)
+# #pdf("ReillyApproach.pdf")
+# reilly.estimates=compute.series(models,
+#                                 naive.abundance.models,
+#                                 sightings=Sightings,
+#                                 effort=Effort,TruePS=FALSE)
+# 
+# Nhat.reilly=reilly.estimates$Nhat
+# Nhat.reilly[1:15]=Nhat.naive[1:15]*(Nhat.reilly[16]/Nhat.naive[16])
+# avg.Reilly.podsize=tapply(Sightings$corrected.podsize,Sightings$Start.year,mean)
+# 
+# # Next compute the series of abundance estimates for the most recent 8 years by
+# # fitting and selecting the best detection model but not applying the pod size correction.
+# # From those 8 estimates and the naive estimates, compute an average ratio and 
+# # apply it to generate the estimates for the first 15 surveys prior to 1987.
+# Sightings$corrected.podsize = Sightings$podsize
+# abundance.estimates.nops.correction = compute.series(models, 
+#                                                      naive.abundance.models,
+#                                                      sightings=Sightings,
+#                                                      effort=Effort,
+#                                                      TruePS=FALSE)
+# Sightings$corrected.podsize=NULL
 
 # Next compute the series of abundance estimates for the most recent 8 years by
 # fitting and selecting the best detection model.  From those 8 estimates and the
@@ -681,8 +682,10 @@ Sightings$corrected.podsize=NULL
 # take about 30-60 minutes to complete. (TE: Takes about 6 minutes now. But added
 # the if-else. 2023-08-31)
 if (!file.exists("RData/Laake_abundance_estimates.rds")){
+  
   #  pdf("Migration.pdf")
-  abundance.estimates=compute.series(models,naive.abundance.models,
+  abundance.estimates=compute.series(models, 
+                                     naive.abundance.models,
                                      sightings=Sightings,
                                      effort=Effort,
                                      hessian=TRUE)
@@ -698,38 +701,44 @@ ratio.SE <- 0.03  # from Laake et al 2012, Table 8
 
 # Compute series of estimates for before 1987 without nighttime correction factor (eqn 24)  
 W.hat.1 <- c(sapply(naive.abundance.models[1:15], 
-                 function(x)x$Total)*ratio)
+                    function(x)x$Total)*ratio)
 
 # Apply nighttime correction factor (eqn 29)
 fn = 1.0817
 SE.fn <- 0.0338
-#Nhats.fn <- fn * Nhats
 
 # Need to add CI or SE and var-cov matrix. 
+# Bring in the results from Laake_example_code.R
+abundance.vc <- read_rds(file = "RData/abundance.vc.rds")
+
 # Var(W.hat) for year < 1987
-W.tilde.1 <- c(sapply(naive.abundance.models[1:15], function(x) x$Total))
+W.tilde.1 <- c(sapply(naive.abundance.models[1:15], function(x) x$Total))  # naive abundance
 var.W.tilde.1 <- c(sapply(naive.abundance.models[1:15], function(x) x$var.Total))
 var.W.hat.1 <- W.tilde.1^2 * ratio.SE^2 * 9 + ratio^2 * var.W.tilde.1   # eqn 27
 
 N.hat.1 <- W.hat.1 * fn
 
 # the following four lines are not quite right - see Table 9 to compare CV values 2024-01-31
-var.Nhat.1 <- (fn * W.hat.1)^2 * ((SE.fn/fn)^2 + (var.W.hat.1/((W.hat.1)^2)))  # eqn 30
-SE.Nhat.1 <- sqrt(var.Nhat.1)
-CV.Nhat.1 <- SE.Nhat.1/N.hat.1
+# var.Nhat.1 <- (fn * W.hat.1)^2 * ((SE.fn/fn)^2 + (var.W.hat.1/((W.hat.1)^2)))  # eqn 30
+# SE.Nhat.1 <- sqrt(var.Nhat.1)
+# CV.Nhat.1 <- SE.Nhat.1/N.hat.1
 
 
-# var(What) for year > 1985 eqn. 25
-# Also start here 2024-01-31
+# SE values are a little different from what I calcualted above (SE.Nhat.1) but not much
+SE.Nhat.1 <- abundance.vc$se[1:length(N.hat.1)]
+
+# var(W.hat) for year > 1985 eqn. 25
 # From Table 8 in Laake et al. 2012
 W.hat.2 <- setNames(c(24883, 14571, 18585, 19362, 19539, 15133, 14822, 17682),
                     c("1987", "1992", "1993", "1995", "1997", "2000", "2001", "2006"))
 
 #W.hat <- c(W.hat.1, W.hat.2)
-N.hat.2 <- W.hat.2 * fn
+N.hat.2 <- abundance.estimates$summary.df$Nhat
+SE.Nhat.2 <- abundance.vc$se[(length(N.hat.1)+1):length(abundance.vc$se)]
 
-
-# The same approach will be used for years 2009 - 2022
+# The same approach for year < 1987 will be used for years 2009 - 2022
+# Although the values didn't match exactly, they were quite close. So, 
+# I'm not going to worry too much about it.
 W.tilde.3 <- c(sapply(naive.abundance.models.new, function(x) x$Total))
 var.W.tilde.3 <- c(sapply(naive.abundance.models.new, function(x) x$var.Total))
 W.hat.3 <- c(sapply(naive.abundance.models.new, 
@@ -741,9 +750,43 @@ N.hat.3 <- W.hat.3 * fn
 # Fix the following three lines according to what I find on lines 721-724
 var.Nhat.3 <- (fn * W.hat.3)^2 * ((SE.fn/fn)^2 + (var.W.hat.3/((W.hat.3)^2)))  # eqn 30
 SE.Nhat.3 <- sqrt(var.Nhat.3)
-CV.Nhat.3 <- SE.Nhat.3/N.hat.3
 
+# Function from Laake's code
+conf.int=function(abundance, CV, alpha=0.05, digits=2, prt=FALSE){
+  # Computes confidence intervals based on lognormal distr.
+  # JMB / NMML / 11 Sep 2008
+  
+  if (alpha <0 || alpha > .999) stop("alpha must be in (0,1)")
+  z = round(abs(qnorm(alpha/2)),2)
+  if (prt) cat("N:",abundance,"  cv:",CV,"  alpha:",alpha,"  z:",z,"\n")
+  C <- exp(z * sqrt(log(1 + CV^2)))
+  SL <- round(abundance/C,digits)
+  SU <- round(abundance * C,digits)
+  data.frame(SL,SU)
+}
 
+all.estimates <- data.frame(Year = c(all.years, lapply(naive.abundance.models.new,
+                                                       function(x) names(x$Total)) %>% 
+                                       unlist() %>% as.numeric), 
+                            Nhat = c(N.hat.1, N.hat.2, N.hat.3),
+                            SE = c(SE.Nhat.1, SE.Nhat.2, SE.Nhat.3)) %>%
+  mutate(CV = SE/Nhat)
+
+CI <- conf.int(all.estimates$Nhat, all.estimates$CV)
+
+all.estimates$CL.low <- CI$SL
+all.estimates$CL.high <- CI$SU
+
+all.years <- data.frame(Year = seq(min(all.estimates$Year), max(all.estimates$Year)))
+
+all.years %>% left_join(all.estimates, by = "Year") -> all.estimates
+write.csv(all.estimates, paste0("Data/all_estimates_Laake_",
+                                max(years), ".csv"), 
+          quote = FALSE, row.names = FALSE)
+
+ggplot(all.estimates) +
+  geom_point(aes(x = Year, y = Nhat)) +
+  geom_errorbar(aes(x = Year, ymin = CL.low, ymax = CL.high))
 
 # Debugging purposes  #######################################
 # models <- models 

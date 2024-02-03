@@ -374,22 +374,22 @@ data(gamma.pod)
 # gw.abund <-
 #   structure(list(year = c(1967, 1968, 1969, 1970, 1971, 1972, 1973,
 #                           1974, 1975, 1976, 1977, 1978, 1979, 1984, 1985, 1987, 1992, 1993,
-#                           1995, 1997, 2000, 2001, 2006), 
+#                           1995, 1997, 2000, 2001, 2006),
 #                  N.old = c(13776, 12869, 13431, 11416,
 #                            10406, 16098, 15960, 13812, 15481, 16317, 17996, 13971, 17447,
 #                            22862, 21444, 22250, 18844, 24638, 24065, 29758, 19448, 18178,
-#                            20110), 
+#                            20110),
 #                  se.N.old = c(1082, 708, 758, 590, 614, 834, 872, 781,
 #                               930, 818, 1249, 753, 984, 1379, 1120, 1115, 1190, 1475, 1393,
-#                               3122, 1882, 1780, 1766)), 
+#                               3122, 1882, 1780, 1766)),
 #             .Names = c("year","N.old", "se.N.old"), row.names = c(NA, -23L), class = "data.frame")
-#             
-#                                                                                                                              
+# 
+# 
 # conf.int=function(abundance, CV, alpha=0.05, digits=2, prt=FALSE)
 # {
 #   # Computes confidence intervals based on lognormal distr.
 #   # JMB / NMML / 11 Sep 2008
-#   
+# 
 #   if (alpha <0 || alpha > .999) stop("alpha must be in (0,1)")
 #   z = round(abs(qnorm(alpha/2)),2)
 #   if (prt) cat("N:",abundance,"  cv:",CV,"  alpha:",alpha,"  z:",z,"\n")
@@ -405,23 +405,23 @@ data(gamma.pod)
 #   require("ggplot2")
 #   # Plot gray whale abund. data using ggplot2 package
 #   if (length(N) != length(se) | length(se) != length(year)) stop("error in vector lengths")
-#   cv <- se/N 
+#   cv <- se/N
 #   yy <- conf.int(N,cv)
 #   y.max <- yy$SU ; y.min <- yy$SL
 #   yy <- cbind(y.min,y.max)
-#   gwd <- data.frame(year,N) 
+#   gwd <- data.frame(year,N)
 #   gwd <- cbind(gwd,yy)
 #   names(gwd) <- c("Year","Abundance","y.min","y.max")
 #   if(is.null(p))
 #   {
-#     limits <- aes(ymax = y.max, ymin = y.min)   
+#     limits <- aes(ymax = y.max, ymin = y.min)
 #     p <- ggplot(gwd,aes(x=Year,y=Abundance))
 #     p <- p + geom_point(colour="darkblue",data=gwd) +
 #       geom_errorbar(limits,colour="blue",width=bar.wid,data=gwd)
 #   }
 #   else
 #   {
-#     limits <- aes(ymax = y.max, ymin = y.min)   
+#     limits <- aes(ymax = y.max, ymin = y.min)
 #     p <- p + geom_point(colour="black",data=gwd) +
 #       geom_errorbar(limits,colour="black",linetype=2,width=bar.wid,data=gwd)
 #   }
