@@ -15,8 +15,8 @@ library(bayesplot)
 
 source("Granite_Canyon_Counts_fcns.R")
 
-Run.date <- Sys.Date()
-#Run.date <- "2023-10-13"
+#Run.date <- Sys.Date()
+Run.date <- "2023-10-16"
 out.file.name <- paste0("RData/JAGS_Richards_pois_bino_v3_AllYears_",
                         Run.date, ".rds")
 
@@ -218,12 +218,13 @@ mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
 
 
 # Look at the abudance estimates:
-Nhat. <- data.frame(median = jm.out$jm$q50$Corrected.Est,
+Nhat. <- data.frame(Season = paste0(all.start.year, "/", all.start.year+1),
+                    Nhat = jm.out$jm$q50$Corrected.Est,
                     LCL = jm.out$jm$q2.5$Corrected.Est,
                     UCL = jm.out$jm$q97.5$Corrected.Est,
-                    mean = jm.out$jm$mean$Corrected.Est,
-                    Year =  all.start.year + 1,
-                    Season = paste0(all.start.year, "/", all.start.year+1))
+                    #mean = jm.out$jm$mean$Corrected.Est,
+                    #Year =  all.start.year + 1,
+                    Method = "Richards")
 
 N.hats <- data.frame(Season = rep(Nhat.$Season, each = nrow(jm.out$jm$mean$N)),
                      Day = rep(1:nrow(jm.out$jm$mean$N), times = length(Nhat.$Season)),
@@ -267,21 +268,48 @@ Durban.abundance.df <- data.frame(Season = seasons,
                                               FUN = quantile, 0.975),
                                   Method = "Durban")
 
-Reported.estimates %>%
-  filter(Method == "Laake") %>%
-  rbind(Durban.abundance.df) -> previous.estimates
+Laake.abundance.new <- read.csv(file = "Data/all_estimates_Laake_2023.csv") %>%
+  mutate(Method = "Laake",
+         LCL = CL.low,
+         UCL = CL.high) %>%
+  select(c(Season, Nhat, LCL, UCL, Method))
 
+# read in spline results
+spline.out <- read_rds("RData/JAGS_Spline_results_2006_2023.rds")
+spline.Laake.out<- read_rds("RData/JAGS_Spline_results_Laake_Data.rds")
 
-Nhat. %>%
-  left_join(previous.estimates, by = "Season") %>%
-  mutate(delta_Nhat = mean - Nhat) -> all.estimates
+spline.Nhat <- data.frame(Season = seasons,
+                          Nhat = spline.out$jm$q50$Corrected.Est,
+                          LCL = spline.out$jm$q2.5$Corrected.Est,
+                          UCL = spline.out$jm$q97.5$Corrected.Est,
+                          #mean = jm.out$jm$mean$Corrected.Est,
+                          #Year =  all.start.year + 1,
+                          Method = "Spline")
+
+spline.Laake.Nhat <- data.frame(Season = Reported.estimates %>% 
+                                  filter(Method == "Laake") %>% 
+                                  select(Season) %>%
+                                  pull(),
+                                Nhat = spline.Laake.out$jm$q50$Corrected.Est,
+                                LCL = spline.Laake.out$jm$q2.5$Corrected.Est,
+                                UCL = spline.Laake.out$jm$q97.5$Corrected.Est,
+                                Method = "Spline")
+Laake.abundance.new %>%
+  rbind(Durban.abundance.df) %>%
+  rbind(Nhat.) %>%
+  rbind(spline.Nhat) %>%
+  rbind(spline.Laake.Nhat)-> all.estimates
+# Reported.estimates %>%
+#   filter(Method == "Laake") %>%
+#   rbind(Durban.abundance.df) -> previous.estimates
+
+# Nhat. %>%
+#   right_join(previous.estimates, by = "Season") %>%
+#   mutate(delta_Nhat = mean - Nhat) -> all.estimates
 # 
 ggplot(all.estimates) +
-  geom_point(aes(x = Season, y = mean ),
-             color = "blue") +
-  geom_errorbar(aes(x = Season, ymin = LCL.x, ymax = UCL.x),
-                color = "blue") +
-  geom_point(aes(x = Season, y = Nhat ),
-             color = "green") +
-  geom_errorbar(aes(x = Season, ymin = LCL.y, ymax = UCL.y),
-                color = "green")
+  geom_point(aes(x = Season, y = Nhat,
+                 color = Method)) +
+  geom_errorbar(aes(x = Season, ymin = LCL, ymax = UCL,
+                    color = Method)) +
+  ylim(0, 30000)

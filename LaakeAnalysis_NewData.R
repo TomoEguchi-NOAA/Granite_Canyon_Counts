@@ -10,6 +10,8 @@ library(lubridate)
 
 source("Granite_Canyon_Counts_fcns.R")
 
+save.file <- F
+
 # For Laake's approach, I need primary effort, primary sightings, secondary effort,
 # secondary sightings, distance, podsize, and associated visibility and Beaufort 
 # sea state
@@ -770,7 +772,8 @@ all.estimates <- data.frame(Year = c(all.years, lapply(naive.abundance.models.ne
                                        unlist() %>% as.numeric), 
                             Nhat = c(N.hat.1, N.hat.2, N.hat.3),
                             SE = c(SE.Nhat.1, SE.Nhat.2, SE.Nhat.3)) %>%
-  mutate(CV = SE/Nhat)
+  mutate(CV = SE/Nhat,
+         Season = paste0(Year, "/", (Year + 1)))
 
 CI <- conf.int(all.estimates$Nhat, all.estimates$CV)
 
@@ -780,9 +783,12 @@ all.estimates$CL.high <- CI$SU
 all.years <- data.frame(Year = seq(min(all.estimates$Year), max(all.estimates$Year)))
 
 all.years %>% left_join(all.estimates, by = "Year") -> all.estimates
-write.csv(all.estimates, paste0("Data/all_estimates_Laake_",
-                                max(years), ".csv"), 
-          quote = FALSE, row.names = FALSE)
+
+if (!file.exists(paste0("Data/all_estimates_Laake_",
+                        max(years), ".csv")))
+  write.csv(all.estimates, paste0("Data/all_estimates_Laake_",
+                                  max(years), ".csv"), 
+            quote = FALSE, row.names = FALSE)
 
 ggplot(all.estimates) +
   geom_point(aes(x = Year, y = Nhat)) +
