@@ -275,7 +275,9 @@ Laake.abundance.new <- read.csv(file = "Data/all_estimates_Laake_2023.csv") %>%
   select(c(Season, Nhat, LCL, UCL, Method))
 
 # read in spline results
+# JAGS spline Ver1.Rmd
 spline.out <- read_rds("RData/JAGS_Spline_results_2006_2023.rds")
+#
 spline.Laake.out<- read_rds("RData/JAGS_Spline_results_Laake_Data.rds")
 
 spline.Nhat <- data.frame(Season = seasons,
