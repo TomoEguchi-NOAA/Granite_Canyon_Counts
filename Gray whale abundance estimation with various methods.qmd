@@ -1,0 +1,981 @@
+---
+title: "Gray whale abundance estimation with various methods"
+format: html
+editor: visual
+#bibliography: reference.bib
+#csl: marine-ecology-progress-series.csl
+---
+
+## Introduction
+
+Analytical methods to estimate abundance of gray whales from visual surveys at Granite Canyon, CA, have evolved over the years [@laakeGrayWhaleSouthbound2012; @durbanEstimatingGrayWhale2015]. Laake et al. (2012) used the distance sampling approach with generalized additive models (GAMs). Durban et al. (2015) developed a new method using a Bayesian N-mixture approach, which was approved by the IWC and it has been used for the analysis since the 2015/2016 season. Computation of the analysis is conducted using WinBUGS, which has become obsolete over the last decade or so. In this report, I provide improvements of the method by Durban et al.
+
+At a location along the migration corridor, the number of gray whale sightings increases over time until it reaches its peak, then decreases. The method by Durban et al. used a Gaussian function to capture this general trend. Deviations from the Gaussian function was captured via fitting a spline function to the observed counts. 
+
+At the field station located at Granite Canyon, CA, in order to estimate detectability of gray whales by visual observers, counts from two independent stations of paired observers operating simultaneously were compared during two years (2009/2010 and 2010/2011). The two watch stations were positioned 35 m apart at the same elevation (22.5 m) above sea level (Durban et al. 2015). For the years with only one station, detectability was extrapolated for all monitored watch periods based on the fitted model for detectability, where the counts for the south watch station were treated as zero inflated binomial outcomes. The binomial probability was specified as the product of an indicator function and the detectability ($u_{i,j,t} \times p_{i,j,t}$), where $u$ = 1 or 0 to indicate whether or not count data were collected from that station. This formulation ensured that structural zero counts from periods without a second watch did not contribute to the likelihood for estimation of $p$ or $N$ (Durban et al. 2015).
+
+Consistent with Laake et al. (2012), the model for detectability incorporated fixed effects for visibility ($V$) and Beaufort Scale ($B$), whereas observers were treated as random effects ($O$). These were modelled as additive effects on a general intercept so that the direction and magnitude of the estimated effects away from zero (no effect) could be assessed. The selection for the inclusion of these effects were accomplished by using Bayesian model selection with stochastic binary indicator variables $I$ to switch each of the three possible effects either in or out of the model.
+
+## Methods
+
+### Mathematical description {.unnumbered}
+
+This section was extracted from Durban et al. (2015), almost verbatim. I edited some places to make explanations clearer in my mind and changed some symbols to make them consistent between theirs and my proposed approach, which is described later in this document.
+
+The total counts of whales ($n_{i,d(j),t}$) during the watch period $j$ of the $d$th day in the year $t$ at the watch station $i$ was modeled as a binomial random deviate (in the paper, $j$ was not specified as the $j$th watch period during the $d$th day of the season):
+
+$$ n_{i,d(j),t} \sim BIN(N_{d(j),t}, p_{i,d(j),t}). $$
+
+The binomial $N_{d(j),t}$ parameter is the unknown total number of gray whales passing through the study area during the watch period $j$ in the $d$th day in the year $t$.
+
+The detection probability was modeled as a function of visibility (V), Beaufort scale (B), and observers (O).
+
+$$ logit(p_{i,d(j),t}) = logit(p_0) + I_{V} \beta_{V} V_{d(j),t} + I_{B} \beta_{B} B_{d(j),t}+ I_{O} \mathbf{\beta}^{O_{i,d(j),t} = o}_{O} $$
+
+where the intercept $p_0$ was the base detection probability in the absence of covariate effects, assigned a Uniform(0,1) prior distribution, and $logit(p_0) = ln(p_0/(1–p_0))$. For each fixed effect, $\beta_{B}$ and $\beta_{V}$, a Normal prior distribution with mean zero and standard deviation of 10 was used. The random effect for each observer was drawn from a Normal distribution with mean zero and standard deviation $\sigma_{O} \sim Uniform(0,10)$. Each binary indicator variable, I, was assigned a Bernoulli(0.5) distribution to specify equal probability of inclusion (1) or exclusion (0) of the effect in the model (Durban et al. 2015).
+
+A Poisson distribution ($N_{d(j),t} \sim Poisson(\lambda_{d(j),t})$) was used as a hierarchical prior for the distribution of abundances, and specified a model for the Poisson mean ($\lambda$) in terms of the number of whales passing each day ($d$), with an offset for the effort duration of each watch period, $E_{d(j),t}$ in decimal days (Laake et al., 2012):
+
+$$ log(\lambda_{d(j),t}) = log(E_{d(j),t}) + model_{d,t}$$
+
+$$ model_{d,t} = z_{d,t} f_{d,t} + (1 – z_{d,t}) g_{d,t} $$
+
+where $z_{d,t}$ is an indicator function (see below). $f_{d,t}$ and $g_{d,t}$ also are explained below.
+
+Days were specified as d = 0 to 90, where days were counted from 12:00am on 1 December, and we added an abundance of 0 whales passing for day 0 and 90 to anchor the fitted model when we assumed whales did not pass (Buckland et al. 1993).
+
+Estimates were derived from either of two competing models ['Common' ($f$) and 'Specific' ($g$), e.g., @li2012] describing changes in abundance across each annual migration. The model contributing each daily estimate was indicated using stochastic binary indicator variables $z_{d,t}$, each assigned a Bernoulli(0.5) prior distribution. As such, the posterior distribution of each $z_{d,t}$ indicated the probability of a daily estimate conforming to the common trend, allowing flexibility for departures from this trend that may only exist on certain days in certain years to be identified and modeled (rather than assuming all counts from an entire year conform to or depart from a common trend). The total number of whales passing at the survey location during each migration was then estimated by summing the expected value from the model averaged number of whales passing each day ($d$) from 0 to 90 (Laake et al., 2012).
+
+These estimates were then rescaled to account for the differential passage rate at night (Perryman et al., 1999), based on the nine hour day multiplicative correction factor [@rugh2005]. Specifically, we applied a constant night time correction factor that was assumed to be a Normally distributed fixed effect with mean of 1.0875 and standard deviation of 0.037 [@perryman1999a].
+
+For the 'Common model' ($f_{d,t}$), we assumed a typical trend in abundance throughout each annual migration (e.g. Buckland et al., 1993), with abundance changes assumed Normally distributed around a migration mid-point. A Normal distribution was specified as a quadratic function of days, on the log scale:
+
+$$f_{d,t} = a_t + b_t *d_t + c_t * d^2_t$$
+
+where the mid-point of the migration curve for each year $t$ was derived by $–b_t/2a_t$. This assumed common migration curve allowed information to be 'borrowed' across years when needed, specifying association across years to strengthen inference about migration curves in years with relatively sparse counts. Each parameter was specified to be drawn from a hierarchical Normal distribution.
+
+$$ a_t \sim Normal(\mu_a, \sigma_a)$$
+
+$$ b_t \sim Normal(\mu_b, \sigma_b)$$
+
+$$ c_t \sim Normal(\mu_c, \sigma_c)$$
+
+and $\mu \sim Normal(0, 10)$ and $\sigma \sim Uniform(0, 10)$, for $a$, $b$, and $c$.
+
+This hierarchical and random effects approach allowed the timing, level and extent of the Normal migration curve to vary annually around the general pattern, if supported by the data.
+
+To acknowledge and incorporate deviations from the common Normal model, the selection of an alternative 'specific' migration model was allowed ($g_{d,t}$). The 'specific' model was a semi-parametric model that estimated the time trends independently for each year without making any prior assumptions about its form (e.g., Laake et al., 2012). In this model, the shape of the relationship of true abundance across days was determined by the data via penalized splines [@ruppert2002].
+
+A linear (on the log scale) penalized spline was used to describe this relationship [@crainiceanu2005]:
+
+$$ g_{d,t} = S_{0,t} + S_{1,t} * d_t + \sum_{k=1}^{m} \lambda_{k,t} (d_t – \kappa_{k,t}) $$ Where $S_{0,t}, S_{1,t}$ and $\lambda_{1,t}, \dots, \lambda_{m,t}$ were regression coefficients to be estimated separately for each year and $\kappa_{1,t} < \kappa_{2,t} < \dots < \kappa_{m,t}$ were fixed knots. To ensure the desired flexibility, we used m = 15 knots, which is a relatively large number. To avoid overfitting, the $\lambda$'s were penalized by assuming that they were Normally distributed random variables with mean 0 and standard deviation $\sim Uniform(0,10)$. The parameters $S_{0,t}, S_{1,t}$ were modeled as fixed effects with Normal(0, 10) prior distributions.
+
+### Some concerns about Durban et al's method {.unnumbered}
+
+The approach in Durban et al. (2015) used the "cut" function within WinBUGS to dissociate estimated parameters in one function (i.e., $f_{d,t}$ or $g_{d,t}$) from those in the other function (i.e., $g_{d,t}$ or $f_{d,t}$, respectively). The function (cut) is unavailable in modern Bayesian computation packages (e.g., JAGS, STAN) and its use has been questioned [@plummer2015]. In short, "cut" function does not converge to a well-defined limiting distribution (Plummer 2015). In addition, the assumption that the number of gray whales migrating in front of the observation station follows a Gaussian distribution centered around the mid point of the pre-defined migration season is somewhat questionable. The true curve in abundance may not be symmetric around a peak and the peak may not be instantaneous. In other words, the peak may persist for a few days. Fitting spline functions to observed counts may alleviate some of these problems. Consequently, I removed the Gaussian portion of Durban's approach and translated into JAGS from WinBUGS. I also ran Laake's approach on all data to compare abundance estimates from methods by Laake et al., Durban et al., and spline-only.
+
+
+## Results
+
+### Laake's approach
+
+I used the ERAnalysis package (https://github.com/jlaake/ERAnalysis) to obtain code and data (1967/1968 - 2006/2007). Data for recent years (2009/2010 - 2022/2023) were arranged to the input format and analysis ran.
+
+```{r}
+rm(list = ls())
+
+# from LaakeAnalysis_NewData.R
+library(tidyverse)
+library(ERAnalysis)
+
+
+# These are from Laake's code - good reference to compare to:
+# sightings
+Laake_PrimarySightings <- read.csv(file = "Data/Laake_PrimarySightings.csv")
+Laake_SecondarySightings <- read.csv(file = "Data/Laake_SecondarySightings.csv")
+
+# effort
+Laake_PrimaryEffort <- read.csv(file = "Data/Laake_PrimaryEffort.csv") %>%
+  filter(Use)
+Laake_SecondaryEffort <- read.csv(file = "Data/Laake_SecondaryEffort.csv") %>%
+  filter(Use)
+
+# Observers need to be in integers, not their initials.
+data("Observer")   # from ERAnalysis package.
+#Observer$Set = "old"
+
+new.observers <- read.csv(file = "Data/ObserverList2023.csv") %>%
+  transmute(ID = ID,
+            Initials = obs)
+
+Observer %>%
+  left_join(new.observers, by = "Initials") %>%
+  filter(!is.na(ID.y)) %>%
+  transmute(ID = ID.y,
+            Initials = Initials) -> tmp
+
+new.observers %>%
+  anti_join(tmp, by = "ID") -> tmp.2
+
+tmp.2$new.ID = 68:((68+nrow(tmp.2))-1)
+
+tmp.2 %>%
+  select(new.ID, Initials) %>%
+  mutate(ID = new.ID,
+         Initials = Initials) %>%
+  select(-new.ID) -> tmp.3
+
+all.observers <- rbind(Observer %>% select(ID, Initials), tmp.3) %>%
+  mutate(Observer = Initials) %>%
+  na.omit() %>%
+  filter(ID != "21") %>%  # ID - 21 is ARV/AVS, which is not useful
+  droplevels()
+
+# add those initials back in
+all.observers <- rbind(all.observers, data.frame(ID = c("21", "21"), 
+                                                 Initials = c("ARV", "AVS"), 
+                                                 Observer = c("ARV", "AVS")))
+
+# Only 2010 and 2011 had two observation stations, which are needed for applying
+# Laake's method beyond naive estimates
+
+years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023)
+
+# sightings and effort
+sightings.list.primary <- effort.list.primary  <- list()
+sightings.list.secondary <- effort.list.secondary  <- list()
+k <- 1
+for (k in 1:length(years)){
+  # These raw data files contain repeated observations of all groups.
+  # 
+   
+  tmp.sightings <- read.csv(paste0("Data/all_sightings_", 
+                                   years[k], "_Tomo_v2.csv")) 
+  
+  tmp.sightings %>%
+    mutate(Date1 = as.Date(Date, format = "%m/%d/%Y")) %>%
+    #group_by(group) %>%
+    transmute(Date = Date1,
+              Time = Time_PST, 
+              day = day(Date),
+              month = month(Date),
+              year = year(Date),
+              watch = shift,
+              t241 = difftime((paste(Date, Time)),
+                              (paste0((years[k] - 1), 
+                                             "-11-30 00:00:00"))) %>%
+                as.numeric(),
+              Group_ID = Group_ID,
+              distance = Distance,
+              podsize = nwhales,
+              vis = vis,
+              beaufort = beaufort,
+              Start.year = years[k]-1,
+              Observer = toupper(observer),
+              key = key,
+              pphr = pphr,
+              date.shift = date.shift,
+              station = station) %>%
+    arrange(Date, Group_ID) %>%
+    filter(vis < 5, beaufort < 5) %>%
+    na.omit() -> sightings.all
+
+  sightings.all %>% 
+    filter(station == "P") -> sightings.list.primary[[k]]
+  
+  sightings.all %>% 
+    filter(station == "S") -> sightings.list.secondary[[k]]
+  
+  tmp.effort <- read.csv(paste0("Data/all_effort_", 
+                                years[k], "_Tomo_v2.csv")) 
+  
+  tmp.effort %>%
+    transmute(watch.key = watch.key,
+              Start.year = years[k] - 1,
+              key = key,
+              begin = begin,
+              end = end,
+              npods = npods,
+              nwhales = nwhales,
+              effort = effort,
+              vis = vis,
+              beaufort = beaufort,
+              Observer = toupper(observer),
+              time = time,
+              watch = shift,
+              date.shift = date.shift,
+              Use = T,
+              Date = as.Date(Date, format = "%m/%d/%Y"),
+              station = station) %>%
+    filter(vis < 5, beaufort < 5) %>%
+    na.omit() -> effort.all
+  
+  effort.all %>%
+    filter(station == "P") -> effort.list.primary[[k]]
+  
+  effort.all %>%
+    filter(station == "S") -> effort.list.secondary[[k]]
+}
+
+# sightings
+sightings.primary <- do.call("rbind", sightings.list.primary) %>%
+  na.omit()
+
+sightings.primary %>% 
+  left_join(all.observers, by = "Observer") %>%
+  select(-c(Observer, Initials)) %>%
+  rename(Observer = ID) -> sightings.primary
+
+sightings.secondary <- do.call("rbind", sightings.list.secondary) %>%
+  na.omit()
+
+sightings.secondary %>% 
+  left_join(all.observers, by = "Observer") %>%
+  select(-c(Observer, Initials)) %>%
+  rename(Observer = ID) -> sightings.secondary
+
+# Effort
+effort.primary <- do.call("rbind", effort.list.primary)  %>%
+  na.omit()
+
+effort.primary %>% 
+  left_join(all.observers, by = "Observer") %>%
+  select(-c(Observer, Initials)) %>%
+  rename(Observer = ID) -> effort.primary
+
+effort.secondary <- do.call("rbind", effort.list.secondary)  %>%
+  na.omit()
+
+effort.secondary %>% 
+  left_join(all.observers, by = "Observer") %>%
+  select(-c(Observer, Initials)) %>%
+  rename(Observer = ID) -> effort.secondary
+
+# gsS: nmax x nmax pod size calibration matrix; each row is a true pod size 
+# from 1 to nmax and the value for each column is the probability that a pod of 
+# a true size S is recorded as a size s (1..nmax columns)
+# 
+naive.abundance.models.new <- list()
+for (k in 1:length(years)){
+  sightings.primary %>%
+    filter(Start.year == (years[k]-1)) -> sightings
+  
+  effort.primary %>%
+    filter(Start.year == (years[k]-1)) -> effort
+  
+  naive.abundance.models.new[[k]] <- estimate.abundance(spar = NULL,
+                                                        dpar = NULL,
+                                                        gsS = gsS,  # Does not matter when spar = NULL and dpar = NULL
+                                                        effort =effort, 
+                                                        sightings =sightings, 
+                                                        final.time = 90,
+                                                        lower.time = 0,
+                                                        gformula = ~s(time),
+                                                        dformula = NULL)
+  
+}
+
+# Without sightings from the secondary team, it seems that I can't go beyond
+# computing naive abundance estimates. 2023-12-01
+# 
+
+
+#Run example code from the help file
+#
+# The recent survey data 1987 and after are stored in ERSurveyData and those data
+# are processed by the ERAbund program to produce files of sightings and effort.
+# The sightings files are split into Primary observer and Secondary observer sightings.
+# Primary observer sightings are whales that are not travelling North and are defined by
+# those when EXPERIMENT==1 (single observer) or a designated LOCATION when EXPERIMENT==2.
+#  For surveys 2000/2001 and 2001/2002, the primary observer was at LOCATION=="N"
+# and for all other years, LOCATION=="S".
+#
+# Based on the projected timing of the passage of the whale (t241) perpendicular to the 
+# watch station, the sighting was either contained in the watch (on effort) or not (off effort).
+# The dataframe Primary contains all of the on effort sightings and PrimaryOff contains all
+# of the off-effort sightings.  The code below shows that the counts of primary
+# sighting records matches the total counts of the on and off effort sightings split into
+# the 2 dataframes.
+#
+
+data(PrimaryOff)
+data(Primary)
+data(ERSurveyData)
+NorthYears=c(2000,2001)
+
+data(PrimarySightings)
+data(PrimaryEffort)
+
+PrimarySightings=PrimarySightings[!(PrimarySightings$Observer=="MAS"&PrimarySightings$Start.year==1995),]
+PrimaryEffort=PrimaryEffort[!(PrimaryEffort$Observer=="MAS"&PrimaryEffort$Start.year==1995),]
+
+# Define arguments used in the analysis
+all.years=unique(PrimaryEffort$Start.year)
+recent.years=all.years[all.years>=1987]
+early.years=all.years[all.years<1987]
+final.time=sapply(tapply(floor(PrimaryEffort$time),PrimaryEffort$Start.year,max),function(x) ifelse(x>90,100,90))
+lower.time=rep(0,length(final.time))
+fn=1.0817
+se.fn=0.0338
+
+# These are the number of sightings that were included/excluded based on Use
+Sightings=PrimarySightings
+Sightings=merge(Sightings,subset(PrimaryEffort,select=c("key","Use")))
+
+# Filter effort and sightings and store in dataframes Effort and Sightings
+Effort=PrimaryEffort[PrimaryEffort$Use,]  
+Sightings=PrimarySightings
+Sightings$seq=1:nrow(Sightings)
+Sightings=merge(Sightings,subset(Effort,select=c("key")))
+Sightings=Sightings[order(Sightings$seq),]
+
+# Using the filtered data, compute simple minded abundance estimates by treating the 
+# sampled periods (watches) as a random sample of a period of a specified number
+# of days (e.g., 4 days).  It uses raw counts with no correction for pod size or missed pods.
+period=4
+# compute the fraction of each period that was sampled (eg. 12 hours / (4 days *24 hrs/day))
+sampled.fraction=with(Effort,
+                      {
+                        Day=as.numeric(as.Date(Date)-as.Date(paste(Start.year,"-12-01",sep="")))
+                        tapply(effort,list(Start.year,cut(Day,seq(0,100,period))),sum)/period
+                      })
+# compute the number of whales counted in each period
+whales.counted=with(Sightings,
+                    {
+                      Day=as.numeric(as.Date(Date)-as.Date(paste(Start.year,"-12-01",sep="")))
+                      tapply(podsize,list(Start.year,cut(Day,seq(0,100,period))),sum)
+                    })
+
+# Compute simple minded population estimate and plot it
+period.estimate=apply(whales.counted/sampled.fraction,1,sum,na.rm=TRUE)
+
+# Compute naive estimates of abundance for the 23 surveys.  These use the uncorrected
+# counts of whales from the primary observer during watches in which neither Beaufort nor
+# vis exceeded 4.  For each year a gam with a smooth over time is fitted and this is
+# used to predict total abundance throughout the migration from the counts of whales
+# during the sampled periods.  There is no correction for missed pods or for measurement
+# error in podsize. Each fitted migration gam is plotted with the observed values and
+# saved in the file NaiveMigration.pdf.
+#pdf("NaiveMigration.pdf")
+naive.abundance.models=vector("list",23)
+i=0
+for (year in all.years){
+  i=i+1
+  primary=Sightings[Sightings$Start.year==year,]
+  primary$Start.year=factor(primary$Start.year)
+  ern=subset(Effort,
+             subset=as.character(Start.year)==year,
+             select=c("Start.year","key","begin","end","effort","time","vis","beaufort"))
+  
+  ern$Start.year=factor(ern$Start.year)
+  naive.abundance.models[[i]]=estimate.abundance(spar=NULL,
+                                                 dpar=NULL,
+                                                 gsS=gsS,
+                                                 effort=ern, 
+                                                 sightings=primary, 
+                                                 final.time=final.time[i],
+                                                 lower.time=lower.time[i],
+                                                 gformula=~s(time),
+                                                 dformula=NULL)
+}
+
+# Next compute the series of abundance estimates for the most recent 8 years (1987/1988 - 2006/2007) by
+# fitting and selecting the best detection model.  From those 8 estimates and the
+# naive estimates, compute an average ratio and apply it to generate the estimates
+# for the first 15 surveys prior to 1987. Note with hessian=TRUE, the analysis can
+# take about 30-60 minutes to complete. (TE: Takes about 6 minutes now. But added
+# the if-else. 2023-08-31)
+if (!file.exists("RData/Laake_abundance_estimates.rds")){
+  
+  #  pdf("Migration.pdf")
+  abundance.estimates=compute.series(models, 
+                                     naive.abundance.models,
+                                     sightings=Sightings,
+                                     effort=Effort,
+                                     hessian=TRUE)
+  #  dev.off()
+  saveRDS(abundance.estimates,
+          file = "RData/Laake_abundance_estimates.rds")  
+} else {
+  abundance.estimates <- readRDS("RData/Laake_abundance_estimates.rds")
+}
+
+ratio <- abundance.estimates$ratio
+ratio.SE <- 0.03  # from Laake et al 2012, Table 8
+
+# Compute series of estimates for before 1987 without nighttime correction factor (eqn 24)  
+W.hat.1 <- c(sapply(naive.abundance.models[1:15], 
+                    function(x)x$Total)*ratio)
+
+# Apply nighttime correction factor (eqn 29)
+fn = 1.0817
+SE.fn <- 0.0338
+
+# Need to add CI or SE and var-cov matrix. 
+# Bring in the results from Laake_example_code.R
+abundance.vc <- read_rds(file = "RData/abundance.vc.rds")
+
+# Var(W.hat) for year < 1987
+W.tilde.1 <- c(sapply(naive.abundance.models[1:15], function(x) x$Total))  # naive abundance
+var.W.tilde.1 <- c(sapply(naive.abundance.models[1:15], function(x) x$var.Total))
+var.W.hat.1 <- W.tilde.1^2 * ratio.SE^2 * 9 + ratio^2 * var.W.tilde.1   # eqn 27
+
+N.hat.1 <- W.hat.1 * fn
+
+# the following four lines are not quite right - see Table 9 to compare CV values 2024-01-31
+# var.Nhat.1 <- (fn * W.hat.1)^2 * ((SE.fn/fn)^2 + (var.W.hat.1/((W.hat.1)^2)))  # eqn 30
+# SE.Nhat.1 <- sqrt(var.Nhat.1)
+# CV.Nhat.1 <- SE.Nhat.1/N.hat.1
+
+
+# SE values are a little different from what I calcualted above (SE.Nhat.1) but not much
+SE.Nhat.1 <- abundance.vc$se[1:length(N.hat.1)]
+
+# var(W.hat) for year > 1985 eqn. 25
+# From Table 8 in Laake et al. 2012
+W.hat.2 <- setNames(c(24883, 14571, 18585, 19362, 19539, 15133, 14822, 17682),
+                    c("1987", "1992", "1993", "1995", "1997", "2000", "2001", "2006"))
+
+#W.hat <- c(W.hat.1, W.hat.2)
+N.hat.2 <- abundance.estimates$summary.df$Nhat
+SE.Nhat.2 <- abundance.vc$se[(length(N.hat.1)+1):length(abundance.vc$se)]
+
+# The same approach for year < 1987 will be used for years 2009 - 2022
+# Although the values didn't match exactly, they were quite close. So, 
+# I'm not going to worry too much about it.
+W.tilde.3 <- c(sapply(naive.abundance.models.new, function(x) x$Total))
+var.W.tilde.3 <- c(sapply(naive.abundance.models.new, function(x) x$var.Total))
+W.hat.3 <- c(sapply(naive.abundance.models.new, 
+                    function(x)x$Total)*ratio)
+
+var.W.hat.3 <- W.tilde.3^2 * ratio.SE^2 * 9 + ratio^2 * var.W.tilde.3   # eqn 27
+N.hat.3 <- W.hat.3 * fn
+
+# Fix the following three lines according to what I find on lines 721-724
+var.Nhat.3 <- (fn * W.hat.3)^2 * ((SE.fn/fn)^2 + (var.W.hat.3/((W.hat.3)^2)))  # eqn 30
+SE.Nhat.3 <- sqrt(var.Nhat.3)
+
+# Function from Laake's code
+conf.int=function(abundance, CV, alpha=0.05, digits=2, prt=FALSE){
+  # Computes confidence intervals based on lognormal distr.
+  # JMB / NMML / 11 Sep 2008
+  
+  if (alpha <0 || alpha > .999) stop("alpha must be in (0,1)")
+  z = round(abs(qnorm(alpha/2)),2)
+  if (prt) cat("N:",abundance,"  cv:",CV,"  alpha:",alpha,"  z:",z,"\n")
+  C <- exp(z * sqrt(log(1 + CV^2)))
+  SL <- round(abundance/C,digits)
+  SU <- round(abundance * C,digits)
+  data.frame(SL,SU)
+}
+
+all.estimates <- data.frame(Year = c(all.years, lapply(naive.abundance.models.new,
+                                                       function(x) names(x$Total)) %>% 
+                                       unlist() %>% as.numeric), 
+                            Nhat = c(N.hat.1, N.hat.2, N.hat.3),
+                            SE = c(SE.Nhat.1, SE.Nhat.2, SE.Nhat.3)) %>%
+  mutate(CV = SE/Nhat,
+         Season = paste0(Year, "/", (Year + 1)))
+
+CI <- conf.int(all.estimates$Nhat, all.estimates$CV)
+
+all.estimates$LCL <- CI$SL
+all.estimates$UCL <- CI$SU
+all.estimates$Method <- "Laake"
+
+all.years <- data.frame(Year = seq(min(all.estimates$Year), max(all.estimates$Year)))
+
+all.years %>% left_join(all.estimates, by = "Year") -> Laake.estimates
+
+```
+
+
+### Durban's approach
+
+```{r}
+# Results from LaakeData2WinBUGS.R
+# This result ("RData/WinBUGS_Laake_Data.rds) contains only 1967/1968 - 2006/2007. 
+# To properly run the analysis, I need to combine this and data in WinBUGS Ver2.Rmd, 
+# which has 2006/2007 - 2022/2023. Because of shared parameters among years, 
+# I can't just combine results from the two analyses. 
+# I need to run the code again with all data combined... :(
+
+WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
+
+create.WinBUGS.data <- function(Durban.data.1){
+  # the number of years in the dataset. A lot! 
+  all.years <- unique(Durban.data.1$Start.year)
+  
+  Durban.data.1 %>% 
+    group_by(Start.year) %>% 
+    summarise(n = n()) -> n.year
+  
+  # re-index observers
+  obs.df <- data.frame(ID = unique(Durban.data.1$ID %>% sort),
+                       seq.ID = seq(1, length(unique(Durban.data.1$ID))))
+  
+  Durban.data.1 %>% 
+    left_join(obs.df, by = "ID") -> Durban.data.1
+  
+  # create matrices - don't know how to do this in one line...  
+  bf <- vs <- watch.prop <- day <- matrix(nrow = max(n.year$n), ncol = length(all.years))
+  BUGS.day <- effort <- matrix(nrow = (max(n.year$n) + 2), 
+                               ncol = length(all.years))
+  
+  BUGS.n <- matrix(data = 0, nrow= max(n.year$n), ncol= length(all.years))
+  BUGS.obs <- matrix(data = nrow(obs.df)+1, nrow = max(n.year$n), ncol= length(all.years))
+  
+  periods <- vector(mode = "numeric", length = length(all.years))
+  k <- 1
+  for (k in 1:length(all.years)){
+    Durban.data.1 %>% 
+      filter(Start.year == all.years[k]) -> tmp
+    
+    BUGS.n[1:nrow(tmp), k] <- tmp$n + 1
+    BUGS.day[1:nrow(tmp), k] <- tmp$dt
+    BUGS.day[(nrow(tmp)+1):(nrow(tmp)+2), k] <- c(1,90)
+    bf[1:nrow(tmp), k] <- tmp$beaufort
+    vs[1:nrow(tmp), k] <- tmp$vis
+    effort[1:nrow(tmp), k] <- tmp$effort
+    effort[(nrow(tmp)+1):(nrow(tmp)+2), k] <- c(1,1)
+    BUGS.obs[1:nrow(tmp),  k] <- tmp$seq.ID
+    
+    periods[k] <- nrow(tmp)
+  }
+  
+  BUGS.data <- list(n = BUGS.n,
+                    n.com = BUGS.n,
+                    n.sp = BUGS.n,
+                    #n.station = 1,
+                    n.year = length(all.years),
+                    n.obs = length(unique(Durban.data.1$seq.ID))+1,
+                    periods = periods,
+                    obs = BUGS.obs,
+                    vs = vs,
+                    bf = bf,
+                    Watch.Length = effort,    
+                    day = BUGS.day)
+  
+  return(BUGS.data)
+}
+
+# Estimates from Laake et al. are here:
+col.defs <- cols(Year = col_character(),
+                 Nhat = col_double(),
+                 CV = col_double())
+
+Laake.estimates <- read_csv(file = "Data/Laake et al 2012 Table 9 Nhats.csv",
+                            col_types = col.defs) %>% 
+  mutate(Season = lapply(strsplit(Year, "_"), 
+                         FUN = function(x) paste0(x[1], "/", x[2])) %>% 
+           unlist) %>%
+  #dplyr::select(Season, Nhat, SE, LCL, UCL)  %>%
+  mutate(Year = lapply(str_split(Season, "/"), 
+                       FUN = function(x) x[2]) %>% 
+           unlist() %>% 
+           as.numeric())
+
+# The data in PrimarySightings are all southbound sightings for all years in which visibility and beaufort
+# are less than or equal to 4. Below the counts are shown for the 2 dataframes for
+# recent surveys since 1987/88.
+#table(Primary$Start.year[Primary$vis<=4 & Primary$beaufort<=4])
+#data(PrimarySightings)
+#data(PrimaryEffort)
+
+# Likewise, the secondary sightings are those with EXPERIMENT==2 but the LOCATION that
+# is not designated as primary.  there is no effort data for the secondary sightings... 
+# so, can't use it for BUGS/jags - ignore it for now.
+# data(SecondarySightings)
+
+# Effort and sightings prior to 1987 were filtered for an entire watch if vis or beaufort 
+# exceeded 4 at any time during the watch.  This is done for surveys starting in 1987 with the
+# Use variable which is set to FALSE for all effort records in a watch if at any time the vis or
+# beaufort exceeded 4 during the watch.
+# Here are the hours of effort that are excluded (FALSE) and included (TRUE) by each year
+# Note that for most years <1987 there are no records with Use==FALSE because the filtered records
+# were excluded at the time the dataframe was constructed. The only exception is for 1978 in which  
+# one watch (5 hours) was missing a beaufort value so it was excluded.
+# tapply(PrimaryEffort$effort,
+#        list(PrimaryEffort$Use,
+#             PrimaryEffort$Start.year),
+#        sum)*24
+#        
+
+# Filter effort and sightings and store in dataframes Effort and Sightings
+Effort = PrimaryEffort[PrimaryEffort$Use,]  
+
+Sightings = PrimarySightings
+Sightings$seq = 1:nrow(Sightings)
+Sightings = merge(Sightings, subset(Effort, select=c("key")))
+Sightings = Sightings[order(Sightings$seq),]
+
+# Need to give numeric IDs to observers
+Observer %>%
+  mutate(ID.char = as.character(ID)) -> Observer
+
+# Lines 68 and 69 are duplicates. 
+Observer.1 <- Observer[1:67,]
+
+# For Durban's WinBUGS model, each sampling period is treated as is, rather than 
+# grouping them by day.
+
+Effort %>%
+  mutate(Day1 = as.Date(paste0(Start.year, "-12-01")),
+         dt = as.numeric(as.Date(Date) - Day1) + 1) %>%
+  select(Start.year, nwhales, effort, vis, beaufort, Observer, dt) -> Durban.data
+
+Durban.data %>%
+  mutate(Initials = Observer) %>%
+  left_join(Observer, by = "Initials") %>%
+  mutate(obs = Observer.x) %>%
+  dplyr::select(-c(Initials, Observer.x, Observer.y, Name, Sex)) %>%
+  rename(ID.1 = ID) %>%
+  mutate(ID.char = obs) %>%
+  left_join(Observer.1, by = "ID.char") %>% #-> tmp
+  dplyr::select(-c(Initials, Observer, Name, Sex, ID.char)) -> Durban.data.1
+
+Durban.data.1$ID[is.na(Durban.data.1$ID)] <- Durban.data.1$ID.1[is.na(Durban.data.1$ID)]
+
+# In WinBUGS code, the number of days per season is fixed at 90. So, without
+# adjusting the code, which I don't want to do for comparing results, the data
+# needs to be adjusted so that there are no days > 90.
+# 
+# Also shrunk the dataset to troubleshoot... no avail. 
+Durban.data.1 %>% 
+  filter(dt < 90) -> Durban.data.2
+  #filter(dt < 90, Start.year > 1985) -> Durban.data.2
+
+# #########################################################################
+# Recent data - from WinBUGS Ver2.Rmd
+
+# this file contains all necessary inputs:
+data.0 <- readRDS("RData/2006-2019_GC_Formatted_Data.RDS")
+
+# output from Ver2.0 extraction
+years <- c("2015", "2016", "2020", "2022", "2023")
+
+min.duration <- 85 
+
+# Change file names accordingly:
+Nhats.filename <- paste0("Data/abundance_", years[length(years)], "_", min.duration, "min.csv")
+
+# Analysis with minimum of 85 or 30 minutes sampling duration:
+out.v2 <- lapply(years, FUN = function(x) readRDS(paste0("RData/V2.1_Mar2023/out_", x,
+                                                         "_min", min.duration, "_Tomo_v2.rds")))
+
+# just for 8 weeks in 2023
+#out.v2 <- lapply(years, FUN = function(x) readRDS(paste0("RData/V2.1_Mar2023_8weeks/out_", x, 
+#                                                         "_min", min.duration, "_Tomo_v2.rds")))
+
+begin. <- lapply(out.v2, FUN = function(x) x$Final_Data$begin)
+end. <- lapply(out.v2, FUN = function(x) x$Final_Data$end)
+
+# Number of watch periods in each year's survey - before the 2019/2020 season
+# plus the new ones
+periods <-c(136, 135, 164, 178, 
+            lapply(begin., FUN = function(x) length(x)) %>% unlist)
+# Shorten data to first x years only to replicate 
+# the analysis in Durban et al 2016:
+x <- length(periods)
+
+out.file.name <- paste0("RData/WinBUGS_", x, "yr_v2_min", min.duration, ".rds")
+#out.file.name <- paste0("RData/WinBUGS_", x, "yr_v2_min", min.duration, "_8weeks_2023.rds")
+
+Watch.Length. <- list()
+
+for (k in 1:length(begin.)){
+  Watch.Length.[[k]] <- end.[[k]] - begin.[[k]]
+}
+
+# 
+# #whale counts
+n <- labelled::remove_attributes(data.0$n, "dimnames")
+n <- n[,,1:4]  # take the first four years
+n <- abind(n, array(0, replace(dim(n), 1, max(periods) - nrow(n))), along = 1)
+
+# the u data is whether there were observers on watch. 
+# 0 counts are often associated with years/shifts with 
+# no second observer. So if u=0, it will fix observation probability at 0
+# the second column for each year is for the second station - not the second
+# observer.
+u <- data.0$u[,,1:4]
+u <- abind(u, 
+           array(0, replace(dim(u), 1, max(periods) - nrow(u))), along = 1)
+
+# #visibility
+vs. <- lapply(out.v2, FUN = function(x) x$Final_Data$vs)
+vs <- rbind(data.0$vs[,1:4], 
+                  array(NA, dim = c(max(periods) - nrow(data.0$vs), 4))) %>%
+    labelled::remove_attributes("dimnames")
+
+# Beaufort
+bf. <- lapply(out.v2, FUN = function(x) x$Final_Data$bf)
+bf <- rbind(data.0$bf[,1:4], 
+                  array(NA, dim = c(max(periods) - nrow(data.0$bf), 4)))%>%
+    labelled::remove_attributes("dimnames")
+
+# observers
+# need to convert observer initials into numbers for all years
+obs.list <- read.csv(file = "Data/ObserverList2023.csv")
+
+obs <- data.0$obs[,,1:4]
+obs <- abind(obs, 
+           array(36, replace(dim(obs), 1, max(periods) - nrow(obs))), along = 1)
+
+Watch.Length <- rbind(data.0$Watch.Length[,1:4], 
+                      array(NA, dim = c(max(periods) - 
+                                          nrow(data.0$Watch.Length), 4)))%>%
+    labelled::remove_attributes("dimnames")
+
+day <- rbind(data.0$day[,1:4], 
+                   array(NA, dim = c(max(periods) - nrow(data.0$day), 4)))%>%
+    labelled::remove_attributes("dimnames")
+
+k <- 1
+for (k in 1:length(begin.)){
+  n <- abind(n, 
+             cbind(c(out.v2[[k]]$Final_Data$n, 
+                     rep(0, times = (dim(n)[1] - length(out.v2[[k]]$Final_Data$n)))), 
+                   rep(0, times = dim(n)[1]))) %>%
+    labelled::remove_attributes("dimnames")
+  
+  u <- abind(u, 
+             cbind(c(rep(1, times = length(out.v2[[k]]$Final_Data$n)), 
+                     rep(0, times = (dim(u)[1] - length(out.v2[[k]]$Final_Data$n)))), 
+                   rep(0, times = dim(u)[1])))
+  
+  vs <- cbind(vs, c(out.v2[[k]]$Final_Data$vs, 
+                    rep(NA, times = max(periods - length(out.v2[[k]]$Final_Data$vs)))))  %>%
+    labelled::remove_attributes("dimnames")
+  
+  
+  bf <- cbind(bf, c(out.v2[[k]]$Final_Data$bf,
+                    rep(NA, times = max(periods - length(out.v2[[k]]$Final_Data$bf)))))  %>%
+    labelled::remove_attributes("dimnames")
+  
+  obs.year <- data.frame(obs = out.v2[[k]]$Final_Data$obs) %>% 
+    left_join(obs.list, by = "obs")
+  
+  obs <- abind(obs, 
+               cbind(c(obs.year$ID, 
+                       rep(36, times = (max(periods) - length(obs.year$ID)))), 
+                     rep(36, times = max(periods))))
+
+  Watch.Length <- cbind(Watch.Length,
+                        c(Watch.Length.[[k]], 
+                          rep(NA, 
+                              times = max(periods) - length(Watch.Length.[[k]])))) %>%
+    labelled::remove_attributes("dimnames")
+  
+  day <- cbind(day, 
+               c(floor(begin.[[k]]), 
+               rep(NA, times = max(periods) - length(begin.[[k]])))) %>%
+    labelled::remove_attributes("dimnames")
+  
+}
+
+
+#we're going to make N a partially observed data object with anchor points at day 1 and 90
+# TE: I don't know how these numbers were created... they are generally 2x n (not all)
+# N_inits <- as.matrix(read.table("Data/Initial Values/N_inits.txt",
+#                                 header=T))
+
+N_inits1 <- n[, 1,] * 2 + 2
+N_inits2 <- n[, 2,] * 2 + 2 
+            
+N_inits <- N_inits1
+N_inits[N_inits1 < N_inits2] <- N_inits2[N_inits1 < N_inits2]
+
+N_inits <- rbind(N_inits,
+                 matrix(data = NA, nrow = 2, ncol = length(periods)))
+
+for (k in 1:length(periods)){
+  N_inits[(periods[k]+1):nrow(N_inits), k] <- NA  
+}
+
+#The 'data' has to be the inverse of the inits, 
+# with NAs for all of the estimated Ns, and 0s for the days 1 and 90
+N <- matrix(NA, nrow=max(periods)+2, ncol=length(periods)) 
+
+for(i in 1:length(periods)){
+  N[(periods[i]+1):(periods[i]+2),i] <- 0 #True number of whales passing fixed at 0 for day 1 and 90
+}
+# ####################################################################################
+
+
+BUGS.data <- create.WinBUGS.data(Durban.data.2)
+
+x <- length(BUGS.data$periods)
+
+#we're going to make N a partially observed data object with anchor points at day 1 and 90
+# TE: I don't know how these numbers were created... they are generally 2x n (not all)
+# N_inits <- as.matrix(read.table("Data/Initial Values/N_inits.txt",
+#                                 header=T))
+
+# For this run, there is no 2nd station. 
+n <- BUGS.data$n
+for (k in 1:ncol(n)){
+  if (BUGS.data$periods[k] < nrow(n))
+    n[(BUGS.data$periods[k]+1):nrow(n),k] <- NA
+}
+N_inits1 <- n * 2 + 2
+#N_inits2 <- BUGS.data$n[, 2,] * 2 + 2 
+
+N_inits <- N_inits1
+#N_inits[N_inits1 < N_inits2] <- N_inits2[N_inits1 < N_inits2]
+
+N_inits <- rbind(N_inits,
+                 matrix(data = NA, 
+                        nrow = 2, 
+                        ncol = length(BUGS.data$periods)))
+
+# for (k in 1:length(BUGS.data$periods)){
+#   N_inits[(BUGS.data$periods[k]+1):nrow(N_inits), k] <- NA  
+# }
+
+# NAs for all Ns that are estimated, and 0s for the days 1 and 90
+N <- matrix(data = NA, 
+            nrow=max(BUGS.data$periods)+2, 
+            ncol=length(BUGS.data$periods)) 
+
+for(i in 1:length(BUGS.data$periods)){
+  #True number of whales passing fixed at 0 for day 1 and 90
+  N[(BUGS.data$periods[i]+1):(BUGS.data$periods[i]+2), i] <- 0 
+}
+
+BUGS.data$N <- N
+BUGS.data$N.com <- N
+BUGS.data$N.sp <- N
+
+BUGS.data$knot <-  c(-1.46,-1.26,-1.02,-0.78,
+                     -0.58,-0.34,-0.10,0.10,
+                     0.34,0.57,0.78,1.02,1.26,1.46)
+
+BUGS.data$n.knots <- 14
+
+# the u data is whether there were observers on watch. 
+# 0 counts are often associated with years/shifts with 
+# no second observer. So if u=0, it will fix observation probability at 0
+# the second column for each year is for the second station - not the second
+# observer.
+# 
+# For this comparison, I only use the primary observer, so I can just have 1s
+# in the primary observer place, and zeros elsewhere
+u <- array(data = 0, dim = dim(BUGS.data$n))
+
+for (y in 1:BUGS.data$n.year){
+  for (p in 1:BUGS.data$periods[y]){
+    #for (s in 1:BUGS.data$n.station){
+      u[p,y] <- 1
+    #}
+  }
+}
+
+BUGS.data$u <- u
+
+BUGS.inits <- function() list(mean.prob = 0.5,
+                               BF.Fixed = 0,
+                               VS.Fixed = 0,
+                               mean.prob.sp = 0.5,
+                               BF.Fixed.sp = 0,
+                               VS.Fixed.sp = 0,
+                               mean.prob.com = 0.5,
+                               BF.Fixed.com = 0,
+                               VS.Fixed.com = 0,
+                               mean.beta = c(0,0,0), #mean.beta = c(5,0.14,-3.5),
+                               beta.sigma = c(1,1,1),#beta.sigma = c(7,7,7),
+                               BF.Switch = 1,
+                               VS.Switch = 1,
+                               OBS.Switch = 1,
+                               sigma.Obs = 1,
+                               BF.Switch.sp = 1,
+                               VS.Switch.sp = 1,
+                               OBS.Switch.sp = 1,
+                               sigma.Obs.sp = 1,
+                               BF.Switch.com = 1,
+                               VS.Switch.com = 1,
+                               OBS.Switch.com = 1,
+                               sigma.Obs.com = 1,
+                               N = N_inits,
+                               N.com = N_inits,
+                               N.sp = N_inits,
+                               beta.sp = array(data=0, dim=c(2,x)),
+                               sd.b.sp = rep(1, times = x),
+                               z = matrix(1, nrow=90, ncol= x)) #)
+
+## Compare between the data that worked and the new one that does not work
+#BUGS.data.worked <- data.worked$BUGS.data
+# 
+# BUGS.inits1 <- BUGS.inits()
+#BUGS.inits.worked <- data.worked$BUGS.inits
+# 
+# 
+# BUGS.data$n[,1,2]
+# BUGS.data.worked$n[,1,2]
+
+## End of comparison
+
+
+BUGS.parameters <- c("lambda","OBS.RF","OBS.Switch",
+                     "BF.Switch","BF.Fixed","VS.Switch",
+                     "VS.Fixed","mean.prob","mean.prob.com",
+                     "mean.prob.sp","BF.Fixed.com",
+                     "BF.Fixed.sp","VS.Fixed.com",
+                     "VS.Fixed.sp",
+                     "Corrected.Est","Raw.Est","z",
+                     "com","sp","Daily.Est","mean.beta",
+                     "beta.sigma","beta","beta.sp","b.sp","sd.b.sp")
+
+out.file.name <- paste0("RData/WinBUGS_All_Data.rds")
+
+# 
+# 
+# Durban.results <- read_rds("RData/WinBUGS_Laake_Data.rds")
+# 
+# # Estimates from Laake et al. are here:
+# col.defs <- cols(Year = col_character(),
+#                  Nhat = col_double(),
+#                  CV = col_double())
+# 
+# Laake.estimates <- read_csv(file = "Data/Laake et al 2012 Table 9 Nhats.csv",
+#                             col_types = col.defs) %>%
+#   mutate(Season = lapply(strsplit(Year, "_"), 
+#                          FUN = function(x) paste0(x[1], "/", x[2])) %>% 
+#            unlist,
+#          Year = lapply(strsplit(Year, "_"), 
+#                          FUN = function(x) x[2]) %>% 
+#            unlist)
+# 
+# Durban.results$BUGS_out$summary %>% 
+#   as.data.frame() %>%
+#   rownames_to_column(var = "Parameter") -> Summary.stats
+# 
+# Corrected.Est <- Summary.stats[grep("Corrected", Summary.stats$Parameter),]
+# 
+# Durban.estimates <- data.frame(Year = Laake.estimates$Year,
+#                                Season =  Laake.estimates$Season,
+#                                Nhat = Corrected.Est$`50%`,
+#                                LCL = Corrected.Est$`2.5%`,
+#                                UCL = Corrected.Est$`97.5%`,
+#                                mean = Corrected.Est$mean)
+
+```
+
+
+
+## Running Code
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r}
+1 + 1
+```
+
+You can add options to executable code like this
+
+```{r}
+#| echo: false
+2 * 2
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).

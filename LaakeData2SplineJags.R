@@ -22,11 +22,27 @@ col.defs <- cols(Year = col_character(),
                  Nhat = col_double(),
                  CV = col_double())
 
+# Function from Laake's code
+conf.int=function(abundance, CV, alpha=0.05, digits=2, prt=FALSE){
+  # Computes confidence intervals based on lognormal distr.
+  # JMB / NMML / 11 Sep 2008
+  
+  if (alpha <0 || alpha > .999) stop("alpha must be in (0,1)")
+  z = round(abs(qnorm(alpha/2)),2)
+  if (prt) cat("N:",abundance,"  cv:",CV,"  alpha:",alpha,"  z:",z,"\n")
+  C <- exp(z * sqrt(log(1 + CV^2)))
+  SL <- round(abundance/C, digits)
+  SU <- round(abundance * C, digits)
+  data.frame(SL,SU)
+}
+
 Laake.estimates <- read_csv(file = "Data/Laake et al 2012 Table 9 Nhats.csv",
-                            col_types = col.defs) %>% 
+                            col_types = col.defs)  
+Laake.CI <- conf.int(Laake.estimates$Nhat, Laake.estimates$CV) 
+Laake.estimates %>%
   mutate(SE = CV * Nhat,
-         LCL = Nhat - 1.96 * SE,
-         UCL = Nhat + 1.96 * SE,
+         LCL = Laake.CI$SL, #Nhat - 1.96 * SE,
+         UCL = Laake.CI$SU, #Nhat + 1.96 * SE,
          Season = lapply(strsplit(Year, "_"), 
                          FUN = function(x) paste0(x[1], "/", x[2])) %>% 
            unlist) %>%
@@ -34,7 +50,8 @@ Laake.estimates <- read_csv(file = "Data/Laake et al 2012 Table 9 Nhats.csv",
   mutate(Year = lapply(str_split(Season, "/"), 
                        FUN = function(x) x[2]) %>% 
            unlist() %>% 
-           as.numeric())
+           as.numeric(),
+         Method = "Laake") -> Laake.estimates
 
 # From example code in the ERAnalysis library
 # 
@@ -311,24 +328,24 @@ if (!file.exists(out.file.name)){
   jm.out <- readRDS(out.file.name)
 }
 
-Nhat.df <- data.frame(median = jm.out$jm$q50$Corrected.Est,
+Nhat.df <- data.frame(Season =  Laake.estimates$Season,
+                      Nhat = jm.out$jm$q50$Corrected.Est,
+                      SE = jm.out$jm$sd$Corrected.Est,
                       LCL = jm.out$jm$q2.5$Corrected.Est,
                       UCL = jm.out$jm$q97.5$Corrected.Est,
-                      mean = jm.out$jm$mean$Corrected.Est,
-                      Season =  Laake.estimates$Season)
-
-Nhat.df %>% 
-  left_join(Laake.estimates, by = "Season") %>%
-  mutate(delta_Nhat = median - Nhat) -> all.estimates
+                      Year = Laake.estimates$Year,
+                      Method = "Spline")
+all.estimates <- rbind(Laake.estimates, Nhat.df)
+# Nhat.df %>% 
+#   left_join(Laake.estimates, by = "Season") %>%
+#   mutate(delta_Nhat = median - Nhat) -> all.estimates
 
 ggplot(all.estimates) +
-  geom_point(aes(x = Season, y = median ),
-             color = "blue") +
+  geom_point(aes(x = Season, y = Nhat,
+                 color = Method )) +
   #geom_errorbar(aes(x = Season, ymin = LCL.x, ymax = UCL.x),
   #              color = "blue") +
-  geom_point(aes(x = Season, y = Nhat ),
-             color = "green") +
-  geom_errorbar(aes(x = Season, ymin = LCL.y, ymax = UCL.y),
-                color = "green")
+  geom_errorbar(aes(x = Season, ymin = LCL, ymax = UCL,
+                    color = Method))
 
 
