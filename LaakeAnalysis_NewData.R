@@ -537,7 +537,7 @@ for (k in 1:length(years)){
 # 2006 by Laake et al. and apply the ratio to the new estimates from 2010 to 2023. 
 # 
 
-library(ERAnalysis)  
+#library(ERAnalysis)  
 
 #Run example code from the help file
 #
