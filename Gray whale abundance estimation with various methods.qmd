@@ -507,7 +507,7 @@ all.estimates.Laake$Method <- "Laake"
 # which has 2006/2007 - 2022/2023. Because of shared parameters among years, 
 # I can't just combine results from the two analyses. 
 # I need to run the code again with all data combined... :(
-
+library(R2WinBUGS)
 WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
 
 # A function to create a WinBUGS input list
@@ -557,9 +557,9 @@ create.WinBUGS.data <- function(in.data){
                     n.com = BUGS.n,
                     n.sp = BUGS.n,
                     #n.station = 1,
-                    n.year = length(all.years),
-                    n.obs = length(unique(in.data.1$seq.ID))+1,
-                    periods = periods,
+                    n.year = as.integer(length(all.years)),
+                    n.obs = as.integer(length(unique(in.data.1$seq.ID))+1),
+                    periods = as.integer(periods),
                     obs = BUGS.obs,
                     vs = vs,
                     bf = bf,
@@ -800,13 +800,13 @@ if (!file.exists(out.file.name)){
   
   BUGS_out <- bugs(data = BUGS.data,
                    inits = BUGS.inits,
-                   parameters = parameters,
+                   parameters = BUGS.parameters,
                    model.file="GW_Nmix_Orig.bugs",
                    n.chains = MCMC_params$n.chains,
                    n.iter = MCMC_params$n.iter, 
                    n.burnin = MCMC_params$n.burnin, 
                    n.thin = MCMC_params$n.thin,
-                   debug = F,
+                   debug = T,
                    bugs.directory = WinBUGS.dir,
                    DIC = TRUE)
   
