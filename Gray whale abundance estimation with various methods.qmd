@@ -576,12 +576,11 @@ create.WinBUGS.data <- function(in.data){
 
 # Use the data that were created in the previous section (Laake's analysis)
 # Filter effort and sightings and store in dataframes Effort and Sightings
-Effort <- effort.primary.all
 
-Sightings <- sightings.primary.all
-Sightings$seq = 1:nrow(Sightings)
-Sightings = merge(Sightings, subset(Effort, select=c("key")))
-Sightings = Sightings[order(Sightings$seq),]
+# Sightings <- sightings.primary.all
+# Sightings$seq = 1:nrow(Sightings)
+# Sightings = merge(Sightings, subset(Effort, select=c("key")))
+# Sightings = Sightings[order(Sightings$seq),]
 
 # Need to give numeric IDs to observers
 Observer %>%
@@ -593,96 +592,153 @@ Observer.1 <- Observer[1:67,]
 # For Durban's WinBUGS model, each sampling period is treated as is, rather than 
 # grouping them by day.
 
-Effort %>%
+effort.primary.all %>%
   mutate(Day1 = as.Date(paste0(Start.year, "-12-01")),
          dt = as.numeric(as.Date(Date) - Day1) + 1) %>%
-  select(Start.year, nwhales, effort, vis, beaufort, ID, dt) -> Durban.data
+  select(Start.year, nwhales, effort, vis, beaufort, ID, dt) -> Durban.data.primary
 
-Durban.data$ID[is.na(Durban.data$ID)] <- 98
+Durban.data.primary$ID[is.na(Durban.data.primary$ID)] <- 98
 
 # In WinBUGS code, the number of days per season is fixed at 90. So, without
 # adjusting the code, which I don't want to do for comparing results, the data
 # needs to be adjusted so that there are no days > 90.
 # 
 max.dt <- 90
-Durban.data %>%
-  filter(dt <= max.dt) -> Durban.data.2
+Durban.data.primary %>%
+  filter(dt <= max.dt) -> Durban.data.primary.2
   #filter(dt < 90, Start.year > 1985) -> Durban.data.2
 
-BUGS.data <- create.WinBUGS.data(Durban.data.2)
+# The following function does not work so well. I get an "expected integer" error.
+#BUGS.data <- create.WinBUGS.data(Durban.data.2)
 
-x <- length(BUGS.data$periods)
+## ############### Code from WinBUGS Ver2.Rmd that works ##################
+## Adjust these lines to fit what I need for this 
+
+# years with secondary sampling
+secondary.start.years <- unique(effort.secondary.all$Start.year)
+
+x <- length(all.start.years)
+
+# sampling periods
+periods <- vector("numeric", length = x)
+
+i <- 1
+for (k in all.start.years){
+  
+  periods[i] <- effort.primary.all %>%
+    filter(Start.year == k) %>%
+    nrow()
+  
+  i <- i + 1
+}
+
+# whale counts
+n <- obs <- array(dim = c(max(periods), 2, x))
+vs <- bf <-  day <- Watch.length <- matrix(nrow = max(periods), ncol = x)
+i <- 1
+for (k in all.start.years){
+ effort.primary.all %>%
+    filter(Start.year == k) -> tmp
+  
+  n[1:periods[i], 1, i] <- tmp$nwhales   
+  
+  vs[1:periods[i], i] <- tmp$vis
+  bf[1:periods[i], i] <- tmp$beaufort
+  obs[1:periods[i], 1, i] <- as.numeric(tmp$ID)
+  
+  Watch.length[1:periods[i], i] <- tmp %>%
+     select(effort) %>% pull()
+
+  day[1:periods[i], i] <- floor(tmp$time)
+  
+  if (k %in% secondary.start.years){
+    effort.secondary.all %>%
+      filter(Start.year == k) -> tmp.2
+    
+    periods.2 <- tmp.2 %>% nrow()
+    
+    n[1:periods.2, 2, i] <- tmp.2$nwhales
+    obs[1:periods.2, 2, i] <- as.numeric(tmp.2$ID)
+  }
+  i <- i + 1
+}
+
+
+# the u data is whether there were observers on watch. 
+# 0 counts are often associated with years/shifts with 
+# no second observer. So if u=0, it will fix observation probability at 0
+u <- n
+u[!is.na(n)] <- 1
+u[is.na(n)] <- 0
+
+# #Add a couple of extra rows of NAs to the end of the day index reference to match up with the fixed 0s in N (above), assigning them to days 1 and 90
+day <- rbind(as.matrix(day),
+             matrix(NA, nrow=2, ncol=x))
+#
+#
+for(i in 1:x){ #Set the anchor points: days 1 and 90
+  day[(periods[i]+1):(periods[i]+2),i] <- c(1,90)
+}
+
+Watch.length <- rbind(Watch.length,
+                      matrix(NA, nrow=2, ncol=x))
+
+for(i in 1:x){
+  Watch.length[(periods[i]+1):(periods[i]+2),i] <- 1
+}
 
 #we're going to make N a partially observed data object with anchor points at day 1 and 90
 # TE: I don't know how these numbers were created... they are generally 2x n (not all)
 # N_inits <- as.matrix(read.table("Data/Initial Values/N_inits.txt",
 #                                 header=T))
+N_inits <- n[, 1,] * 2 + 2
+#N_inits2 <- n[, 2,] * 2 + 2 
+            
+# N_inits <- N_inits1
+# N_inits[N_inits1 < N_inits2] <- N_inits2[N_inits1 < N_inits2]
 
-# For this run, there is no 2nd station. 
-n <- BUGS.data$n
-for (k in 1:ncol(n)){
-  if (BUGS.data$periods[k] < nrow(n))
-    n[(BUGS.data$periods[k]+1):nrow(n),k] <- NA
-}
-
-BUGS.data$n <- n
-BUGS.data$n.com <- n
-BUGS.data$n.sp <- n
-
-N_inits1 <- n * 2 + 2
-#N_inits2 <- BUGS.data$n[, 2,] * 2 + 2 
-
-N_inits <- N_inits1
-#N_inits[N_inits1 < N_inits2] <- N_inits2[N_inits1 < N_inits2]
-
-N_inits <- rbind(N_inits,
-                 matrix(data = NA, 
-                        nrow = 2, 
-                        ncol = length(BUGS.data$periods)))
-
-# for (k in 1:length(BUGS.data$periods)){
-#   N_inits[(BUGS.data$periods[k]+1):nrow(N_inits), k] <- NA  
+# N_inits <- rbind(N_inits,
+#                  matrix(data = NA, nrow = 2, ncol = x))
+# 
+# for (k in 1:x){
+#   N_inits[(periods[k]+1):nrow(N_inits), k] <- NA  
 # }
 
-# NAs for all Ns that are estimated, and 0s for the days 1 and 90
-N <- matrix(data = NA, 
-            nrow=max(BUGS.data$periods)+2, 
-            ncol=length(BUGS.data$periods)) 
+#The 'data' has to be the inverse of the inits, 
+# with NAs for all of the estimated Ns, and 0s for the days 1 and 90
+N <- matrix(NA, nrow=max(periods)+2, ncol=length(periods)) 
 
-for(i in 1:length(BUGS.data$periods)){
-  #True number of whales passing fixed at 0 for day 1 and 90
-  N[(BUGS.data$periods[i]+1):(BUGS.data$periods[i]+2), i] <- 0 
+for(i in 1:length(periods)){
+  N[(periods[i]+1):(periods[i]+2),i] <- 0 #True number of whales passing fixed at 0 for day 1 and 90
 }
 
-BUGS.data$N <- N
-BUGS.data$N.com <- N
-BUGS.data$N.sp <- N
+BUGS.data <- list(n = n[1:max(periods[1:x]),,1:x],
+                  n.com = n[1:max(periods[1:x]),,1:x],
+                  n.sp = n[1:max(periods[1:x]),,1:x],
+                  n.station = dim(n[1:max(periods[1:x]),,1:x])[2],
+                  n.year = dim(n[1:max(periods[1:x]),,1:x])[3],
+                  n.obs = max(obs[1:max(periods[1:x]),,1:x]),
+                  periods = periods[1:x],
+                  obs = obs[1:max(periods[1:x]),,1:x],
+                  #Watch.Length = 0.0625,
+                  u = u[1:max(periods[1:x]),,1:x],
+                  vs = vs[1:max(periods[1:x]),1:x],
+                  bf = bf[1:max(periods[1:x]),1:x],
+                  #day=day,
+                  day = day[1:(max(periods[1:x])+2),1:x],
+                  N = N[,1:x],
+                  N.com = N[,1:x],
+                  N.sp = N[,1:x],
+                  knot = c(-1.46,-1.26,-1.02,-0.78,
+                         -0.58,-0.34,-0.10,0.10,
+                         0.34,0.57,0.78,1.02,1.26,1.46),
+                  n.knots=14,
+                  #begin=begin,
+                  #end=end,
+                  Watch.Length=Watch.length[1:(max(periods[1:x])+2), 1:x])
 
-BUGS.data$knot <-  c(-1.46,-1.26,-1.02,-0.78,
-                     -0.58,-0.34,-0.10,0.10,
-                     0.34,0.57,0.78,1.02,1.26,1.46)
 
-BUGS.data$n.knots <- length(BUGS.data$knot)
-
-# the u data is whether there were observers on watch. 
-# 0 counts are often associated with years/shifts with 
-# no second observer. So if u=0, it will fix observation probability at 0
-# the second column for each year is for the second station - not the second
-# observer.
-# 
-# For this comparison, I only use the primary observer, so I can just have 1s
-# in the primary observer place, and zeros elsewhere
-u <- array(data = 0, dim = dim(BUGS.data$n))
-
-for (y in 1:BUGS.data$n.year){
-  for (p in 1:BUGS.data$periods[y]){
-    #for (s in 1:BUGS.data$n.station){
-      u[p,y] <- 1
-    #}
-  }
-}
-
-BUGS.data$u <- u
+## ########################################################################
 
 BUGS.inits <- function() list(mean.prob = 0.5,
                                BF.Fixed = 0,
@@ -742,11 +798,15 @@ out.file.name <- paste0("RData/WinBUGS_All_Data_Feb2024.rds")
 # Good to run with 10k/6k as a practice run to see if WinBUGS completes computation.
 # Then, increase iterations/burnin to 100k/60k. 
 
-MCMC_params <- list(n.iter = 100000,
-                   n.thin = 80,
-                   n.burnin = 60000,
-                   n.chains = 5)
+# MCMC_params <- list(n.iter = 100000,
+#                    n.thin = 80,
+#                    n.burnin = 60000,
+#                    n.chains = 5)
 
+MCMC_params <- list(n.iter = 100,
+                    n.thin = 2,
+                    n.burnin = 60,
+                    n.chains = 5)
 
 if (!file.exists(out.file.name)){
   
@@ -763,14 +823,18 @@ if (!file.exists(out.file.name)){
                    n.thin = MCMC_params$n.thin,
                    debug = T,
                    bugs.directory = WinBUGS.dir,
-                   DIC = TRUE)
+                   DIC = FALSE)
+  
+  # 2024-02-15: Compare BUGS.data and code to find discrepancies in input array or vector
+  # sizes vs. what's in the code.
   
   # 2023-03-03 (problem solved but leave the comments below for future reference)
   # ERROR: NIL dereference (read). According to the user manual, this error may
   # happen "at compilation in some circumstances when an inappropriate
   # transformation is made, for example an array into a scalar." 
   # (https://www.mrc-bsu.cam.ac.uk/wp-content/uploads/manual14.pdf)
-  
+  # https://stackoverflow.com/questions/21969600/bugs-error-messages
+    
   # DIC problems: Surprisingly, sometimes when getting a trap (including one with the very
   # informative title “NIL dereference (read)”), setting the argument DIC = FALSE in the bugs()
   # function has helped. (https://www.mbr-pwrc.usgs.gov/software/kerybook/AppendixA_list_of_WinBUGS_tricks.pdf)
