@@ -569,47 +569,10 @@ create.WinBUGS.data <- function(in.data){
   return(BUGS.data)
 }
 
-# # Estimates from Laake et al. are here:
-# col.defs <- cols(Year = col_character(),
-#                  Nhat = col_double(),
-#                  CV = col_double())
-# 
-# Laake.estimates <- read_csv(file = "Data/Laake et al 2012 Table 9 Nhats.csv",
-#                             col_types = col.defs) %>% 
-#   mutate(Season = lapply(strsplit(Year, "_"), 
-#                          FUN = function(x) paste0(x[1], "/", x[2])) %>% 
-#            unlist) %>%
-#   #dplyr::select(Season, Nhat, SE, LCL, UCL)  %>%
-#   mutate(Year = lapply(str_split(Season, "/"), 
-#                        FUN = function(x) x[2]) %>% 
-#            unlist() %>% 
-#            as.numeric())
-
-# The data in PrimarySightings are all southbound sightings for all years in which visibility and beaufort
-# are less than or equal to 4. Below the counts are shown for the 2 dataframes for
-# recent surveys since 1987/88.
-#table(Primary$Start.year[Primary$vis<=4 & Primary$beaufort<=4])
-#data(PrimarySightings)
-#data(PrimaryEffort)
-
 # Likewise, the secondary sightings are those with EXPERIMENT==2 but the LOCATION that
 # is not designated as primary.  there is no effort data for the secondary sightings... 
 # so, can't use it for BUGS/jags - ignore it for now.
 # data(SecondarySightings)
-
-# Effort and sightings prior to 1987 were filtered for an entire watch if vis or beaufort 
-# exceeded 4 at any time during the watch.  This is done for surveys starting in 1987 with the
-# Use variable which is set to FALSE for all effort records in a watch if at any time the vis or
-# beaufort exceeded 4 during the watch.
-# Here are the hours of effort that are excluded (FALSE) and included (TRUE) by each year
-# Note that for most years <1987 there are no records with Use==FALSE because the filtered records
-# were excluded at the time the dataframe was constructed. The only exception is for 1978 in which  
-# one watch (5 hours) was missing a beaufort value so it was excluded.
-# tapply(PrimaryEffort$effort,
-#        list(PrimaryEffort$Use,
-#             PrimaryEffort$Start.year),
-#        sum)*24
-#        
 
 # Use the data that were created in the previous section (Laake's analysis)
 # Filter effort and sightings and store in dataframes Effort and Sightings
@@ -637,19 +600,6 @@ Effort %>%
 
 Durban.data$ID[is.na(Durban.data$ID)] <- 98
 
-# Durban.data %>%
-#   mutate(ID.char = Observer) %>%
-#   left_join(Observer.1 %>% select(Initials, ID.char), by = "ID.char") %>%
-#   mutate(ID = ID.char) -> Durban.data.1
-  #mutate(obs = Observer.x) %>%
-  #dplyr::select(-c(Initials, Observer.x, Observer.y, Name, Sex)) %>%
-  #rename(ID.1 = ID) %>%
-  #mutate(ID.char = obs) %>%
-  #left_join(Observer.1, by = "ID.char") %>% #-> tmp
-  #dplyr::select(-c(Initials, Observer, Name, Sex, ID.char)) 
-
-#Durban.data.1$ID[is.na(Durban.data.1$ID)] <- Durban.data.1$ID.1[is.na(Durban.data.1$ID)]
-
 # In WinBUGS code, the number of days per season is fixed at 90. So, without
 # adjusting the code, which I don't want to do for comparing results, the data
 # needs to be adjusted so that there are no days > 90.
@@ -674,6 +624,11 @@ for (k in 1:ncol(n)){
   if (BUGS.data$periods[k] < nrow(n))
     n[(BUGS.data$periods[k]+1):nrow(n),k] <- NA
 }
+
+BUGS.data$n <- n
+BUGS.data$n.com <- n
+BUGS.data$n.sp <- n
+
 N_inits1 <- n * 2 + 2
 #N_inits2 <- BUGS.data$n[, 2,] * 2 + 2 
 
