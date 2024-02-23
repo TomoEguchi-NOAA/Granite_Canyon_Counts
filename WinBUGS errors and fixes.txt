@@ -47,3 +47,8 @@ This problem goes away when N, N.com, and N.sp are removed from the inits functi
   # observation period. "JSD" was only found in 2020 (200109_080043). A strange thing happened for that day.
   # During the 0800 shift, JSD/JWG changed to SJC/JDS on 0900, then the shift continued until 0930. The new
   # cutoff time (30 min) picked up the first (1 hr) and the second (30 min) as separate observation periods.
+  
+# 2024-02-21
+  # ERROR: NIL dereference (read). 
+  # This was caused by having lowercase observer initials in the 2010 data. That was fixed in the extraction
+  # function get.shift. 

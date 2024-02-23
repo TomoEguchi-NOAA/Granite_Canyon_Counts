@@ -299,7 +299,7 @@ get.shift <- function(YEAR, data, i){
   
   max.shifts <- length(shifts.begin)
   #Only use the first observer to model random effect
-  Observer <- data[shifts.begin[i], 5] 
+  Observer <- data[shifts.begin[i], 5] %>% toupper()
   # Days since Nov 30th of the previous year because 12/1 is 1. 
   BeginDay <- mdy(data[shifts.begin[i], 3]) - mdy(paste0("11/30/", (YEAR - 1)))
   # Decimal hour of shift start time - need to add seconds because sometimes

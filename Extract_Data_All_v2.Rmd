@@ -13,6 +13,8 @@ The recent vesion as of December 2023 also creates input files for Laake's appro
 The station information needs to be added. The data files that I have don't have that info... this needs to be fixed in the future. This has been fixed. 2023-12-12.
 
 
+
+
 ```{r}
 
 rm(list=ls())
@@ -26,6 +28,9 @@ options(dplyr.summarise.inform = FALSE)
 # Do not run 2023 with this script. Use Extract_Data_2023.Rmd for 2023. 
 # I ran 2023 data and seemed to work fine... 2023-10-19
 # YEAR should be one of 2010, 2011, 2015, 2016, 2020, 2022, 2023 (and beyond)
+# They are the end year of the season, which is the season name. For example, the 
+# 2020/2021 season is called the 2021 season.
+ 
 YEAR <- 2024 #Enter the year of the data files
 
 # For 2009/2010 (maybe in the previous years too but I don't have any of those files),
@@ -105,6 +110,7 @@ for (c in 1:length(unique.dates)){
   
   if (n.stations == 2){
     data.1 <- filter(data, ff == unique(data$ff)[1])
+    data.2 <- filter(data, ff == unique(data$ff)[2])
   } else {
     data.1 <- data    
   }
@@ -129,7 +135,7 @@ for (c in 1:length(unique.dates)){
   
   if (n.stations == 2){
     
-    data.2 <- filter(data, ff == unique(data$ff)[2])
+    #data.2 <- filter(data, ff == unique(data$ff)[2])
     
     Shifts.2 <- which(data.2$V2 %in% "P") #start of all shifts
     all.effort.2 <- Output.list.2 <- all.sightings.2 <- list()
@@ -157,7 +163,8 @@ for (c in 1:length(unique.dates)){
 # There is a function for that fractional_Hrs2HMS in Granite_Canyon_Counts_fcns.R
 
 # For primary:
-Data_Out_1 <- do.call("rbind", Data_Out.list.1)
+Data_Out_1 <- do.call("rbind", Data_Out.list.1) %>%
+  mutate(station = "P")
 
 if (YEAR == 2010){
   Data4Laake <- do.call("rbind", all.sightings.list.1) %>%
@@ -185,7 +192,7 @@ Data4Laake  %>%
             Distance = Distance,
             shift = shift,
             date.shift = Date.shift,
-            observer = Observer,
+            observer = toupper(Observer),
             begin = begin,
             end = end,
             time = time,
@@ -246,13 +253,18 @@ Effort4Laake_1 %>%
 
 # pphr (pods per hour) is in the sightings data, rather than in the effort in 
 # Laake's analysis. So, I move the variable.
+# Warning: Detected an unexpected many-to-many relationship between `x` and `y`.
+# Check this... 2024-02-23
 Data4Laake_1 %>%
   left_join(Effort4Laake_1 %>%
               select(key, pphr), by = "key") -> Data4Laake_1
 
 # For secondary if exists:
 Data_Out_2 <- do.call("rbind", Data_Out.list.2)
+  
 if (!is.null(Data_Out_2)){
+  Data_Out_2 %>%
+    mutate(station = "S")
   if (YEAR == 2010){
     Data4Laake <- do.call("rbind", all.sightings.list.2) %>%
       mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
@@ -279,7 +291,7 @@ if (!is.null(Data_Out_2)){
               Distance = Distance,
               shift = shift,
               date.shift = Date.shift,
-              observer = Observer,
+              observer = toupper(Observer),
               begin = begin,
               end = end,
               time = time,
@@ -436,6 +448,7 @@ Final_Data <- Correct_Length %>%
   filter(bf < 5, vs < 5)
 
 WhalesDays <- Final_Data %>%
+  filter(station == "P") %>%
   group_by(BeginDay) %>%
   mutate(PropDay = end-begin) %>%
   summarize(TotalWatch = sum(PropDay), TotalWhales=sum(n))
@@ -445,6 +458,7 @@ WhalesDays <- Final_Data %>%
 #plot(x=WhalesDays$BeginDay,y=WhalesDays$TotalWhales/WhalesDays$TotalWatch)
 
 ShiftsPerDay <- Final_Data %>%
+  filter(station == "P") %>%
   group_by(BeginDay) %>%
   summarize(Watches = n())
 
@@ -458,12 +472,22 @@ ShiftsPerDay <- Final_Data %>%
 Complete_Data <- Final_Data[complete.cases(Final_Data),]
 Complete_Data$Eff <- Complete_Data$end - Complete_Data$begin
 
-TotalHrs <- sum(Complete_Data$Eff)*24
-TotalDays <- length(unique(floor(Complete_Data$begin)))
+TotalHrs <- sum(Complete_Data %>% 
+                  filter(station == "P") %>% 
+                  select(Eff))*24
+
+TotalDays <- length(unique(floor(Complete_Data %>%
+                                   filter(station == "P") %>%
+                                   select(begin))))
+
 TotalObservers <- length(unique(Complete_Data$obs))
-TotalWhales <- sum(Complete_Data$n)
+
+TotalWhales <- sum(Complete_Data %>%
+                     filter(station == "P") %>%
+                     select(n))
 
 WPH <- Complete_Data %>%
+  filter(station == "P") %>%
   mutate(DaysSinceDec1 = as.numeric(BeginDay)) %>%
   group_by(DaysSinceDec1) %>%
   summarize(TotalWhales = sum(n), 
