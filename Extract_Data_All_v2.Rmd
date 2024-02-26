@@ -10,9 +10,7 @@ This fix may work for all years. At least, 2015 and 2016 files were processed wi
 The recent vesion as of December 2023 also creates input files for Laake's approach. That approach requires double-observer data, which are only available for 2010 and 2011 in the recent data. Years without double observers are adjusted by using the average observation probability from years with double observers. Use LaakeAnalysis_NewData.R for the analysis. It is incomplete as of December 2023. 
 
 
-The station information needs to be added. The data files that I have don't have that info... this needs to be fixed in the future. This has been fixed. 2023-12-12.
-
-
+The station information needs to be added. The data files that I have don't have that info... this needs to be fixed in the future. This has been fixed. 2023-12-12. Not exactly... They are not entered in the n array correctly. Unfortunately, the current WinBUGS approach does not let effort duration between station 1 and 2 (the effort array is 2D, whereas n array is 3D). If we were to use these data, the effort array needs to be changed to 3D and their timing match with the station 1 - the assumed N is the same for station 1 and 2. This is not an easy fix. I'm not sure how Durban took care of this issue for 2009/2010 and 2010/2011 data. 
 
 
 ```{r}
