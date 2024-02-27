@@ -7,6 +7,7 @@ This notebook describes abundance estimation of gray whales using Durban's WinBU
 
 For 2009/2010 and 2010/2011, there were two stations. The original bugs code uses the same watch lengths for two stations. Actual watch periods, however, were different. So, that needs to be addressed. I will use the results from previous analysis (Durban or Stewart) in this analysis. 
 
+For now, I used the input list directly out of Durban/Stewart analysis for 2006/2007, 2007/2008, 2009/2010, and 2010/2011. 
 
 Set up libraries
 
@@ -371,10 +372,10 @@ MCMCparams <- list(n.iter = 100000,
 Compare the set up with a sucessful run from WinBUGS Ver2 2023.Rmd
 
 ```{r}
-success.run <- read_rds(file = "RData/WinBUGS_9yr_v2_min85_2023.rds")
-
-success.data <- success.run$BUGS.data
-
+# success.run <- read_rds(file = "RData/WinBUGS_9yr_v2_min85_2023.rds")
+# 
+# success.data <- success.run$BUGS.data
+# 
 
 ```
 
