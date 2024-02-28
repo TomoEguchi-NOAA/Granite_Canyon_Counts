@@ -1493,15 +1493,15 @@ knitr::include_graphics(paste0("figures/BUGS_daily_sim_", dpi.set, "dpi.png"))
 Data from last 9 seasons were analyzed using the new approach and the results compared to results from Durban et al's approach.
 
 ```{r new-analysis-9yr-v2, echo=FALSE, message=FALSE, warning=FALSE}
-BUGS.out <- readRDS("RData/WinBUGS_9yr_v2_10k.rds")
-run.date.real <- "2023-03-02" #Sys.Date() #"2023-01-06"   # Change it accordingly
+BUGS.out <- readRDS("RData/WinBUGS_10yr_v2_min85.rds")
+run.date.real <- Sys.Date() #"2023-01-06"   # Change it accordingly
 # out.file.name <- paste0("RData/JAGS_pois_binom_9yr_v2_", 
 #                         run.date.real, ".rds")
 
 out.file.name <- paste0("RData/JAGS_pois_binom_v2_9yr_v2_", 
                         run.date.real, ".rds")
 
-n.station <- c(1,1,1,1,1,1,1,1,1)
+n.station <- c(1,1,1,1,1,1,1,1,1,1)
 #n.station[colSums(BUGS.out$jags.data$n[,2,]) > 0] <- 2
 n.station[colSums(BUGS.out$BUGS.data$n[,2,]) > 0] <- 2
 jags.data.real <- list(  n = BUGS.out$BUGS.data$n,
@@ -1513,11 +1513,12 @@ jags.data.real <- list(  n = BUGS.out$BUGS.data$n,
                          vs = scale(BUGS.out$BUGS.data$vs),
                          bf = scale(BUGS.out$BUGS.data$bf),
                          watch.prop = (BUGS.out$BUGS.data$Watch.Length*24*60)/540,
-                         day = BUGS.out$BUGS.data$day)
+                         day = BUGS.out$BUGS.data$day,
+                         n.days = 90)
 
-MCMC.params <- jm.sim.out$MCMC.params
-jags.params <- jm.sim.out$jags.params
-jags.model <- jm.sim.out$jags.model
+MCMC.params <- MCMC.params
+jags.params <- jags.params
+jags.model <- jags.model
 if (!file.exists(out.file.name)){
 
   Start_Time<-Sys.time()

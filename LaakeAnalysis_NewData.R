@@ -11,7 +11,8 @@ library(lubridate)
 source("Granite_Canyon_Counts_fcns.R")
 
 save.file <- F
-
+years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024)
+YEAR <- max(years)
 # For Laake's approach, I need primary effort, primary sightings, secondary effort,
 # secondary sightings, distance, podsize, and associated visibility and Beaufort 
 # sea state
@@ -99,7 +100,6 @@ all.observers <- rbind(all.observers, data.frame(ID = c("21", "21"),
 # Only 2010 and 2011 had two observation stations, which are needed for applying
 # Laake's method beyond naive estimates
 
-years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023)
 
 #years <- 2015
 # sightings and efort
@@ -304,10 +304,10 @@ for (k in 1:length(years)){
 # }
 # 
 # # Define set of models to be evaluated for detection
-# models=c("podsize+Dist+Observer",
-#          "podsize+Dist+Observer+beaufort",
-#          "podsize+Dist+Observer+vis",
-#          "podsize+Dist+Observer+Vis")
+models=c("podsize+Dist+Observer",
+         "podsize+Dist+Observer+beaufort",
+         "podsize+Dist+Observer+vis",
+         "podsize+Dist+Observer+Vis")
 # 
 # # Needs functions in the following scripts
 # source("~/R/ERAnalysis/R/MatchingLinking.r")
@@ -683,7 +683,7 @@ for (year in all.years){
 # for the first 15 surveys prior to 1987. Note with hessian=TRUE, the analysis can
 # take about 30-60 minutes to complete. (TE: Takes about 6 minutes now. But added
 # the if-else. 2023-08-31)
-if (!file.exists("RData/Laake_abundance_estimates.rds")){
+if (!file.exists(paste0("RData/Laake_abundance_estimates_", YEAR, ".rds"))){
   
   #  pdf("Migration.pdf")
   abundance.estimates=compute.series(models, 
@@ -693,9 +693,9 @@ if (!file.exists("RData/Laake_abundance_estimates.rds")){
                                      hessian=TRUE)
   #  dev.off()
   saveRDS(abundance.estimates,
-          file = "RData/Laake_abundance_estimates.rds")  
+          file = paste0("RData/Laake_abundance_estimates_", YEAR, ".rds"))  
 } else {
-  abundance.estimates <- readRDS("RData/Laake_abundance_estimates.rds")
+  abundance.estimates <- readRDS(paste0("RData/Laake_abundance_estimates_", YEAR, ".rds"))
 }
 
 ratio <- abundance.estimates$ratio
