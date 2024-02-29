@@ -1572,7 +1572,7 @@ Pareto k statistics indicated that the model fit reasonably well to the data. A 
 ```{r JAGS-results, echo=F,message=FALSE}
 Season <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011",
             "2014/2015", "2015/2016", "2019/2020", "2021/2022",
-            "2022/2023")
+            "2022/2023", "2023/2024")
 
 # Create a vector of parameter names
 # Some are year specific:
