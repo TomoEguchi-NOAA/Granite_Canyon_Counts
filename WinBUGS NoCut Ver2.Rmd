@@ -1,0 +1,766 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This notebook describes abundance estimation of gray whales using Durban's WinBUGS code and Ver2.0 data extraction method. Ver1.0 was developed by John Durban and updated by Josh Stewart. I created Ver2.0, which corrected some errors in Ver1.0. In this notebook, the new data from the 2021/2022 and 2022/2023 seasons were added to the previous data and run with WinBUGS. 
+
+For 2009/2010 and 2010/2011, there were two stations. The original bugs code uses the same watch lengths for two stations. Actual watch periods, however, were different. So, that needs to be addressed. I will use the results from previous analysis (Durban or Stewart) in this analysis. 
+
+For now, I used the input list directly out of Durban/Stewart analysis for 2006/2007, 2007/2008, 2009/2010, and 2010/2011. 
+
+Set up libraries
+
+```{r}
+rm(list=ls())
+library(R2jags)
+library(abind)
+library(R2WinBUGS)
+library(tidyverse)
+# PARAMETER NAME TRANSFERS:
+
+# JOSH     JOHN
+#    Spline 
+# b.sp     b1 
+# beta.sp  beta1
+# X.sp     X1
+
+WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
+
+```
+
+Get data prior to the 2021/2022 season:
+
+```{r}
+# this file contains all necessary inputs for 2006 - 2019:
+data.0 <- readRDS("RData/2006-2019_GC_Formatted_Data.RDS")
+
+all.years <- c(2007, 2008, 2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024)
+
+# output from Ver2.0 extraction
+years <- c("2015", "2016", "2020", "2022", "2023", "2024")
+
+#out.v2 <- lapply(years, FUN = function(x) readRDS(paste0("RData/V2.1_Aug2022/out_", x, "_Tomo_v2.rds")))
+
+# 85 or 30
+min.duration <- 85 #30
+
+# Change file names accordingly:
+Nhats.filename <- paste0("Data/abundance_", years[length(years)], "_NoCut_", min.duration, "min.csv")
+#Nhats.filename <- paste0("Data/abundance_", years[length(years)], "_", min.duration, "min_8weeks.csv")
+
+# Analysis with minimum of 85 or 30 minutes sampling duration:
+# out.v2 <- lapply(years, FUN = function(x) readRDS(paste0("RData/V2.1_Mar2023/out_", x,
+#                                                          "_min", min.duration, "_Tomo_v2.rds")))
+
+out.v2 <- lapply(years, FUN = function(x) readRDS(paste0("RData/V2.1_Feb2024/out_", x,
+                                                         "_min", min.duration, "_Tomo_v2.rds")))
+
+# just for 8 weeks in 2023
+#out.v2 <- lapply(years, FUN = function(x) readRDS(paste0("RData/V2.1_Mar2023_8weeks/out_", x, 
+#                                                         "_min", min.duration, "_Tomo_v2.rds")))
+
+begin. <- lapply(out.v2, FUN = function(x) x$Final_Data$begin)
+end. <- lapply(out.v2, FUN = function(x) x$Final_Data$end)
+
+# Number of watch periods in each year's survey - before the 2019/2020 season
+# plus the new ones
+# This has been changed for 2024. I now have edited data for 2010 - 2024 seasons.
+# So, I can just use the first two (2006/2007 and 2007/2008). The two numbers for 
+# 2009/2010 and 2010/2011 don't match. In Durban's analysis, they were 164 and 178,
+# respectively. For the new extraction, they are 180 and 145. 
+#periods <-c(136, 135, 164, 178,
+periods <-c(136, 135, 164, 178,
+            lapply(begin., FUN = function(x) length(x)) %>% unlist)
+
+# Shorten data to first x years only to replicate 
+# the analysis in Durban et al 2016. 
+# Or use it for other purposes.
+x <- length(periods)
+
+out.file.name <- paste0("RData/WinBUGS_", x, "yr_NoCut_v2_min", min.duration, ".rds")
+#out.file.name <- paste0("RData/WinBUGS_", x, "yr_v2_min", min.duration, "_8weeks_2023.rds")
+
+Watch.Length. <- list()
+
+for (k in 1:length(begin.)){
+  Watch.Length.[[k]] <- end.[[k]] - begin.[[k]]
+}
+
+# I don't have edited data for 2006/2007 and 2007/2008. So, they need to be
+# used as they were given in the WinBUGS input file from Durban. That's why
+# I take the first two columns. It used to be four columns but I received edited
+# data for 2010/2011 and 2011/2012. 
+# 
+# #whale counts
+n <- labelled::remove_attributes(data.0$n, "dimnames")
+n <- n[,,1:4]  # take the first four years
+#n <- n[,,1:2]  # take the first two years (2007/2008 and 2008/2009)
+n <- abind(n, array(0, replace(dim(n), 1, max(periods) - nrow(n))), along = 1)
+
+# the u data is whether there were observers on watch. 
+# 0 counts are often associated with years/shifts with 
+# no second observer. So if u=0, it will fix observation probability at 0
+# the second column for each year is for the second station - not the second
+# observer.
+u <- data.0$u[,,1:4]
+#u <- data.0$u[,,1:2]
+u <- abind(u, 
+           array(0, replace(dim(u), 1, max(periods) - nrow(u))), along = 1)
+
+# #visibility
+vs. <- lapply(out.v2, FUN = function(x) x$Final_Data$vs)
+
+vs <- rbind(data.0$vs[,1:4],
+                  array(NA, dim = c(max(periods) - nrow(data.0$vs), 4))) %>%
+    labelled::remove_attributes("dimnames")
+# 
+# vs <- rbind(data.0$vs[,1:2], 
+#                   array(NA, dim = c(max(periods) - nrow(data.0$vs), 2))) %>%
+#     labelled::remove_attributes("dimnames")
+
+# Beaufort
+bf. <- lapply(out.v2, FUN = function(x) x$Final_Data$bf)
+bf <- rbind(data.0$bf[,1:4],
+                  array(NA, dim = c(max(periods) - nrow(data.0$bf), 4)))%>%
+    labelled::remove_attributes("dimnames")
+# bf <- rbind(data.0$bf[,1:2], 
+#                   array(NA, dim = c(max(periods) - nrow(data.0$bf), 2)))%>%
+#     labelled::remove_attributes("dimnames")
+
+# observers
+# need to convert observer initials into numbers for all years
+# This needs to be redone... 
+obs.list <- read.csv(file = "Data/ObserverList2023.csv")
+
+obs.2024 <- unique(out.v2[[length(years)]]$Complete_Data$obs)
+new.obs <- obs.2024[!c(obs.2024 %in% obs.list$obs)]
+obs.list <- rbind(obs.list,
+                  data.frame(obs = new.obs,
+                             ID = seq(max(obs.list$ID)+1, 
+                                      max(obs.list$ID) + length(new.obs))))
+
+obs <- data.0$obs[,,1:4]
+#obs <- data.0$obs[,,1:2]
+obs <- abind(obs, 
+           array(36, replace(dim(obs), 1, max(periods) - nrow(obs))), along = 1)
+
+Watch.Length <- rbind(data.0$Watch.Length[,1:4],
+                      array(NA, dim = c(max(periods) -
+                                          nrow(data.0$Watch.Length), 4)))%>%
+    labelled::remove_attributes("dimnames")
+
+# Watch.Length <- rbind(data.0$Watch.Length[,1:2], 
+#                       array(NA, dim = c(max(periods) - 
+#                                           nrow(data.0$Watch.Length), 2)))%>%
+#     labelled::remove_attributes("dimnames")
+
+day <- rbind(data.0$day[,1:4],
+                   array(NA, dim = c(max(periods) - nrow(data.0$day), 4)))%>%
+    labelled::remove_attributes("dimnames")
+
+# day <- rbind(data.0$day[,1:2], 
+#                    array(NA, dim = c(max(periods) - nrow(data.0$day), 2)))%>%
+#     labelled::remove_attributes("dimnames")
+
+k <- 1
+for (k in 1:length(begin.)){
+  # Final_Data is correct length and correct BF and VS
+  n.stations <- length(unique(out.v2[[k]]$Final_Data$station))
+  
+  if (n.stations == 1){
+    n.k <- cbind(c(out.v2[[k]]$Final_Data$n, 
+                   rep(0, times = (dim(n)[1] - length(out.v2[[k]]$Final_Data$n)))), 
+                 rep(0, times = dim(n)[1]))
+  } else {
+    n.1 <- out.v2[[k]]$Final_Data %>% filter(station == "P")# %>% select(n)
+    n.2 <- out.v2[[k]]$Final_Data %>% filter(station == "S")# %>% select(n)
+    n.k <- cbind(c())  
+  }
+  # n <- abind(n, 
+  #            cbind(c(out.v2[[k]]$Final_Data$n, 
+  #                    rep(0, times = (dim(n)[1] - length(out.v2[[k]]$Final_Data$n)))), 
+  #                  rep(0, times = dim(n)[1]))) %>%
+  #   labelled::remove_attributes("dimnames")
+  
+  n <- abind(n, n.k) %>%
+    labelled::remove_attributes("dimnames")
+
+  u <- abind(u, 
+             cbind(c(rep(1, times = length(out.v2[[k]]$Final_Data$n)), 
+                     rep(0, times = (dim(u)[1] - length(out.v2[[k]]$Final_Data$n)))), 
+                   rep(0, times = dim(u)[1])))
+  
+  vs <- cbind(vs, c(out.v2[[k]]$Final_Data$vs, 
+                    rep(NA, times = max(periods - length(out.v2[[k]]$Final_Data$vs)))))  %>%
+    labelled::remove_attributes("dimnames")
+  
+  
+  bf <- cbind(bf, c(out.v2[[k]]$Final_Data$bf,
+                    rep(NA, times = max(periods - length(out.v2[[k]]$Final_Data$bf)))))  %>%
+    labelled::remove_attributes("dimnames")
+  
+  obs.year <- data.frame(obs = out.v2[[k]]$Final_Data$obs) %>% 
+    left_join(obs.list, by = "obs")
+  
+  obs <- abind(obs, 
+               cbind(c(obs.year$ID, 
+                       rep(36, times = (max(periods) - length(obs.year$ID)))), 
+                     rep(36, times = max(periods))))
+
+  Watch.Length <- cbind(Watch.Length,
+                        c(Watch.Length.[[k]], 
+                          rep(NA, 
+                              times = max(periods) - length(Watch.Length.[[k]])))) %>%
+    labelled::remove_attributes("dimnames")
+  
+  day <- cbind(day, 
+               c(floor(begin.[[k]]), 
+               rep(NA, times = max(periods) - length(begin.[[k]])))) %>%
+    labelled::remove_attributes("dimnames")
+  
+}
+
+
+#we're going to make N a partially observed data object with anchor points at day 1 and 90
+# TE: I don't know how these numbers were created... they are generally 2x n (not all)
+# N_inits <- as.matrix(read.table("Data/Initial Values/N_inits.txt",
+#                                 header=T))
+
+N_inits1 <- n[, 1,] * 2 + 2
+N_inits2 <- n[, 2,] * 2 + 2 
+            
+N_inits <- N_inits1
+N_inits[N_inits1 < N_inits2] <- N_inits2[N_inits1 < N_inits2]
+
+N_inits <- rbind(N_inits,
+                 matrix(data = NA, nrow = 2, ncol = length(periods)))
+
+for (k in 1:length(periods)){
+  N_inits[(periods[k]+1):nrow(N_inits), k] <- NA  
+}
+
+#The 'data' has to be the inverse of the inits, 
+# with NAs for all of the estimated Ns, and 0s for the days 1 and 90
+N <- matrix(NA, nrow=max(periods)+2, ncol=length(periods)) 
+
+for(i in 1:length(periods)){
+  N[(periods[i]+1):(periods[i]+2),i] <- 0 #True number of whales passing fixed at 0 for day 1 and 90
+}
+```
+
+Set up BUGS:
+
+```{r}
+
+end <- Watch.Length + day
+
+#t <- round((begin+end)/2)
+t <- round((day+end)/2)
+
+# #Add a couple of extra rows of NAs to the end of the day index reference to match up with the fixed 0s in N (above), assigning them to days 1 and 90
+day <- rbind(as.matrix(day),
+             matrix(NA, nrow=2, ncol=length(periods)))
+#
+#
+for(i in 1:length(periods)){ #Set the anchor points: days 1 and 90
+  day[(periods[i]+1):(periods[i]+2),i] <- c(1,90)
+}
+
+t <- rbind(as.matrix(t),
+           matrix(NA,nrow=2,ncol=length(periods)))
+for(i in 1:length(periods)){ #Set the anchor points: days 1 and 90
+  t[(periods[i]+1):(periods[i]+2),i] <- c(1,90)
+}
+
+#Place 36s for 'no observer' for the two periods following the end of true watches (this is for the day 1 and day 90 zero-whale anchor points)
+#this will force it to the mean observation probability with no observer effect
+
+Watch.Length <- rbind(as.matrix(Watch.Length),
+                      matrix(NA, nrow=2, ncol=length(periods)))
+
+for(i in 1:length(periods)){
+  Watch.Length[(periods[i]+1):(periods[i]+2),i] <- 1
+}
+
+BUGS.data <- list(n = n[1:max(periods[1:x]),,1:x],
+                  n.com = n[1:max(periods[1:x]),,1:x],
+                  n.sp = n[1:max(periods[1:x]),,1:x],
+                  n.station = dim(n[1:max(periods[1:x]),,1:x])[2],
+                  n.year = dim(n[1:max(periods[1:x]),,1:x])[3],
+                  n.obs = max(obs[1:max(periods[1:x]),,1:x]),
+                  periods = periods[1:x],
+                  obs = obs[1:max(periods[1:x]),,1:x],
+                  #Watch.Length = 0.0625,
+                  u = u[1:max(periods[1:x]),,1:x],
+                  vs = vs[1:max(periods[1:x]),1:x],
+                  bf = bf[1:max(periods[1:x]),1:x],
+                  #day=day,
+                  day = t[1:(max(periods[1:x])+2),1:x],
+                  N = N[,1:x],
+                  N.com = N[,1:x],
+                  N.sp = N[,1:x],
+                  knot = c(-1.46,-1.26,-1.02,-0.78,
+                         -0.58,-0.34,-0.10,0.10,
+                         0.34,0.57,0.78,1.02,1.26,1.46),
+                  n.knots=14,
+                  #begin=begin,
+                  #end=end,
+                  Watch.Length=Watch.Length[1:(max(periods[1:x])+2), 1:x])
+
+BUGS.inits <- function() list(mean.prob = 0.5,
+                              BF.Fixed = 0,
+                              VS.Fixed = 0,
+                              mean.prob.sp = 0.5,
+                              BF.Fixed.sp = 0,
+                              VS.Fixed.sp = 0,
+                              mean.prob.com = 0.5,
+                              BF.Fixed.com = 0,
+                              VS.Fixed.com = 0,
+                              mean.beta = c(0,0,0), #mean.beta = c(5,0.14,-3.5),
+                              beta.sigma = c(1,1,1),#beta.sigma = c(7,7,7),
+                              BF.Switch = 1,
+                              VS.Switch = 1,
+                              OBS.Switch = 1,
+                              sigma.Obs = 1,
+                              BF.Switch.sp = 1,
+                              VS.Switch.sp = 1,
+                              OBS.Switch.sp = 1,
+                              sigma.Obs.sp = 1,
+                              BF.Switch.com = 1,
+                              VS.Switch.com = 1,
+                              OBS.Switch.com = 1,
+                              sigma.Obs.com = 1,
+                              N = N_inits,
+                              N.com = N_inits,
+                              N.sp = N_inits,
+                              #z = matrix(1,nrow=90,ncol=6),
+                              beta.sp = array(data=0, dim=c(2,x)),
+                              sd.b.sp = rep(1, times = x), #c(1,1,1,1,1,1),
+                              z = matrix(1, nrow=90, ncol= x))
+
+#### To run 2006-2019 data, load .RDS object and name it BUGS.data, 
+# then update initial values:
+# Files are 2006-2019_GC_Formatted_Data and 2006-2019_GC_N_inits
+
+# WinBUGS gives errors when N inits are set to 0. 
+# Try setting them to 1 instead (seems to work):
+# But this makes no sense to have it here... 2022-10-05
+#N_inits[which(N_inits==0,arr.ind = T)] <- 1
+
+parameters <- c("lambda","OBS.RF","OBS.Switch",
+                "BF.Switch","BF.Fixed","VS.Switch",
+                "VS.Fixed","mean.prob","mean.prob.com",
+                "mean.prob.sp","BF.Fixed.com",
+                "BF.Fixed.sp","VS.Fixed.com",
+                "VS.Fixed.sp",
+                "Corrected.Est","Raw.Est","z",
+                "com","sp","Daily.Est","mean.beta",
+                "beta.sigma","beta","beta.sp","b.sp","sd.b.sp")
+
+# Good to run with 10k/6k as a practice run to see if WinBUGS completes computation.
+# Then, increase iterations/burnin to 100k/60k. 
+
+MCMCparams <- list(n.iter = 100000,
+                   n.thin = 80,
+                   n.burnin = 60000,
+                   n.chains = 5)
+
+
+```
+
+Compare the set up with a sucessful run from WinBUGS Ver2 2023.Rmd
+
+```{r}
+# success.run <- read_rds(file = "RData/WinBUGS_9yr_v2_min85_2023.rds")
+# 
+# success.data <- success.run$BUGS.data
+# 
+
+```
+
+
+Run WinBUGS if it hasn't been run..
+
+```{r}
+#out.file.name <- paste0("RData/WinBUGS_", x, "yr_v2.rds")
+
+if (!file.exists(out.file.name)){
+  
+  #Run time: 
+  Start_Time<-Sys.time()
+  
+  BUGS_out <- bugs(data = BUGS.data,
+                  inits = BUGS.inits,
+                  parameters = parameters,
+                  model.file="GW_Nmix_Orig_NoCut.bugs",
+                  n.chains = MCMCparams$n.chains,
+                  n.iter = MCMCparams$n.iter, 
+                  n.burnin = MCMCparams$n.burnin, 
+                  n.thin = MCMCparams$n.thin,
+                  debug=F,
+                  bugs.directory = WinBUGS.dir,
+                  DIC = FALSE)
+  
+  # 2023-03-03 (problem solved but leavee the comments below for future reference)
+  # ERROR: NIL dereference (read). According to the user manual, this error may
+  # happen "at compilation in some circumstances when an inappropriate
+  # transformation is made, for example an array into a scalar." 
+  # (https://www.mrc-bsu.cam.ac.uk/wp-content/uploads/manual14.pdf)
+  
+  # DIC problems: Surprisingly, sometimes when getting a trap (including one with the very
+  # informative title “NIL dereference (read)”), setting the argument DIC = FALSE in the bugs()
+  # function has helped. (https://www.mbr-pwrc.usgs.gov/software/kerybook/AppendixA_list_of_WinBUGS_tricks.pdf)
+  
+  # I only changed the effort (Watch.Length) for this analysis using 30 minutes as the 
+  # minimum observation duration. That changed the size of data arrays, which shouldn't be an issue. 
+  
+  # It turned out a new observer (JSD) was introduced when a shorter minimum was used to filter
+  # observation period. "JSD" was only found in 2020 (200109_080043). A strange thing happened for that day.
+  # During the 0800 shift, JSD/JWG changed to SJC/JDS on 0900, then the shift continued until 0930. The new
+  # cutoff time (30 min) picked up the first (1 hr) and the second (30 min) as separate observation periods.
+
+  Run_Time <- Sys.time() - Start_Time
+  Ver2.results <-list(BUGS.data = BUGS.data,
+                      N_inits = N_inits,
+                      BUGS_out = BUGS_out,
+                      Run_Time = Run_Time,
+                      Sys.info = Sys.info())
+  
+  saveRDS(Ver2.results, file = out.file.name)
+  
+} else {
+  Ver2.results <- readRDS(out.file.name)
+}
+
+# The following line is for saving the data list and inits list. This was done to check why simulation
+# data were resulting in error - "undefined real result" 
+# (ran with n.iter = 1000, n.thin = 8, n.burnin = 600, n.chains = 3) as well as n.iter = 10000,
+# n.thin = 80, n.burnin = 6000, n.chains = 5
+# data.worked <- list(BUGS.data = BUGS.data,
+#                     BUGS.inits = BUGS.inits,
+#                     N_inits = N_inits,
+#                     x = x,
+#                     parameters = parameters,
+#                     MCMC.params = MCMCparams,
+#                     model.file = "GW_Nmix_Orig.bugs",
+#                     WinBUGS.dir = WinBUGS.dir)
+# 
+# saveRDS(file = paste0("RData/BUGS_data_runs_", Sys.Date(), ".rds"), 
+#         data.worked)
+
+# clear the workspace, bring in the data that worked.
+#rm(list = ls())
+#
+# Runs from the saved list? Yes.
+# data.worked <- readRDS(paste0("RData/BUGS_data_runs_2022-10-21.rds"))
+# N_inits <- data.worked$N_inits
+# x <- data.worked$x
+# bm <- bugs(data = data.worked$BUGS.data,
+#              inits = data.worked$BUGS.inits,
+#              parameters = data.worked$parameters,
+#              model.file = data.worked$model.file,
+#              n.chains = data.worked$MCMC.params$n.chains,
+#              n.iter = data.worked$MCMC.params$n.iter,
+#              n.burnin = data.worked$MCMC.params$n.burnin,
+#              n.thin = data.worked$MCMC.params$n.thin,
+#              debug=T,
+#              bugs.directory = data.worked$WinBUGS.dir)
+
+```
+
+Make some plots:
+
+```{r}
+seasons <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011", 
+             "2014/2015", "2015/2016", "2019/2020", "2021/2022",
+             "2022/2023", "2023/2024")
+
+# Extract estimated counts
+Daily.Est <- Ver2.results$BUGS_out$sims.list$Daily.Est
+sp <- Ver2.results$BUGS_out$sims.list$sp
+com <- Ver2.results$BUGS_out$sims.list$com
+Corrected.Est <- Ver2.results$BUGS_out$sims.list$Corrected.Est
+
+# Each one of them is (# samples) x (90 days) x (# years)
+# To plot them using ggplot's facet, I need to convert
+# these into 2D dataframes of statistics (upper and lower 
+# CIs, median, etc.)
+# Daily.Est.list <- sp.list <- com.list <- vector(mode = "list", 
+#                                                 length = dim(Daily.Est)[3])
+# 
+# Daily.Est.UCIs <- Daily.Est.LCIs <- vector(mode = "list",
+#                                            length = dim(Daily.Est)[3])
+
+stats.list <- vector(mode = "list",
+                     length = dim(Daily.Est)[3])
+
+for (k in 1:dim(Daily.Est)[3]){
+  # Daily.Est.list[[k]] <- Daily.Est[,,k]
+  # Daily.Est.UCIs[[k]] <- apply(Daily.Est[,,k],2,quantile,0.975)
+  # Daily.Est.LCIs[[k]] <- apply(Daily.Est[,,k],2,quantile,0.275)
+  # 
+  # sp.list[[k]] <- sp[,,k]
+  # com.list[[k]] <- com[,,k]
+  
+  stats.list[[k]] <- data.frame(Daily.Est.median = apply(Daily.Est[,,k], 2,
+                                                         median),
+                                Daily.Est.LCL = apply(Daily.Est[,,k], 2,
+                                                      quantile,0.275),
+                                Daily.Est.UCL = apply(Daily.Est[,,k], 2,
+                                                      quantile,0.975),
+                                sp.median = apply(exp(sp[,,k]), 2,
+                                                  median),
+                                sp.LCL = apply(exp(sp[,,k]), 2,
+                                               quantile,0.025),
+                                sp.UCL = apply(exp(sp[,,k]), 2,
+                                               quantile,0.975),
+                                com.median = apply(exp(com[,,k]), 2,
+                                                   median),
+                                com.LCL = apply(exp(com[,,k]), 2,
+                                                quantile,0.025),
+                                com.UCL = apply(exp(com[,,k]), 2,
+                                                quantile,0.975),
+                                #total.median = apply(exp(sp[,,k]), 1, sum),
+                                days = 1:dim(Daily.Est)[2],
+                                year = seasons[k])
+}
+
+all.stats <- do.call("rbind", stats.list) %>% group_by(year)
+
+ggplot(data = all.stats) + 
+  geom_line(aes(x = days, y = sp.median)) + 
+  geom_line(aes(x = days, y = com.median)) +
+  geom_ribbon(aes(x = days, 
+                  ymin = sp.LCL, 
+                  ymax = sp.UCL),
+              fill = "orange", 
+              alpha = 0.5) +
+  geom_line(aes(x = days, y = com.median),
+            color = "red") +
+  facet_wrap(vars(year)) +
+  xlab("Days since December 1") + 
+  ylab("Whales per day")
+
+```
+
+
+
+```{r}
+
+#Com vs Sp
+ggplot(data = all.stats) +
+  geom_line(aes(x = days, y = sp.median)) +
+  geom_ribbon(aes(x = days, 
+                  ymin = sp.LCL, 
+                  ymax = sp.UCL),
+              fill = "orange", alpha = 0.5) + 
+  facet_wrap(vars(year))+
+  xlab("Days since December 1") + 
+  ylab("Whales per day (spline)")
+
+
+
+```
+
+
+```{r}
+
+ggplot(data = all.stats) +
+  geom_line(aes(x = days, y = com.median)) +
+  geom_ribbon(aes(x = days, 
+                  ymin = com.LCL, 
+                  ymax = com.UCL),
+              fill = "orange", alpha = 0.5) + 
+  facet_wrap(vars(year))+
+  xlab("Days since December 1") + 
+  ylab("Whales per day (Normal)")
+
+```
+
+
+```{r}
+
+ggplot(data = all.stats) +
+  geom_line(aes(x = days, y = Daily.Est.median)) +
+  geom_ribbon(aes(x = days, 
+                  ymin = Daily.Est.LCL, 
+                  ymax = Daily.Est.UCL),
+              fill = "orange", 
+              alpha = 0.5) + 
+  facet_wrap(vars(year))+
+  xlab("Days since December 1") + 
+  ylab("Whales per day")
+
+
+```
+
+Total abundance
+```{r}
+abundance.df <- data.frame(Season = seasons,
+                           total.mean = apply(Corrected.Est,
+                                              FUN = mean,
+                                              MARGIN = 2),
+                           total.CV = apply(Corrected.Est,
+                                            FUN = function(x) 100*sqrt(var(x))/mean(x),
+                                            MARGIN = 2),
+                           total.median = apply(Corrected.Est, 
+                                                FUN = median, 
+                                                MARGIN = 2),
+                           total.LCL = apply(Corrected.Est, 
+                                             MARGIN = 2, 
+                                             FUN = quantile, 0.025),
+                           total.UCL = apply(Corrected.Est, 
+                                             MARGIN = 2, 
+                                             FUN = quantile, 0.975))
+
+
+ggplot(data = abundance.df) + 
+  geom_point(aes(x = Season, y = total.median)) + 
+  geom_errorbar(aes(x = Season, ymin = total.LCL, ymax = total.UCL))
+
+#median(apply(exp(sp[,,4]),1,sum))
+
+
+write_csv(abundance.df, file = Nhats.filename)
+
+```
+
+```{r}
+ggplot(data = abundance.df) + 
+  geom_point(aes(x = Season, y = total.mean)) + 
+  geom_errorbar(aes(x = Season, ymin = total.LCL, ymax = total.UCL))
+
+#ggsave(filename = "figures/abundance_9yrs.png", device = "png", dpi = 600)
+```
+
+```{r}
+n.obs.primary <- as.matrix(n[,1,])
+n.total <- colSums(n, na.rm = T)
+
+n.df <- data.frame(Season = seasons,
+                   n = n.total[1,])
+
+
+ggplot(data = n.df) +
+  geom_point(aes(x = Season, y = n))
+```
+
+
+
+<!-- Abundance estimates are quite different from the last year's... bring in the raw data and see if they are the same... -->
+<!-- ```{r} -->
+<!-- # output from Ver2.0 extraction -->
+<!-- # years.2023 <-  years[3:7] #c("2010", "2011", "2015", "2016", "2020", "2022", "2023", "2024") -->
+<!-- #  -->
+<!-- # min.duration <- 85 -->
+
+<!-- #out.v2 <- lapply(years.2023, FUN = function(x) readRDS(paste0("RData/V2.1_Mar2023/out_", x, -->
+<!-- #                                                         "_min", min.duration, "_Tomo_v2.rds"))) -->
+<!-- seasons.2023 <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011",  -->
+<!--              "2014/2015", "2015/2016", "2019/2020", "2021/2022", -->
+<!--              "2022/2023") -->
+
+<!-- BUGS.out.2023 <- read_rds(file = "RData/WinBUGS_9yr_v2_min85.rds") -->
+<!-- # Extract estimated counts -->
+<!-- Daily.Est.2023 <- BUGS.out.2023$BUGS_out$sims.list$Daily.Est -->
+<!-- sp.2023 <- BUGS.out.2023$BUGS_out$sims.list$sp -->
+<!-- com.2023 <- BUGS.out.2023$BUGS_out$sims.list$com -->
+<!-- Corrected.Est.2023 <- BUGS.out.2023$BUGS_out$sims.list$Corrected.Est -->
+
+<!-- # Each one of them is (# samples) x (90 days) x (# years) -->
+<!-- # To plot them using ggplot's facet, I need to convert -->
+<!-- # these into 2D dataframes of statistics (upper and lower  -->
+<!-- # CIs, median, etc.) -->
+<!-- # Daily.Est.list <- sp.list <- com.list <- vector(mode = "list",  -->
+<!-- #                                                 length = dim(Daily.Est)[3]) -->
+<!-- #  -->
+<!-- # Daily.Est.UCIs <- Daily.Est.LCIs <- vector(mode = "list", -->
+<!-- #                                            length = dim(Daily.Est)[3]) -->
+
+<!-- stats.list.2023 <- vector(mode = "list", -->
+<!--                           length = dim(Daily.Est.2023)[3]) -->
+
+<!-- for (k in 1:dim(Daily.Est.2023)[3]){ -->
+<!--   # Daily.Est.list[[k]] <- Daily.Est[,,k] -->
+<!--   # Daily.Est.UCIs[[k]] <- apply(Daily.Est[,,k],2,quantile,0.975) -->
+<!--   # Daily.Est.LCIs[[k]] <- apply(Daily.Est[,,k],2,quantile,0.275) -->
+<!--   #  -->
+<!--   # sp.list[[k]] <- sp[,,k] -->
+<!--   # com.list[[k]] <- com[,,k] -->
+
+<!--   stats.list.2023[[k]] <- data.frame(Daily.Est.median = apply(Daily.Est.2023[,,k], 2, -->
+<!--                                                          median), -->
+<!--                                 Daily.Est.LCL = apply(Daily.Est.2023[,,k], 2, -->
+<!--                                                       quantile,0.275), -->
+<!--                                 Daily.Est.UCL = apply(Daily.Est.2023[,,k], 2, -->
+<!--                                                       quantile,0.975), -->
+<!--                                 sp.median = apply(exp(sp.2023[,,k]), 2, -->
+<!--                                                   median), -->
+<!--                                 sp.LCL = apply(exp(sp.2023[,,k]), 2, -->
+<!--                                                quantile,0.025), -->
+<!--                                 sp.UCL = apply(exp(sp.2023[,,k]), 2, -->
+<!--                                                quantile,0.975), -->
+<!--                                 com.median = apply(exp(com.2023[,,k]), 2, -->
+<!--                                                    median), -->
+<!--                                 com.LCL = apply(exp(com.2023[,,k]), 2, -->
+<!--                                                 quantile,0.025), -->
+<!--                                 com.UCL = apply(exp(com.2023[,,k]), 2, -->
+<!--                                                 quantile,0.975), -->
+<!--                                 #total.median = apply(exp(sp[,,k]), 1, sum), -->
+<!--                                 days = 1:dim(Daily.Est.2023)[2], -->
+<!--                                 year = seasons.2023[k]) -->
+<!-- } -->
+
+<!-- all.stats.2023 <- do.call("rbind", stats.list.2023) %>% group_by(year) -->
+<!-- abundance.df.2023 <- data.frame(Season = seasons.2023, -->
+<!--                            total.mean = apply(Corrected.Est.2023, -->
+<!--                                               FUN = mean, -->
+<!--                                               MARGIN = 2), -->
+<!--                            total.CV = apply(Corrected.Est.2023, -->
+<!--                                             FUN = function(x) 100*sqrt(var(x))/mean(x), -->
+<!--                                             MARGIN = 2), -->
+<!--                            total.median = apply(Corrected.Est.2023,  -->
+<!--                                                 FUN = median,  -->
+<!--                                                 MARGIN = 2), -->
+<!--                            total.LCL = apply(Corrected.Est.2023,  -->
+<!--                                              MARGIN = 2,  -->
+<!--                                              FUN = quantile, 0.025), -->
+<!--                            total.UCL = apply(Corrected.Est.2023,  -->
+<!--                                              MARGIN = 2,  -->
+<!--                                              FUN = quantile, 0.975)) -->
+
+<!-- n.2023 <- BUGS.out.2023$BUGS.data$n -->
+<!-- n.obs.primary.2023 <- as.matrix(n.2023[,1,]) -->
+<!-- n.total.2023 <- colSums(n.2023, na.rm = T) -->
+
+<!-- n.2023.df <- data.frame(Season = seasons.2023, -->
+<!--                    n = n.total.2023[1,]) -->
+
+<!-- ``` -->
+
+<!-- Major differences in observed n for 2009/2010 and 2010/2011 when comparing n.df and n.2023.df. So, something happened for these datasets when data were extracted. Look at the data files. The data extraction for 2009/2010 and 2010/2011 was new for 2024. I used the input data from Durban and Stewart for the analysis in 2023.  -->
+
+<!-- ```{r} -->
+
+<!-- data.0 <- readRDS("RData/2006-2019_GC_Formatted_Data.RDS") -->
+
+<!-- n.original <- data.0$n -->
+<!-- years.original <- c(2007, 2008, 2010, 2011, 2015, 2016, 2020) -->
+<!-- Seasons.original <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011", "2014/2015", "2015/2016", "2019/2020") -->
+
+<!-- n.original.df <- data.frame(Season = Seasons.original, -->
+<!--                             n = colSums(n.original[,1,])) -->
+
+
+<!-- ``` -->
+
+<!-- It's possible that secondary observations for 2010 and 2011 were added to the primary... -->
+
+<!-- ```{r} -->
+<!-- data.2010 <- read_rds(file = "RData/V2.1_Feb2024/out_2010_min85_Tomo_v2.rds") -->
+
+
+
+<!-- ``` -->
+

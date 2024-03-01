@@ -687,7 +687,7 @@ if (!file.exists(data.sim.out.file)){
 
 run.date <- Sys.Date() #"2023-05-26" #"2023-04-14" #Sys.Date() #"2022-11-08" #   
 
-model.v <- "v3"
+model.v <- "v1" # "v3"
 model.d <- "logN_bino_"
 #out.file.name <- paste0("RData/Pois_Binom_sim_results_", run.date, ".rds")
 #out.file.name <- paste0("RData/Pois_Binom_v2_sim_results_", run.date, ".rds")
@@ -791,12 +791,18 @@ max.r.hat <- max(unlist(lapply(jm.sim.out$jm$Rhat,
 #                      value = true.values)
 Season <- simulated.data$sim.parameters$Season
 n.Season <- length(Season)
-params.to.summarize.n.Season <- c("S1", "S2", "P", "Max", "K")
+if (model.v == "v3"){
+  params.to.summarize.n.Season <- c("S1", "S2", "P", "Max", "K")  
+  # Some are common among all years
+  params.to.summarize.n.1 <- c("mean.prob", "BF.Fixed", "VS.Fixed")
+} else if (model.v == "v1"){
+  params.to.summarize.n.Season <- c("S1", "S2", "Max")  
+  # Some are common among all years
+  params.to.summarize.n.1 <- c("mean.prob", "BF.Fixed", "VS.Fixed", "K", "P")
 
-# Some are common among all years
-params.to.summarize.n.1 <- c("mean.prob", "BF.Fixed", "VS.Fixed")
+}
 
-# Add year specific indices
+# Add year specific indices if exist
 param.names.n.Season <- lapply(params.to.summarize.n.Season,
                                FUN = function(x, n.Season){
                                  out <- vector(mode = "character", length = n.Season)

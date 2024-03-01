@@ -247,7 +247,7 @@ if (nrow(n_data.1) > 0){
 Effort4Laake_1$seq <- seq(from = 1, to = nrow(Effort4Laake_1)) 
 Effort4Laake_1 %>%
   mutate(watch.key = paste0(Start.year, "_", seq)) %>%
-  select(-c(seq)) -> Effort4Laake_1
+  dplyr::select(-c(seq)) -> Effort4Laake_1
 
 # pphr (pods per hour) is in the sightings data, rather than in the effort in 
 # Laake's analysis. So, I move the variable.
@@ -255,7 +255,7 @@ Effort4Laake_1 %>%
 # Check this... 2024-02-23
 Data4Laake_1 %>%
   left_join(Effort4Laake_1 %>%
-              select(key, pphr), by = "key") -> Data4Laake_1
+              dplyr::select(key, pphr), by = "key") -> Data4Laake_1
 
 # For secondary if exists:
 Data_Out_2 <- do.call("rbind", Data_Out.list.2)
