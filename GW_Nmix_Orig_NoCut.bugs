@@ -278,7 +278,7 @@
   for(t in 1:n.year){
     for(d in 1:90){
       # Daily estimate, based on either the common model (f) or the specific model (sp). For days with observations, this should have a somewhat confident z estimate. For days with no watches, I assume it will be balanced 50/50 between the two models
-      log(Daily.Est[d,t]) <- z[d,t]*com.cut[d,t] + (1-z[d,t])*sp.cut[d,t] #where sp[] is the specific model, and z[j,t] is the dbern(0.5) daily switch to select between model types. Also consider a simple annual switch, z[t] instead of selecting daily
+      log(Daily.Est[d,t]) <- z[d,t]*com.tmp[d,t] + (1-z[d,t])*sp.tmp[d,t] #where sp[] is the specific model, and z[j,t] is the dbern(0.5) daily switch to select between model types. Also consider a simple annual switch, z[t] instead of selecting daily
 
       #Daily.Est[d,t] <- z[d,t]*Common[d,t] + (1-z[d,t])*Specific[d,t]
 
