@@ -11,7 +11,7 @@ csl: marine-ecology-progress-series.csl
 ```{r setup, include=FALSE}
 rm(list = ls())
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
-save.fig <- F
+save.fig <- T
 
 source("Granite_Canyon_Counts_fcns.R")
 library(tidyverse)
@@ -685,10 +685,14 @@ if (!file.exists(data.sim.out.file)){
 # change this accordingly 2022-11-08 was with a common K and one station
 # 2023-03-23 and later are with two stations
 
-run.date <- "2023-05-26" #"2023-04-14" #Sys.Date() #"2022-11-08" #   
+run.date <- Sys.Date() #"2023-05-26" #"2023-04-14" #Sys.Date() #"2022-11-08" #   
 
+model.v <- "v3"
+model.d <- "logN_bino_"
 #out.file.name <- paste0("RData/Pois_Binom_sim_results_", run.date, ".rds")
-out.file.name <- paste0("RData/Pois_Binom_v2_sim_results_", run.date, ".rds")
+#out.file.name <- paste0("RData/Pois_Binom_v2_sim_results_", run.date, ".rds")
+#out.file.name <- paste0("RData/Pois_Binom_", model.v, "_sim_results_", run.date, ".rds")
+out.file.name <- paste0("RData/", model.d, model.v, "_sim_results_", run.date, ".rds")
 
 if (!file.exists(out.file.name)){
   MCMC.params <- list(n.samples = 120000,
@@ -697,7 +701,9 @@ if (!file.exists(out.file.name)){
                       n.chains = 5)
   
   #jags.model <- paste0("models/model_Richards_pois_bino.txt")
-  jags.model <- paste0("models/model_Richards_pois_bino_v2.txt")
+  #jags.model <- paste0("models/model_Richards_pois_bino_v2.txt")
+  #jags.model <- paste0("models/model_Richards_pois_bino_", model.v, ".txt")
+  jags.model <- paste0("models/model_Richards_", model.d, model.v, ".txt")
   
   jags.params <- c("OBS.RF", "OBS.Switch",
                    "BF.Switch", "BF.Fixed",
@@ -708,6 +714,7 @@ if (!file.exists(out.file.name)){
                    "log.lkhd")
   
   jags.data <- simulated.data$sim.data 
+  jags.data$n.days <- 90
   # list(  n = obsd.n,
   #        n.station = c(2,1),
   #        n.year = length(Season),
@@ -826,13 +833,13 @@ for (k in 1:length(param.names)){
   save.fig.fcn(p.trace.sim.JAGS[[k]] +
                  geom_hline(aes(yintercept = params.df[k, "value"]),
                             color = "red", size = 1.2),
-               file.name = paste0("figures/", param.names[k], "_sim_trace_JAGS_",
+               file.name = paste0("figures/", param.names[k], "_sim_trace_JAGS_", model.d, model.v, "_",
                                   dpi.set, "dpi.png"),
 
                dpi = dpi.set, replace = save.fig)
 
   save.fig.fcn(fig = p.dens.sim.JAGS[[k]],
-               file.name = paste0("figures/", param.names[k], "_sim_dens_JAGS_",
+               file.name = paste0("figures/", param.names[k], "_sim_dens_JAGS_", model.d, model.v, "_",
                                   dpi.set, "dpi.png"),
                dpi = dpi.set, replace = save.fig)
 
@@ -862,13 +869,13 @@ p.mean.N.hats.sim.JAGS <- ggplot(mean.N.hats.sim.JAGS %>% group_by(Season)) +
   facet_wrap(~ Season)
 
 save.fig.fcn(p.mean.N.hats.sim.JAGS,
-             file.name = paste0("figures/mean_N_sim_JAGS_", dpi.set, "dpi.png"),
+             file.name = paste0("figures/mean_N_sim_JAGS_",model.d,  model.v, "_", dpi.set, "dpi.png"),
              replace = save.fig,
              dpi = dpi.set)
 
 if (save.fig)
   ggsave(p.mean.N.hats.sim.JAGS,
-         filename = paste0("figures/mean_N_sim_JAGS_", dpi.set, "dpi.png"),
+         filename = paste0("figures/mean_N_sim_JAGS_",  model.d, model.v, "_", dpi.set, "dpi.png"),
          device = "png", dpi = dpi.set)
 
 N.hats.sim.JAGS <- data.frame(Season = rep(Season, each = 90),
@@ -887,7 +894,7 @@ p.N.hats.sim.JAGS <- ggplot(N.hats.sim.JAGS) +
   facet_wrap(~ Season)
 
 save.fig.fcn(fig = p.N.hats.sim.JAGS,
-               file.name = paste0("figures/N_hats_sim_JAGS_", dpi.set, "dpi.png"),
+               file.name = paste0("figures/N_hats_sim_JAGS_", model.d,  model.v, "_", dpi.set, "dpi.png"),
                dpi = dpi.set, replace = save.fig)
 
 # Simulation did not take into account the correction part so no need to look at this
@@ -901,7 +908,7 @@ p.trace.all.sim.JAGS <- cowplot::plot_grid(plotlist = p.trace.sim.JAGS,
                                       ncol = 2)
 
 save.fig.fcn(fig = p.trace.all.sim.JAGS,
-             file.name = paste0("figures/trace_plots_sim_JAGS_", dpi.set, "dpi.png"),
+             file.name = paste0("figures/trace_plots_sim_JAGS_", model.d,  model.v, "_", dpi.set, "dpi.png"),
              dpi = dpi.set, replace = save.fig)
 
 
@@ -913,7 +920,7 @@ For the parameters that associated with sighting probabilities (mean.prob, BF.Fi
 
 ```{r Figure-trace-sim-JAGS, echo=FALSE, message=FALSE, fig.cap="Trace plots of parameters. Red horizontal lines indicate the true values. Not all plots contain true values because the data generating function for the first year (gamma distribution) was different from the estimation function (Richards' function)."}
 
-knitr::include_graphics(paste0("figures/trace_plots_sim_JAGS_", dpi.set, "dpi.png"))
+knitr::include_graphics(paste0("figures/trace_plots_sim_JAGS_",model.d, model.v, "_", dpi.set, "dpi.png"))
 
 ```
 
@@ -922,12 +929,12 @@ Even with the apparent poor conversion of a few parameters, estimated $\bar{N}$ 
 
 ```{r Figure-mean-N-sim-JAGS, echo=FALSE, message=FALSE, fig.cap = "Estimated $\\bar{N}$ and their 95% CI (blue ribbon) and the true $\\bar{N}$ in gold. "}
 
-knitr::include_graphics(paste0("figures/mean_N_sim_JAGS_", dpi.set, "dpi.png"))
+knitr::include_graphics(paste0("figures/mean_N_sim_JAGS_", model.d,  model.v, "_", dpi.set, "dpi.png"))
 ```
 
 ```{r Figure-N-sim-JAGS, echo=FALSE, message=FALSE, fig.cap = "Estimated $N$ and their 95% CI (blue ribbon) and the true $N$ in gold. Black filled circles indicate observed counts."}
 
-knitr::include_graphics(paste0("figures/N_hats_sim_JAGS_", dpi.set, "dpi.png"))
+knitr::include_graphics(paste0("figures/N_hats_sim_JAGS_", model.d,  model.v, "_", dpi.set, "dpi.png"))
 ```
 
 #### Comparison to Durban et al's method {.unnumbered}
@@ -1494,11 +1501,11 @@ Data from last 9 seasons were analyzed using the new approach and the results co
 
 ```{r new-analysis-9yr-v2, echo=FALSE, message=FALSE, warning=FALSE}
 BUGS.out <- readRDS("RData/WinBUGS_10yr_v2_min85.rds")
-run.date.real <- Sys.Date() #"2023-01-06"   # Change it accordingly
+run.date.real <- "2024-02-27" #Sys.Date() #"2023-01-06"   # Change it accordingly
 # out.file.name <- paste0("RData/JAGS_pois_binom_9yr_v2_", 
 #                         run.date.real, ".rds")
 
-out.file.name <- paste0("RData/JAGS_pois_binom_v2_9yr_v2_", 
+out.file.name <- paste0("RData/JAGS_", model.d, model.v, "_", "_9yr_v2_", 
                         run.date.real, ".rds")
 
 n.station <- c(1,1,1,1,1,1,1,1,1,1)
@@ -1516,9 +1523,9 @@ jags.data.real <- list(  n = BUGS.out$BUGS.data$n,
                          day = BUGS.out$BUGS.data$day,
                          n.days = 90)
 
-MCMC.params <- MCMC.params
-jags.params <- jags.params
-jags.model <- jags.model
+MCMC.params <- jm.sim.out$MCMC.params
+jags.params <- jm.sim.out$jags.params
+jags.model <- jm.sim.out$jags.model
 if (!file.exists(out.file.name)){
 
   Start_Time<-Sys.time()
@@ -1602,15 +1609,13 @@ p.dens <- plots.dens(jm.out.real$jm, params = param.names)
 p.trace <- plots.trace(jm.out.real$jm, params = param.names)
 
 for (k in 1:length(param.names)){
-  save.fig.fcn(fig = p.trace[[k]] +
-                 geom_hline(aes(yintercept = params.df[k, "value"]),
-                            color = "red", size = 1.2),
-               file.name = paste0("figures/", param.names[k], "_real_trace_",
+  save.fig.fcn(fig = p.trace[[k]],
+               file.name = paste0("figures/", param.names[k], "_real_trace_", model.d,  model.v, "_", 
                                   dpi.set, "dpi.png"),
                dpi = dpi.set, replace = save.fig)
 
   save.fig.fcn(fig = p.dens[[k]],
-               file.name = paste0("figures/", param.names[k], "_real_dens_",
+               file.name = paste0("figures/", param.names[k], "_real_dens_", model.d,  model.v, "_", 
                                   dpi.set, "dpi.png"),
                dpi = dpi.set, replace = save.fig)
 
@@ -1695,7 +1700,7 @@ p.mean.N.hats.JAGS <- ggplot(mean.N.hats.JAGS %>% group_by(Season)) +
   facet_wrap(~ Season)
 
 save.fig.fcn(p.mean.N.hats.JAGS,
-             file.name = paste0("figures/mean_N_pois_bino_real_", 
+             file.name = paste0("figures/mean_N_pois_bino_real_", model.d,  model.v, "_", 
                                 dpi.set, "dpi.png"),
              dpi = dpi.set, replace = save.fig)
 
@@ -1730,7 +1735,7 @@ p.N.hats <- ggplot(N.hats.JAGS) +
   facet_wrap(~ Season) 
 
 save.fig.fcn(p.N.hats,
-             file.name = paste0("figures/N_hats_BUGS_JAGS_real_", 
+             file.name = paste0("figures/N_hats_BUGS_JAGS_real_",model.d,   model.v, "_", 
                                 dpi.set, "dpi.png"),
              dpi = dpi.set, replace = save.fig)
 
@@ -1750,7 +1755,7 @@ p.corrected.N.hats <- ggplot(Corrected.Est.all) +
   theme(axis.text.x = element_text(angle = 60, vjust = 1, hjust = 1))
 
 save.fig.fcn(p.corrected.N.hats,
-             file.name = paste0("figures/corrected_N_hats_BUGS_JAGS_real_", 
+             file.name = paste0("figures/corrected_N_hats_BUGS_JAGS_real_", model.d,  model.v, "_", 
                                 dpi.set, "dpi.png"),
              dpi = dpi.set, replace = save.fig)
 
@@ -1763,12 +1768,12 @@ Similarly to the analysis of simulated data, daily estimates were generally less
 
 ```{r Figure-daily-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated dailyt abundance and their 95% CIs using Durban's method (green) and new approach (blue)."}
 
-knitr::include_graphics(paste0("figures/N_hats_BUGS_JAGS_real_", dpi.set, "dpi.png"))
+knitr::include_graphics(paste0("figures/N_hats_BUGS_JAGS_real_", model.d,   model.v, "_", dpi.set, "dpi.png"))
 ```
 
 ```{r Figure-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated annual abundance and their 95% CIs using Durban's method (green) and new approach (blue)."}
 
-knitr::include_graphics(paste0("figures/corrected_N_hats_BUGS_JAGS_real_", dpi.set, "dpi.png"))
+knitr::include_graphics(paste0("figures/corrected_N_hats_BUGS_JAGS_real_", model.d,   model.v, "_", dpi.set, "dpi.png"))
 ```
 
 

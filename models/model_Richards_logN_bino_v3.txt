@@ -23,9 +23,7 @@
 # Observed counts are assumed to be binomial distribution from this function and
 # sighting probability, which is a function of visibility, Beaufort, and observer.
 #
-# Following Raftery (1988, Infererence for the binomial N parameter: A hierarchical 
-# Bayes approach. Biometrika 75:223-228), I use a Poisson distribution as the prior
-# for N. 
+# log Normal for the observed N from the mean N
 
 
 # This v3 version has year spcific K and P parameters with hyperparameters. 
@@ -43,7 +41,7 @@ model{
 			
 			mean.N[t, y] <- (Max[y]) * (M1[t, y] * M2[t, y])
 			
-			N[t, y] ~ dpois(mean.N[t,y])
+			N[t, y] ~ dlnorm(log(mean.N[t,y]), tau.N)
 			
 		}
 	}  
@@ -55,8 +53,8 @@ model{
 			for (d in 1:periods[y]){
 				# observation per period d
 				
-				n[d, s, y] ~ dbin(obs.prob[d, s, y], N[day[d,y], y])
-				log.lkhd[d,s,y] <- logdensity.bin(n[d,s,y], obs.prob[d,s,y], N[day[d,y], y])
+				n[d, s, y] ~ dbin(obs.prob[d, s, y], round(N[day[d,y], y]))
+				log.lkhd[d,s,y] <- logdensity.bin(n[d,s,y], obs.prob[d,s,y], round(N[day[d,y], y]))
 			}
 		}
 	}
@@ -149,4 +147,6 @@ model{
 	sigma.n ~ dgamma(0.1, 0.01)
 	tau.n <- sigma.n ^ (-2)
 		
+	sigma.N ~ dgamma(0.1, 0.01)
+	tau.N <- sigma.N ^ (-2)
 }
