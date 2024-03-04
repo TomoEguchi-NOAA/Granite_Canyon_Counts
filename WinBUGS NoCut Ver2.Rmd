@@ -530,14 +530,19 @@ all.stats <- do.call("rbind", stats.list) %>% group_by(year)
 
 ggplot(data = all.stats) + 
   geom_line(aes(x = days, y = sp.median)) + 
-  geom_line(aes(x = days, y = com.median)) +
+  #geom_line(aes(x = days, y = com.median)) +
   geom_ribbon(aes(x = days, 
                   ymin = sp.LCL, 
                   ymax = sp.UCL),
               fill = "orange", 
               alpha = 0.5) +
   geom_line(aes(x = days, y = com.median),
-            color = "red") +
+            color = "darkred") +
+  geom_ribbon(aes(x = days, 
+                  ymin = com.LCL, 
+                  ymax = com.UCL),
+              fill = "red", 
+              alpha = 0.5) +
   facet_wrap(vars(year)) +
   xlab("Days since December 1") + 
   ylab("Whales per day")

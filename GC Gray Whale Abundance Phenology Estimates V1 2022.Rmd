@@ -12,7 +12,7 @@ output:
 ```{r setup, include=FALSE}
 rm(list = ls())
 knitr::opts_chunk$set(echo = TRUE)
-save.fig <- T
+save.fig <- F
 
 source("Granite_Canyon_Counts_fcns.R")
 library(tidyverse)
@@ -346,10 +346,11 @@ if (save.fig)
          plot = p.Nhat.v1,
          device = "png", dpi = 600)
 
+# Changed the output file to jpg as per Jonathan's request on 2024-03-04
 if (save.fig)
-  ggsave(filename = "figures/nhats_v1_2022_mod.png", 
+  ggsave(filename = "figures/nhats_v1_2022_mod.jpg", 
          plot = p.Nhat.v1.mod,
-         device = "png", dpi = 600)
+         device = "jpeg", dpi = 600)
 
 p.v1.both <- ggplot(data = all.stats.v1) + 
   geom_line(aes(x = days, y = sp.median),
