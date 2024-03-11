@@ -14,7 +14,7 @@ csl: marine-ecology-progress-series.csl
 ```{r setup, include=FALSE}
 rm(list = ls())
 knitr::opts_chunk$set(echo = TRUE)
-save.fig <- T
+save.fig <- F
 
 source("Granite_Canyon_Counts_fcns.R")
 library(tidyverse)
@@ -279,7 +279,14 @@ data.2024 <- readRDS(file = "RData/V2.1_Feb2024/out_2024_min85_Tomo_v2.rds")
 data.2024$Complete_Data %>% 
   group_by(BeginDay) %>%
   summarize(Date = as.Date("2023-11-30") + BeginDay[1],
-            n.day = sum(n)) -> daily.counts
+            n.day = sum(n),
+            n.group = sum(npods)) -> daily.counts
+
+data.2024$Data_Out %>% 
+  group_by(BeginDay) %>%
+  summarize(Date = as.Date("2023-11-30") + BeginDay[1],
+            n.day = sum(n),
+            n.group = sum(npods)) -> daily.counts_Data_Out
 
 # Get the output from WinBUGS run. I use the version 2 output results
 # because V1 had some errors for the past years.  

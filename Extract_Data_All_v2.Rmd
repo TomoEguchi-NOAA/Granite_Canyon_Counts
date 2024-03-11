@@ -20,6 +20,7 @@ library(tidyverse)
 library(lubridate)
 source("Granite_Canyon_Counts_fcns.R")
 
+save.output <- FALSE
 # https://statisticsglobe.com/dplyr-message-summarise-has-grouped-output-r
 options(dplyr.summarise.inform = FALSE)
 
@@ -97,7 +98,7 @@ data.all <- do.call("rbind", data.list)
 # further. I think... this is all taken care of now. 2023-12-12
 
 unique.dates <- unique(data.all$V3)
-c <-20
+c <-15
 for (c in 1:length(unique.dates)){
   #print(paste0("Date = ", c))
   data.all %>% 
@@ -472,17 +473,17 @@ Complete_Data$Eff <- Complete_Data$end - Complete_Data$begin
 
 TotalHrs <- sum(Complete_Data %>% 
                   filter(station == "P") %>% 
-                  select(Eff))*24
+                  dplyr::select(Eff))*24
 
 TotalDays <- length(unique(floor(Complete_Data %>%
                                    filter(station == "P") %>%
-                                   select(begin))))
+                                   dplyr::select(begin))))
 
 TotalObservers <- length(unique(Complete_Data$obs))
 
 TotalWhales <- sum(Complete_Data %>%
                      filter(station == "P") %>%
-                     select(n))
+                     dplyr::select(n))
 
 WPH <- Complete_Data %>%
   filter(station == "P") %>%
@@ -504,14 +505,17 @@ out.obj <- list(Data_Out = Data_Out,
 # saveRDS(out.obj, file = paste0("RData/V2.1_Nov2023/out_", YEAR, "_Tomo_v2.rds"))
 # saveRDS(out.obj, file = paste0("RData/V2.1_Nov2023/out_", YEAR, "_Tomo_v2.rds"))
 
-#saveRDS(out.obj, file = paste0("RData/V2.1_Nov2023/out_", YEAR, "_min", min_dur, "_Tomo_v2.rds"))
-saveRDS(out.obj, file = paste0("RData/V2.1_Feb2024/out_", YEAR, "_min", min_dur, "_Tomo_v2.rds"))
-
-# Saving csv files for Laake analysis
-write.csv(Data4Laake_all,
-          file = paste0("Data/all_sightings_", YEAR, "_Tomo_v2.csv"))
-write.csv(Effort4Laake_all,
-       file = paste0("Data/all_effort_", YEAR, "_Tomo_v2.csv"))
+if (save.output){
+  #saveRDS(out.obj, file = paste0("RData/V2.1_Nov2023/out_", YEAR, "_min", min_dur, "_Tomo_v2.rds"))
+  saveRDS(out.obj, file = paste0("RData/V2.1_Feb2024/out_", YEAR, "_min", min_dur, "_Tomo_v2.rds"))
+  
+  # Saving csv files for Laake analysis
+  write.csv(Data4Laake_all,
+            file = paste0("Data/all_sightings_", YEAR, "_Tomo_v2.csv"))
+  write.csv(Effort4Laake_all,
+            file = paste0("Data/all_effort_", YEAR, "_Tomo_v2.csv"))
+  
+}
 
 ```
 
