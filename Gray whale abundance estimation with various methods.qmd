@@ -8,9 +8,9 @@ editor: visual
 
 ## Introduction
 
-Analytical methods to estimate abundance of gray whales from visual surveys at Granite Canyon, CA, have evolved over the years [@laakeGrayWhaleSouthbound2012; @durbanEstimatingGrayWhale2015]. Laake et al. (2012) used the distance sampling approach with generalized additive models (GAMs). Durban et al. (2015) developed a new method using a Bayesian N-mixture approach, which was approved by the IWC and it has been used for the analysis since the 2015/2016 season. Computation of the analysis is conducted using WinBUGS, which has become obsolete over the last decade or so. In this report, I provide improvements of the method by Durban et al.
+Analytical methods to estimate abundance of gray whales from visual surveys at Granite Canyon, CA, have evolved over the years [@laakeGrayWhaleSouthbound2012; @durbanEstimatingGrayWhale2015]. Laake et al. (2012) used the distance sampling approach with generalized additive models (GAMs). Durban et al. (2015) developed a new method using a Bayesian N-mixture approach, which was approved by the IWC and it has been used for the analysis since the 2015/2016 season. Computation of the analysis is conducted using WinBUGS, which has become obsolete over the last decade or so. In this report, I compare the two approaches on all available data to compare the results from the two approaches. 
 
-At a location along the migration corridor, the number of gray whale sightings increases over time until it reaches its peak, then decreases. The method by Durban et al. used a Gaussian function to capture this general trend. Deviations from the Gaussian function was captured via fitting a spline function to the observed counts.
+During gray whale migration, the number of gray whale sightings at a location increases over time until it reaches its peak, then decreases. The method by Durban et al. used a Gaussian function to capture this general trend. Deviations from the Gaussian function was captured via fitting a spline function to the observed counts.
 
 At the field station located at Granite Canyon, CA, in order to estimate detectability of gray whales by visual observers, counts from two independent stations of paired observers operating simultaneously were compared during two years (2009/2010 and 2010/2011). The two watch stations were positioned 35 m apart at the same elevation (22.5 m) above sea level (Durban et al. 2015). For the years with only one station, detectability was extrapolated for all monitored watch periods based on the fitted model for detectability, where the counts for the south watch station were treated as zero inflated binomial outcomes. The binomial probability was specified as the product of an indicator function and the detectability ($u_{i,j,t} \times p_{i,j,t}$), where $u$ = 1 or 0 to indicate whether or not count data were collected from that station. This formulation ensured that structural zero counts from periods without a second watch did not contribute to the likelihood for estimation of $p$ or $N$ (Durban et al. 2015).
 
@@ -26,7 +26,7 @@ Consistent with Laake et al. (2012), the model for detectability incorporated fi
 
 #### Mathematical description {.unnumbered}
 
-This section was extracted from Durban et al. (2015), almost verbatim. I edited some places to make explanations clearer in my mind and changed some symbols to make them consistent between theirs and my proposed approach, which is described later in this document.
+This section was extracted from Durban et al. (2015), almost verbatim. I edited some places to make explanations clearer in my mind and changed some symbols to make them consistent between theirs and my proposed approach, which is described later in this document. Durban et al.'s approach was conceptually simpler than that of Laake et al's. 
 
 The total counts of whales ($n_{i,d(j),t}$) during the watch period $j$ of the $d$th day in the year $t$ at the watch station $i$ was modeled as a binomial random deviate (in the paper, $j$ was not specified as the $j$th watch period during the $d$th day of the season):
 
@@ -96,6 +96,7 @@ rm(list = ls())
 library(tidyverse)
 library(ERAnalysis)
 library(readr)
+library(ggplot2)
 
 Laake.estimates <- read_csv("Data/all_estimates_Laake_2024.csv",
                             col_types = cols(Year = col_integer(),
@@ -104,8 +105,11 @@ Laake.estimates <- read_csv("Data/all_estimates_Laake_2024.csv",
                                              CV = col_double(),
                                              Season = col_character(),
                                              CL.low = col_double(),
-                                             CL.high = col_double()))
-Laake.estimates$Method <- "Laake"
+                                             CL.high = col_double())) %>%
+  rename(Start.Year = Year) %>%
+  mutate(Year = Start.Year + 1,
+         Method = "Laake") %>%
+  select(Year, Nhat, CV, SE, Season, CL.low, CL.high, Method)
 
 
 ```
@@ -145,19 +149,24 @@ Durban.estimates <- read_csv(file = "Data/abundance_2024_85min.csv",
 
 ```
 
-## Running Code
 
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+### Comparison
 
-```{r}
-1 + 1
-```
-
-You can add options to executable code like this
+The two approaches were applied to the datasets from the 2006/2007 season to the 2023/2024 season, except the 2007/2008 season. Durban's approach generally provided higher point estimates than Laake's approach (Figure). I have not run the entire dataset with WinBUGS code. Given 10 data points require 12 hrs, the entire dataset would probably take 1.5 days. 
 
 ```{r}
-#| echo: false
-2 * 2
+all.estimates <- rbind(Laake.estimates, Durban.estimates) %>%
+  arrange(by = Year)
+
+all.years <- data.frame(Year = seq(min(all.estimates$Year), max(all.estimates$Year)))
+
+all.years %>% left_join(all.estimates, by = "Year") -> all.estimates.df
+
+ggplot(all.estimates.df) +
+  geom_point(aes(x = Year, y = Nhat, color = Method)) +
+  geom_errorbar(aes(x = Year, ymin = CL.low, ymax = CL.high, color = Method))
+
 ```
 
-The `echo: false` option disables the printing of code (only output is displayed).
+
+

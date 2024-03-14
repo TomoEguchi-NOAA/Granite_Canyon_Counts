@@ -8,6 +8,7 @@
 # 
 # I even rewrote the code to make the number of stations to be 1, explicitly. Don't know what to do here. 2023-09-12
 
+# I have not run this script on the entire dataset. This should be done to compare the two approaches. 2024-03-14
 
 rm(list = ls())
 
@@ -43,23 +44,23 @@ data(ERSurveyData)
 data("Observer")
 
 # Estimates from Laake et al. are here:
-col.defs <- cols(Year = col_character(),
-                 Nhat = col_double(),
-                 CV = col_double())
-
-Laake.estimates <- read_csv(file = "Data/Laake et al 2012 Table 9 Nhats.csv",
-                            col_types = col.defs) %>% 
-  mutate(SE = CV * Nhat,
-         LCL = Nhat - 1.96 * SE,
-         UCL = Nhat + 1.96 * SE,
-         Season = lapply(strsplit(Year, "_"), 
-                         FUN = function(x) paste0(x[1], "/", x[2])) %>% 
-           unlist) %>%
-  dplyr::select(Season, Nhat, SE, LCL, UCL)  %>%
-  mutate(Year = lapply(str_split(Season, "/"), 
-                       FUN = function(x) x[2]) %>% 
-           unlist() %>% 
-           as.numeric())
+# col.defs <- cols(Year = col_character(),
+#                  Nhat = col_double(),
+#                  CV = col_double())
+# 
+# Laake.estimates <- read_csv(file = "Data/Laake et al 2012 Table 9 Nhats.csv",
+#                             col_types = col.defs) %>% 
+#   mutate(SE = CV * Nhat,
+#          LCL = Nhat - 1.96 * SE,
+#          UCL = Nhat + 1.96 * SE,
+#          Season = lapply(strsplit(Year, "_"), 
+#                          FUN = function(x) paste0(x[1], "/", x[2])) %>% 
+#            unlist) %>%
+#   dplyr::select(Season, Nhat, SE, LCL, UCL)  %>%
+#   mutate(Year = lapply(str_split(Season, "/"), 
+#                        FUN = function(x) x[2]) %>% 
+#            unlist() %>% 
+#            as.numeric())
 
 # The data in PrimarySightings are all southbound sightings for all years in which visibility and beaufort
 # are less than or equal to 4. Below the counts are shown for the 2 dataframes for
@@ -88,18 +89,16 @@ data(PrimaryEffort)
 #        
 
 # Filter effort and sightings and store in dataframes Effort and Sightings
-Effort = PrimaryEffort[PrimaryEffort$Use,]  
+# There is no need for sightings in Durban's approach
+Effort.1 = PrimaryEffort[PrimaryEffort$Use,]  
 
-Sightings = PrimarySightings
-Sightings$seq = 1:nrow(Sightings)
-Sightings = merge(Sightings, subset(Effort, select=c("key")))
-Sightings = Sightings[order(Sightings$seq),]
+# Sightings = PrimarySightings
+# Sightings$seq = 1:nrow(Sightings)
+# Sightings = merge(Sightings, subset(Effort, select=c("key")))
+# Sightings = Sightings[order(Sightings$seq),]
 
-# filter off-effort sightings and high Beaufort/vis lines from secondary sightings
-# but... there is no effort data for the secondary sightings... so, can't use it
-# for BUGS/jags - ignore it for now.
-# SecondarySightings %>% 
-#   filter(vis < 5, beaufort < 5, is.na(off)) -> secondary.sightings
+data("SecondaryEffort")
+Effort.2 <- SecondaryEffort[SecondaryEffort$Use,]
 
 # For jags and WinBugs code, what I need are
 # 1. observed number of whales per day n[d, s, y], where d = # days since 12/1,
@@ -118,28 +117,245 @@ Sightings = Sightings[order(Sightings$seq),]
 # can be > 1.0, because we have used 9 hrs as maximum. 
 # 
 
-MCMC.params <- list(n.iter = 125000,
-                    n.thin = 50,
-                    n.burnin = 25000,
-                    n.chains = 5)
+# See LaakeAnalysis_NewData.R for the following code chunk
+# Add new data
+years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024)
+YEAR <- max(years)
+
+# Observers need to be in integers, not their initials.
+data("Observer")   # from ERAnalysis package.
+#Observer$Set = "old"
+# Need to give numeric IDs to observers
+Observer %>%
+  mutate(ID.char = as.character(ID)) -> Observer
+
+# Lines 68 and 69 are duplicates. 
+Observer.1 <- Observer[1:67,]
+
+new.observers <- read.csv(file = "Data/ObserverList2023.csv") %>%
+  transmute(ID = ID,
+            Initials = obs)
+
+Observer.1 %>%
+  left_join(new.observers, by = "Initials") %>%
+  filter(!is.na(ID.y)) %>%
+  transmute(ID = ID.y,
+            Initials = Initials) -> tmp
+
+new.observers %>%
+  anti_join(tmp, by = "ID") -> tmp.2
+
+tmp.2$new.ID = 68:((68+nrow(tmp.2))-1)
+
+tmp.2 %>%
+  select(new.ID, Initials) %>%
+  mutate(ID = new.ID,
+         Initials = Initials) %>%
+  select(-new.ID) -> tmp.3
+
+all.observers <- rbind(Observer %>% select(ID, Initials), tmp.3) %>%
+  mutate(Observer = Initials) %>%
+  na.omit() %>%
+  filter(ID != "21") %>%  # ID - 21 is ARV/AVS, which is not useful
+  droplevels()
+
+# add those initials back in
+all.observers <- rbind(all.observers, data.frame(ID = c("21", "21"), 
+                                                 Initials = c("ARV", "AVS"), 
+                                                 Observer = c("ARV", "AVS")))
+
+# sightings and efort
+sightings.list.primary <- effort.list.primary  <- list()
+sightings.list.secondary <- effort.list.secondary  <- list()
+k <- 1
+for (k in 1:length(years)){
+  # These raw data files contain repeated observations of all groups.
+  # 
+  
+  # tmp.sightings <- read.csv(paste0("Data/all_sightings_", 
+  #                                  years[k], "_Tomo_v2.csv")) 
+  # 
+  # tmp.sightings %>%
+  #   mutate(Date1 = as.Date(Date, format = "%m/%d/%Y")) %>%
+  #   #group_by(group) %>%
+  #   transmute(Date = Date1,
+  #             Time = Time_PST, 
+  #             day = day(Date),
+  #             month = month(Date),
+  #             year = year(Date),
+  #             watch = shift,
+  #             t241 = difftime((paste(Date, Time)),
+  #                             (paste0((years[k] - 1), 
+  #                                     "-11-30 00:00:00"))) %>%
+  #               as.numeric(),
+  #             Group_ID = Group_ID,
+  #             distance = Distance,
+  #             podsize = nwhales,
+  #             vis = vis,
+  #             beaufort = beaufort,
+  #             Start.year = years[k]-1,
+  #             Observer = toupper(observer),
+  #             key = key,
+  #             pphr = pphr,
+  #             date.shift = date.shift,
+  #             station = station) %>%
+  #   arrange(Date, Group_ID) %>%
+  #   filter(vis < 5, beaufort < 5) %>%
+  #   na.omit() -> sightings.all
+  # 
+  # sightings.all %>% 
+  #   filter(station == "P") -> sightings.list.primary[[k]]
+  # 
+  # sightings.all %>% 
+  #   filter(station == "S") -> sightings.list.secondary[[k]]
+  
+  tmp.effort <- read.csv(paste0("Data/all_effort_", 
+                                years[k], "_Tomo_v2.csv")) 
+  
+  tmp.effort %>%
+    transmute(watch.key = watch.key,
+              Start.year = years[k] - 1,
+              key = key,
+              begin = begin,
+              end = end,
+              npods = npods,
+              nwhales = nwhales,
+              effort = effort,
+              vis = vis,
+              beaufort = beaufort,
+              Observer = toupper(observer),
+              time = time,
+              watch = shift,
+              date.shift = date.shift,
+              Use = T,
+              Date = as.Date(Date, format = "%m/%d/%Y"),
+              station = station) %>%
+    filter(vis < 5, beaufort < 5) %>%
+    na.omit() -> effort.all
+  
+  effort.all %>%
+    filter(station == "P") -> effort.list.primary[[k]]
+  
+  effort.all %>%
+    filter(station == "S") -> effort.list.secondary[[k]]
+}
+
+# sightings
+# sightings.primary <- do.call("rbind", sightings.list.primary) %>%
+#   na.omit()
+# 
+# sightings.primary %>% 
+#   left_join(all.observers, by = "Observer") %>%
+#   select(-c(Observer, Initials)) %>%
+#   rename(Observer = ID) -> sightings.primary
+# 
+# sightings.secondary <- do.call("rbind", sightings.list.secondary) %>%
+#   na.omit()
+# 
+# sightings.secondary %>% 
+#   left_join(all.observers, by = "Observer") %>%
+#   select(-c(Observer, Initials)) %>%
+#   rename(Observer = ID) -> sightings.secondary
+
+# Effort
+effort.primary <- do.call("rbind", effort.list.primary)  %>%
+  na.omit()
+
+effort.primary %>% 
+  left_join(all.observers, by = "Observer") %>%
+  select(-c(Observer, Initials)) %>%
+  rename(Observer = ID) -> effort.primary
+
+effort.secondary <- do.call("rbind", effort.list.secondary)  %>%
+  na.omit()
+
+effort.secondary %>% 
+  left_join(all.observers, by = "Observer") %>%
+  select(-c(Observer, Initials)) %>%
+  rename(Observer = ID) -> effort.secondary
+
+##### end of code chunk from LaakeAnalysis_NewData.R
+# Need to convert begin date to begin time, then to shift ID so they can be matched
+# between primary and secondary sightings
+frac.day2time <- function(x){
+  decimal.day <- x - floor(x)
+  hrs <- decimal.day * 24
+  return(hrs)
+}
+
+# Convert fractional hours to shift ID
+shift.definition.frac.hr <- function(time.dec.hrs){
+  
+  shift.id <- ifelse(time.dec.hrs <= 7.5, 0,
+                     ifelse(time.dec.hrs <= 9, 1,
+                            ifelse(time.dec.hrs <= 10.5, 2,
+                                   ifelse(time.dec.hrs <= 12, 3,
+                                          ifelse(time.dec.hrs <= 13.5, 4,
+                                                 ifelse(time.dec.hrs <= 15, 5,
+                                                        ifelse(time.dec.hrs <= 16.5, 6, 7)))))))
+  return(shift.id)
+}
+
+
+Effort.1 %>% 
+  mutate(Day1 = as.Date(paste0(Start.year, "-12-01")),
+         dt = as.numeric(as.Date(Date) - Day1) + 1,
+         obs = Observer,
+         start.hr = frac.day2time(begin),
+         shift = shift.definition.frac.hr(start.hr)) %>%
+  select(Start.year, nwhales, effort, vis, beaufort, obs, dt, begin, start.hr, shift) %>%
+  group_by(Start.year) %>%
+  mutate(effort.min = effort * 24 * 60,
+         watch.prop = effort.min/540) -> Effort.1.by.period
+
+Effort.2 %>% 
+  mutate(Day1 = as.Date(paste0(Start.year, "-12-01")),
+         dt = as.numeric(as.Date(Date) - Day1) + 1,
+         obs = Observer,
+         start.hr = frac.day2time(begin),
+         shift = shift.definition.frac.hr(start.hr)) %>%
+  select(Start.year, nwhales, effort, vis, beaufort, obs, dt, begin, start.hr, shift) %>%
+  group_by(Start.year) %>%
+  mutate(effort.min = effort * 24 * 60,
+         watch.prop = effort.min/540) -> Effort.2.by.period
+
+# Need to combine old and new effort dataframes, for primary and secondary
+ 
+
+
+#Effort.by.day %>%
+Effort.1.by.period %>%
+  mutate(Initials = obs) %>%
+  left_join(Observer, by = "Initials") %>%
+  dplyr::select(-c(Initials, Observer, Name, Sex)) %>%
+  rename(ID.1 = ID) %>%
+  mutate(ID.char = obs) %>%
+  left_join(Observer.1, by = "ID.char") %>%
+  dplyr::select(-c(Initials, Observer, Name, Sex, ID.char)) -> Effort.1.by.period.1
+
+#Effort.by.day.1$ID[is.na(Effort.by.day.1$ID)] <- Effort.by.day.1$ID.1[is.na(Effort.by.day.1$ID)]
+Effort.by.period.1$ID[is.na(Effort.by.period.1$ID)] <- Effort.by.period.1$ID.1[is.na(Effort.by.period.1$ID)]
+
+
 
 #############################################
 # Also run WinBugs and see how that compares.
 
-create.WinBUGS.data <- function(Durban.data.1){
+create.WinBUGS.data <- function(in.data){
   # the number of years in the dataset. A lot! 
-  all.years <- unique(Durban.data.1$Start.year)
+  all.years <- unique(in.data$Start.year)
   
-  Durban.data.1 %>% 
+  in.data %>% 
     group_by(Start.year) %>% 
     summarise(n = n()) -> n.year
   
+  in.data.1 <- in.data
   # re-index observers
-  obs.df <- data.frame(ID = unique(Durban.data.1$ID %>% sort),
-                       seq.ID = seq(1, length(unique(Durban.data.1$ID))))
+  obs.df <- data.frame(ID = unique(in.data.1$ID %>%  sort),
+                       seq.ID = seq(1, length(unique(in.data.1$ID))))
   
-  Durban.data.1 %>% 
-    left_join(obs.df, by = "ID") -> Durban.data.1
+  in.data.1 %>% 
+    left_join(obs.df, by = "ID") -> in.data.1
   
   # create matrices - don't know how to do this in one line...  
   bf <- vs <- watch.prop <- day <- matrix(nrow = max(n.year$n), ncol = length(all.years))
@@ -152,7 +368,7 @@ create.WinBUGS.data <- function(Durban.data.1){
   periods <- vector(mode = "numeric", length = length(all.years))
   k <- 1
   for (k in 1:length(all.years)){
-    Durban.data.1 %>% 
+    in.data.1 %>% 
       filter(Start.year == all.years[k]) -> tmp
     
     BUGS.n[1:nrow(tmp), k] <- tmp$n + 1
@@ -170,10 +386,10 @@ create.WinBUGS.data <- function(Durban.data.1){
   BUGS.data <- list(n = BUGS.n,
                     n.com = BUGS.n,
                     n.sp = BUGS.n,
-                    #n.station = 1,
-                    n.year = length(all.years),
-                    n.obs = length(unique(Durban.data.1$seq.ID))+1,
-                    periods = periods,
+                    n.station = 2,
+                    n.year = as.integer(length(all.years)),
+                    n.obs = as.integer(length(unique(in.data.1$seq.ID))+1),
+                    periods = as.integer(periods),
                     obs = BUGS.obs,
                     vs = vs,
                     bf = bf,
@@ -183,13 +399,63 @@ create.WinBUGS.data <- function(Durban.data.1){
   return(BUGS.data)
 }
 
+BUGS.data.1 <- create.WinBUGS.data(Effort.by.period.1)
 
-# Need to give numeric IDs to observers
-Observer %>%
-  mutate(ID.char = as.character(ID)) -> Observer
 
-# Lines 68 and 69 are duplicates. 
-Observer.1 <- Observer[1:67,]
+
+MCMC.params <- list(n.iter = 125000,
+                    n.thin = 50,
+                    n.burnin = 25000,
+                    n.chains = 5)
+
+# Bring in the most recent output from WiBUGS Ver2.Rmd
+# this file contains all necessary inputs for 2006 - 2019:
+data.0 <- readRDS("RData/2006-2019_GC_Formatted_Data.RDS")
+
+all.years <- c(2007, 2008, 2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024)
+
+# output from Ver2.0 extraction
+years <- c("2015", "2016", "2020", "2022", "2023", "2024")
+
+#out.v2 <- lapply(years, FUN = function(x) readRDS(paste0("RData/V2.1_Aug2022/out_", x, "_Tomo_v2.rds")))
+
+# 85 or 30
+min.duration <- 85 #30
+
+out.v2 <- lapply(years, 
+                 FUN = function(x) readRDS(paste0("RData/V2.1_Feb2024/out_", x,
+                                                  "_min", min.duration, "_Tomo_v2.rds")))
+
+# just for 8 weeks in 2023
+#out.v2 <- lapply(years, FUN = function(x) readRDS(paste0("RData/V2.1_Mar2023_8weeks/out_", x, 
+#                                                         "_min", min.duration, "_Tomo_v2.rds")))
+
+begin. <- lapply(out.v2, FUN = function(x) x$Final_Data$begin)
+end. <- lapply(out.v2, FUN = function(x) x$Final_Data$end)
+
+# Number of watch periods in each year's survey - before the 2019/2020 season
+# plus the new ones
+# This has been changed for 2024. I now have edited data for 2010 - 2024 seasons.
+# So, I can just use the first two (2006/2007 and 2007/2008). The two numbers for 
+# 2009/2010 and 2010/2011 don't match. In Durban's analysis, they were 164 and 178,
+# respectively. For the new extraction, they are 180 and 145. I will stick with
+# Durban's data for now. 2024-03-14
+periods <-c(136, 135, 164, 178,
+            lapply(begin., FUN = function(x) length(x)) %>% unlist)
+
+# Shorten data to first x years only to replicate 
+# the analysis in Durban et al 2016. 
+# Or use it for other purposes.
+x <- length(periods)
+
+out.file.name <- paste0("RData/WinBUGS_", x, "yr_v2_min", min.duration, ".rds")
+
+# Bring in the most recent WinBUGS run results, which contain input data, initial values
+# and other essentials
+Ver2.results <- readRDS(out.file.name)
+
+
+
 
 # In WinBUGS code, the number of days per season is fixed at 90. So, without
 # adjusting the code, which I don't want to do for comparing results, the data
@@ -354,7 +620,7 @@ if (!file.exists(out.file.name)){
   BUGS_out <- bugs(data = BUGS.data,
                    inits = BUGS.inits,
                    parameters = BUGS.parameters,
-                   model.file="GW_Nmix_Orig_st1.bugs",
+                   model.file="GW_Nmix_Orig.bugs",
                    n.chains = MCMC.params$n.chains,
                    n.iter = MCMC.params$n.iter, #MCMC.params$n.samples, 
                    n.burnin = MCMC.params$n.burnin, 
@@ -375,6 +641,29 @@ if (!file.exists(out.file.name)){
 } else {
   BUGS.out <- readRDS(out.file.name)
 }
+
+# 2024-02-15: Compare BUGS.data and code to find discrepancies in input array or vector
+# sizes vs. what's in the code.
+
+# 2023-03-03 (problem solved but leave the comments below for future reference)
+# ERROR: NIL dereference (read). According to the user manual, this error may
+# happen "at compilation in some circumstances when an inappropriate
+# transformation is made, for example an array into a scalar." 
+# (https://www.mrc-bsu.cam.ac.uk/wp-content/uploads/manual14.pdf)
+# https://stackoverflow.com/questions/21969600/bugs-error-messages
+
+# DIC problems: Surprisingly, sometimes when getting a trap (including one with the very
+# informative title “NIL dereference (read)”), setting the argument DIC = FALSE in the bugs()
+# function has helped. (https://www.mbr-pwrc.usgs.gov/software/kerybook/AppendixA_list_of_WinBUGS_tricks.pdf)
+
+# I only changed the effort (Watch.Length) for this analysis using 30 minutes as the 
+# minimum observation duration. That changed the size of data arrays, which shouldn't be an issue. 
+
+# It turned out a new observer (JSD) was introduced when a shorter minimum was used to filter
+# observation period. "JSD" was only found in 2020 (200109_080043). A strange thing happened for that day.
+# During the 0800 shift, JSD/JWG changed to SJC/JDS on 0900, then the shift continued until 0930. The new
+# cutoff time (30 min) picked up the first (1 hr) and the second (30 min) as separate observation periods.
+
 
 BUGS.out$BUGS_out$summary %>% 
   as.data.frame() %>%
