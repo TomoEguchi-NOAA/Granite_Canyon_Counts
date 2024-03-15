@@ -302,8 +302,11 @@ Effort.1 %>%
          dt = as.numeric(as.Date(Date) - Day1) + 1,
          obs = Observer,
          start.hr = frac.day2time(begin),
-         shift = shift.definition.frac.hr(start.hr)) %>%
-  select(Start.year, nwhales, effort, vis, beaufort, obs, dt, begin, start.hr, shift) %>%
+         shift = shift.definition.frac.hr(start.hr),
+         station = 1) %>%
+  select(Start.year, nwhales, effort, vis, beaufort, 
+         obs, dt, begin, start.hr, shift, station) %>%
+  filter(shift > 0) %>%
   group_by(Start.year) %>%
   mutate(effort.min = effort * 24 * 60,
          watch.prop = effort.min/540) -> Effort.1.by.period
@@ -313,11 +316,16 @@ Effort.2 %>%
          dt = as.numeric(as.Date(Date) - Day1) + 1,
          obs = Observer,
          start.hr = frac.day2time(begin),
-         shift = shift.definition.frac.hr(start.hr)) %>%
-  select(Start.year, nwhales, effort, vis, beaufort, obs, dt, begin, start.hr, shift) %>%
+         shift = shift.definition.frac.hr(start.hr),
+         station = 2) %>%
+  select(Start.year, nwhales, effort, vis, beaufort, 
+         obs, dt, begin, start.hr, shift, station) %>%
+  filter(shift > 0) %>%
   group_by(Start.year) %>%
   mutate(effort.min = effort * 24 * 60,
          watch.prop = effort.min/540) -> Effort.2.by.period
+
+
 
 # Need to combine old and new effort dataframes, for primary and secondary
  
