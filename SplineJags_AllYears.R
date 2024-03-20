@@ -76,7 +76,7 @@ Effort.by.period.1 %>%
 n.1 <- matrix(data = 0, nrow = max(periods.1$n)+2, ncol = n.year)
 Watch.Length.1 <- matrix(data = 0, nrow = max(periods.1$n)+2, ncol = n.year)
 day.1 <- matrix(nrow = max(periods.1$n)+2, ncol = n.year)
-bf.1 <- vs.1 <- matrix(nrow = max(periods.1$n), ncol = n.year)
+bf.1 <- vs.1 <- matrix(data = 0, nrow = max(periods.1$n), ncol = n.year)
 obs.1 <-  matrix(nrow = max(periods.1$n), ncol = n.year)
 u.1 <- matrix(data = 0, nrow = max(periods.1$n)+2, ncol = n.year)
 
@@ -131,9 +131,9 @@ Effort.by.period.2 %>%
 
 n.2 <- matrix(data = 0, nrow = max(periods.2$n)+2, ncol = n.year)
 Watch.Length.2 <- matrix(data = 0, nrow = max(periods.2$n)+2, ncol = n.year)
-day.2 <- matrix(nrow = max(periods.2$n)+2, ncol = n.year)
-bf.2 <- vs.2 <- matrix(nrow = max(periods.2$n), ncol = n.year)
-obs.2 <- matrix(nrow = max(periods.2$n), ncol = n.year)
+day.2 <- matrix(data = 1, nrow = max(periods.2$n)+2, ncol = n.year)
+bf.2 <- vs.2 <- matrix(data = 0, nrow = max(periods.2$n), ncol = n.year)
+obs.2 <- matrix(data = 36, nrow = max(periods.2$n), ncol = n.year)
 u.2 <- matrix(data = 0, nrow = max(periods.2$n)+2, ncol = n.year)
 
 c <- 1
@@ -289,17 +289,17 @@ periods.2 <- c(all.periods$n.y, 0, BUGS.data$periods[3:4], rep(0, x-3))
 
 # Create jags input
 N.1.inits <- matrix(nrow = nrow(n.1), ncol = ncol(n.1))
-N.1.inits[day.1 == 1 | day.1 == 90] <- 0
+N.1.inits[day.1 == 1 | day.1 > 89] <- 0
 
 N.2.inits <- matrix(nrow = nrow(n.2), ncol = ncol(n.2))
-N.2.inits[day.2 == 1 | day.2 == 90] <- 0
+N.2.inits[day.2 == 1 | day.2 > 89] <- 0
 
 jags.data <- list(n.1 = n.1,
                   n.2 = n.2,
                   N.1 = N.1.inits,
                   N.2 = N.2.inits,
                   n.station = ifelse(colSums(n.2) > 0, 1, 0),
-                  n.year = n.year,
+                  n.year = ncol(n.1),
                   n.obs = max(obs.1, na.rm = T),
                   periods.1 = periods.1,
                   periods.2 = periods.2,
@@ -348,8 +348,8 @@ MCMC.params <- list(n.samples = 250000,
 
 # Needs initial values for N to avoid errors. N has to be significantly larger
 # than observed n.
-jags.inits <- function() list(N.1 = jags.data$n.1[,] * 2 + 10,
-                              N.2 = jags.data$n.2[,] * 2 + 10)
+jags.inits <- function() list(N.1 = jags.data$n.1[,] * 5,
+                              N.2 = jags.data$n.2[,] * 5)
 
 out.file.name <- "RData/JAGS_Spline_results_All_Data.rds"
 
@@ -357,7 +357,8 @@ if (!file.exists(out.file.name)){
   Start_Time<-Sys.time()
   
   jm <- jagsUI::jags(jags.data,
-                     inits = jags.inits,
+                     inits = function() list(N.1 = jags.data$n.1[,] * 5,
+                                             N.2 = jags.data$n.2[,] * 5),
                      parameters.to.save= jags.params,
                      model.file = jags.model,
                      n.chains = MCMC.params$n.chains,

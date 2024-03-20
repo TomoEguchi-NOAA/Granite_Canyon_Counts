@@ -32,7 +32,9 @@ model{
 	
 	for(j.2 in 1:(periods.2[t]+2)){
         
-		log(lambda.2[j.2,t]) <- log(Watch.Length.2[j.2,t]) + sp[day.2[j.2,t],t]
+		log(lambda.2[j.2,t]) <- ifelse(Watch.Length.2[j.2, t] > 0, 
+										log(Watch.Length.2[j.2,t]) + sp[day.2[j.2,t],t],
+										-1000)
 	}#j.2
 	
   }#t
@@ -95,16 +97,16 @@ model{
         # no second observer. So if u=0, it will fix observation probability at 0
         
         # Spline (sp) model:
-        logit(prob.sp[j.1,t]) <- logit(mean.prob.sp) + (BF.Switch.sp * BF.Fixed.sp * bf.1[j.1,t]) + (VS.Switch.sp * VS.Fixed.sp*vs.1[j.1,t]) + (OBS.Switch.sp * OBS.RF.sp[obs.1[j.1,t]])
-        obs.prob.1[j.1,t] <- u.1[j.1,t] * prob.sp[j.1,t]
+        logit(prob.sp.1[j.1,t]) <- logit(mean.prob.sp) + (BF.Switch.sp * BF.Fixed.sp * bf.1[j.1,t]) + (VS.Switch.sp * VS.Fixed.sp*vs.1[j.1,t]) + (OBS.Switch.sp * OBS.RF.sp[obs.1[j.1,t]])
+        obs.prob.1[j.1,t] <- u.1[j.1,t] * prob.sp.1[j.1,t]
         
     }#j.1
 	  
 	# Secondary
 	for (j.2 in 1:periods.2[t]){
 		# Spline (sp) model:
-		logit(prob.sp[j.2,t]) <- logit(mean.prob.sp) + (BF.Switch.sp * BF.Fixed.sp * bf.2[j.2,t]) + (VS.Switch.sp * VS.Fixed.sp*vs.2[j.2,t]) + (OBS.Switch.sp * OBS.RF.sp[obs.2[j.2,t]])
-		obs.prob.2[j.2,t] <- u.2[j.2,t] * prob.sp[j.2,t]
+		logit(prob.sp.2[j.2,t]) <- logit(mean.prob.sp) + (BF.Switch.sp * BF.Fixed.sp * bf.2[j.2,t]) + (VS.Switch.sp * VS.Fixed.sp*vs.2[j.2,t]) + (OBS.Switch.sp * OBS.RF.sp[obs.2[j.2,t]])
+		obs.prob.2[j.2,t] <- u.2[j.2,t] * prob.sp.2[j.2,t]
 	   
 	}#j.2
 	
