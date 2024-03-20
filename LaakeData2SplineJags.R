@@ -141,16 +141,16 @@ Effort %>%
   mutate(effort.min = effort * 24 * 60,
          watch.prop = effort.min/540) -> Effort.by.period
 
-  # group_by(Start.year, dt) %>%
-  # summarise(Start.year = first(Start.year),
-  #           dt = first(dt),
-  #           vs = max(vis),
-  #           bf = max(beaufort),
-  #           obs = first(Observer),
-  #           effort = sum(effort),
-  #           n = sum(nwhales)) %>%
-  # mutate(effort.min = effort * 24 * 60,
-  #        watch.prop = effort.min/540) -> Effort.by.day
+# group_by(Start.year, dt) %>%
+# summarise(Start.year = first(Start.year),
+#           dt = first(dt),
+#           vs = max(vis),
+#           bf = max(beaufort),
+#           obs = first(Observer),
+#           effort = sum(effort),
+#           n = sum(nwhales)) %>%
+# mutate(effort.min = effort * 24 * 60,
+#        watch.prop = effort.min/540) -> Effort.by.day
 
 # Need to give numeric IDs to observers
 Observer %>%
@@ -179,7 +179,7 @@ create.jags.data <- function(Effort.by.period.1){
   Effort.by.period.1 %>% 
     select(Start.year) %>% 
     summarise(n = n()) -> n.year
-
+  
   # re-index observers
   obs.df <- data.frame(ID = unique(Effort.by.period.1$ID %>% sort),
                        seq.ID = seq(1, length(unique(Effort.by.period.1$ID))))
@@ -194,7 +194,7 @@ create.jags.data <- function(Effort.by.period.1){
   
   # create matrices - don't know how to do this in one line...  
   bf <- vs <- matrix(nrow = max(n.year$n), ncol = length(all.years))
-
+  
   day <- effort <- matrix(nrow = (max(n.year$n) + 2), 
                           ncol = length(all.years))
   
@@ -216,7 +216,7 @@ create.jags.data <- function(Effort.by.period.1){
     effort[1:nrow(tmp), k] <- tmp$watch.prop #tmp$effort
     effort[(nrow(tmp)+1):(nrow(tmp)+2), k] <- c(1,1)
     obs[1:nrow(tmp), 1, k] <- tmp$seq.ID
-
+    
     periods[k] <- nrow(tmp)
   }
   

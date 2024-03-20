@@ -164,7 +164,7 @@ all.observers <- rbind(all.observers, data.frame(ID = c("21", "21"),
                                                  Initials = c("ARV", "AVS"), 
                                                  Observer = c("ARV", "AVS")))
 
-# sightings and efort
+# sightings and effort
 sightings.list.primary <- effort.list.primary  <- list()
 sightings.list.secondary <- effort.list.secondary  <- list()
 k <- 1
