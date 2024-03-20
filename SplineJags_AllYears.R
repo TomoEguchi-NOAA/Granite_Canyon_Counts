@@ -288,6 +288,12 @@ periods.1 <- c(all.periods$n.x, BUGS.data$periods[2:length(BUGS.data$periods)])
 periods.2 <- c(all.periods$n.y, 0, BUGS.data$periods[3:4], rep(0, x-3))
 
 # Create jags input
+# N_inits1 <- n.1 * 2 + 2
+# N_inits2 <- n.2 * 2 + 2 
+# 
+# N_inits <- N_inits1
+# N_inits[N_inits1 < N_inits2] <- N_inits2[N_inits1 < N_inits2]
+
 N.1.inits <- matrix(nrow = nrow(n.1), ncol = ncol(n.1))
 N.1.inits[day.1 == 1 | day.1 > 89] <- 0
 
@@ -357,8 +363,12 @@ if (!file.exists(out.file.name)){
   Start_Time<-Sys.time()
   
   jm <- jagsUI::jags(jags.data,
-                     inits = function() list(N.1 = jags.data$n.1[,] * 5,
-                                             N.2 = jags.data$n.2[,] * 5),
+                     inits = function(x) {
+                       N_inits1 <- n.1 * 2 + 2
+                       N_inits2 <- n.2 * 2 + 2 
+                       
+                       return(list(N.1 = N_inits1,
+                                   N.2 = N_inits2))},
                      parameters.to.save= jags.params,
                      model.file = jags.model,
                      n.chains = MCMC.params$n.chains,
