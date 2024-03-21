@@ -80,6 +80,7 @@ bf.1 <- vs.1 <- matrix(data = 0, nrow = max(periods.1$n), ncol = n.year)
 obs.1 <-  matrix(nrow = max(periods.1$n), ncol = n.year)
 u.1 <- matrix(data = 0, nrow = max(periods.1$n)+2, ncol = n.year)
 
+k <- 17
 for (k in 1:n.year){
 
   n.1[1:periods.1$n[k], k] <- Effort.by.period.1 %>% 
@@ -152,7 +153,7 @@ for (k in 1:n.year){
       filter(Start.year == all.years[k]) %>%
       dplyr::select(watch.prop) %>%
       pull()
-    Watch.Length.1[(periods.2$n[c]+1):(periods.2$n[c]+2), k] <- 0
+    Watch.Length.2[(periods.2$n[c]+1):(periods.2$n[c]+2), k] <- 0
     
     bf.2[1:periods.2$n[c], c] <- Effort.by.period.2 %>% 
       ungroup() %>%
@@ -279,32 +280,51 @@ u.1 <- cbind(u.1,
                           ncol = dim(BUGS.data$u)[3]-1)))
 
 u.2 <- cbind(u.2, 
-             rbind(as.matrix(BUGS.data$u[,1,2:x]), 
+             rbind(as.matrix(BUGS.data$u[,2,2:x]), 
                    matrix(data = 0, 
                           nrow = nrow(u.2) - dim(BUGS.data$u)[1], 
                           ncol = dim(BUGS.data$u)[3]-1)))
 
 periods.1 <- c(all.periods$n.x, BUGS.data$periods[2:length(BUGS.data$periods)])
-periods.2 <- c(all.periods$n.y, 0, BUGS.data$periods[3:4], rep(0, x-3))
+periods.2 <- c(all.periods$n.y, 0, BUGS.data$periods[3:4], rep(0, x-4))
 
-# Create jags input
-# N_inits1 <- n.1 * 2 + 2
-# N_inits2 <- n.2 * 2 + 2 
-# 
-# N_inits <- N_inits1
-# N_inits[N_inits1 < N_inits2] <- N_inits2[N_inits1 < N_inits2]
+Watch.Length.1[day.1 == 1 | day.1 > 89] <- 1
+Watch.Length.2[day.2 == 1 | day.2 > 89] <- 1
 
-N.1.inits <- matrix(nrow = nrow(n.1), ncol = ncol(n.1))
-N.1.inits[day.1 == 1 | day.1 > 89] <- 0
+n.1[day.1 == 1 | day.1 > 89] <- NA
+n.2[day.2 == 1 | day.2 > 89] <- NA
 
-N.2.inits <- matrix(nrow = nrow(n.2), ncol = ncol(n.2))
-N.2.inits[day.2 == 1 | day.2 > 89] <- 0
+N.1.inits <- n.1 * 3 + 2
+for (k in 1:length(periods.1))
+  N.1.inits[(periods.1[k]+1):nrow(N.1.inits), k] <- NA
+
+N.1.obs <- matrix(nrow = nrow(N.1.inits),  ncol = ncol(N.1.inits))
+
+N.1.inits[day.1 == 1 | day.1 > 89] <- NA
+N.1.obs[day.1 == 1 | day.1 > 89] <- 0    # "partially observed" as in assumed zeros
+
+N.2.inits <- n.2 * 3 + 2
+for (k in 1:length(periods.2))
+  N.2.inits[(periods.2[k]+1):nrow(N.2.inits), k] <- NA
+
+N.2.obs <- matrix(nrow = nrow(N.2.inits),  ncol = ncol(N.2.inits))
+
+N.2.inits[day.2 == 1 | day.2 > 89] <- NA
+N.2.obs[day.2 == 1 | day.2 > 89] <- 0
+
+# function to create initial values for N.1 and N.2. Without providing initial 
+# values, the binomial likelihood doesn't work so well. Results in too small of
+# N values.
+N.inits <- function(N.1.inits, N.2.inits,n.chains){
+  out.list <- vector(mode = "list", length = n.chains)
+  return(lapply(out.list, FUN = function(x) list(N.1 = N.1.inits, N.2 = N.2.inits)))
+}
 
 jags.data <- list(n.1 = n.1,
                   n.2 = n.2,
-                  N.1 = N.1.inits,
-                  N.2 = N.2.inits,
-                  n.station = ifelse(colSums(n.2) > 0, 1, 0),
+                  N.1 = N.1.obs,
+                  N.2 = N.2.obs,
+                  n.station = ifelse(colSums(n.2, na.rm = T) > 0, 1, 0),
                   n.year = ncol(n.1),
                   n.obs = max(obs.1, na.rm = T),
                   periods.1 = periods.1,
@@ -327,7 +347,9 @@ jags.data <- list(n.1 = n.1,
                            0.34,0.57,0.78,1.02,1.26,1.46),
                   n.knots = 14)
 
-jags.params <- c("lambda.sp",
+jags.params <- c("lambda.1",
+                 "lambda.2",
+                 "N.1", "N.2",
                  "OBS.RF.sp",
                  "OBS.Switch.sp",
                  "BF.Switch.sp",
@@ -345,17 +367,14 @@ jags.params <- c("lambda.sp",
                  "beta.sp",
                  "b.sp",
                  "sd.b.sp",
-                 "log.lkhd")
+                 "log.lkhd.1",
+                 "log.lkhd.2")
 
 MCMC.params <- list(n.samples = 250000,
                     n.thin = 100,
                     n.burnin = 200000,
                     n.chains = 5)
 
-# Needs initial values for N to avoid errors. N has to be significantly larger
-# than observed n.
-jags.inits <- function() list(N.1 = jags.data$n.1[,] * 5,
-                              N.2 = jags.data$n.2[,] * 5)
 
 out.file.name <- "RData/JAGS_Spline_results_All_Data.rds"
 
@@ -363,12 +382,7 @@ if (!file.exists(out.file.name)){
   Start_Time<-Sys.time()
   
   jm <- jagsUI::jags(jags.data,
-                     inits = function(x) {
-                       N_inits1 <- n.1 * 2 + 2
-                       N_inits2 <- n.2 * 2 + 2 
-                       
-                       return(list(N.1 = N_inits1,
-                                   N.2 = N_inits2))},
+                     inits = N.inits(N.1.inits, N.2.inits, MCMC.params$n.chains),
                      parameters.to.save= jags.params,
                      model.file = jags.model,
                      n.chains = MCMC.params$n.chains,

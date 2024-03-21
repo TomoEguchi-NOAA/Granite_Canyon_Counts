@@ -1,8 +1,11 @@
 # This is a similar model to the original BUGS code except the normal distribution
 # and the use of cut function are removed. Also, the maximum number of days is
 # an input, rather than fixed at 90. This is for JAGS, not WinBUGS.
+# Also, I changed it so that the secondary station can have its own independent
+# sighting data, not linked to the same period as the primary station. Primary
+# and secondary stations are treated independent. 
 
-# 2023-09-25
+# 2024-03-20
 
 model{ 
   
@@ -124,7 +127,8 @@ model{
     OBS.RF.sp[o] ~ dnorm(0,tau.Obs.sp)
   }#o
   
-  #Uninformative prior for tau.Obs
+  # Uninformative prior for tau.Obs (I don't think Unif(0,2) to be uninformative... )
+  # 
   sigma.Obs.sp ~ dunif(0,2)
   tau.Obs.sp <- pow(sigma.Obs.sp,-2)
   
@@ -143,7 +147,7 @@ model{
   #Below is the single fixed effect multiplied by VS rating in the updated obs prob equation:
   VS.Fixed.sp ~ dnorm(0,0.01)
   
-   # mean and sd of the time vector below
+  # mean and sd of the time vector below
   for(t in 1:n.year){
     mean.time.sp[t] <- mean(time.sp[1:n.days[t], t])
     sd.time.sp[t] <- sd(time.sp[1:n.days[t], t])
@@ -160,7 +164,7 @@ model{
 	}#d
   }#t
 
-  ## Model 2, spline fit Specific Model
+  ## spline fit Specific Model
   for(t in 1:n.year){  
     for(d in 1:n.days[t]){
       for(k in 1:n.knots){
