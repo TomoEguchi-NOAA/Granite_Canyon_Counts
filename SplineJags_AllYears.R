@@ -82,7 +82,7 @@ updated.obs.list$obs.int[is.na(updated.obs.list$obs.int)] <- (max(updated.obs.li
 # Bring in the output from a successful run of WinBUGS 
 # BUGS input and output
 x <- 10
-min.duration <- 85
+
 in.file.name <- paste0("RData/WinBUGS_", x, "yr_v2_min85.rds")
 BUGS.results <- readRDS(in.file.name)
 BUGS.data <- BUGS.results$BUGS.data
@@ -98,18 +98,16 @@ all.obs.WinBUGS <- lapply(out.v2, FUN = function(x){
 })
 
 # I don't have raw data for 2007/2008 so I have to back convert using the observer list csv file
-# I'm assuming that ID in the observer list text file match with what were found in WinBUGS
-# input
+# I'm assuming that IDs in the observer list csv file match with what were found in WinBUGS
+# input. first find all unique observer initials and create matching new IDs.
 obs.old.list <- read.csv("Data/Observer list.csv") %>%
   filter(ID != 36) %>%   # 36 was used for no observer
   transmute(Observer.char = Observer,
             ID = ID)
-# 
-# updated.obs.list %>% right_join(obs.2023.list, by = "Observer.char") -> new.obs.list
 
 obs.2008.1 <- data.frame(ID = unique(BUGS.data$obs[,1,2])) %>%
   left_join(obs.old.list, by = "ID") %>%
-  filter(ID != 36) %>%
+  filter(ID != 36) %>%   # 36 was used as no observer.
   pull(Observer.char)
 
 all.obs.uniq <- unique(c(unique(unlist(all.obs.WinBUGS)), 
@@ -121,11 +119,13 @@ obs.df <- data.frame(Observer.char = all.obs.uniq,
 
 no.obs <- max(obs.df$obs.int) + 1
 
+# Replace old IDs with new IDs for 2007/2008
 obs.2008.df <- data.frame(ID = BUGS.data$obs[,1,2]) %>%
   filter(ID != 36) %>%
   left_join(obs.old.list, by = "ID") %>%
   left_join(obs.df, by = "Observer.char")
 
+# Find all observers for the primary stations
 all.Final_Data.1 <- lapply(out.v2, FUN = function(x){
   return(x$Final_Data %>%
            filter(station == "P") %>%
@@ -133,6 +133,7 @@ all.Final_Data.1 <- lapply(out.v2, FUN = function(x){
            left_join(obs.df, by = "Observer.char"))
 })
 
+# assign new IDs (obs.int)
 obs.1.1.list <- lapply(all.Final_Data.1, FUN = function(x) x$obs.int)
 max.length.1 <- lapply(obs.1.1.list, FUN = length) %>% unlist() 
 
@@ -145,8 +146,10 @@ for (k in 1:length(obs.1.1.list)){
 # Add 2008 observer IDs (with new numbering system)
 obs.1.1 <- cbind(c(obs.2008.df$obs.int, 
                    rep(no.obs, 
-                       (nrow(obs.1.1) - nrow(obs.2008.df)+1)), obs.1.1))
+                       times = (nrow(obs.1.1) - (nrow(obs.2008.df))))), 
+                 obs.1.1)
 
+# Do the same with the secondary station
 all.Final_Data.2 <- lapply(out.v2, FUN = function(x){
   return(x$Final_Data %>%
            filter(station == "S") %>%
@@ -157,7 +160,9 @@ all.Final_Data.2 <- lapply(out.v2, FUN = function(x){
 obs.2.1.list <- lapply(all.Final_Data.2, FUN = function(x) x$obs.int)
 max.length.2 <- lapply(obs.2.1.list, FUN = length) %>% unlist() 
 
-obs.2.1 <- matrix(data = no.obs, nrow = max(max.length.2), ncol = length(obs.2.1.list))
+obs.2.1 <- matrix(data = no.obs, 
+                  nrow = max(max.length.2), 
+                  ncol = length(obs.2.1.list))
 
 for (k in 1:length(obs.2.1.list)){
   if (length(obs.2.1.list[[k]]) > 0)
@@ -165,26 +170,25 @@ for (k in 1:length(obs.2.1.list)){
 }
 
 # Add 2008 observer IDs (with new numbering system)
+# There was no secondary station for 2007/2008
 obs.2.1 <- cbind( rep(no.obs, nrow(obs.2.1)), obs.2.1)
 
-# For jags and WinBugs code, what I need are
-# 1. observed number of whales per day n[d, s, y], where d = # days since 12/1,
-# s = station (1 = primary, 2 = secondary), y = year. For Laake's data, maximum 
-# number of days per year was 94. 
-# 2. Beaufort sea state bf[d,y]
-# 3. Visibility code vs[d,y]
-# 4. observer code obs[d,s,y]
-# 5. the proportion of watch duration per day (out of 540 minutes or 9 hrs) watch.prop[d,y]
-# 6. index of survey day, i.e., the number of days since 12/1 day[d,y]
+# For new jags code, what I need are
+# 1. observed number of whales per sampling period n[t, y], where t = sequential period,
+# n.1 and n.2 for primary and secondary, respectively. y = year. 
+#  For Laake's data, maximum # number of days per year was 94. 
+# 2. Beaufort sea state bf[t,y]
+# 3. Visibility code vs[t,y]
+# 4. observer code obs.1[t,y] and obs.2
+# 5. the proportion of watch duration per day (out of 540 minutes or 9 hrs) watch.prop.1[t,y]
+# and watch.prop.2[t,y]
+# 6. index of survey day, i.e., the number of days since 12/1 day[t,y]
 
 # Need to count the number of days since 12-01 for each year. But 12-01 is 1.
 # Then... 
 # Count the number of whales per day and daily effort
 # In early years, surveys were conducted 10 hrs. So, the watch proportion
 # can be > 1.0, because we have used 9 hrs as maximum. 
-
-# Summarizing by day worked fine but the model requires counts per observation
-# period. Needs to be redone. 2023-09-15 DONE.
 
 Effort.1 %>% 
   mutate(Day1 = as.Date(paste0(Start.year, "-11-30")),
@@ -388,13 +392,13 @@ vs.2 <- cbind(vs.2,
 
 obs.1 <- cbind(obs.1, rbind(obs.1.1, 
                             matrix(data = no.obs, 
-                                   nrow = nrow(obs.1) - dim(obs.1.1)[1], 
-                                   ncol = dim(obs.1.1)[2]-1)))
+                                   nrow = nrow(obs.1) - nrow(obs.1.1), 
+                                   ncol = ncol(obs.1.1))))
 
 obs.2 <- cbind(obs.2, rbind(as.matrix(obs.2.1), 
                             matrix(data = no.obs, 
-                                   nrow = nrow(obs.2) - dim(obs.2.1)[1], 
-                                   ncol = dim(obs.2.1)[2]-1)))
+                                   nrow = nrow(obs.2) - nrow(obs.2.1), 
+                                   ncol = ncol(obs.2.1))))
 
 day.1 <- cbind(day.1,
                rbind(BUGS.data$day[, 2:x], 
@@ -486,14 +490,22 @@ jags.params <- c("lambda.1",
                  "lambda.2",
                  "N.1", "N.2",
                  "OBS.RF.sp",
-                 "OBS.Switch.sp",
-                 "BF.Switch.sp",
-                 "BF.Fixed.sp",
-                 "VS.Switch.sp",
-                 "VS.Fixed.sp",
-                 "mean.prob.sp",
-                 "BF.Fixed.sp",
-                 "VS.Fixed.sp",
+                 "OBS.Switch.sp.1",
+                 "OBS.Switch.sp.2",
+                 "BF.Switch.sp.1",
+                 "BF.Switch.sp.2",
+                 "BF.Fixed.sp.1",
+                 "BF.Fixed.sp.2",
+                 "VS.Switch.sp.1",
+                 "VS.Switch.sp.2",
+                 "VS.Fixed.sp.1",
+                 "VS.Fixed.sp.2",
+                 "mean.prob.sp.1",
+                 "mean.prob.sp.2",
+                 "BF.Fixed.sp.1",
+                 "BF.Fixed.sp.2",
+                 "VS.Fixed.sp.1",
+                 "VS.Fixed.sp.2",
                  "Corrected.Est",
                  "Raw.Est",
                  "sp",
@@ -551,14 +563,16 @@ if (!file.exists(out.file.name)){
 # 
 # Caught error when creating stat array for 'VS.Fixed.sp':
 #   Error in array(NA, dim = apply(indices, 2, max)): negative length vectors are not allowed
+#   
+# These have been fixed but forgot to record how.
 
 # Summarize the output
 Laake.seasons <- lapply(all.years, FUN = function(x) paste0(x, "/", x+1)) %>%
   unlist()
 
 seasons <- c("2007/2008", "2009/2010", "2010/2011", 
-             "2014/2015", "2015/2016", "2019/2020", "2021/2022",
-             "2022/2023", "2023/2024")
+             "2014/2015", "2015/2016", "2019/2020", 
+             "2021/2022", "2022/2023", "2023/2024")
 
 all.seasons <- c(Laake.seasons, seasons)
 
@@ -590,6 +604,28 @@ for (k in 1:dim(Daily.Est)[3]){
 
 all.stats <- do.call("rbind", stats.list) %>% group_by(year)
 
+obs.day <- jm.out$jags.data$day.1
+Nhats <- list()
+k <- 1
+for (k in 1:ncol(obs.day)){
+  tmp.day <- jm.out$jags.data$day.1[,k] 
+  tmp.n <- jm.out$jags.data$n.1[tmp.day > 1 & tmp.day < 90 & !is.na(tmp.day), k]
+  tmp.watch <- jm.out$jags.data$Watch.Length.1[tmp.day > 1 & tmp.day < 90 & !is.na(tmp.day), k] %>% na.omit()
+  
+  Nhats[[k]] <- data.frame(day = tmp.day[tmp.day > 1 & tmp.day < 90 & !is.na(tmp.day)],
+                           n = tmp.n,
+                           watch = tmp.watch) %>%
+    group_by(day) %>%
+    summarize(day = first(day),
+              n = sum(n),
+              watch = sum(watch),
+              Nhat = n/watch,
+              year = all.seasons[k])
+
+}
+
+Nhats.df <- do.call("rbind", Nhats) %>% group_by(year)
+
 ggplot(data = all.stats) + 
   geom_line(aes(x = days, y = Daily.Est.median),
             color = "darkorange") + 
@@ -598,57 +634,36 @@ ggplot(data = all.stats) +
                   ymax = Daily.Est.UCL),
               fill = "orange", 
               alpha = 0.5) +
-  # geom_point(data = Nhats.df,
-  #            aes(x = day, y = Nhat),
-  #            shape = 4, color = "darkgreen", alpha = 0.5) +
+  geom_point(data = Nhats.df,
+             aes(x = day, y = Nhat),
+             shape = 4, color = "darkgreen", alpha = 0.5) +
   facet_wrap(vars(year)) +
   xlab("Days since December 1") + 
   ylab("Whales per day")
 
-# obs.day <- jm.out$jags.data$day.1
-# Nhats <- list()
-# k <- 1
-# for (k in 1:ncol(obs.day)){
-#   tmp.day <- jm.out$jags.data$day.1[,k] %>% 
-#     na.omit() 
-#   tmp.n <- n.1[1:(length(tmp.day)-2),k]
-#   tmp.watch <- jm.out$jags.data$Watch.Length.1[1:(length(tmp.day)-2),k] %>% na.omit()
-#   Nhats[[k]] <- data.frame(day = tmp.day[tmp.day > 1 & tmp.day < 90],
-#                            n = tmp.n,
-#                            watch = tmp.watch) %>%
-#     group_by(day) %>%
-#     summarize(day = first(day),
-#               n = sum(n),
-#               watch = sum(watch),
-#               Nhat = n/watch,
-#               year = seasons[k])
-#   
-# }
-# 
-# Nhats.df <- do.call("rbind", Nhats) %>% group_by(year)
 abundance.df <- data.frame(Year = lapply(str_split(all.seasons, "/"), 
                                          FUN = function(x) x[2]) %>% 
                              unlist() %>% 
                              as.numeric(),
-                           # Nhat = apply(Corrected.Est,
-                           #                    FUN = mean,
-                           #                    MARGIN = 2),
                            Nhat = apply(Corrected.Est,
-                                                FUN = median,
-                                                MARGIN = 2),
+                                        FUN = mean,
+                                        MARGIN = 2),
+                           # Nhat = apply(Corrected.Est,
+                           #              FUN = median,
+                           #              MARGIN = 2),
                            SE = apply(Corrected.Est,
                                       FUN = function(x) sqrt(var(x)),
                                       MARGIN = 2),
                            CV = apply(Corrected.Est,
-                                            FUN = function(x) 100*sqrt(var(x))/mean(x),
-                                            MARGIN = 2),
+                                      FUN = function(x) 100*sqrt(var(x))/mean(x),
+                                      MARGIN = 2),
                            Season = all.seasons,
                            CL.low = apply(Corrected.Est, 
-                                             MARGIN = 2, 
-                                             FUN = quantile, 0.025),
+                                          MARGIN = 2, 
+                                          FUN = quantile, 0.025),
                            CL.high = apply(Corrected.Est, 
-                                             MARGIN = 2, 
-                                             FUN = quantile, 0.975),
+                                           MARGIN = 2, 
+                                           FUN = quantile, 0.975),
                            Method = "Spline")
 
 # Bring in the estimates from the other analyses (Laake's and Durban's) and compare:
@@ -692,4 +707,29 @@ all.estimates <- rbind(abundance.df, Laake.estimates, Durban.estimates)
 
 ggplot(all.estimates) +
   geom_point(aes(x = Season, y = Nhat, color = Method)) +
-  geom_errorbar(aes(x = Season, ymin = CL.low, ymax = CL.high, color = Method))
+  geom_errorbar(aes(x = Season, ymin = CL.low, ymax = CL.high, color = Method)) 
+
+# Strange that estimates were lower than Laake's estimates but a lot higher for
+# the last 9 years. I have the feeling data are not treated equally...
+# 
+# Take a look at watch length
+
+jm.out$jags.data$Watch.Length.1 %>%
+  as.data.frame() -> tmp
+
+colnames(tmp) <- all.seasons
+
+tmp %>% pivot_longer(cols = everything(), 
+                     names_to = "year",
+                     values_to = "Watch.Length")  %>%
+  arrange(rev(desc(year))) -> watch.length.1.long
+
+watch.length.1.long %>%
+  group_by(year) %>%
+  summarize(min = min(Watch.Length, na.rm = T),
+            max = max(Watch.Length, na.rm = T),
+            mean = mean(Watch.Length, na.rm = T)) -> watch.length.stats
+
+ggplot(watch.length.stats)+
+  geom_point(aes(x = year, y = mean)) 
+  #geom_errorbar(aes(x = year, ymin = min, ymax = max))
