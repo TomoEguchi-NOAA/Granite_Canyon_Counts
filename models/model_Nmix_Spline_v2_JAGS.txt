@@ -18,15 +18,19 @@ model{
   # So, n.days needs to be defined for either (1) each year differently, (2) a larger number, 
   # e.g., 100, or (3) 90 if max day is < 90, but something else, e.g., 100, if > 90. 
   
-  # sp is defined for each day, whereas observed n is for each period. A period is a duration in which
-  # the sighting condition and observers were the same, up to 90 minutes.  
+  # sp (the number of whales) is defined for each day, whereas observed n is for each period. 
+  # A period is a survey duration in which the sighting condition and observers were constant, 
+  # up to 90 minutes.  
+  #
   # The mean number of passing whales was proportional to the observation duration in proportion 
   # (max = 90 x 6 = 540 minutes per day).
   
+  # lambda.1 and lambda.2 are the mean number of observable whales by station 1 and 2, respectively.  
+  # the total number of whales in a day (sp) is multiplied (addition in the log space) by the 
+  # proportion of the watch length.
   for(t in 1:n.year){
     for(j.1 in 1:(periods.1[t]+2)){
         
-		# lambda.1 and lambda.2 are the mean number of observable whales by station 1 and 2, respectively.  
         log(lambda.1[j.1,t]) <- log(Watch.Length.1[j.1,t]) + sp[day.1[j.1,t], t]
     }#j.1
 	
