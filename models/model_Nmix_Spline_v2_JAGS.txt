@@ -1,9 +1,10 @@
 # This is a similar model to the original BUGS code except the normal distribution
 # and the cut function are removed. Also, the maximum number of days is
-# an input, rather than fixed at 90. This is for JAGS, not WinBUGS.
-# Also, I changed it so that the secondary station can have its own independent
-# sighting data, not linked to the same period as the primary station. Primary
-# and secondary stations are treated independent. 
+# an input, rather than fixed at 90. Also, I changed it so that the secondary 
+# station can have its own independent sighting data, not linked to the same 
+# period as the primary station. Primary and secondary stations are treated independent. 
+#
+# This is for JAGS, not WinBUGS.
 
 # 2024-03-20
 
@@ -54,7 +55,7 @@ model{
     # Primary
 	for(j.1 in 1:(periods.1[t])){ 
         # N mixture model - observations of 'observable' N (passing whales)
-        n.1[j.1,t] ~ dbin(obs.prob.1[j.1,t], N.1[j.1,t]) # N mixture model for specific model fit
+        n.1[j.1,t] ~ dbin(obs.prob.1[j.1,t], N.1[j.1,t]) 
 		log.lkhd.1[j.1,t] <- logdensity.bin(n.1[j.1,t], obs.prob.1[j.1,t], N.1[j.1,t])
                             
 	}#j.1
@@ -63,7 +64,7 @@ model{
 	for(j.2 in 1:(periods.2[t])){
       
 		# N mixture model - observations of 'observable' N (passing whales), 		
-		n.2[j.2,t] ~ dbin(obs.prob.2[j.2,t], N.2[j.2,t]) # N mixture model for specific model fit
+		n.2[j.2,t] ~ dbin(obs.prob.2[j.2,t], N.2[j.2,t]) 
 		log.lkhd.2[j.2,t] <- logdensity.bin(n.2[j.2,t], obs.prob.2[j.2,t], N.2[j.2,t])
 
 	}#j.2    
@@ -91,20 +92,19 @@ model{
   }#t
   
   ### Observation probability
+  # Final obs prob = observer 1/0 * 
+  #                (base obs prob + BF on/off *Fixed effect of BF * BF + 
+  #                 VS on/off *Fixed effect of VS * VS    + 
+  #                Obs effect on/off * Random effect of observer)
+
+  # the u data is whether there were observers on watch (u.1 and u.2 for primary and secondary). 
+  # 0 counts are often associated with years/shifts with 
+  # no second observer. So if u=0, it will fix observation probability at 0
+  
   for(t in 1:n.year){
     # Primary
 	for(j.1 in 1:periods.1[t]){
-      
-        # Final obs prob = observer 1/0 * 
-        #                (base obs prob + BF on/off *Fixed effect of BF * BF + 
-        #                 VS on/off *Fixed effect of VS * VS    + 
-        #                Obs effect on/off * Random effect of observer)
 
-        # the u data is whether there were observers on watch (u.1 and u.2 for primary and secondary). 
-        # 0 counts are often associated with years/shifts with 
-        # no second observer. So if u=0, it will fix observation probability at 0
-        
-        # Spline (sp) model:
         logit(prob.sp.1[j.1,t]) <- logit(mean.prob.sp.1) + (BF.Switch.sp.1[t] * BF.Fixed.sp.1[t] * bf.1[j.1,t]) + (VS.Switch.sp.1[t] * VS.Fixed.sp.1[t] * vs.1[j.1,t]) + (OBS.Switch.sp.1 * OBS.RF.sp[obs.1[j.1,t]])
         obs.prob.1[j.1,t] <- u.1[j.1,t] * prob.sp.1[j.1,t]
         
@@ -112,7 +112,7 @@ model{
 	  
 	# Secondary
 	for (j.2 in 1:periods.2[t]){
-		# Spline (sp) model:
+
 		logit(prob.sp.2[j.2,t]) <- logit(mean.prob.sp.2) + (BF.Switch.sp.2[t] * BF.Fixed.sp.2[t] * bf.2[j.2,t]) + (VS.Switch.sp.2[t] * VS.Fixed.sp.1[t] * vs.2[j.2,t]) + (OBS.Switch.sp.2 * OBS.RF.sp[obs.2[j.2,t]])
 		obs.prob.2[j.2,t] <- u.2[j.2,t] * prob.sp.2[j.2,t]
 	   
@@ -134,7 +134,6 @@ model{
   }#o
   
   # Uninformative prior for tau.Obs (I don't think Unif(0,2) to be uninformative... )
-  # 
   sigma.obs.sp ~ dgamma(1, 0.5)
   #sigma.Obs.sp ~ dunif(0,2)
   tau.Obs.sp <- pow(sigma.Obs.sp, -2)
@@ -186,10 +185,11 @@ model{
     }#d
   }#t
   
+  # this makes three vectors related to day 'd' - one a flat line, one a straight increasing line 
   for(t in 1:n.year){
 	for(d in 1:n.days[t]){
 		for (l in 1:2){
-			# this makes three vectors related to day 'd' - one a flat line, one a straight increasing line 
+			
 			X.sp[d,l,t] <- pow(covariate.sp[d,t], l-1) 
 		}#l
     }#d

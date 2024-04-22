@@ -430,8 +430,9 @@ periods.2 <- c(all.periods$n.y, 0, BUGS.data$periods[3:4], rep(0, x-4))
 Watch.Length.1[day.1 == 1 | day.1 > 89] <- 1
 Watch.Length.2[day.2 == 1 | day.2 > 89] <- 1
 
-n.1[day.1 == 1 | day.1 > 89] <- NA
-n.2[day.2 == 1 | day.2 > 89] <- NA
+# Day 1 and 90 should be zeros
+n.1[day.1 == 1 | day.1 > 89] <- 0
+n.2[day.2 == 1 | day.2 > 89] <- 0
 
 N.1.inits <- n.1 * 3 + 2
 for (k in 1:length(periods.1))
@@ -439,7 +440,7 @@ for (k in 1:length(periods.1))
 
 N.1.obs <- matrix(nrow = nrow(N.1.inits),  ncol = ncol(N.1.inits))
 
-N.1.inits[day.1 == 1 | day.1 > 89] <- NA
+N.1.inits[day.1 == 1 | day.1 > 89] <- 0
 N.1.obs[day.1 == 1 | day.1 > 89] <- 0    # "partially observed" as in assumed zeros
 
 N.2.inits <- n.2 * 3 + 2
@@ -448,7 +449,7 @@ for (k in 1:length(periods.2))
 
 N.2.obs <- matrix(nrow = nrow(N.2.inits),  ncol = ncol(N.2.inits))
 
-N.2.inits[day.2 == 1 | day.2 > 89] <- NA
+N.2.inits[day.2 == 1 | day.2 > 89] <- 0
 N.2.obs[day.2 == 1 | day.2 > 89] <- 0
 
 # function to create initial values for N.1 and N.2. Without providing initial 
@@ -522,7 +523,7 @@ MCMC.params <- list(n.samples = 125000,
                     n.chains = 5)
 
 
-out.file.name <- "RData/JAGS_Spline_results_All_Data.rds"
+out.file.name <- "RData/JAGS_Spline_results_All_Data_2024-04-22.rds"
 
 if (!file.exists(out.file.name)){
   Start_Time<-Sys.time()

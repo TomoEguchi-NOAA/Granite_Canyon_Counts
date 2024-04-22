@@ -15,18 +15,55 @@ library(loo)
 library(bayesplot)
 library(ERAnalysis)
 
-
+# Bring in the output file from SplineJags_AllYears.R
 out.file.name <- "RData/JAGS_Spline_results_All_Data.rds"
 
 jm.out <- readRDS(out.file.name)
 
-jm.out$jags.data$day.1 %>% 
-  as.data.frame() %>%
-  pivot_longer(cols = everything(), names_to = "name") %>% 
-  mutaet(day = value) -> tmp.1 
+# Find sampling days for each year
+find.sampled <- function(x, varname){
+  # Renaming the variable name with the content of a variable:
+  # https://forum.posit.co/t/have-rename-recognize-a-variable-value-as-a-column-name/169548
+  
+  x %>%
+    as.data.frame() %>%
+    pivot_longer(cols = everything(), names_to = "name") %>% 
+    mutate(variable = value) %>%
+    rename("{varname}" := variable) -> tmp.1 
+  
+  tmp.1$Season <-  lapply(strsplit(tmp.1$name, "V"), 
+                          FUN = function(x) x[2]) %>% 
+    unlist() %>% 
+    as.numeric()
+  
+  tmp.1 %>% 
+    select(-c(name, value)) %>%
+    arrange(Season) -> sampled.day 
 
-tmp.1$Season <-  lapply(strsplit(tmp.1$name, "V"), 
-                        FUN = function(x) x[2]) %>% unlist()
+  return(sampled.day)  
+}
 
-tmp.1 %>% select(Season, day) %>%
-  arrange(Season, day) -> sampled.day.1 
+# Pull out data and change the format to "long"
+sampled.day.1 <- find.sampled(jm.out$jags.data$day.1, varname = "day")
+sampled.day.2 <- find.sampled(jm.out$jags.data$day.2, varname = "day")
+
+sampled.n.1 <- find.sampled(jm.out$jags.data$n.1, varname = "n")  
+sampled.n.2 <- find.sampled(jm.out$jags.data$n.2, varname = "n")  
+
+# the number of whales on day 1 and day 90 are NAs rather than zeros. 
+# Could this be a problem?
+
+sampled.bf.1 <- find.sampled(jm.out$jags.data$bf.1, varname = "bf")  
+sampled.bf.2 <- find.sampled(jm.out$jags.data$bf.2, varname = "bf")  
+
+sampled.vs.1 <- find.sampled(jm.out$jags.data$vs.1, varname = "vs")  
+sampled.vs.2 <- find.sampled(jm.out$jags.data$vs.2, varname = "vs")  
+
+sampled.obs.1 <- find.sampled(jm.out$jags.data$obs.1, varname = "obs")  
+sampled.obs.2 <- find.sampled(jm.out$jags.data$obs.2, varname = "obs")  
+
+sampled.watch.1 <- find.sampled(jm.out$jags.data$Watch.Length.1, varname = "watch")  
+sampled.watch.2 <- find.sampled(jm.out$jags.data$Watch.Length.2, varname = "watch")  
+
+sampled.u.1 <- find.sampled(jm.out$jags.data$u.1, varname = "u")  
+sampled.u.2 <- find.sampled(jm.out$jags.data$u.2, varname = "u")  
