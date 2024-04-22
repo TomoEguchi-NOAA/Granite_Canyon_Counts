@@ -134,7 +134,7 @@ model{
   }#o
   
   # Uninformative prior for tau.Obs (I don't think Unif(0,2) to be uninformative... )
-  sigma.obs.sp ~ dgamma(1, 0.5)
+  sigma.Obs.sp ~ dgamma(1, 0.5)
   #sigma.Obs.sp ~ dunif(0,2)
   tau.Obs.sp <- pow(sigma.Obs.sp, -2)
   
