@@ -284,45 +284,45 @@ bf.2 <- vs.2 <- matrix(data = 0, nrow = max(periods.2$n), ncol = n.year)
 obs.2 <- matrix(data = no.obs, nrow = max(periods.2$n), ncol = n.year)
 u.2 <- matrix(data = 0, nrow = max(periods.2$n)+2, ncol = n.year)
 
-c <- 1
+k <- c <- 1
 for (k in 1:n.year){
   
   if (all.years[k] %in% periods.2$Start.year){
-    n.2[1:periods.2$n[c], c] <- Effort.by.period.2 %>% 
+    n.2[1:periods.2$n[c], k] <- Effort.by.period.2 %>% 
       ungroup() %>%
       filter(Start.year == all.years[k]) %>%
       dplyr::select(nwhales) %>%
       pull()
     n.2[(periods.2$n[c]+1):(periods.2$n[c]+2), k] <- 0
     
-    Watch.Length.2[1:periods.2$n[c], c] <- Effort.by.period.2 %>% 
+    Watch.Length.2[1:periods.2$n[c], k] <- Effort.by.period.2 %>% 
       ungroup() %>%
       filter(Start.year == all.years[k]) %>%
       dplyr::select(watch.prop) %>%
       pull()
     Watch.Length.2[(periods.2$n[c]+1):(periods.2$n[c]+2), k] <- 0
     
-    bf.2[1:periods.2$n[c], c] <- Effort.by.period.2 %>% 
+    bf.2[1:periods.2$n[c], k] <- Effort.by.period.2 %>% 
       ungroup() %>%
       filter(Start.year == all.years[k]) %>%
       dplyr::select(beaufort) %>%
       pull()
     
-    vs.2[1:periods.2$n[c], c] <- Effort.by.period.2 %>% 
+    vs.2[1:periods.2$n[c], k] <- Effort.by.period.2 %>% 
       ungroup() %>%
       filter(Start.year == all.years[k]) %>%
       dplyr::select(vis) %>%
       pull()
     
-    obs.2[1:periods.2$n[c], c] <- Effort.by.period.2 %>% 
+    obs.2[1:periods.2$n[c], k] <- Effort.by.period.2 %>% 
       ungroup() %>%
       filter(Start.year == all.years[k]) %>%
       dplyr::select(obs.int) %>%
       pull()
     
-    u.2[1:periods.2$n[c], c] <- 1
+    u.2[1:periods.2$n[c], k] <- 1
     
-    day.2[1:periods.2$n[c], c] <- Effort.by.period.2 %>% 
+    day.2[1:periods.2$n[c], k] <- Effort.by.period.2 %>% 
       ungroup() %>%
       filter(Start.year == all.years[k]) %>%
       dplyr::select(dt) %>%
@@ -440,7 +440,7 @@ for (k in 1:length(periods.1))
 
 N.1.obs <- matrix(nrow = nrow(N.1.inits),  ncol = ncol(N.1.inits))
 
-N.1.inits[day.1 == 1 | day.1 > 89] <- 0
+N.1.inits[day.1 == 1 | day.1 > 89] <- NA
 N.1.obs[day.1 == 1 | day.1 > 89] <- 0    # "partially observed" as in assumed zeros
 
 N.2.inits <- n.2 * 3 + 2
@@ -449,7 +449,7 @@ for (k in 1:length(periods.2))
 
 N.2.obs <- matrix(nrow = nrow(N.2.inits),  ncol = ncol(N.2.inits))
 
-N.2.inits[day.2 == 1 | day.2 > 89] <- 0
+N.2.inits[day.2 == 1 | day.2 > 89] <- NA
 N.2.obs[day.2 == 1 | day.2 > 89] <- 0
 
 # function to create initial values for N.1 and N.2. Without providing initial 

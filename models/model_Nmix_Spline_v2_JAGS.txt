@@ -35,14 +35,18 @@ model{
         log(lambda.1[j.1,t]) <- log(Watch.Length.1[j.1,t]) + sp[day.1[j.1,t], t]
     }#j.1
 	
-	for(j.2 in 1:(periods.2[t]+2)){
+	if (n.station[t] == 2){
+	
+		for(j.2 in 1:(periods.2[t]+2)){
         
-		# If there was no second station, return a very small negative number, which turns into
-		# lambda.2 = 0
-		log(lambda.2[j.2,t]) <- ifelse(Watch.Length.2[j.2, t] > 0, 
-										log(Watch.Length.2[j.2,t]) + sp[day.2[j.2,t], t],
-										-1000)
-	}#j.2
+			# If there was no second station, return a very small negative number, which turns into
+			# lambda.2 = 0
+			log(lambda.2[j.2,t]) <- log(Watch.Length.2[j.2,t]) + sp[day.2[j.2,t], t]
+			#log(lambda.2[j.2,t]) <- ifelse(Watch.Length.2[j.2, t] > 0, 
+			#							log(Watch.Length.2[j.2,t]) + sp[day.2[j.2,t], t],
+			#							-1000)
+		} #j.2
+	}#if
 	
   }#t
   
@@ -61,14 +65,15 @@ model{
 	}#j.1
     
 	# Secondary
-	for(j.2 in 1:(periods.2[t])){
+	if (n.station[t] == 2){
+		for(j.2 in 1:(periods.2[t])){
       
-		# N mixture model - observations of 'observable' N (passing whales), 		
-		n.2[j.2,t] ~ dbin(obs.prob.2[j.2,t], N.2[j.2,t]) 
-		log.lkhd.2[j.2,t] <- logdensity.bin(n.2[j.2,t], obs.prob.2[j.2,t], N.2[j.2,t])
+			# N mixture model - observations of 'observable' N (passing whales), 		
+			n.2[j.2,t] ~ dbin(obs.prob.2[j.2,t], N.2[j.2,t]) 
+			log.lkhd.2[j.2,t] <- logdensity.bin(n.2[j.2,t], obs.prob.2[j.2,t], N.2[j.2,t])
 
-	}#j.2    
-    
+		}#j.2    
+    }#if
   }#t
 
   # The primary station always has equal or more periods than the secondary.		
@@ -82,13 +87,13 @@ model{
 
     }#j.1
 	
-	for(j.2 in 1:(periods.2[t]+2)){ 
+	if (n.station[t] == 2){
+		for(j.2 in 1:(periods.2[t]+2)){ 
 
-		# The 'observable' N's from a given day are Poisson distributed with the mean whales per watch (lambda) 
-		N.2[j.2,t] ~ dpois(lambda.2[j.2,t]) 
-
-	}#j.2
-	
+			# The 'observable' N's from a given day are Poisson distributed with the mean whales per watch (lambda) 
+			N.2[j.2,t] ~ dpois(lambda.2[j.2,t]) 
+		}#j.2
+	}#if
   }#t
   
   ### Observation probability
@@ -111,13 +116,14 @@ model{
     }#j.1
 	  
 	# Secondary
-	for (j.2 in 1:periods.2[t]){
+	if (n.station[t] == 2){
+		for (j.2 in 1:periods.2[t]){
 
-		logit(prob.sp.2[j.2,t]) <- logit(mean.prob.sp.2) + (BF.Switch.sp.2[t] * BF.Fixed.sp.2[t] * bf.2[j.2,t]) + (VS.Switch.sp.2[t] * VS.Fixed.sp.1[t] * vs.2[j.2,t]) + (OBS.Switch.sp.2 * OBS.RF.sp[obs.2[j.2,t]])
-		obs.prob.2[j.2,t] <- u.2[j.2,t] * prob.sp.2[j.2,t]
+			logit(prob.sp.2[j.2,t]) <- logit(mean.prob.sp.2) + (BF.Switch.sp.2[t] * BF.Fixed.sp.2[t] * bf.2[j.2,t]) + (VS.Switch.sp.2[t] * VS.Fixed.sp.1[t] * vs.2[j.2,t]) + (OBS.Switch.sp.2 * OBS.RF.sp[obs.2[j.2,t]])
+			obs.prob.2[j.2,t] <- u.2[j.2,t] * prob.sp.2[j.2,t]
 	   
-	}#j.2
-	
+		}#j.2
+	}#if
   }#t
   
   #Uninformative prior for mean.prob
