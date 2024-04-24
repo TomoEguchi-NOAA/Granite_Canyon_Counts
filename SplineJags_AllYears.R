@@ -12,7 +12,7 @@ library(bayesplot)
 library(ERAnalysis)
 
 jags.model <- paste0("models/model_Nmix_Spline_v2_JAGS.txt")
-
+out.file.name <- "RData/JAGS_Spline_results_All_Data_2024-04-24.rds"
 
 data(ERSurveyData)
 data("Observer")
@@ -279,7 +279,7 @@ Effort.by.period.2 %>%
 
 n.2 <- matrix(data = 0, nrow = max(periods.2$n)+2, ncol = n.year)
 Watch.Length.2 <- matrix(data = 0, nrow = max(periods.2$n)+2, ncol = n.year)
-day.2 <- matrix(data = 1, nrow = max(periods.2$n)+2, ncol = n.year)
+day.2 <- matrix(nrow = max(periods.2$n)+2, ncol = n.year)
 bf.2 <- vs.2 <- matrix(data = 0, nrow = max(periods.2$n), ncol = n.year)
 obs.2 <- matrix(data = no.obs, nrow = max(periods.2$n), ncol = n.year)
 u.2 <- matrix(data = 0, nrow = max(periods.2$n)+2, ncol = n.year)
@@ -327,7 +327,7 @@ for (k in 1:n.year){
       filter(Start.year == all.years[k]) %>%
       dplyr::select(dt) %>%
       pull()
-    day.2[(periods.2$n[c]+1):(periods.2$n[c]+2), c] <- c(1,90)
+    #day.2[(periods.2$n[c]+1):(periods.2$n[c]+2), c] <- c(1,90)
     
     c <- c + 1
   }
@@ -341,29 +341,22 @@ all.periods[is.na(all.periods)] <- 0
 # combine input data for Laake's and Durban's approaches
 # 
 
+# for Durban's approach, primary and secondary were matching. In this analysis,
+# they are matched via the day matrices. So... all starting zeros for matrices
+# for the secondary station have to be removed. 
+
 # The first year is a duplicate from Laake's so remove.
+# Primary - this does not need to be modified
 n.1 <- cbind(n.1, 
              rbind(as.matrix(BUGS.data$n[,1,2:x]), 
                    matrix(data = 0, 
                           nrow = nrow(n.1) - dim(BUGS.data$n)[1], 
                           ncol = dim(BUGS.data$n)[3]-1)))
 
-n.2 <- cbind(n.2, 
-             rbind(as.matrix(BUGS.data$n[,2,2:x]), 
-                   matrix(data = 0, 
-                          nrow = nrow(n.2) - dim(BUGS.data$n)[1], 
-                          ncol = dim(BUGS.data$n)[3]-1)))
-
 Watch.Length.1 <- cbind(Watch.Length.1,
                         rbind(BUGS.data$Watch.Length[, 2:x], 
                               matrix(data = NA, 
                                      nrow = nrow(Watch.Length.1) - dim(BUGS.data$Watch.Length)[1], 
-                                     ncol = dim(BUGS.data$Watch.Length)[2]-1)))
-
-Watch.Length.2 <- cbind(Watch.Length.2,
-                        rbind(BUGS.data$Watch.Length[, 2:x], 
-                              matrix(data = NA, 
-                                     nrow = nrow(Watch.Length.2) - dim(BUGS.data$Watch.Length)[1], 
                                      ncol = dim(BUGS.data$Watch.Length)[2]-1)))
 bf.1 <- cbind(bf.1,
               rbind(BUGS.data$bf[, 2:x], 
@@ -377,39 +370,15 @@ vs.1 <- cbind(vs.1,
                            nrow = nrow(vs.1) - dim(BUGS.data$vs)[1], 
                            ncol = dim(BUGS.data$vs)[2]-1)))
 
-bf.2 <- cbind(bf.2,
-              rbind(BUGS.data$bf[, 2:x], 
-                    matrix(data = NA, 
-                           nrow = nrow(bf.2) - dim(BUGS.data$bf)[1], 
-                           ncol = dim(BUGS.data$bf)[2]-1)))
-
-vs.2 <- cbind(vs.2,
-              rbind(BUGS.data$vs[, 2:x], 
-                    matrix(data = NA, 
-                           nrow = nrow(vs.2) - dim(BUGS.data$vs)[1], 
-                           ncol = dim(BUGS.data$vs)[2]-1)))
-
-
 obs.1 <- cbind(obs.1, rbind(obs.1.1, 
                             matrix(data = no.obs, 
                                    nrow = nrow(obs.1) - nrow(obs.1.1), 
                                    ncol = ncol(obs.1.1))))
 
-obs.2 <- cbind(obs.2, rbind(as.matrix(obs.2.1), 
-                            matrix(data = no.obs, 
-                                   nrow = nrow(obs.2) - nrow(obs.2.1), 
-                                   ncol = ncol(obs.2.1))))
-
 day.1 <- cbind(day.1,
                rbind(BUGS.data$day[, 2:x], 
                      matrix(data = NA, 
                             nrow = nrow(day.1) - dim(BUGS.data$day)[1], 
-                            ncol = dim(BUGS.data$day)[2]-1)))
-
-day.2 <- cbind(day.2,
-               rbind(BUGS.data$day[, 2:x], 
-                     matrix(data = NA, 
-                            nrow = nrow(day.2) - dim(BUGS.data$day)[1], 
                             ncol = dim(BUGS.data$day)[2]-1)))
 
 u.1 <- cbind(u.1, 
@@ -418,57 +387,127 @@ u.1 <- cbind(u.1,
                           nrow = nrow(u.1) - dim(BUGS.data$u)[1], 
                           ncol = dim(BUGS.data$u)[3]-1)))
 
-u.2 <- cbind(u.2, 
-             rbind(as.matrix(BUGS.data$u[,2,2:x]), 
-                   matrix(data = 0, 
-                          nrow = nrow(u.2) - dim(BUGS.data$u)[1], 
-                          ncol = dim(BUGS.data$u)[3]-1)))
+# The following needs to be modified for removing zeros at the beginning
+# First figure out how many periods were sampled at the secondary station
 
-periods.1 <- c(all.periods$n.x, BUGS.data$periods[2:length(BUGS.data$periods)])
-periods.2 <- c(all.periods$n.y, 0, BUGS.data$periods[3:4], rep(0, x-4))
+# I subtract 2 rows from the day input because day 1 and 90 were added to each
+# column to anchor the spline
+BUGS.n.periods.2 <- colSums(BUGS.data$u[,2,])
+
+BUGS.n.2 <- BUGS.Watch.Length.2 <- BUGS.bf.2 <- matrix(nrow = max(BUGS.n.periods.2)+2, ncol = length(BUGS.n.periods.2))
+BUGS.vs.2 <- BUGS.obs.2 <- BUGS.day.2 <- BUGS.u.2 <- matrix(nrow = max(BUGS.n.periods.2)+2, ncol = length(BUGS.n.periods.2))
+
+BUGS.n <- BUGS.data$n[,2,]
+BUGS.obs <- BUGS.data$obs[,2,]
+# BUGS input does not have explicit sampling day information for the second
+# station - it is assumed that either none existed (provided in the u input)
+# or the same as the primary station. I create explicit day.2 by combining
+# day and u to pull out what I need.
+BUGS.day <- BUGS.data$day[1:(nrow(BUGS.data$day)-2),] * BUGS.data$u[,2,] 
+BUGS.u <- BUGS.data$u[,2,]
+k <- 3
+for (k in 1:length(BUGS.n.periods.2)){
+  if (BUGS.n.periods.2[k] > 0){
+    BUGS.n.2[1:(BUGS.n.periods.2[k] + 2), k] <- c(BUGS.n[BUGS.data$u[,2,k] == 1, k], 0, 0)
+    BUGS.Watch.Length.2[1:BUGS.n.periods.2[k], k] <- BUGS.data$Watch.Length[BUGS.data$u[,2,k] == 1, k]
+    BUGS.bf.2[1:BUGS.n.periods.2[k], k] <- BUGS.data$bf[BUGS.data$u[,2,k] == 1, k]
+    BUGS.vs.2[1:BUGS.n.periods.2[k], k] <- BUGS.data$vs[BUGS.data$u[,2,k] == 1, k]
+    BUGS.obs.2[1:BUGS.n.periods.2[k], k] <- BUGS.obs[BUGS.data$u[,2,k] == 1, k]
+    BUGS.day.2[1:BUGS.n.periods.2[k], k] <- BUGS.day[BUGS.data$u[,2,k] == 1, k]
+    BUGS.u.2[1:BUGS.n.periods.2[k], k] <- BUGS.u[BUGS.data$u[,2,k] == 1, k]
+  }
+}
+
+n.2 <- cbind(n.2, 
+             rbind(BUGS.n.2[,2:x], 
+                   matrix(data = 0, 
+                          nrow = nrow(n.2) - dim(BUGS.n.2)[1], 
+                          ncol = dim(BUGS.n.2)[2]-1)))
+
+
+Watch.Length.2 <- cbind(Watch.Length.2,
+                        rbind(BUGS.Watch.Length.2[, 2:x], 
+                              matrix(data = NA, 
+                                     nrow = nrow(Watch.Length.2) - dim(BUGS.Watch.Length.2)[1], 
+                                     ncol = dim(BUGS.Watch.Length.2)[2]-1)))
+bf.2 <- cbind(bf.2,
+              rbind(BUGS.bf.2[, 2:x], 
+                    matrix(data = NA, 
+                           nrow = nrow(bf.2) - dim(BUGS.bf.2)[1], 
+                           ncol = dim(BUGS.bf.2)[2]-1)))
+
+vs.2 <- cbind(vs.2,
+              rbind(BUGS.vs.2[, 2:x], 
+                    matrix(data = NA, 
+                           nrow = nrow(vs.2) - dim(BUGS.vs.2)[1], 
+                           ncol = dim(BUGS.vs.2)[2]-1)))
+
+obs.2 <- cbind(obs.2, 
+               rbind(BUGS.obs.2[,2:x], 
+                     matrix(data = no.obs, 
+                            nrow = nrow(obs.2) - nrow(BUGS.obs.2), 
+                            ncol = dim(BUGS.obs.2)[2]-1)))
+
+day.2 <- cbind(day.2,
+               rbind(BUGS.day.2[, 2:x], 
+                     matrix(data = NA, 
+                            nrow = nrow(day.2) - dim(BUGS.day.2)[1], 
+                            ncol = dim(BUGS.day.2)[2]-1)))
+
+u.2 <- cbind(u.2, 
+             rbind(BUGS.u.2[,2:x], 
+                   matrix(data = 0, 
+                          nrow = nrow(u.2) - dim(BUGS.u.2)[1], 
+                          ncol = dim(BUGS.u.2)[2]-1)))
+
+BUGS.n.periods <- c()
+
+periods.1.vec <- c(all.periods$n.x, BUGS.data$periods[2:length(BUGS.data$periods)])
+periods.2.vec <- c(all.periods$n.y, BUGS.n.periods.2[2:length(BUGS.n.periods.2)])
 
 Watch.Length.1[day.1 == 1 | day.1 > 89] <- 1
 Watch.Length.2[day.2 == 1 | day.2 > 89] <- 1
 
-# Day 1 and 90 should be zeros
+# Renumber the observers to make them 1 to the maximum number of observers
+obs.df.1 <- data.frame(old.ID = sort(unique(c(as.vector(obs.1), as.vector(obs.2)))))
+obs.df.1$new.ID <- seq(1:nrow(obs.df.1))
+
+# Because 1 to 75 have no missing numbers, only values that need to be replaced
+# are 114, 115, and 116, where 116 is for "no observers." 
+
+obs.1[obs.1 == 114] <- 76
+obs.1[obs.1 == 115] <- 77
+obs.1[obs.1 == 116] <- 78
+
+obs.2[obs.2 == 114] <- 76
+obs.2[obs.2 == 115] <- 77
+obs.2[obs.2 == 116] <- 78
+
+# Observed whales for Day 1 and 90 and higher should be zeros
 n.1[day.1 == 1 | day.1 > 89] <- 0
 n.2[day.2 == 1 | day.2 > 89] <- 0
 
-N.1.inits <- n.1 * 3 + 2
-for (k in 1:length(periods.1))
-  N.1.inits[(periods.1[k]+1):nrow(N.1.inits), k] <- NA
+N.1.obs <- matrix(nrow = nrow(n.1),  ncol = ncol(n.1))
 
-N.1.obs <- matrix(nrow = nrow(N.1.inits),  ncol = ncol(N.1.inits))
-
-N.1.inits[day.1 == 1 | day.1 > 89] <- NA
 N.1.obs[day.1 == 1 | day.1 > 89] <- 0    # "partially observed" as in assumed zeros
 
-N.2.inits <- n.2 * 3 + 2
-for (k in 1:length(periods.2))
-  N.2.inits[(periods.2[k]+1):nrow(N.2.inits), k] <- NA
+#N.2.inits <- n.2 * 3 + 2
+# for (k in 1:length(periods.2))
+#   N.2.inits[(periods.2[k]+1):nrow(N.2.inits), k] <- NA
 
-N.2.obs <- matrix(nrow = nrow(N.2.inits),  ncol = ncol(N.2.inits))
+N.2.obs <- matrix(nrow = nrow(n.2),  ncol = ncol(n.2))
 
-N.2.inits[day.2 == 1 | day.2 > 89] <- NA
 N.2.obs[day.2 == 1 | day.2 > 89] <- 0
-
-# function to create initial values for N.1 and N.2. Without providing initial 
-# values, the binomial likelihood doesn't work so well. Results in too small of
-# N values.
-N.inits <- function(N.1.inits, N.2.inits,n.chains){
-  out.list <- vector(mode = "list", length = n.chains)
-  return(lapply(out.list, FUN = function(x) list(N.1 = N.1.inits, N.2 = N.2.inits)))
-}
 
 jags.data <- list(n.1 = n.1,
                   n.2 = n.2,
                   N.1 = N.1.obs,
                   N.2 = N.2.obs,
-                  n.station = ifelse(colSums(n.2, na.rm = T) > 0, 1, 0),
+                  n.station = ifelse(colSums(n.2, na.rm = T) > 0, 2, 1),
                   n.year = ncol(n.1),
-                  n.obs = max(obs.1, na.rm = T),
-                  periods.1 = periods.1,
-                  periods.2 = periods.2,
+                  n.obs = max(obs.1),  
+                  periods.1 = periods.1.vec,
+                  periods.2 = periods.2.vec,
                   obs.1 = obs.1,
                   obs.2 = obs.2,
                   vs.1 = vs.1,
@@ -517,19 +556,43 @@ jags.params <- c("lambda.1",
                  "log.lkhd.1",
                  "log.lkhd.2")
 
+# These parameters result in run time of about 3 hrs
 MCMC.params <- list(n.samples = 125000,
                     n.thin = 10,
                     n.burnin = 25000,
                     n.chains = 5)
 
+# Initial values have to be reasonably large so that observed n can be a binomial
+# deviate
+# function to create initial values for N.1 and N.2. Without providing initial 
+# values, the binomial likelihood doesn't work so well. Results in too small of
+# N values.
+N.inits <- function(n.1, n.2, n.chains){
+  out.list <- vector(mode = "list", length = n.chains)
+  return(lapply(out.list, FUN = function(x) list(N.1 = n.1 * 3 + round(runif(1, 1, 10)), 
+                                                 N.2 = n.2 * 3 + round(runif(1, 1, 10)))))
+}
 
-out.file.name <- "RData/JAGS_Spline_results_All_Data_2024-04-22.rds"
+N.1.2.inits <- N.inits(n.1, n.2, MCMC.params$n.chains)
+#N.1.inits[day.1 == 1 | day.1 > 89] <- NA
+#N.2.inits[day.2 == 1 | day.2 > 89] <- NA
+
+for (j in 1:MCMC.params$n.chains){
+  for (k in 1:length(periods.1)){
+    # make unobserved rows NA
+    N.1.2.inits[[j]]$N.1[(periods.1[k]+1):nrow(n.1), k] <- NA
+    N.1.2.inits[[j]]$N.2[(periods.2[k]+1):nrow(n.2), k] <- NA
+  }
+  # Days 1 and >89 are NAs - unobserved
+  N.1.2.inits[[j]]$N.1[day.1 == 1 | day.1 > 89] <- NA
+  N.1.2.inits[[j]]$N.2[day.2 == 1 | day.2 > 89] <- NA
+}
 
 if (!file.exists(out.file.name)){
   Start_Time<-Sys.time()
   
   jm <- jagsUI::jags(jags.data,
-                     inits = N.inits(N.1.inits, N.2.inits, MCMC.params$n.chains),
+                     inits = N.1.2.inits,
                      parameters.to.save= jags.params,
                      model.file = jags.model,
                      n.chains = MCMC.params$n.chains,

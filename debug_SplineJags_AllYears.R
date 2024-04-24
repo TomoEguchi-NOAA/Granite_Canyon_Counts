@@ -51,7 +51,7 @@ sampled.n.1 <- find.sampled(jm.out$jags.data$n.1, varname = "n")
 sampled.n.2 <- find.sampled(jm.out$jags.data$n.2, varname = "n")  
 
 # the number of whales on day 1 and day 90 are NAs rather than zeros. 
-# Could this be a problem?
+# Could this be a problem? Turns out this was not the problem 2024-04-22
 
 sampled.bf.1 <- find.sampled(jm.out$jags.data$bf.1, varname = "bf")  
 sampled.bf.2 <- find.sampled(jm.out$jags.data$bf.2, varname = "bf")  
@@ -65,5 +65,6 @@ sampled.obs.2 <- find.sampled(jm.out$jags.data$obs.2, varname = "obs")
 sampled.watch.1 <- find.sampled(jm.out$jags.data$Watch.Length.1, varname = "watch")  
 sampled.watch.2 <- find.sampled(jm.out$jags.data$Watch.Length.2, varname = "watch")  
 
+# Problem seems to be having wrong 1s in the u.2 matrix
 sampled.u.1 <- find.sampled(jm.out$jags.data$u.1, varname = "u")  
 sampled.u.2 <- find.sampled(jm.out$jags.data$u.2, varname = "u")  
