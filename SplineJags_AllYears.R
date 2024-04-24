@@ -284,9 +284,11 @@ bf.2 <- vs.2 <- matrix(data = 0, nrow = max(periods.2$n), ncol = n.year)
 obs.2 <- matrix(data = no.obs, nrow = max(periods.2$n), ncol = n.year)
 u.2 <- matrix(data = 0, nrow = max(periods.2$n)+2, ncol = n.year)
 
-k <- c <- 1
+k <- 16
+c <- 1
 for (k in 1:n.year){
   
+  # years with the secondary station:
   if (all.years[k] %in% periods.2$Start.year){
     n.2[1:periods.2$n[c], k] <- Effort.by.period.2 %>% 
       ungroup() %>%
@@ -327,7 +329,7 @@ for (k in 1:n.year){
       filter(Start.year == all.years[k]) %>%
       dplyr::select(dt) %>%
       pull()
-    #day.2[(periods.2$n[c]+1):(periods.2$n[c]+2), c] <- c(1,90)
+    day.2[(periods.2$n[c]+1):(periods.2$n[c]+2), k] <- c(1,90)
     
     c <- c + 1
   }
@@ -394,8 +396,9 @@ u.1 <- cbind(u.1,
 # column to anchor the spline
 BUGS.n.periods.2 <- colSums(BUGS.data$u[,2,])
 
-BUGS.n.2 <- BUGS.Watch.Length.2 <- BUGS.bf.2 <- matrix(nrow = max(BUGS.n.periods.2)+2, ncol = length(BUGS.n.periods.2))
+BUGS.n.2 <- BUGS.bf.2 <- matrix(nrow = max(BUGS.n.periods.2)+2, ncol = length(BUGS.n.periods.2))
 BUGS.vs.2 <- BUGS.obs.2 <- BUGS.day.2 <- BUGS.u.2 <- matrix(nrow = max(BUGS.n.periods.2)+2, ncol = length(BUGS.n.periods.2))
+BUGS.Watch.Length.2 <- matrix(data = 0, nrow = max(BUGS.n.periods.2)+2, ncol = length(BUGS.n.periods.2))
 
 BUGS.n <- BUGS.data$n[,2,]
 BUGS.obs <- BUGS.data$obs[,2,]
@@ -413,8 +416,10 @@ for (k in 1:length(BUGS.n.periods.2)){
     BUGS.bf.2[1:BUGS.n.periods.2[k], k] <- BUGS.data$bf[BUGS.data$u[,2,k] == 1, k]
     BUGS.vs.2[1:BUGS.n.periods.2[k], k] <- BUGS.data$vs[BUGS.data$u[,2,k] == 1, k]
     BUGS.obs.2[1:BUGS.n.periods.2[k], k] <- BUGS.obs[BUGS.data$u[,2,k] == 1, k]
-    BUGS.day.2[1:BUGS.n.periods.2[k], k] <- BUGS.day[BUGS.data$u[,2,k] == 1, k]
+    BUGS.day.2[1:(BUGS.n.periods.2[k] + 2), k] <- c(BUGS.day[BUGS.data$u[,2,k] == 1, k], 1, 90)
     BUGS.u.2[1:BUGS.n.periods.2[k], k] <- BUGS.u[BUGS.data$u[,2,k] == 1, k]
+  } else {
+    BUGS.day.2[1:2, k] <- c(1,90)
   }
 }
 
@@ -453,6 +458,12 @@ day.2 <- cbind(day.2,
                      matrix(data = NA, 
                             nrow = nrow(day.2) - dim(BUGS.day.2)[1], 
                             ncol = dim(BUGS.day.2)[2]-1)))
+
+for (k in 1:ncol(day.2)){
+  if (is.na(day.2[1,k])){
+    day.2[1:2, k] <- c(1, 90)
+  }
+}
 
 u.2 <- cbind(u.2, 
              rbind(BUGS.u.2[,2:x], 
@@ -578,10 +589,10 @@ N.1.2.inits <- N.inits(n.1, n.2, MCMC.params$n.chains)
 #N.2.inits[day.2 == 1 | day.2 > 89] <- NA
 
 for (j in 1:MCMC.params$n.chains){
-  for (k in 1:length(periods.1)){
+  for (k in 1:length(periods.1.vec)){
     # make unobserved rows NA
-    N.1.2.inits[[j]]$N.1[(periods.1[k]+1):nrow(n.1), k] <- NA
-    N.1.2.inits[[j]]$N.2[(periods.2[k]+1):nrow(n.2), k] <- NA
+    N.1.2.inits[[j]]$N.1[(periods.1.vec[k]+1):nrow(n.1), k] <- NA
+    N.1.2.inits[[j]]$N.2[(periods.2.vec[k]+1):nrow(n.2), k] <- NA
   }
   # Days 1 and >89 are NAs - unobserved
   N.1.2.inits[[j]]$N.1[day.1 == 1 | day.1 > 89] <- NA
