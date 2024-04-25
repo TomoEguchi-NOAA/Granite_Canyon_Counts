@@ -37,11 +37,11 @@ model{
 	
 	for(j.2 in 1:(periods.2[t]+2)){
       
-		# If there was no second station, return a very small negative number, which turns into
-		# lambda.2 = 0
-		log(lambda.2[j.2,t]) <- ifelse(Watch.Length.2[j.2, t] > 0, 
-									log(Watch.Length.2[j.2,t]) + sp[day.2[j.2,t], t],
-									-1000)
+		# For days 1 and 90, watch length is 1.0. This makes it the zero "observation" 
+		# is a certainty. For periods with no secondary station,
+		# watch length matrix has NA.
+
+		log(lambda.2[j.2,t]) <- log(Watch.Length.2[j.2,t]) + sp[day.2[j.2,t], t]
 	} #j.2
 	
   }#t
@@ -75,14 +75,16 @@ model{
   for(t in 1:n.year){
     for(j.1 in 1:(periods.1[t]+2)){ 
 
-		# The 'observable' N's from a given day are Poisson distributed with the mean whales per watch (lambda) 
+		# The 'observable' N's for a given period are Poisson distributed with 
+		# the mean whales per watch (lambda) 
 		N.1[j.1,t] ~ dpois(lambda.1[j.1,t]) 
 
     }#j.1
 	
 	for(j.2 in 1:(periods.2[t]+2)){ 
 
-		# The 'observable' N's from a given day are Poisson distributed with the mean whales per watch (lambda) 
+		# The 'observable' N's for a given period are Poisson distributed with 
+		# the mean whales per watch (lambda) 
 		N.2[j.2,t] ~ dpois(lambda.2[j.2,t]) 
 	}#j.2
 
@@ -95,9 +97,6 @@ model{
   #                Obs effect on/off * Random effect of observer)
 
   # the u data is whether there were observers on watch (u.1 and u.2 for primary and secondary). 
-  # 0 counts are often associated with years/shifts with 
-  # no second observer. So if u=0, it will fix observation probability at 0
-  
   for(t in 1:n.year){
     # Primary
 	for(j.1 in 1:periods.1[t]){
@@ -200,10 +199,9 @@ model{
     sd.b.sp[t] ~ dunif(0,10) #uniform prior on regression coefficient SD, as per Durban et al
   
     for(l in 1:2){
-      beta.sp[l, t] ~ dnorm(0, 0.01) #N(0,10) prior for S0 and S1 coefficients, as per Durban et al
+      beta.sp[l, t] ~ dnorm(0, 0.01) #N(0,100) prior for S0 and S1 coefficients, as per Durban et al
     }#l
 
-  
     for(d in 1:n.days[t]){
       # multiplying splines across days to make the penalized spline model fit
       sp[d, t] <- inprod(beta.sp[,t], X.sp[d,,t]) + inprod(b.sp[,t], Z1[d,,t]) 
@@ -221,7 +219,9 @@ model{
   for(t in 1:n.year){
     raw.unrounded[t] <- sum(Specific[1:n.days[t],t])
     Raw.Est[t] <- round(raw.unrounded[t])
-    Corrected.Est[t] <- Raw.Est[t]*corr.factor # multiply raw estimates by correction factor for nighttime passage rates (below)
+	
+	# multiply raw estimates by correction factor for nighttime passage rates (below)
+    Corrected.Est[t] <- Raw.Est[t] * corr.factor 
   }#t
   
   # Correction factor for nighttime passage rates:

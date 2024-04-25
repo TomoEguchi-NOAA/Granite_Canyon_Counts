@@ -221,9 +221,9 @@ Effort.by.period.1 %>%
   summarize(n = n()) -> periods.1
 
 n.1 <- matrix(data = 0, nrow = max(periods.1$n)+2, ncol = n.year)
-Watch.Length.1 <- matrix(data = 0, nrow = max(periods.1$n)+2, ncol = n.year)
+Watch.Length.1 <- matrix(data = NA, nrow = max(periods.1$n)+2, ncol = n.year)
 day.1 <- matrix(nrow = max(periods.1$n)+2, ncol = n.year)
-bf.1 <- vs.1 <- matrix(data = 0, nrow = max(periods.1$n), ncol = n.year)
+bf.1 <- vs.1 <- matrix(data = NA, nrow = max(periods.1$n), ncol = n.year)
 obs.1 <-  matrix(data = no.obs, nrow = max(periods.1$n), ncol = n.year)
 u.1 <- matrix(data = 0, nrow = max(periods.1$n)+2, ncol = n.year)
 
@@ -242,7 +242,7 @@ for (k in 1:n.year){
     filter(Start.year == all.years[k]) %>%
     dplyr::select(watch.prop) %>%
     pull()
-  Watch.Length.1[(periods.1$n[k]+1):(periods.1$n[k]+2), k] <- 0
+  Watch.Length.1[(periods.1$n[k]+1):(periods.1$n[k]+2), k] <- 1.0
   
   bf.1[1:periods.1$n[k], k] <- Effort.by.period.1 %>% 
     ungroup() %>%
@@ -278,9 +278,9 @@ Effort.by.period.2 %>%
   summarize(n = n()) -> periods.2
 
 n.2 <- matrix(data = 0, nrow = max(periods.2$n)+2, ncol = n.year)
-Watch.Length.2 <- matrix(data = 0, nrow = max(periods.2$n)+2, ncol = n.year)
+Watch.Length.2 <- matrix(data = NA, nrow = max(periods.2$n)+2, ncol = n.year)
 day.2 <- matrix(nrow = max(periods.2$n)+2, ncol = n.year)
-bf.2 <- vs.2 <- matrix(data = 0, nrow = max(periods.2$n), ncol = n.year)
+bf.2 <- vs.2 <- matrix(data = NA, nrow = max(periods.2$n), ncol = n.year)
 obs.2 <- matrix(data = no.obs, nrow = max(periods.2$n), ncol = n.year)
 u.2 <- matrix(data = 0, nrow = max(periods.2$n)+2, ncol = n.year)
 
@@ -302,7 +302,7 @@ for (k in 1:n.year){
       filter(Start.year == all.years[k]) %>%
       dplyr::select(watch.prop) %>%
       pull()
-    Watch.Length.2[(periods.2$n[c]+1):(periods.2$n[c]+2), k] <- 0
+    Watch.Length.2[(periods.2$n[c]+1):(periods.2$n[c]+2), k] <- 1.0
     
     bf.2[1:periods.2$n[c], k] <- Effort.by.period.2 %>% 
       ungroup() %>%
@@ -389,16 +389,11 @@ u.1 <- cbind(u.1,
                           nrow = nrow(u.1) - dim(BUGS.data$u)[1], 
                           ncol = dim(BUGS.data$u)[3]-1)))
 
-# The following needs to be modified for removing zeros at the beginning
-# First figure out how many periods were sampled at the secondary station
-
-# I subtract 2 rows from the day input because day 1 and 90 were added to each
-# column to anchor the spline
 BUGS.n.periods.2 <- colSums(BUGS.data$u[,2,])
 
 BUGS.n.2 <- BUGS.bf.2 <- matrix(nrow = max(BUGS.n.periods.2)+2, ncol = length(BUGS.n.periods.2))
-BUGS.vs.2 <- BUGS.obs.2 <- BUGS.day.2 <- BUGS.u.2 <- matrix(nrow = max(BUGS.n.periods.2)+2, ncol = length(BUGS.n.periods.2))
-BUGS.Watch.Length.2 <- matrix(data = 0, nrow = max(BUGS.n.periods.2)+2, ncol = length(BUGS.n.periods.2))
+BUGS.vs.2 <- BUGS.obs.2 <- BUGS.day.2 <- matrix(nrow = max(BUGS.n.periods.2)+2, ncol = length(BUGS.n.periods.2))
+BUGS.Watch.Length.2 <- BUGS.u.2 <- matrix(data = 0, nrow = max(BUGS.n.periods.2)+2, ncol = length(BUGS.n.periods.2))
 
 BUGS.n <- BUGS.data$n[,2,]
 BUGS.obs <- BUGS.data$obs[,2,]
@@ -470,8 +465,6 @@ u.2 <- cbind(u.2,
                    matrix(data = 0, 
                           nrow = nrow(u.2) - dim(BUGS.u.2)[1], 
                           ncol = dim(BUGS.u.2)[2]-1)))
-
-BUGS.n.periods <- c()
 
 periods.1.vec <- c(all.periods$n.x, BUGS.data$periods[2:length(BUGS.data$periods)])
 periods.2.vec <- c(all.periods$n.y, BUGS.n.periods.2[2:length(BUGS.n.periods.2)])
