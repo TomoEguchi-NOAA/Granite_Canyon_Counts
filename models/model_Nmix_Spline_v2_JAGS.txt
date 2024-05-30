@@ -29,6 +29,11 @@ model{
   # lambda.1 and lambda.2 are the mean number of observable whales by station 1 and 2, respectively.  
   # the total number of whales in a day (sp) is multiplied (addition in the log space) by the 
   # proportion of the watch length.
+  
+  # For days 1 and 90, watch length is 1.0. This makes it the zero "observation" 
+  # a certainty. For periods with no secondary station,
+  # watch length matrix for the secondary station has NA.
+
   for(t in 1:n.year){
 	for(j.1 in 1:(periods.1[t]+2)){
         
@@ -37,10 +42,6 @@ model{
 	
 	for(j.2 in 1:(periods.2[t]+2)){
       
-		# For days 1 and 90, watch length is 1.0. This makes it the zero "observation" 
-		# is a certainty. For periods with no secondary station,
-		# watch length matrix has NA.
-
 		log(lambda.2[j.2,t]) <- log(Watch.Length.2[j.2,t]) + sp[day.2[j.2,t], t]
 	} #j.2
 	
@@ -72,50 +73,53 @@ model{
   # The primary station usually has equal or more periods than the secondary (not always).		
   # With this formulation, even if the watch length is equal between the station, the
   # true N may be different between the stations because they are random deviates.
+
+  # The 'observable' N's for a given period are Poisson distributed with 
+  # the mean whales per watch (lambda) 
   for(t in 1:n.year){
     for(j.1 in 1:(periods.1[t]+2)){ 
 
-		# The 'observable' N's for a given period are Poisson distributed with 
-		# the mean whales per watch (lambda) 
-		N.1[j.1,t] ~ dpois(lambda.1[j.1,t]) 
-
+		N.1[j.1, t] ~ dpois(lambda.1[j.1, t]) 
     }#j.1
 	
 	for(j.2 in 1:(periods.2[t]+2)){ 
 
-		# The 'observable' N's for a given period are Poisson distributed with 
-		# the mean whales per watch (lambda) 
-		N.2[j.2,t] ~ dpois(lambda.2[j.2,t]) 
+		N.2[j.2, t] ~ dpois(lambda.2[j.2, t]) 
 	}#j.2
 
   }#t
   
   ### Observation probability
-  # Final obs prob = observer 1/0 * 
-  #                (base obs prob + BF on/off *Fixed effect of BF * BF + 
-  #                 VS on/off *Fixed effect of VS * VS    + 
-  #                Obs effect on/off * Random effect of observer)
+  # obs prob = observer 1/0 * 
+  #                (base obs prob + 
+  #                 BF on/off * Fixed effect of BF * BF + 
+  #                 VS on/off * Fixed effect of VS * VS    + 
+  #                 Obs on/off * Random effect of observer)
 
   # the u data is whether there were observers on watch (u.1 and u.2 for primary and secondary). 
   for(t in 1:n.year){
     # Primary
 	for(j.1 in 1:periods.1[t]){
 
-        logit(prob.sp.1[j.1,t]) <- logit(mean.prob.sp.1) + (BF.Switch.sp.1[t] * BF.Fixed.sp.1[t] * bf.1[j.1,t]) + (VS.Switch.sp.1[t] * VS.Fixed.sp.1[t] * vs.1[j.1,t]) + (OBS.Switch.sp.1 * OBS.RF.sp[obs.1[j.1,t]])
-        obs.prob.1[j.1,t] <- u.1[j.1,t] * prob.sp.1[j.1,t]
+        #logit(prob.sp.1[j.1,t]) <- logit(mean.prob.sp.1) + (BF.Switch.sp.1[t] * BF.Fixed.sp.1[t] * bf.1[j.1,t]) + (VS.Switch.sp.1[t] * VS.Fixed.sp.1[t] * vs.1[j.1,t]) + (OBS.Switch.sp.1 * OBS.RF.sp[obs.1[j.1,t]])
+		logit(prob.sp.1[j.1,t]) <- logit(mean.prob.sp.1) + BF.Fixed.sp.1 * bf.1[j.1,t] + VS.Fixed.sp.1 * vs.1[j.1,t] + (OBS.Switch.sp.1 * OBS.RF.sp[obs.1[j.1,t]])
+        #obs.prob.1[j.1,t] <- u.1[j.1,t] * prob.sp.1[j.1,t]
+		obs.prob.1[j.1,t] <- ifelse(u.1[j.1,t] == 1, prob.sp.1[j.1,t], 0)
         
     }#j.1
 	  
 	# Secondary
 	for (j.2 in 1:periods.2[t]){
 
-		logit(prob.sp.2[j.2,t]) <- logit(mean.prob.sp.2) + (BF.Switch.sp.2[t] * BF.Fixed.sp.2[t] * bf.2[j.2,t]) + (VS.Switch.sp.2[t] * VS.Fixed.sp.1[t] * vs.2[j.2,t]) + (OBS.Switch.sp.2 * OBS.RF.sp[obs.2[j.2,t]])
-		obs.prob.2[j.2,t] <- u.2[j.2,t] * prob.sp.2[j.2,t]
-	   
+		#logit(prob.sp.2[j.2,t]) <- logit(mean.prob.sp.2) + (BF.Switch.sp.2[t] * BF.Fixed.sp.2[t] * bf.2[j.2,t]) + (VS.Switch.sp.2[t] * VS.Fixed.sp.2[t] * vs.2[j.2,t]) + (OBS.Switch.sp.2 * OBS.RF.sp[obs.2[j.2,t]])
+		
+		logit(prob.sp.2[j.2,t]) <- logit(mean.prob.sp.2) + BF.Fixed.sp.2 * bf.2[j.2,t] + VS.Fixed.sp.2 * vs.2[j.2,t] + (OBS.Switch.sp.2 * OBS.RF.sp[obs.2[j.2,t]])
+		#obs.prob.2[j.2,t] <- u.2[j.2,t] * prob.sp.2[j.2,t]
+	    obs.prob.2[j.2,t] <- ifelse(u.2[j.2,t] == 1, prob.sp.2[j.2,t], 0)
 	}#j.2
   }#t
   
-  #Uninformative prior for mean.prob
+  # Uninformative prior for mean.prob
   mean.prob.sp.1 ~ dunif(0,1)
   mean.prob.sp.2 ~ dunif(0,1)
   
@@ -128,7 +132,7 @@ model{
     OBS.RF.sp[o] ~ dnorm(0, tau.Obs.sp)
   }#o
   
-  # Uninformative prior for tau.Obs (I don't think Unif(0,2) to be uninformative... )
+  # Uninformative prior for tau.Obs (I don't think Unif(0,2) was uninformative... )
   sigma.Obs.sp ~ dgamma(1, 0.5)
   #sigma.Obs.sp ~ dunif(0,2)
   tau.Obs.sp <- pow(sigma.Obs.sp, -2)
@@ -136,23 +140,32 @@ model{
   OBS.Switch.sp.1 ~ dbern(0.5)
   OBS.Switch.sp.2 ~ dbern(0.5)
   
-  ## Beaufort
-  #uninformative prior for the BF.Switch, which determines whether to include the effect of beaufort conditions (multiply by 0 or 1)
+  ## Beaufort and visibility
+  #uninformative prior for the BF.Switch and VS.Switch, which determines whether to include the effect of beaufort conditions (multiply by 0 or 1) - Should these be year-specific? Does that make sense?
+  # It seems that these should be always included, rather than trying to exclude in some years... 
+  
+  #Below is the single fixed effect multiplied by BF rating in the updated obs prob equation:
+  BF.Fixed.sp.1 ~ dnorm(0,0.01)
+  BF.Fixed.sp.2 ~ dnorm(0,0.01)
+  
+  VS.Fixed.sp.1 ~ dnorm(0,0.01)
+  VS.Fixed.sp.2 ~ dnorm(0,0.01)
+	
   for (t in 1:n.year){
-    BF.Switch.sp.1[t] ~ dbern(0.5)
-	BF.Switch.sp.2[t] ~ dbern(0.5)
+    #BF.Switch.sp.1[t] ~ dbern(0.5)
+	#BF.Switch.sp.2[t] ~ dbern(0.5)
   
 	#Below is the single fixed effect multiplied by BF rating in the updated obs prob equation:
-	BF.Fixed.sp.1[t] ~ dnorm(0,0.01)
-	BF.Fixed.sp.2[t] ~ dnorm(0,0.01)
+	#BF.Fixed.sp.1[t] ~ dnorm(0,0.01)
+	#BF.Fixed.sp.2[t] ~ dnorm(0,0.01)
   
 	## Visibility
-	VS.Switch.sp.1[t] ~ dbern(0.5)
-    VS.Switch.sp.2[t] ~ dbern(0.5)
+	#VS.Switch.sp.1[t] ~ dbern(0.5)
+    #VS.Switch.sp.2[t] ~ dbern(0.5)
 	
 	#Below is the single fixed effect multiplied by VS rating in the updated obs prob equation:
-	VS.Fixed.sp.1[t] ~ dnorm(0,0.01)
-	VS.Fixed.sp.2[t] ~ dnorm(0,0.01)
+	#VS.Fixed.sp.1[t] ~ dnorm(0,0.01)
+	#VS.Fixed.sp.2[t] ~ dnorm(0,0.01)
 	
 	# mean and sd of the time vector below
     mean.time.sp[t] <- mean(time.sp[1:n.days[t], t])
@@ -173,6 +186,7 @@ model{
   ## spline fit Specific Model
   for(t in 1:n.year){  
     for(d in 1:n.days[t]){
+	  	
       for(k in 1:n.knots){
         Z1[d,k,t] <- pow(uZ1[d,k,t], 1)
         uZ1[d,k,t] <- (covariate.sp[d,t] - knot[k]) * step(covariate.sp[d,t] - knot[k])
@@ -188,7 +202,7 @@ model{
 			X.sp[d,l,t] <- pow(covariate.sp[d,t], l-1) 
 		}#l
     }#d
-   }#t
+  }#t
     
   for(t in 1:n.year){  
     for(k in 1:n.knots){
@@ -205,8 +219,7 @@ model{
     for(d in 1:n.days[t]){
       # multiplying splines across days to make the penalized spline model fit
       sp[d, t] <- inprod(beta.sp[,t], X.sp[d,,t]) + inprod(b.sp[,t], Z1[d,,t]) 
-	  
-	  # multiplying splines across days to make the penalized spline model fit
+	
       # NOTE: Model is inverse-logged (exp) as below for the full season summation
       log(Specific[d,t]) <- sp[d,t]  
 
@@ -221,14 +234,15 @@ model{
     Raw.Est[t] <- round(raw.unrounded[t])
 	
 	# multiply raw estimates by correction factor for nighttime passage rates (below)
+	#(Perryman et al. 1999 Marine Mammal Science)
     Corrected.Est[t] <- Raw.Est[t] * corr.factor 
   }#t
   
   # Correction factor for nighttime passage rates:
-  corr.factor~dnorm(mean.corr,tau.corr)
-  mean.corr<-1.0875
-  sd.corr<-0.03625
-  tau.corr<-pow(sd.corr,-2)
+  corr.factor ~ dnorm(mean.corr, tau.corr)
+  mean.corr <- 1.0875
+  sd.corr <- 0.03625
+  tau.corr <- pow(sd.corr, -2)
   
   
 }#model

@@ -12,7 +12,7 @@ library(bayesplot)
 library(ERAnalysis)
 
 jags.model <- paste0("models/model_Nmix_Spline_v2_JAGS.txt")
-out.file.name <- "RData/JAGS_Spline_results_All_Data_2024-04-24.rds"
+out.file.name <- paste0("RData/JAGS_Spline_results_All_Data_", Sys.Date(), ".rds")
 
 data(ERSurveyData)
 data("Observer")
@@ -493,7 +493,8 @@ n.2[day.2 == 1 | day.2 > 89] <- 0
 
 N.1.obs <- matrix(nrow = nrow(n.1),  ncol = ncol(n.1))
 
-N.1.obs[day.1 == 1 | day.1 > 89] <- 0    # "partially observed" as in assumed zeros
+# "partially observed" as in assumed zeros
+N.1.obs[day.1 == 1 | day.1 > 89] <- 0    
 
 #N.2.inits <- n.2 * 3 + 2
 # for (k in 1:length(periods.2))
@@ -536,12 +537,12 @@ jags.params <- c("lambda.1",
                  "OBS.RF.sp",
                  "OBS.Switch.sp.1",
                  "OBS.Switch.sp.2",
-                 "BF.Switch.sp.1",
-                 "BF.Switch.sp.2",
+                 #"BF.Switch.sp.1",
+                 #"BF.Switch.sp.2",
                  "BF.Fixed.sp.1",
                  "BF.Fixed.sp.2",
-                 "VS.Switch.sp.1",
-                 "VS.Switch.sp.2",
+                 #"VS.Switch.sp.1",
+                 #"VS.Switch.sp.2",
                  "VS.Fixed.sp.1",
                  "VS.Fixed.sp.2",
                  "mean.prob.sp.1",
