@@ -102,10 +102,14 @@ model{
 	for(j.1 in 1:periods.1[t]){
 
         #logit(prob.sp.1[j.1,t]) <- logit(mean.prob.sp.1) + (BF.Switch.sp.1[t] * BF.Fixed.sp.1[t] * bf.1[j.1,t]) + (VS.Switch.sp.1[t] * VS.Fixed.sp.1[t] * vs.1[j.1,t]) + (OBS.Switch.sp.1 * OBS.RF.sp[obs.1[j.1,t]])
-		logit(prob.sp.1[j.1,t]) <- logit(mean.prob.sp.1) + BF.Fixed.sp.1 * bf.1[j.1,t] + VS.Fixed.sp.1 * vs.1[j.1,t] + (OBS.Switch.sp.1 * OBS.RF.sp[obs.1[j.1,t]])
-        #obs.prob.1[j.1,t] <- u.1[j.1,t] * prob.sp.1[j.1,t]
-		obs.prob.1[j.1,t] <- ifelse(u.1[j.1,t] == 1, prob.sp.1[j.1,t], 0)
+		#obs.prob.1[j.1,t] <- u.1[j.1,t] * prob.sp.1[j.1,t]
+		
+		# Without switches because they should be in there
+		# Also... mean is year-specific, rather than one mean
+		logit(prob.sp.1[j.1,t]) <- logit(mean.prob.sp.1[t]) + BF.Fixed.sp.1 * bf.1[j.1,t] + VS.Fixed.sp.1 * vs.1[j.1,t] + (OBS.RF.sp[obs.1[j.1,t]])
         
+		obs.prob.1[j.1,t] <- ifelse(u.1[j.1,t] == 1, prob.sp.1[j.1,t], 0)
+		        
     }#j.1
 	  
 	# Secondary
@@ -113,15 +117,16 @@ model{
 
 		#logit(prob.sp.2[j.2,t]) <- logit(mean.prob.sp.2) + (BF.Switch.sp.2[t] * BF.Fixed.sp.2[t] * bf.2[j.2,t]) + (VS.Switch.sp.2[t] * VS.Fixed.sp.2[t] * vs.2[j.2,t]) + (OBS.Switch.sp.2 * OBS.RF.sp[obs.2[j.2,t]])
 		
-		logit(prob.sp.2[j.2,t]) <- logit(mean.prob.sp.2) + BF.Fixed.sp.2 * bf.2[j.2,t] + VS.Fixed.sp.2 * vs.2[j.2,t] + (OBS.Switch.sp.2 * OBS.RF.sp[obs.2[j.2,t]])
+		# Without switches because they should be in there
+		logit(prob.sp.2[j.2,t]) <- logit(mean.prob.sp.2[t]) + BF.Fixed.sp.2 * bf.2[j.2,t] + VS.Fixed.sp.2 * vs.2[j.2,t] + (OBS.RF.sp[obs.2[j.2,t]])
 		#obs.prob.2[j.2,t] <- u.2[j.2,t] * prob.sp.2[j.2,t]
 	    obs.prob.2[j.2,t] <- ifelse(u.2[j.2,t] == 1, prob.sp.2[j.2,t], 0)
 	}#j.2
   }#t
   
   # Uninformative prior for mean.prob
-  mean.prob.sp.1 ~ dunif(0,1)
-  mean.prob.sp.2 ~ dunif(0,1)
+  # mean.prob.sp.1 ~ dunif(0,1)
+  # mean.prob.sp.2 ~ dunif(0,1)
   
   ### Specification of terms within observation probability linear model
   
@@ -137,8 +142,8 @@ model{
   #sigma.Obs.sp ~ dunif(0,2)
   tau.Obs.sp <- pow(sigma.Obs.sp, -2)
   
-  OBS.Switch.sp.1 ~ dbern(0.5)
-  OBS.Switch.sp.2 ~ dbern(0.5)
+  #OBS.Switch.sp.1 ~ dbern(0.5)
+  #OBS.Switch.sp.2 ~ dbern(0.5)
   
   ## Beaufort and visibility
   #uninformative prior for the BF.Switch and VS.Switch, which determines whether to include the effect of beaufort conditions (multiply by 0 or 1) - Should these be year-specific? Does that make sense?
@@ -152,6 +157,10 @@ model{
   VS.Fixed.sp.2 ~ dnorm(0,0.01)
 	
   for (t in 1:n.year){
+  
+    mean.prob.sp.1[t] ~ dunif(0,1)
+    mean.prob.sp.2[t] ~ dunif(0,1)
+
     #BF.Switch.sp.1[t] ~ dbern(0.5)
 	#BF.Switch.sp.2[t] ~ dbern(0.5)
   
