@@ -535,8 +535,8 @@ jags.data <- list(n.1 = n.1,
 jags.params <- c("lambda.1",
                  "lambda.2",
                  "N.1", "N.2",
-                 "prob.sp.1",
-                 "prob.sp.2",
+                 #"prob.sp.1",
+                 #"prob.sp.2",
                  "obs.prob.1",
                  "obs.prob.2",
                  "OBS.RF.sp",
@@ -567,7 +567,7 @@ jags.params <- c("lambda.1",
                  "log.lkhd.2")
 
 # These parameters result in run time of about 3 hrs
-MCMC.params <- list(n.samples = 125000,
+MCMC.params <- list(n.samples = 100000,
                     n.thin = 10,
                     n.burnin = 25000,
                     n.chains = 5)
@@ -638,7 +638,19 @@ if (!file.exists(out.file.name)){
 # Caught error when creating stat array for 'VS.Fixed.sp':
 #   Error in array(NA, dim = apply(indices, 2, max)): negative length vectors are not allowed
 #   
-# These have been fixed but forgot to record how.
+# These have been fixed but forgot to record how. These errors are back as of
+# 2024-06-01
+
+# Also... 
+# 
+# Beginning parallel processing using 5 cores. Console output will be suppressed.
+#Error in unserialize(node$con) : error reading from connection
+#Error in serialize(data, node$con) : error writing to connection
+#
+# These errors seem to happen when too many parameters are monitored and the memory
+# runs out. Reduce the number of parameters, espcially those that are year-specific.
+# And/or reduce the number of MCMC iterations. 
+
 
 # Summarize the output
 Laake.seasons <- lapply(all.years, FUN = function(x) paste0(x, "/", x+1)) %>%

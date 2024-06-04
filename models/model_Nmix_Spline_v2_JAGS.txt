@@ -106,7 +106,7 @@ model{
 		
 		# Without switches because they should be in there
 		# Also... mean is year-specific, rather than one mean
-		logit(prob.sp.1[j.1,t]) <- logit(mean.prob.sp.1[t]) + BF.Fixed.sp.1 * bf.1[j.1,t] + VS.Fixed.sp.1 * vs.1[j.1,t] + (OBS.RF.sp[obs.1[j.1,t]])
+		logit(prob.sp.1[j.1,t]) <- logit(mean.prob.sp.1[t]) + BF.Fixed.sp.1[t] * bf.1[j.1,t] + VS.Fixed.sp.1[t] * vs.1[j.1,t] + (OBS.RF.sp[obs.1[j.1,t]])
         
 		obs.prob.1[j.1,t] <- ifelse(u.1[j.1,t] == 1, prob.sp.1[j.1,t], 0)
 		        
@@ -118,7 +118,7 @@ model{
 		#logit(prob.sp.2[j.2,t]) <- logit(mean.prob.sp.2) + (BF.Switch.sp.2[t] * BF.Fixed.sp.2[t] * bf.2[j.2,t]) + (VS.Switch.sp.2[t] * VS.Fixed.sp.2[t] * vs.2[j.2,t]) + (OBS.Switch.sp.2 * OBS.RF.sp[obs.2[j.2,t]])
 		
 		# Without switches because they should be in there
-		logit(prob.sp.2[j.2,t]) <- logit(mean.prob.sp.2[t]) + BF.Fixed.sp.2 * bf.2[j.2,t] + VS.Fixed.sp.2 * vs.2[j.2,t] + (OBS.RF.sp[obs.2[j.2,t]])
+		logit(prob.sp.2[j.2,t]) <- logit(mean.prob.sp.2[t]) + BF.Fixed.sp.2[t] * bf.2[j.2,t] + VS.Fixed.sp.2[t] * vs.2[j.2,t] + (OBS.RF.sp[obs.2[j.2,t]])
 		#obs.prob.2[j.2,t] <- u.2[j.2,t] * prob.sp.2[j.2,t]
 	    obs.prob.2[j.2,t] <- ifelse(u.2[j.2,t] == 1, prob.sp.2[j.2,t], 0)
 	}#j.2
@@ -150,11 +150,11 @@ model{
   # It seems that these should be always included, rather than trying to exclude in some years... 
   
   #Below is the single fixed effect multiplied by BF rating in the updated obs prob equation:
-  BF.Fixed.sp.1 ~ dnorm(0,0.01)
-  BF.Fixed.sp.2 ~ dnorm(0,0.01)
+  #BF.Fixed.sp.1 ~ dnorm(0,0.01)
+  #BF.Fixed.sp.2 ~ dnorm(0,0.01)
   
-  VS.Fixed.sp.1 ~ dnorm(0,0.01)
-  VS.Fixed.sp.2 ~ dnorm(0,0.01)
+  #VS.Fixed.sp.1 ~ dnorm(0,0.01)
+  #VS.Fixed.sp.2 ~ dnorm(0,0.01)
 	
   for (t in 1:n.year){
   
@@ -165,16 +165,16 @@ model{
 	#BF.Switch.sp.2[t] ~ dbern(0.5)
   
 	#Below is the single fixed effect multiplied by BF rating in the updated obs prob equation:
-	#BF.Fixed.sp.1[t] ~ dnorm(0,0.01)
-	#BF.Fixed.sp.2[t] ~ dnorm(0,0.01)
+	BF.Fixed.sp.1[t] ~ dnorm(0,0.01)
+	BF.Fixed.sp.2[t] ~ dnorm(0,0.01)
   
 	## Visibility
 	#VS.Switch.sp.1[t] ~ dbern(0.5)
     #VS.Switch.sp.2[t] ~ dbern(0.5)
 	
 	#Below is the single fixed effect multiplied by VS rating in the updated obs prob equation:
-	#VS.Fixed.sp.1[t] ~ dnorm(0,0.01)
-	#VS.Fixed.sp.2[t] ~ dnorm(0,0.01)
+	VS.Fixed.sp.1[t] ~ dnorm(0,0.01)
+	VS.Fixed.sp.2[t] ~ dnorm(0,0.01)
 	
 	# mean and sd of the time vector below
     mean.time.sp[t] <- mean(time.sp[1:n.days[t], t])
