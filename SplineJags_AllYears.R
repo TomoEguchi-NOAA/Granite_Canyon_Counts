@@ -11,8 +11,32 @@ library(loo)
 library(bayesplot)
 library(ERAnalysis)
 
+# somehow bayesplot is not working to create any diagnostic plots... so here are mine
+plot_trace <- function(samples, varname){
+  # find the number of chains:
+  n.chains <- length(samples)
+  
+  # find the appropriate columns
+  idx <- grep(varname, dimnames(samples[[1]]))
+  
+  # create a dataframe with samples
+  all.samples <- list(length = n.chains)
+  for (k in 1:n.chains)
+    all.samples[[k]] <- data.frame(steps = 1:nrow(samples[[k]]),
+                                   samples = samples[[k]][,idx] %>% as.vector,
+                                   chain = k)
+  
+  all.samples.df <- do.call("rbind", all.samples) %>%
+    mutate(chain.f = factor(chain))
+  
+  ggplot(all.samples.df) + 
+    geom_path(aes(x = steps, y = samples, color = chain.f)) +
+    labs(y = varname) +
+    theme(legend.position = "none")
+}
+
 jags.model <- paste0("models/model_Nmix_Spline_v2_JAGS.txt")
-out.file.name <- paste0("RData/JAGS_Spline_results_All_Data_", Sys.Date(), ".rds")
+out.file.name <- paste0("RData/JAGS_Spline_v2_results_All_Data_", Sys.Date(), ".rds")
 
 data(ERSurveyData)
 data("Observer")
@@ -500,7 +524,7 @@ N.1.obs[day.1 == 1 | day.1 > 89] <- 0
 # for (k in 1:length(periods.2))
 #   N.2.inits[(periods.2[k]+1):nrow(N.2.inits), k] <- NA
 
-N.2.obs <- matrix(nrow = nrow(n.2),  ncol = ncol(n.2))
+N.2.obs <- matrix(nrow = nrow(n.2), ncol = ncol(n.2))
 
 N.2.obs[day.2 == 1 | day.2 > 89] <- 0
 
@@ -527,6 +551,7 @@ jags.data <- list(n.1 = n.1,
                   u.1 = u.1,
                   u.2 = u.2,
                   n.days = apply(day.1, MARGIN = 2, FUN = max, na.rm = T),
+                  max.n.days = max(apply(day.1, MARGIN = 2, FUN = max, na.rm = T)),
                   knot = c(-1.46,-1.26,-1.02,-0.78,
                            -0.58,-0.34,-0.10,0.10,
                            0.34,0.57,0.78,1.02,1.26,1.46),
@@ -552,10 +577,6 @@ jags.params <- c("lambda.1",
                  "VS.Fixed.sp.2",
                  "mean.prob.sp.1",
                  "mean.prob.sp.2",
-                 "BF.Fixed.sp.1",
-                 "BF.Fixed.sp.2",
-                 "VS.Fixed.sp.1",
-                 "VS.Fixed.sp.2",
                  "Corrected.Est",
                  "Raw.Est",
                  "sp",
@@ -579,21 +600,20 @@ MCMC.params <- list(n.samples = 100000,
 # N values.
 N.inits <- function(n.1, n.2, n.chains){
   out.list <- vector(mode = "list", length = n.chains)
-  return(lapply(out.list, FUN = function(x) list(N.1 = n.1 * 3 + round(runif(1, 1, 10)), 
-                                                 N.2 = n.2 * 3 + round(runif(1, 1, 10)))))
+  return(lapply(out.list, 
+                FUN = function(x) list(N.1 = n.1 * 3 + round(runif(1, 1, 10)), 
+                                       N.2 = n.2 * 3 + round(runif(1, 1, 10)))))
 }
 
 N.1.2.inits <- N.inits(n.1, n.2, MCMC.params$n.chains)
-#N.1.inits[day.1 == 1 | day.1 > 89] <- NA
-#N.2.inits[day.2 == 1 | day.2 > 89] <- NA
 
 for (j in 1:MCMC.params$n.chains){
   for (k in 1:length(periods.1.vec)){
-    # make unobserved rows NA
+    # make unobserved rows NA - No need to estimate those
     N.1.2.inits[[j]]$N.1[(periods.1.vec[k]+1):nrow(n.1), k] <- NA
     N.1.2.inits[[j]]$N.2[(periods.2.vec[k]+1):nrow(n.2), k] <- NA
   }
-  # Days 1 and >89 are NAs - unobserved
+  # Days 1 and >89 are NAs because they were "known" as zeros
   N.1.2.inits[[j]]$N.1[day.1 == 1 | day.1 > 89] <- NA
   N.1.2.inits[[j]]$N.2[day.2 == 1 | day.2 > 89] <- NA
 }

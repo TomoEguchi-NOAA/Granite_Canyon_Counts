@@ -106,7 +106,7 @@ model{
 		
 		# Without switches because they should be in there
 		# Also... mean is year-specific, rather than one mean
-		logit(prob.sp.1[j.1,t]) <- logit(mean.prob.sp.1[t]) + BF.Fixed.sp.1[t] * bf.1[j.1,t] + VS.Fixed.sp.1[t] * vs.1[j.1,t] + (OBS.RF.sp[obs.1[j.1,t]])
+		logit(prob.sp.1[j.1,t]) <- logit(mean.prob.sp.1[t]) + BF.Fixed.sp.1 * bf.1[j.1,t] + VS.Fixed.sp.1 * vs.1[j.1,t] + (OBS.RF.sp[obs.1[j.1,t]])
         
 		obs.prob.1[j.1,t] <- ifelse(u.1[j.1,t] == 1, prob.sp.1[j.1,t], 0)
 		        
@@ -118,7 +118,7 @@ model{
 		#logit(prob.sp.2[j.2,t]) <- logit(mean.prob.sp.2) + (BF.Switch.sp.2[t] * BF.Fixed.sp.2[t] * bf.2[j.2,t]) + (VS.Switch.sp.2[t] * VS.Fixed.sp.2[t] * vs.2[j.2,t]) + (OBS.Switch.sp.2 * OBS.RF.sp[obs.2[j.2,t]])
 		
 		# Without switches because they should be in there
-		logit(prob.sp.2[j.2,t]) <- logit(mean.prob.sp.2[t]) + BF.Fixed.sp.2[t] * bf.2[j.2,t] + VS.Fixed.sp.2[t] * vs.2[j.2,t] + (OBS.RF.sp[obs.2[j.2,t]])
+		logit(prob.sp.2[j.2,t]) <- logit(mean.prob.sp.2[t]) + BF.Fixed.sp.2 * bf.2[j.2,t] + VS.Fixed.sp.2 * vs.2[j.2,t] + (OBS.RF.sp[obs.2[j.2,t]])
 		#obs.prob.2[j.2,t] <- u.2[j.2,t] * prob.sp.2[j.2,t]
 	    obs.prob.2[j.2,t] <- ifelse(u.2[j.2,t] == 1, prob.sp.2[j.2,t], 0)
 	}#j.2
@@ -131,8 +131,6 @@ model{
   ### Specification of terms within observation probability linear model
   
   ## Observer random effect
-  # SPECIFIC MODEL
-
   for(o in 1:n.obs){
     OBS.RF.sp[o] ~ dnorm(0, tau.Obs.sp)
   }#o
@@ -150,12 +148,13 @@ model{
   # It seems that these should be always included, rather than trying to exclude in some years... 
   
   #Below is the single fixed effect multiplied by BF rating in the updated obs prob equation:
-  #BF.Fixed.sp.1 ~ dnorm(0,0.01)
-  #BF.Fixed.sp.2 ~ dnorm(0,0.01)
+  BF.Fixed.sp.1 ~ dnorm(0,0.01)
+  BF.Fixed.sp.2 ~ dnorm(0,0.01)
   
-  #VS.Fixed.sp.1 ~ dnorm(0,0.01)
-  #VS.Fixed.sp.2 ~ dnorm(0,0.01)
+  VS.Fixed.sp.1 ~ dnorm(0,0.01)
+  VS.Fixed.sp.2 ~ dnorm(0,0.01)
 	
+  # year-specifi priors	
   for (t in 1:n.year){
   
     mean.prob.sp.1[t] ~ dunif(0,1)
@@ -165,16 +164,16 @@ model{
 	#BF.Switch.sp.2[t] ~ dbern(0.5)
   
 	#Below is the single fixed effect multiplied by BF rating in the updated obs prob equation:
-	BF.Fixed.sp.1[t] ~ dnorm(0,0.01)
-	BF.Fixed.sp.2[t] ~ dnorm(0,0.01)
+	#BF.Fixed.sp.1[t] ~ dnorm(0,0.01)
+	#BF.Fixed.sp.2[t] ~ dnorm(0,0.01)
   
 	## Visibility
 	#VS.Switch.sp.1[t] ~ dbern(0.5)
     #VS.Switch.sp.2[t] ~ dbern(0.5)
 	
 	#Below is the single fixed effect multiplied by VS rating in the updated obs prob equation:
-	VS.Fixed.sp.1[t] ~ dnorm(0,0.01)
-	VS.Fixed.sp.2[t] ~ dnorm(0,0.01)
+	#VS.Fixed.sp.1[t] ~ dnorm(0,0.01)
+	#VS.Fixed.sp.2[t] ~ dnorm(0,0.01)
 	
 	# mean and sd of the time vector below
     mean.time.sp[t] <- mean(time.sp[1:n.days[t], t])
@@ -183,21 +182,22 @@ model{
   
   ### Seasonal Curve Models
   for(t in 1:n.year){
-	for(d in 1:n.days[t]){ 
+	for(d in 1:max.n.days){ 
     
 		time.sp[d,t] <- d
 		# this makes a 'covariate', which is just a straight line
-        covariate.sp[d,t]<-(time.sp[d,t]-mean.time.sp[t])/sd.time.sp[t] 
+        covariate.sp[d,t]<-(time.sp[d,t] - mean.time.sp[t])/sd.time.sp[t] 
 
 	}#d
   }#t
 
   ## spline fit Specific Model
+  # step(x) = 1 if x >= 0, else = 0
   for(t in 1:n.year){  
-    for(d in 1:n.days[t]){
+    for(d in 1:max.n.days){
 	  	
       for(k in 1:n.knots){
-        Z1[d,k,t] <- pow(uZ1[d,k,t], 1)
+        Z1[d,k,t] <- pow(uZ1[d,k,t], 1)   # I'm not sure what this does... shouldn't make any dif
         uZ1[d,k,t] <- (covariate.sp[d,t] - knot[k]) * step(covariate.sp[d,t] - knot[k])
       }#k
     }#d
@@ -205,32 +205,38 @@ model{
   
   # this makes three vectors related to day 'd' - one a flat line, one a straight increasing line 
   for(t in 1:n.year){
-	for(d in 1:n.days[t]){
+	for(d in 1:max.n.days){
 		for (l in 1:2){
 			
 			X.sp[d,l,t] <- pow(covariate.sp[d,t], l-1) 
 		}#l
     }#d
   }#t
+
+  # I changed these to common among years rather than year-specific as it was defined
+  # below. 2024-07-02
+  tau.b.sp <- pow(sd.b.sp, -2)
+  sd.b.sp ~ dunif(0,10) #uniform prior on regression coefficient SD, as per Durban et al
     
   for(t in 1:n.year){  
     for(k in 1:n.knots){
-      b.sp[k, t] ~ dnorm(0, tau.b.sp[t]) #annual regression coefficients for each spline knot
+      #b.sp[k, t] ~ dnorm(0, tau.b.sp[t]) #annual regression coefficients for each spline knot
+	  b.sp[k, t] ~ dnorm(0, tau.b.sp) #annual regression coefficients for each spline knot
     }#k
     
-    tau.b.sp[t] <- pow(sd.b.sp[t], -2)
-    sd.b.sp[t] ~ dunif(0,10) #uniform prior on regression coefficient SD, as per Durban et al
+    #tau.b.sp[t] <- pow(sd.b.sp[t], -2)
+    #sd.b.sp[t] ~ dunif(0,10) #uniform prior on regression coefficient SD, as per Durban et al
   
     for(l in 1:2){
       beta.sp[l, t] ~ dnorm(0, 0.01) #N(0,100) prior for S0 and S1 coefficients, as per Durban et al
     }#l
 
-    for(d in 1:n.days[t]){
+    for(d in 1:max.n.days){
       # multiplying splines across days to make the penalized spline model fit
       sp[d, t] <- inprod(beta.sp[,t], X.sp[d,,t]) + inprod(b.sp[,t], Z1[d,,t]) 
 	
       # NOTE: Model is inverse-logged (exp) as below for the full season summation
-      log(Specific[d,t]) <- sp[d,t]  
+      log(exp.sp[d,t]) <- sp[d,t]  
 
     }#d
   }#t
@@ -239,7 +245,7 @@ model{
   
   ## Seasonal Abundance Estimate:
   for(t in 1:n.year){
-    raw.unrounded[t] <- sum(Specific[1:n.days[t],t])
+    raw.unrounded[t] <- sum(exp.sp[1:max.n.days, t])
     Raw.Est[t] <- round(raw.unrounded[t])
 	
 	# multiply raw estimates by correction factor for nighttime passage rates (below)
@@ -253,6 +259,13 @@ model{
   sd.corr <- 0.03625
   tau.corr <- pow(sd.corr, -2)
   
+  # In the paper, Perryman et al. stated that "... the multiplicative correction 
+  # factor for the entire visual survey based on a 15-h nocturnal (i.e., non-survey)
+  # period would be 1 + 0.175f (SE = 0.116 * (14/24)), where f is the fraction of total
+  # whales migrating afer 15 January." So, fixing the mean to be 1.0875, it assumes that
+  # the median date of migration is Jan 15 (1 + 0.175 * 0.5 = 1.0875). This may have to
+  # be fixed to adjust for the changing median migration date. SE of 0.03625 was not found
+  # in the paper... 0.116*(14/24) = 0.0677
   
 }#model
     
