@@ -92,17 +92,14 @@ model{
   ### Observation probability
   # obs prob = observer 1/0 * 
   #                (base obs prob + 
-  #                 BF on/off * Fixed effect of BF * BF + 
-  #                 VS on/off * Fixed effect of VS * VS    + 
-  #                 Obs on/off * Random effect of observer)
+  #                 Fixed effect of BF * BF + 
+  #                 Fixed effect of VS * VS    + 
+  #                 Random effect of observer)
 
   # the u data is whether there were observers on watch (u.1 and u.2 for primary and secondary). 
   for(t in 1:n.year){
     # Primary
 	for(j.1 in 1:periods.1[t]){
-
-        #logit(prob.sp.1[j.1,t]) <- logit(mean.prob.sp.1) + (BF.Switch.sp.1[t] * BF.Fixed.sp.1[t] * bf.1[j.1,t]) + (VS.Switch.sp.1[t] * VS.Fixed.sp.1[t] * vs.1[j.1,t]) + (OBS.Switch.sp.1 * OBS.RF.sp[obs.1[j.1,t]])
-		#obs.prob.1[j.1,t] <- u.1[j.1,t] * prob.sp.1[j.1,t]
 		
 		# Without switches because they should be in there
 		# Also... mean is year-specific, rather than one mean
@@ -115,11 +112,9 @@ model{
 	# Secondary
 	for (j.2 in 1:periods.2[t]){
 
-		#logit(prob.sp.2[j.2,t]) <- logit(mean.prob.sp.2) + (BF.Switch.sp.2[t] * BF.Fixed.sp.2[t] * bf.2[j.2,t]) + (VS.Switch.sp.2[t] * VS.Fixed.sp.2[t] * vs.2[j.2,t]) + (OBS.Switch.sp.2 * OBS.RF.sp[obs.2[j.2,t]])
-		
 		# Without switches because they should be in there
 		logit(prob.sp.2[j.2,t]) <- logit(mean.prob.sp.2[t]) + BF.Fixed.sp.2 * bf.2[j.2,t] + VS.Fixed.sp.2 * vs.2[j.2,t] + (OBS.RF.sp[obs.2[j.2,t]])
-		#obs.prob.2[j.2,t] <- u.2[j.2,t] * prob.sp.2[j.2,t]
+		
 	    obs.prob.2[j.2,t] <- ifelse(u.2[j.2,t] == 1, prob.sp.2[j.2,t], 0)
 	}#j.2
   }#t
@@ -159,18 +154,12 @@ model{
   
     mean.prob.sp.1[t] ~ dunif(0,1)
     mean.prob.sp.2[t] ~ dunif(0,1)
-
-    #BF.Switch.sp.1[t] ~ dbern(0.5)
-	#BF.Switch.sp.2[t] ~ dbern(0.5)
   
 	#Below is the single fixed effect multiplied by BF rating in the updated obs prob equation:
 	#BF.Fixed.sp.1[t] ~ dnorm(0,0.01)
 	#BF.Fixed.sp.2[t] ~ dnorm(0,0.01)
   
-	## Visibility
-	#VS.Switch.sp.1[t] ~ dbern(0.5)
-    #VS.Switch.sp.2[t] ~ dbern(0.5)
-	
+	## Visibility	
 	#Below is the single fixed effect multiplied by VS rating in the updated obs prob equation:
 	#VS.Fixed.sp.1[t] ~ dnorm(0,0.01)
 	#VS.Fixed.sp.2[t] ~ dnorm(0,0.01)
@@ -217,7 +206,10 @@ model{
   # below. 2024-07-02
   tau.b.sp <- pow(sd.b.sp, -2)
   sd.b.sp ~ dunif(0,10) #uniform prior on regression coefficient SD, as per Durban et al
-    
+  
+  tau.beta.sp <- pow(sd.beta.sp, -2)
+  sd.beta.sp <- dunif(0, 100)
+  
   for(t in 1:n.year){  
     for(k in 1:n.knots){
       #b.sp[k, t] ~ dnorm(0, tau.b.sp[t]) #annual regression coefficients for each spline knot
@@ -228,7 +220,7 @@ model{
     #sd.b.sp[t] ~ dunif(0,10) #uniform prior on regression coefficient SD, as per Durban et al
   
     for(l in 1:2){
-      beta.sp[l, t] ~ dnorm(0, 0.01) #N(0,100) prior for S0 and S1 coefficients, as per Durban et al
+      beta.sp[l, t] ~ dnorm(0, tau.beta.sp) # prior for S0 and S1 coefficients, as per Durban et al
     }#l
 
     for(d in 1:max.n.days){

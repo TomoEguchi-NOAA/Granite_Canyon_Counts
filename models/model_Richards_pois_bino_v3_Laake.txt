@@ -101,10 +101,10 @@ model{
 		for(s in 1:n.station[y]){
 			for(d in 1:periods[y,s]){
 
-				logit(prob[d,s,y]) <- mean.prob  + 
-								(BF.Switch * BF.Fixed * bf[d,s,y]) + 
-								(VS.Switch * VS.Fixed * vs[d,s,y]) +
-								(OBS.Switch * OBS.RF[obs[d,s,y]])						
+				logit(prob[d,s,y]) <- logit(mean.prob)  + 
+								(BF.Fixed * bf[d,s,y]) + 
+								(VS.Fixed * vs[d,s,y]) +
+								(OBS.RF[obs[d,s,y]])						
 									
 				# watch.prop is the proportion of the total watch periods that
 				# was actually observed. 

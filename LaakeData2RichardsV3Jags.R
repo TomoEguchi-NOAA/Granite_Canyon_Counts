@@ -158,7 +158,7 @@ Laake.primary.counts %>%
 
 
 # Richards function fit starts here:
-run.date.Laake <- "2023-10-06" #Sys.Date() # # "2023-08-11"
+run.date.Laake <- Sys.Date() # "2023-10-06" # # "2023-08-11"
 out.file.name <- paste0("RData/JAGS_Richards_v3_Laake_", 
                         run.date.Laake, ".rds")
 
@@ -252,6 +252,23 @@ MCMC.params <- list(n.samples = 250000,
                     n.burnin = 200000,
                     n.chains = 5)
 
+# Create initial values for N. Error returns... "Node inconsistent with parents"
+# n[1,1,1]
+N.inits <- function(n, days, n.chains){
+  out.list <- vector(mode = "list", length = n.chains)
+  return(lapply(out.list,
+                FUN = function(x){
+                  N <- matrix(data = NA, nrow = 94, ncol = 23)
+                  for (c in 1:23){
+                    for (r in 1:94){
+                      N[r,c] <- (sum(n[days[,c] == r, c], na.rm = T) + round(runif(1, 1, 20))) * 2
+                    }
+                  }
+                  return(list(N = N))
+                }))
+}
+
+N.inits <- N.inits(n = n.Laake[,1,], days = day[,1,], n.chains = MCMC.params$n.chains)
 if (!file.exists(out.file.name)){
   
   Start_Time<-Sys.time()

@@ -17,7 +17,7 @@ plot_trace <- function(samples, varname){
   n.chains <- length(samples)
   
   # find the appropriate columns
-  idx <- grep(varname, dimnames(samples[[1]]))
+  idx <- grep(varname, unlist(dimnames(samples[[1]])), fixed = T)
   
   # create a dataframe with samples
   all.samples <- list(length = n.chains)
@@ -584,6 +584,7 @@ jags.params <- c("lambda.1",
                  "beta.sp",
                  "b.sp",
                  "sd.b.sp",
+                 "sd.beta.sp",
                  "log.lkhd.1",
                  "log.lkhd.2")
 
@@ -668,7 +669,7 @@ if (!file.exists(out.file.name)){
 #Error in serialize(data, node$con) : error writing to connection
 #
 # These errors seem to happen when too many parameters are monitored and the memory
-# runs out. Reduce the number of parameters, espcially those that are year-specific.
+# runs out. Reduce the number of parameters, especially those that are year-specific.
 # And/or reduce the number of MCMC iterations. 
 
 
@@ -740,8 +741,23 @@ ggplot(data = all.stats) +
                   ymax = Daily.Est.UCL),
               fill = "orange", 
               alpha = 0.5) +
+  # geom_point(data = Nhats.df,
+  #            aes(x = day, y = Nhat),
+  #            shape = 4, color = "darkgreen", alpha = 0.5) +
+  facet_wrap(vars(year)) +
+  xlab("Days since December 1") + 
+  ylab("Whales per day")
+
+ggplot(data = all.stats) + 
+  geom_line(aes(x = days, y = log(Daily.Est.median)),
+            color = "darkorange") + 
+  geom_ribbon(aes(x = days, 
+                  ymin = log(Daily.Est.LCL), 
+                  ymax = log(Daily.Est.UCL)),
+              fill = "orange", 
+              alpha = 0.5) +
   geom_point(data = Nhats.df,
-             aes(x = day, y = Nhat),
+             aes(x = day, y = log(Nhat)),
              shape = 4, color = "darkgreen", alpha = 0.5) +
   facet_wrap(vars(year)) +
   xlab("Days since December 1") + 
