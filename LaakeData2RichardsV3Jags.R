@@ -253,28 +253,29 @@ MCMC.params <- list(n.samples = 250000,
                     n.chains = 5)
 
 # Create initial values for N. Error returns... "Node inconsistent with parents"
-# n[1,1,1]
-N.inits <- function(n, days, n.chains){
-  out.list <- vector(mode = "list", length = n.chains)
-  return(lapply(out.list,
-                FUN = function(x){
-                  N <- matrix(data = NA, nrow = 94, ncol = 23)
-                  for (c in 1:23){
-                    for (r in 1:94){
-                      N[r,c] <- (sum(n[days[,c] == r, c], na.rm = T) + round(runif(1, 1, 20))) * 2
-                    }
-                  }
-                  return(list(N = N))
-                }))
-}
-
-N.inits <- N.inits(n = n.Laake[,1,], days = day[,1,], n.chains = MCMC.params$n.chains)
+# n[1,1,1]; This was due to the incorrect specification of the prior for the 
+# mean.prob. 2024-07-09
+# N.inits <- function(n, days, n.chains){
+#   out.list <- vector(mode = "list", length = n.chains)
+#   return(lapply(out.list,
+#                 FUN = function(x){
+#                   N <- matrix(data = NA, nrow = 94, ncol = 23)
+#                   for (c in 1:23){
+#                     for (r in 1:94){
+#                       N[r,c] <- (sum(n[days[,c] == r, c], na.rm = T) + round(runif(1, 1, 20))) * 2
+#                     }
+#                   }
+#                   return(list(N = N))
+#                 }))
+# }
+# 
+# N.inits <- N.inits(n = n.Laake[,1,], days = day[,1,], n.chains = MCMC.params$n.chains)
 if (!file.exists(out.file.name)){
   
   Start_Time<-Sys.time()
   
   jm <- jagsUI::jags(jags.data.Laake,
-                     inits = NULL,
+                     inits = NULL, #N.inits,
                      parameters.to.save= jags.params,
                      model.file = jags.model,
                      n.chains = MCMC.params$n.chains,
@@ -315,27 +316,26 @@ max.Rhat.Laake <- lapply(jm.out.Laake$jm$Rhat, FUN = max, na.rm = T) %>%
   unlist()
 max.Rhat.Laake.big <- max.Rhat.Laake[which(max.Rhat.Laake > 1.1)]
 
+Nhat.Laake.df <- data.frame(Season =  Laake.estimates$Season,
+                            Nhat = jm.out.Laake$jm$q50$Corrected.Est,
+                            SE = jm.out.Laake$jm$sd$Corrected.Est,
+                            LCL = jm.out.Laake$jm$q2.5$Corrected.Est,
+                            UCL = jm.out.Laake$jm$q97.5$Corrected.Est,
+                            Year = Laake.estimates$Year,
+                            Model = "Richards")
 
+Laake.estimates$Model <- "Laake"
+# Nhat.Laake.df %>% 
+#   left_join(Laake.estimates, by = "Season") %>%
+#   mutate(delta_Nhat = median - Nhat) -> all.estimates
 
-Nhat.Laake.df <- data.frame(median = jm.out.Laake$jm$q50$Corrected.Est,
-                      LCL = jm.out.Laake$jm$q2.5$Corrected.Est,
-                      UCL = jm.out.Laake$jm$q97.5$Corrected.Est,
-                      mean = jm.out.Laake$jm$mean$Corrected.Est,
-                      Season =  Laake.estimates$Season)
-
-Nhat.Laake.df %>% 
-  left_join(Laake.estimates, by = "Season") %>%
-  mutate(delta_Nhat = median - Nhat) -> all.estimates
+all.estimates <- rbind(Laake.estimates,
+                       Nhat.Laake.df)
 
 ggplot(all.estimates) +
-  geom_point(aes(x = Season, y = median ),
-             color = "blue") +
-  geom_errorbar(aes(x = Season, ymin = LCL.x, ymax = UCL.x),
-                color = "blue") +
-  geom_point(aes(x = Season, y = Nhat ),
-             color = "green") +
-  geom_errorbar(aes(x = Season, ymin = LCL.y, ymax = UCL.y),
-                color = "green")
+  geom_point(aes(x = Season, y = Nhat, color = Model)) +
+  geom_errorbar(aes(x = Season, ymin = LCL, ymax = UCL,
+                    color = Model))
 
 # mcmc_dens(jm.out.Laake$jm$samples, c("Max.alpha", "Max.beta", 
 #                                      "S1.alpha", "S1.beta", 
