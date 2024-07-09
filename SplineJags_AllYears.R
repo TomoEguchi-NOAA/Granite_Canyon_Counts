@@ -36,7 +36,9 @@ plot_trace <- function(samples, varname){
 }
 
 jags.model <- paste0("models/model_Nmix_Spline_v2_JAGS.txt")
-out.file.name <- paste0("RData/JAGS_Spline_v2_results_All_Data_", Sys.Date(), ".rds")
+#out.file.name <- paste0("RData/JAGS_Spline_v2_results_All_Data_", Sys.Date(), ".rds")
+run.date <- "2024-07-09"
+out.file.name <- paste0("RData/JAGS_Spline_v2_results_All_Data_", run.date, ".rds")
 
 data(ERSurveyData)
 data("Observer")
