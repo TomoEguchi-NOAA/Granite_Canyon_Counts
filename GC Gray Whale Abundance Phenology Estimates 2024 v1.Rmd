@@ -445,6 +445,11 @@ Rugh.data %>%
           dplyr::select(Season, Year, median.idx)) %>%
   mutate(Year.shifted = Year - min(Year)) -> median.idx.all.df
 
+write.csv(median.idx.all.df,
+          file = paste0("Data/median_migration_", end.year, ".csv"),
+          quote = FALSE,
+          row.names = FALSE)
+
 # Use the segmented package to look at how the median dates changed
 # over time:
 lm.1 <- lm(median.idx ~ Year, data = median.idx.all.df)
