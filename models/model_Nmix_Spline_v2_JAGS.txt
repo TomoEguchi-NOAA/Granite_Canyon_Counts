@@ -208,7 +208,7 @@ model{
   sd.b.sp ~ dunif(0,10) #uniform prior on regression coefficient SD, as per Durban et al
   
   tau.beta.sp <- pow(sd.beta.sp, -2)
-  sd.beta.sp <- dunif(0, 100)
+  sd.beta.sp ~ dunif(0, 100)
   
   for(t in 1:n.year){  
     for(k in 1:n.knots){

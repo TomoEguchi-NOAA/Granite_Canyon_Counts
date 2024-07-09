@@ -52,7 +52,7 @@ model{
 	# binomial sampling, where the probability is modeled below
 	for (y in 1:n.year){
 		for (s in 1:n.station[y]){
-			for (d in 1:periods[y]){
+			for (d in 1:periods[y,s]){
 				# observation per period d
 				
 				n[d, s, y] ~ dbin(obs.prob[d, s, y], N[day[d,y], y])
@@ -66,7 +66,7 @@ model{
 		Max[y] ~ dgamma(Max.alpha, Max.beta)  #dgamma(4, 0.002)
 		S1[y] ~ dgamma(S1.alpha, S1.beta) #T(,5) #dgamma(2.1,1) T(,5) dunif(-5, -0.3) 
 		S2[y] ~ dgamma(S2.alpha, S2.beta) #T(,5)  #dgamma(2.1,1) T(,5) dunif(0.3, 5) 
-		K[y] ~ dunif(0.1, 5) #dgamma(2.8, 3.75) T(0.1,)  #dunif(0.1, 5)   #dnorm(0, 0.01)T(0.3, 3)
+		K[y] ~ dgamma(K.alpha, K.beta)  #dunif(0.1, 5) #dgamma(2.8, 3.75) T(0.1,) 
 		P[y] ~ dgamma(P.alpha, P.beta) # dgamma(20, 0.45) #dunif(30, 60) # T(30, 60)  #
 
 	}
@@ -83,10 +83,16 @@ model{
 	P.alpha ~ dunif(18, 22)
 	P.beta ~ dunif(0.01, 1.5)
 	
+	# K.beta <= K.alpha seems to work better with the gamma distribution for K
+	# So, I subtract a random number from K.alpha to create K.beta
+	K.alpha ~ dunif(1, 3)
+	K.unif ~ dunif(0, 1)
+	K.beta <- K.alpha - K.unif
+	
 	### Observation probability - include the watch period durations
 	for(y in 1:n.year){
 		for(s in 1:n.station[y]){
-			for(d in 1:periods[y]){
+			for(d in 1:periods[y,s]){
 
 				logit(prob[d,s,y]) <- logit(mean.prob)  + 
 								(BF.Fixed * bf[d,y]) + 
@@ -102,7 +108,8 @@ model{
 	}#y
   
 	# A wide prior for mean.prob
-	mean.prob ~ dunif(-2,2) # dunif(0,1) #dnorm(0, 0.1) # 
+	# when not using logit for mean.prob, use something like dunif(-2,2)  
+	mean.prob ~ dbeta(1,1) 
     
 	### Specification of terms within observation probability linear model
   

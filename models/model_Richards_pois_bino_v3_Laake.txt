@@ -115,7 +115,8 @@ model{
 	}#y
   
 	# A wide prior for mean.prob
-	mean.prob ~ dunif(-2,2) # dunif(0,1) #dnorm(0, 0.1) # 
+	# when not using logit for mean.prob, use something like dunif(-2,2)  
+	mean.prob ~ dbeta(1,1) 
     
 	### Specification of terms within observation probability linear model
   
