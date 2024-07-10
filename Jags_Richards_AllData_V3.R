@@ -16,16 +16,17 @@ library(bayesplot)
 source("Granite_Canyon_Counts_fcns.R")
 
 #Run.date <- Sys.Date()
-Run.date <- "2023-10-16"
+Run.date <- "2024-07-10"
 out.file.name <- paste0("RData/JAGS_Richards_pois_bino_v3_AllYears_",
                         Run.date, ".rds")
 
 # I use the "Laake" model because the number of periods per year
-# can be different.
-jags.model <- "models/model_Richards_pois_bino_v3_Laake.txt"
+# can be different. This should be the same as non-Laake version
+# as of 2024-07-09
+jags.model <- "models/model_Richards_pois_bino_v3.txt"
 
-# Bring in the output from the most recent Jags run:
-run.date.Laake <- "2023-10-06" #Sys.Date() # # "2023-08-11"
+# Bring in the output from the most recent Jags run for Laake data:
+run.date.Laake <- "2024-07-09" #Sys.Date() # # "2023-08-11"
 Laake.file.name <- paste0("RData/JAGS_Richards_v3_Laake_", 
                         run.date.Laake, ".rds")
 
@@ -37,15 +38,15 @@ Laake_PrimaryEffort <- read.csv(file = "Data/Laake_PrimaryEffort.csv") %>%
 Laake.start.year <- unique(Laake_PrimaryEffort$Start.year)
 Laake.data <- Laake.jm.out$jags.data
 
-# More recent data:
-run.date <- "2023-10-13"
-file.name <- paste0("RData/JAGS_Richards_pois_bino_v3_9yr_v2_", 
+# More recent data from the output of JAGS Richards Ver1.Rmd:
+run.date <- "2024-07-09"
+file.name <- paste0("RData/JAGS_Richards_pois_bino_v3_10yr_v2_", 
                            run.date, ".rds")
 
 jm.out <- readRDS(file.name)
 
 .data <- jm.out$jags.data
-.start.year <- c(2007, 2009, 2010, 2014, 2015, 2019, 2021, 2022)
+.start.year <- c(2007, 2009, 2010, 2014, 2015, 2019, 2021, 2022, 2023)
 
 # seasons <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011",
 #              "2014/2015", "2015/2016", "2019/2020", "2021/2022",
@@ -100,14 +101,14 @@ for (k in 1:length(all.start.year)){
   
 }
 
-n.station <- c(Laake.data$n.station, .data$n.station[2:9])
+n.station <- c(Laake.data$n.station, .data$n.station[2:length(.data$n.station)])
 n.year <- length(all.start.year)
-n.obs <- length(unique(as.vector(all.obs))) - 1  # minus NA
+n.obs <- length(unique(as.vector(all.obs))) 
 
-tmp <- matrix(nrow = length(.data$periods)-1, ncol = 2)
-tmp[,1] <- .data$periods[2:length(.data$periods)]
-tmp[.data$n.station[2:9] == 2, 2] <- tmp[.data$n.station[2:9] == 2, 1]
-periods <- rbind(Laake.data$periods, tmp)
+# tmp <- matrix(nrow = length(.data$periods)-1, ncol = 2)
+# tmp[,1] <- .data$periods[2:length(.data$periods)]
+# tmp[.data$n.station[2:9] == 2, 2] <- tmp[.data$n.station[2:9] == 2, 1]
+periods <- rbind(Laake.data$periods, .data$periods[2:length(.data$n.station),])
 
 # vs <- cbind(Laake.data$vs[,1,], 
 #             rbind(.data$vs[, 2:ncol(.data$vs)], 
@@ -128,11 +129,11 @@ jags.data <- list(n = all.n,
                   vs = vs,
                   bf = bf,
                   watch.prop = watch.prop,
-                  day = day)
+                  day = day,
+                  n.days = 94)   # 94 comes from Laake's data. Their maximum observation period was 94 days
 
-jags.params <- c("OBS.RF", "OBS.Switch",
-                 "BF.Switch", "BF.Fixed",
-                 "VS.Switch", "VS.Fixed",
+jags.params <- c("OBS.RF", "BF.Fixed",
+                 "VS.Fixed",
                  "mean.prob", "mean.N", "Max",
                  "Corrected.Est", "Raw.Est", "N",
                  "K", "S1", "S2", "P",
@@ -216,15 +217,18 @@ mcmc_trace(jm.out$jm$samples, paste0("S1[", par.idx, "]"))
 mcmc_trace(jm.out$jm$samples, paste0("S2[", par.idx, "]"))
 mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
 
+all.years <- data.frame(year = seq(min(all.start.year), max(all.start.year))) %>%
+  mutate(Season = paste0(year, "/", year + 1))
+          
 
 # Look at the abudance estimates:
 Nhat. <- data.frame(Season = paste0(all.start.year, "/", all.start.year+1),
                     Nhat = jm.out$jm$q50$Corrected.Est,
                     LCL = jm.out$jm$q2.5$Corrected.Est,
-                    UCL = jm.out$jm$q97.5$Corrected.Est,
-                    #mean = jm.out$jm$mean$Corrected.Est,
-                    #Year =  all.start.year + 1,
-                    Method = "Richards")
+                    UCL = jm.out$jm$q97.5$Corrected.Est) %>%
+  right_join(all.years, by = "Season") %>%
+  arrange(year) %>%
+  mutate(Method = "Richards")
 
 N.hats <- data.frame(Season = rep(Nhat.$Season, each = nrow(jm.out$jm$mean$N)),
                      Day = rep(1:nrow(jm.out$jm$mean$N), times = length(Nhat.$Season)),
@@ -240,15 +244,23 @@ ggplot(N.hats %>% group_by(Season)) +
 
 # These are not the best estimates because they were not updated as more data
 # were collected. I should use the output from the most recent WinBUGS run for 
-# the last 9 years.
-Reported.estimates <- read.csv(file = "Data/all_estimates_2023.csv") %>%
-  select(-c(X, Year))
+# the last x years.
+Reported.estimates <- read.csv(file = "Data/all_estimates_2024.csv") %>%
+  transmute(Season = Season,
+            Nhat = Nhat,
+            LCL = LCL,
+            UCL = UCL,
+            Method = paste0(Method, "-Reported")) %>%
+  right_join(all.years, by = "Season") %>%
+  arrange(year) %>%
+  relocate(Method, .after = year)
+  
 
-WinBugs.9yr.out <- readRDS(file = "RData/WinBUGS_9yr_v2_min85.rds")
-Corrected.Est <- WinBugs.9yr.out$BUGS_out$sims.list$Corrected.Est
+WinBugs.out <- readRDS(file = "RData/WinBUGS_10yr_v2_min85.rds")
+Corrected.Est <- WinBugs.out$BUGS_out$sims.list$Corrected.Est
 seasons <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011", 
              "2014/2015", "2015/2016", "2019/2020", "2021/2022",
-             "2022/2023")
+             "2022/2023", "2023/2024")
 
 Durban.abundance.df <- data.frame(Season = seasons,
                                   Nhat = apply(Corrected.Est,
@@ -265,53 +277,63 @@ Durban.abundance.df <- data.frame(Season = seasons,
                                               FUN = quantile, 0.025),
                                   UCL = apply(Corrected.Est, 
                                               MARGIN = 2, 
-                                              FUN = quantile, 0.975),
-                                  Method = "Durban")
+                                              FUN = quantile, 0.975)) %>%
+  right_join(all.years, by = "Season") %>%
+  arrange(year) %>%
+  mutate(Method = "Durban")
 
-Laake.abundance.new <- read.csv(file = "Data/all_estimates_Laake_2023.csv") %>%
-  mutate(Method = "Laake",
-         LCL = CL.low,
+# Include non-survey years - no estimates for 2007/2008 because I don't have
+# raw data for that year. Only the WinBUGS inputs. 
+Laake.abundance.new <- read.csv(file = "Data/all_estimates_Laake_2024.csv") %>%
+  mutate(LCL = CL.low,
          UCL = CL.high) %>%
-  select(c(Season, Nhat, LCL, UCL, Method))
+  select(c(Season, Nhat, LCL, UCL)) %>%
+  right_join(all.years, by = "Season") %>%
+  arrange(year) %>%
+  mutate(Method = "Laake")
+
+Reported.estimates$Season %>% unique() -> all.seasons 
 
 # read in spline results
 # JAGS spline Ver1.Rmd
-spline.out <- read_rds("RData/JAGS_Spline_results_2006_2023.rds")
+spline.out <- read_rds("RData/JAGS_Spline_v2_results_All_Data_2024-07-09.rds")
 #
-spline.Laake.out<- read_rds("RData/JAGS_Spline_results_Laake_Data.rds")
+#spline.Laake.out<- read_rds("RData/JAGS_Spline_results_Laake_Data.rds")
 
-spline.Nhat <- data.frame(Season = seasons,
+spline.Nhat <- data.frame(Season = all.seasons,
                           Nhat = spline.out$jm$q50$Corrected.Est,
                           LCL = spline.out$jm$q2.5$Corrected.Est,
-                          UCL = spline.out$jm$q97.5$Corrected.Est,
-                          #mean = jm.out$jm$mean$Corrected.Est,
-                          #Year =  all.start.year + 1,
-                          Method = "Spline")
+                          UCL = spline.out$jm$q97.5$Corrected.Est) %>%
+  right_join(all.years, by = "Season") %>%
+  arrange(year) %>%
+  mutate(Method = "Bayesian Spline")
 
-spline.Laake.Nhat <- data.frame(Season = Reported.estimates %>% 
-                                  filter(Method == "Laake") %>% 
-                                  select(Season) %>%
-                                  pull(),
-                                Nhat = spline.Laake.out$jm$q50$Corrected.Est,
-                                LCL = spline.Laake.out$jm$q2.5$Corrected.Est,
-                                UCL = spline.Laake.out$jm$q97.5$Corrected.Est,
-                                Method = "Spline")
 Laake.abundance.new %>%
   rbind(Durban.abundance.df) %>%
   rbind(Nhat.) %>%
   rbind(spline.Nhat) %>%
-  rbind(spline.Laake.Nhat)-> all.estimates
+  rbind(Reported.estimates) -> all.estimates
 # Reported.estimates %>%
 #   filter(Method == "Laake") %>%
 #   rbind(Durban.abundance.df) -> previous.estimates
 
-# Nhat. %>%
-#   right_join(previous.estimates, by = "Season") %>%
-#   mutate(delta_Nhat = mean - Nhat) -> all.estimates
-# 
+# ggplot(all.estimates) +
+#   geom_point(aes(x = year, y = Nhat,
+#                  color = Method)) +
+#   geom_errorbar(aes(x = year, ymin = LCL, ymax = UCL,
+#                     color = Method)) +
+#   ylim(0, 50000)
+
+# Bayesian spline is the worst, so remove and replot
+Laake.abundance.new %>%
+  rbind(Durban.abundance.df) %>%
+  rbind(Nhat.) %>%
+  rbind(Reported.estimates) -> all.estimates
+
 ggplot(all.estimates) +
-  geom_point(aes(x = Season, y = Nhat,
-                 color = Method)) +
-  geom_errorbar(aes(x = Season, ymin = LCL, ymax = UCL,
+  geom_point(aes(x = year, y = Nhat,
+                 color = Method),
+             alpha = 0.5) +
+  geom_errorbar(aes(x = year, ymin = LCL, ymax = UCL,
                     color = Method)) +
-  ylim(0, 30000)
+  ylim(0, 35000)

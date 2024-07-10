@@ -27,8 +27,10 @@
 # Bayes approach. Biometrika 75:223-228), I use a Poisson distribution as the prior
 # for N. 
 
-
-# This v3 version has year spcific K and P parameters with hyperparameters. 
+# This v3 version has year spcific K and P parameters with hyperparameters.
+ 
+# It allows different numbers of sampling periods between primary
+# and secondary sampling stations. 2024-07-09
 
 model{
 
@@ -55,8 +57,8 @@ model{
 			for (d in 1:periods[y,s]){
 				# observation per period d
 				
-				n[d, s, y] ~ dbin(obs.prob[d, s, y], N[day[d,y], y])
-				log.lkhd[d,s,y] <- logdensity.bin(n[d,s,y], obs.prob[d,s,y], N[day[d,y], y])
+				n[d, s, y] ~ dbin(obs.prob[d, s, y], N[day[d,s,y], y])
+				log.lkhd[d,s,y] <- logdensity.bin(n[d,s,y], obs.prob[d,s,y], N[day[d,s,y], y])
 			}
 		}
 	}
@@ -74,18 +76,18 @@ model{
 	Max.alpha ~ dunif(1, 20)
 	Max.beta ~ dunif(0, 0.02)  
 	
-	S1.alpha ~ dunif(0.1, 25)
+	S1.alpha ~ dunif(0.1, 15)
 	S1.beta ~ dunif(0.01, 5)
 	
-	S2.alpha ~ dunif(0.1, 20)
+	S2.alpha ~ dunif(0.1, 15)
 	S2.beta ~ dunif(0.01, 2.5)
 	
-	P.alpha ~ dunif(18, 22)
+	P.alpha ~ dunif(15, 50)
 	P.beta ~ dunif(0.01, 1.5)
 	
 	# K.beta <= K.alpha seems to work better with the gamma distribution for K
 	# So, I subtract a random number from K.alpha to create K.beta
-	K.alpha ~ dunif(1, 3)
+	K.alpha ~ dunif(0, 3)
 	K.unif ~ dunif(0, 1)
 	K.beta <- K.alpha - K.unif
 	
@@ -95,13 +97,13 @@ model{
 			for(d in 1:periods[y,s]){
 
 				logit(prob[d,s,y]) <- logit(mean.prob)  + 
-								(BF.Fixed * bf[d,y]) + 
-								(VS.Fixed * vs[d,y]) +
+								(BF.Fixed * bf[d,s,y]) + 
+								(VS.Fixed * vs[d,s,y]) +
 								(OBS.RF[obs[d,s,y]])						
 									
 				# watch.prop is the proportion of the total watch periods in a day (540 minutes) that
 				# was actually observed. 
-				obs.prob[d,s,y] <- watch.prop[d,y] * prob[d,s,y]
+				obs.prob[d,s,y] <- watch.prop[d,s,y] * prob[d,s,y]
                 
 			}#d
 		}#s
@@ -123,23 +125,17 @@ model{
        
 	OBS.Switch ~ dbern(0.5)
   
-	## Beaufort
-	#uninformative prior for the BF.Switch, which determines whether to include the effect of beaufort conditions (multiply by 0 or 1)
-	BF.Switch ~ dbern(0.5) 
-  
+	## Beaufort 
 	#Below is the single fixed effect multiplied by BF rating in the updated obs prob equation:
 	BF.Fixed ~ dnorm(0,0.01)
   
-	## Visibility
-	VS.Switch ~ dbern(0.5) #uninformative prior for the VS.Switch
-    
 	#Below is the single fixed effect multiplied by VS rating in the updated obs prob equation:
 	VS.Fixed ~ dnorm(0,0.01)
   
 	### Summaries, Abundance Estimates, and Other Derived Quantities 
 	for(t in 1:n.year){
 	
-		raw.unrounded[t] <- sum(N[1:90,t])
+		raw.unrounded[t] <- sum(N[1:n.days,t])
 		Raw.Est[t] <- round(raw.unrounded[t])
 	
 		# multiply raw estimates by correction factor for nighttime passage rates (below)

@@ -113,7 +113,7 @@ data.WinBUGS <- data.v2$BUGS.data
 
 out.file.name <- paste0("RData/JAGS_Richards_", 
                         models, "_", ver,
-                        "_10yr_v2_", Sys.Date(), ".RData")
+                        "_10yr_v2_", Sys.Date(), ".rds")
 
 ```
 
