@@ -1,7 +1,8 @@
-# Jags_Richards_AllData_V3
+# Jags_Richards_AllData_V4
 # 
 # Combines Laake data and more recent data and runs
-# model_Richards_pois_bino_v3.txt. 
+# model_Richards_pois_bino_v4.txt. 
+# It uses the gamma distribution in place of Poisson in v3.
 # 
  
 
@@ -15,17 +16,18 @@ library(bayesplot)
 
 source("Granite_Canyon_Counts_fcns.R")
 
-#Run.date <- Sys.Date()
-Run.date <- "2024-07-10"
-out.file.name <- paste0("RData/JAGS_Richards_pois_bino_v3_AllYears_",
+Run.date <- Sys.Date()
+#Run.date <- "2024-07-11"
+out.file.name <- paste0("RData/JAGS_Richards_pois_bino_v5_AllYears_",
                         Run.date, ".rds")
 
 # I use the "Laake" model because the number of periods per year
 # can be different. This should be the same as non-Laake version
 # as of 2024-07-09
-jags.model <- "models/model_Richards_pois_bino_v3.txt"
+jags.model <- "models/model_Richards_pois_bino_v5.txt"
 
 # Bring in the output from the most recent Jags run for Laake data:
+# Data are the same in the previous models (e.g., v3)
 run.date.Laake <- "2024-07-09" #Sys.Date() # # "2023-08-11"
 Laake.file.name <- paste0("RData/JAGS_Richards_v3_Laake_", 
                         run.date.Laake, ".rds")
@@ -47,10 +49,6 @@ jm.out <- readRDS(file.name)
 
 .data <- jm.out$jags.data
 .start.year <- c(2007, 2009, 2010, 2014, 2015, 2019, 2021, 2022, 2023)
-
-# seasons <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011",
-#              "2014/2015", "2015/2016", "2019/2020", "2021/2022",
-#              "2022/2023")
 
 all.start.year <- c(Laake.start.year, .start.year)
 
@@ -142,6 +140,9 @@ jags.params <- c("OBS.RF", "BF.Fixed",
                  "S1.beta", "S2.beta",
                  "P.alpha", "P.beta",
                  "K.alpha", "K.beta",
+                 "shape.1", "rate.1",
+                 "rate.2",
+                 "mu", "p", "phi",
                  "log.lkhd")
 
 MCMC.params <- list(n.samples = 250000,
@@ -215,7 +216,6 @@ Nhats.HT.all <- data.frame(Season = rep(paste0(all.start.year, "/", all.start.ye
 max.Rhat <- lapply(jm.out$jm$Rhat, FUN = max, na.rm = T) %>%
   unlist()
 max.Rhat.big <- max.Rhat[which(max.Rhat > 1.1)]
-
 
 mcmc_dens(jm.out$jm$samples, c("Max.alpha", "Max.beta",
                                "S1.alpha", "S1.beta",
