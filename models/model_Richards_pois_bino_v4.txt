@@ -44,6 +44,9 @@ model{
 			
 			mean.N[t, y] <- (Max[y]) * (M1[t, y] * M2[t, y])
 			
+			# Gamma distribution:
+			# mean = alpha/beta, var = alpha/(beta)^2
+			# so... alpha = mean * beta. 
 			N.alpha[t,y] <- mean.N[t, y] * N.beta[y]
 			
 			N[t, y] ~ dgamma(N.alpha[t,y], N.beta[y])
