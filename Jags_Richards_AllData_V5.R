@@ -2,7 +2,7 @@
 # 
 # Combines Laake data and more recent data and runs
 # model_Richards_pois_bino_v4.txt. 
-# It uses the gamma distribution in place of Poisson in v3.
+# It uses the tweedy distribution in place of Poisson in v3.
 # 
  
 

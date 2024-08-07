@@ -47,7 +47,7 @@ model{
 			# Gamma distribution:
 			# mean = alpha/beta, var = alpha/(beta)^2
 			# so... alpha = mean * beta. 
-			N.alpha[t,y] <- mean.N[t, y] * N.beta[y]
+			N.alpha[t,y] <- ifelse(mean.N[t,y] == 0, 1, mean.N[t, y] * N.beta[y])
 			
 			N[t, y] ~ dgamma(N.alpha[t,y], N.beta[y])
 			
@@ -74,7 +74,7 @@ model{
 		S2[y] ~ dgamma(S2.alpha, S2.beta)  
 		K[y] ~ dgamma(K.alpha, K.beta)   
 		P[y] ~ dgamma(P.alpha, P.beta) 
-		N.beta[y] ~ dunif(0, 50)
+		N.beta[y] ~ dunif(0, 5)   # this has to be a pretty small number
 	}
 
 	# Uniform distributions were adjusted after running to capture entire posterior 

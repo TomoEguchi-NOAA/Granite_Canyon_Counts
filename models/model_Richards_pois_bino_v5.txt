@@ -54,18 +54,15 @@ model{
 			lambda[t,y] <- pow(mean.N[t,y], 2-p[y])/(phi[y] * (2-p[y]))
 			num[t,y] ~ dpois(lambda[t,y])  
 			
-			shape.1[t,y] <- num[t,y] * ((2 - p[y])/(p[y] - 1))
-			rate.1[t,y] <- 1/(phi[y] * (p[y]-1) * pow(mean.N[t, y], (p[y]-1)))
-						
-			rate.2[t,y] <- exp(-lambda[t,y])
+			shape[t,y] <- ifelse(mean.N[t,y] == 0, 1, num[t,y] * ((2 - p[y])/(p[y] - 1)))
+			rate[t,y] <- ifelse(mean.N[t,y] == 0, exp(-lambda[t,y]), 1/(phi[y] * (p[y]-1) * pow(mean.N[t, y], (p[y]-1))))
 			
 			# Takes shape/rate parameter 1 if y > 0 and 2 if y = 0
-			N[t,y] ~ dgamma(ifelse(N[t,y] == 0, 1, shape.1[t,y]), ifelse(N[t,y] == 0, rate.2[t,y], rate.1[t,y])) 
+			N[t,y] ~ dgamma(shape[t,y], rate[t,y])
 			
 			# The original code used y-index to select different shape/rate parameters, which
 			# were stored in arrays. I changed them into two separate variables, I use ifelse.
-			#y[i] ~ dgamma(shape[i,1+equals(y[i],0)],rate[i,1+equals(y[i],0)]) 
-			    			
+						    			
 		}
 
 		# Tweedie parameters.
@@ -94,8 +91,7 @@ model{
 		S1[y] ~ dgamma(S1.alpha, S1.beta)  
 		S2[y] ~ dgamma(S2.alpha, S2.beta)  
 		K[y] ~ dgamma(K.alpha, K.beta)   
-		P[y] ~ dgamma(P.alpha, P.beta) 
-		N.beta[y] ~ dunif(0, 50)
+		P[y] ~ dgamma(P.alpha, P.beta) 		
 	}
 
 	# Uniform distributions were adjusted after running to capture entire posterior 

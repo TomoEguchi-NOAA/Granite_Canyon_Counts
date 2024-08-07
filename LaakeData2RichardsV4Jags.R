@@ -12,6 +12,8 @@
 
 # Code chunks with var1 = expressions are by Laake. I use var1 <- expressions
 
+# V4 (using gamma instead of Poisson) overestimates the abundance a lot! 
+
 rm(list = ls())
 
 library(ERAnalysis)
@@ -23,6 +25,11 @@ library(bayesplot)
 source("Granite_Canyon_Counts_fcns.R")
 
 jags.model <- "models/model_Richards_pois_bino_v4.txt"
+
+# Output file name with run date.
+run.date.Laake <- "2024-07-11" #Sys.Date() # 
+out.file.name <- paste0("RData/JAGS_Richards_v4_Laake_", 
+                        run.date.Laake, ".rds")
 
 # Estimates from Laake et al. are here:
 col.defs <- cols(Year = col_character(),
@@ -159,9 +166,6 @@ Laake.primary.counts %>%
 
 
 # Richards function fit starts here:
-run.date.Laake <- Sys.Date() # "2023-10-06" # # "2023-08-11"
-out.file.name <- paste0("RData/JAGS_Richards_v4_Laake_", 
-                        run.date.Laake, ".rds")
 
 # Find double observer years
 double.obs.year <- unique(Laake_SecondaryEffort$Start.year) 
