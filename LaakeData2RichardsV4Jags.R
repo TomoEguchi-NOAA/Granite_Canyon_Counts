@@ -241,9 +241,9 @@ jags.data.Laake <- list(  n = n.Laake,
                           day = day,
                           n.days = 94)
 
-jags.params <- c("OBS.RF", "OBS.Switch",
-                 "BF.Switch", "BF.Fixed",
-                 "VS.Switch", "VS.Fixed",
+jags.params <- c("OBS.RF", 
+                 "BF.Fixed",
+                 "VS.Fixed",
                  "mean.prob", "mean.N", "Max",
                  "Corrected.Est", "Raw.Est", "N",
                  "K", "S1", "S2", "P",
@@ -251,6 +251,7 @@ jags.params <- c("OBS.RF", "OBS.Switch",
                  "S1.alpha", "S2.alpha",
                  "S1.beta", "S2.beta",
                  "P.alpha", "P.beta",
+                 "K.alpha", "K.beta",
                  "N.beta",
                  "log.lkhd")
 
@@ -366,3 +367,6 @@ S2.2 <- c("S2[10]", "S2[11]", "S2[12]", "S2[13]", "S2[14]", "S2[15]", "S2[16]", 
 S1.3 <- c("S1[19]", "S1[20]", "S1[21]", "S1[22]", "S1[23]")
 S2.3 <- c("S2[19]", "S2[20]", "S2[21]", "S2[22]", "S2[23]")
 
+Max.1 <- c("Max[1]", "Max[2]", "Max[3]", "Max[4]", "Max[5]", "Max[6]", "Max[7]", "Max[8]", "Max[9]")
+Max.2 <- c("Max[10]", "Max[11]", "Max[12]", "Max[13]", "Max[14]", "Max[15]", "Max[16]", "Max[17]", "Max[18]")
+Max.3 <- c("Max[19]", "Max[20]", "Max[21]", "Max[22]", "Max[23]")
