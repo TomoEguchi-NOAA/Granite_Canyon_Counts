@@ -27,7 +27,7 @@ source("Granite_Canyon_Counts_fcns.R")
 jags.model <- "models/model_Richards_pois_bino_v4.txt"
 
 # Output file name with run date.
-run.date.Laake <- "2024-07-11" #Sys.Date() # 
+run.date.Laake <- Sys.Date() #"2024-07-11" # 
 out.file.name <- paste0("RData/JAGS_Richards_v4_Laake_", 
                         run.date.Laake, ".rds")
 
@@ -123,20 +123,21 @@ Laake.obs <- data.frame(obs = obs,
 Laake_PrimaryEffort %>% 
   group_by(Date) %>% 
   summarize(sum.effort = sum(effort)) -> tmp
-# maximum daily effort was 0.447917, or 10.75 hrs.
+# maximum daily effort was 0.447917 days, or 10.75 hrs.
+# Effort is measured in decimal days
 
 max.effort <- max(tmp$sum.effort)
 Laake_PrimaryEffort %>% 
   group_by(Start.year) %>%
   reframe(Date = Date,
-            Year = first(Start.year),
-            n = nwhales,
-            Day = as.Date(Date) - as.Date(paste0(Year, "-12-01")),
-            Season = paste0(Year, "/", Year + 1),
-            obs = Observer,
-            vs = vis,
-            bf = beaufort,
-            watch.prop = effort/max.effort) -> Laake.primary.counts
+          Year = first(Start.year),
+          n = nwhales,
+          Day = as.Date(Date) - as.Date(paste0(Year, "-12-01")),
+          Season = paste0(Year, "/", Year + 1),
+          obs = Observer,
+          vs = vis,
+          bf = beaufort,
+          watch.prop = effort/max.effort) -> Laake.primary.counts
 
 # Although the maximum effort for the secondary effort was 10 hrs, I use
 # the same max effort as the primary
@@ -241,10 +242,9 @@ jags.data.Laake <- list(  n = n.Laake,
                           day = day,
                           n.days = 94)
 
-jags.params <- c("OBS.RF", 
-                 "BF.Fixed",
-                 "VS.Fixed",
-                 "mean.prob", "mean.N", "Max",
+jags.params <- c("OBS.RF", "BF.Fixed", "VS.Fixed",
+                 "mean.prob", "prob",
+                 "mean.N", "Max",
                  "Corrected.Est", "Raw.Est", "N",
                  "K", "S1", "S2", "P",
                  "Max.alpha", "Max.beta",

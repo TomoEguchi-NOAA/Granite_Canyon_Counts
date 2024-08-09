@@ -25,7 +25,10 @@
 #
 # For the prior for N, I use the gamma distribution. V3 used Poisson. 
 #
-# This version has year spcific K, S1, S2, and P parameters with hyperparameters.
+# This version has year spcific S1 and S2 parameters with hyperparameters.
+#
+# Year specific K and P parameters ended up in poor convergence. They still have 
+# hyper distributions. 2024-08-08
  
 # It allows different numbers of sampling periods between primary
 # and secondary sampling stations. 2024-07-09
@@ -42,8 +45,8 @@ model{
 		for (t in 1:n.days){
 			# year-specific K - results in conversion issues. 2022-11-09 
 			# This was fixed with hyperparameters. 2024
-			M1[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/(-S1[y])) * (P - t))) ^ (-1/exp(K[y]))
-			M2[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/S2[y]) * (P - t))) ^ (-1/exp(K[y]))
+			M1[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/(-S1[y])) * (P - t))) ^ (-1/exp(K))
+			M2[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/S2[y]) * (P - t))) ^ (-1/exp(K))
 			
 			mean.N[t, y] <- (Max[y]) * (M1[t, y] * M2[t, y])
 			
@@ -76,12 +79,13 @@ model{
 		Max[y] ~ dnorm(10000, 1/(2000^2))
 		S1[y] ~ dgamma(S1.alpha, S1.beta)  
 		S2[y] ~ dgamma(S2.alpha, S2.beta)  
-		K[y] ~ dgamma(K.alpha, K.beta)   
+		#K[y] ~ dgamma(K.alpha, K.beta)   
 		#P[y] ~ dgamma(P.alpha, P.beta) 
 		N.beta[y] ~ dunif(0, 5)   # this has to be a pretty small number
 	}
 
 	P ~ dgamma(P.alpha, P.beta) 
+	K ~ dgamma(K.alpha, K.beta) 
 	
 	# Uniform distributions were adjusted after running to capture entire posterior 
 	# distributions. 
@@ -94,8 +98,8 @@ model{
 	S2.alpha ~ dunif(0.1, 20)
 	S2.beta ~ dunif(0.01, 5)
 	
-	P.alpha ~ dunif(15, 75)
-	P.beta ~ dunif(0.01, 1.5)
+	P.alpha ~ dunif(5, 100)
+	P.beta ~ dunif(0.01, 5)
 	
 	# K.beta <= K.alpha seems to work better with the gamma distribution for K
 	# So, I subtract a random number from K.alpha to create K.beta
