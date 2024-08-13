@@ -113,8 +113,10 @@ model{
 	for(y in 1:n.year){
 		for(s in 1:n.station[y]){
 			for(d in 1:periods[y,s]){
+				# I'm going to make a bold assumption that when bf and vs are 0
+				# the probability is almost 1.0 plus the observer effect. 
 
-				logit(prob[d,s,y]) <- logit(mean.prob) + 
+				logit(prob[d,s,y]) <- logit(0.99) + 
 								(BF.Fixed * bf[d,s,y]) + 
 								(VS.Fixed * vs[d,s,y]) +
 								(OBS.RF[obs[d,s,y]])						
@@ -129,7 +131,7 @@ model{
   
 	# A wide prior for mean.prob
 	# when not using logit for mean.prob, use something like dunif(-2,2)  
-	mean.prob ~ dbeta(1,1) 
+	#mean.prob ~ dbeta(1,1) 
     
 	### Specification of terms within observation probability linear model
   

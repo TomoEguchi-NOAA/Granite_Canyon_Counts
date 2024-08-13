@@ -210,8 +210,8 @@ for (y in 1:length(all.year)){
   n.Laake[1:Laake.primary.periods$periods[y], 1, y] <- temp.data$n
   obs.input[1:Laake.primary.periods$periods[y], 1, y] <- temp.data$obs.ID
   watch.prop[1:Laake.primary.periods$periods[y], 1, y] <- temp.data$watch.prop
-  bf[1:Laake.primary.periods$periods[y], 1, y] <- scale(temp.data$bf)
-  vs[1:Laake.primary.periods$periods[y], 1, y] <- scale(temp.data$vs)
+  bf[1:Laake.primary.periods$periods[y], 1, y] <- temp.data$bf #scale(temp.data$bf)
+  vs[1:Laake.primary.periods$periods[y], 1, y] <- temp.data$vs #scale(temp.data$vs)
   day[1:Laake.primary.periods$periods[y], 1, y] <- as.numeric(temp.data$Day)
   
   # fill in the secondary observations
@@ -223,8 +223,8 @@ for (y in 1:length(all.year)){
     n.Laake[1:Laake.secondary.periods$periods[y2], 2, y] <- temp.data$n
     obs.input[1:Laake.secondary.periods$periods[y2], 2, y] <- temp.data$obs.ID
     watch.prop[1:Laake.secondary.periods$periods[y2], 2, y] <- temp.data$watch.prop
-    bf[1:Laake.secondary.periods$periods[y2], 2, y] <- scale(temp.data$bf)
-    vs[1:Laake.secondary.periods$periods[y2], 2, y] <- scale(temp.data$vs)
+    bf[1:Laake.secondary.periods$periods[y2], 2, y] <- temp.data$bf #scale(temp.data$bf)
+    vs[1:Laake.secondary.periods$periods[y2], 2, y] <- temp.data$vs #scale(temp.data$vs)
     day[1:Laake.secondary.periods$periods[y2], 2, y] <- as.numeric(temp.data$Day)
     
     y2 <- y2 + 1
@@ -246,7 +246,8 @@ jags.data.Laake <- list(  n = n.Laake,
                           n.days = 94)
 
 jags.params <- c("OBS.RF", "BF.Fixed", "VS.Fixed",
-                 "mean.prob", "prob",
+                 #"mean.prob", 
+                 "prob",
                  "mean.N", "Max",
                  "Corrected.Est", "Raw.Est", "N",
                  "K", "S1", "S2", "P",
