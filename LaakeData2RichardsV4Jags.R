@@ -14,6 +14,9 @@
 
 # V4 (using gamma instead of Poisson) overestimates the abundance a lot! 
 
+# I built ERAnalysis using R 4.3.0. For R 4.4.0 and above, I can't seem to build it 
+# following Laake's instruction. So, I change the R version to run this code. 
+
 rm(list = ls())
 
 library(ERAnalysis)
@@ -27,7 +30,7 @@ source("Granite_Canyon_Counts_fcns.R")
 jags.model <- "models/model_Richards_pois_bino_v4.txt"
 
 # Output file name with run date.
-run.date.Laake <- Sys.Date() #"2024-07-11" # 
+run.date.Laake <- Sys.Date() #"2024-08-09" # 
 out.file.name <- paste0("RData/JAGS_Richards_v4_Laake_", 
                         run.date.Laake, ".rds")
 
@@ -247,7 +250,7 @@ jags.params <- c("OBS.RF", "BF.Fixed", "VS.Fixed",
                  "mean.N", "Max",
                  "Corrected.Est", "Raw.Est", "N",
                  "K", "S1", "S2", "P",
-                 "Max.alpha", "Max.beta",
+                 #"Max.alpha", "Max.beta",
                  "S1.alpha", "S2.alpha",
                  "S1.beta", "S2.beta",
                  "P.alpha", "P.beta",
@@ -345,10 +348,19 @@ ggplot(all.estimates) +
   geom_errorbar(aes(x = Season, ymin = LCL, ymax = UCL,
                     color = Model))
 
-# mcmc_dens(jm.out.Laake$jm$samples, c("Max.alpha", "Max.beta", 
-#                                      "S1.alpha", "S1.beta", 
-#                                      "S2.alpha", "S2.beta",
-#                                      "P.alpha", "P.beta"))
+# Hyper parameters - check P.alpha for posterior
+mcmc_dens(jm.out.Laake$jm$samples, c("S1.alpha", "S1.beta",
+                                     "S2.alpha", "S2.beta",
+                                     "P.alpha", "P.beta",
+                                     "K.alpha", "K.beta"))
+
+mcmc_trace(jm.out.Laake$jm$samples, c("S1.alpha", "S1.beta",
+                                      "S2.alpha", "S2.beta",
+                                      "P.alpha", "P.beta",
+                                      "K.alpha", "K.beta"))
+
+mcmc_trace(jm.out.Laake$jm$samples, c("P", "K"))
+mcmc_dens(jm.out.Laake$jm$samples, c("P", "K"))
 
 P1 <- c("P[1]", "P[2]", "P[3]", "P[4]", "P[5]", "P[6]", "P[7]", "P[8]", "P[9]")
 P2 <- c("P[10]", "P[11]", "P[12]", "P[13]", "P[14]", "P[15]", "P[16]", "P[17]", "P[18]")
