@@ -118,8 +118,8 @@ model{
 
 				logit(prob[d,s,y]) <- logit(0.99) + 
 								(BF.Fixed * bf[d,s,y]) + 
-								(VS.Fixed * vs[d,s,y]) +
-								(OBS.RF[obs[d,s,y]])						
+								(VS.Fixed * vs[d,s,y]) 
+								#(OBS.RF[obs[d,s,y]])						
 									
 				# watch.prop is the proportion of the total watch periods in a day (540 minutes) that
 				# was actually observed. 

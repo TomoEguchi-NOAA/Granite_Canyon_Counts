@@ -30,7 +30,7 @@ source("Granite_Canyon_Counts_fcns.R")
 jags.model <- "models/model_Richards_pois_bino_v4.txt"
 
 # Output file name with run date.
-run.date.Laake <- Sys.Date() #"2024-08-09" # 
+run.date.Laake <- Sys.Date() #"2024-08-13" #
 out.file.name <- paste0("RData/JAGS_Richards_v4_Laake_", 
                         run.date.Laake, ".rds")
 
@@ -245,7 +245,8 @@ jags.data.Laake <- list(  n = n.Laake,
                           day = day,
                           n.days = 94)
 
-jags.params <- c("OBS.RF", "BF.Fixed", "VS.Fixed",
+jags.params <- c("BF.Fixed", "VS.Fixed",
+                 #"OBS.RF",
                  #"mean.prob", 
                  "prob",
                  "mean.N", "Max",
@@ -363,13 +364,13 @@ mcmc_trace(jm.out.Laake$jm$samples, c("S1.alpha", "S1.beta",
 mcmc_trace(jm.out.Laake$jm$samples, c("P", "K"))
 mcmc_dens(jm.out.Laake$jm$samples, c("P", "K"))
 
-P1 <- c("P[1]", "P[2]", "P[3]", "P[4]", "P[5]", "P[6]", "P[7]", "P[8]", "P[9]")
-P2 <- c("P[10]", "P[11]", "P[12]", "P[13]", "P[14]", "P[15]", "P[16]", "P[17]", "P[18]")
-P3 <- c("P[19]", "P[20]", "P[21]", "P[22]", "P[23]")
-
-K3 <- c("K[19]", "K[20]", "K[21]", "K[22]", "K[23]")
-K2 <- c("K[10]", "K[11]", "K[12]", "K[13]", "K[14]", "K[15]", "K[16]", "K[17]", "K[18]")
-K1 <- c("K[1]", "K[2]", "K[3]", "K[4]", "K[5]", "K[6]", "K[7]", "K[8]", "K[9]")
+# P1 <- c("P[1]", "P[2]", "P[3]", "P[4]", "P[5]", "P[6]", "P[7]", "P[8]", "P[9]")
+# P2 <- c("P[10]", "P[11]", "P[12]", "P[13]", "P[14]", "P[15]", "P[16]", "P[17]", "P[18]")
+# P3 <- c("P[19]", "P[20]", "P[21]", "P[22]", "P[23]")
+# 
+# K3 <- c("K[19]", "K[20]", "K[21]", "K[22]", "K[23]")
+# K2 <- c("K[10]", "K[11]", "K[12]", "K[13]", "K[14]", "K[15]", "K[16]", "K[17]", "K[18]")
+# K1 <- c("K[1]", "K[2]", "K[3]", "K[4]", "K[5]", "K[6]", "K[7]", "K[8]", "K[9]")
 
 S1.1 <- c("S1[1]", "S1[2]", "S1[3]", "S1[4]", "S1[5]", "S1[6]", "S1[7]", "S1[8]", "S1[9]")
 S2.1 <- c("S2[1]", "S2[2]", "S2[3]", "S2[4]", "S2[5]", "S2[6]", "S2[7]", "S2[8]", "S2[9]")
@@ -383,3 +384,14 @@ S2.3 <- c("S2[19]", "S2[20]", "S2[21]", "S2[22]", "S2[23]")
 Max.1 <- c("Max[1]", "Max[2]", "Max[3]", "Max[4]", "Max[5]", "Max[6]", "Max[7]", "Max[8]", "Max[9]")
 Max.2 <- c("Max[10]", "Max[11]", "Max[12]", "Max[13]", "Max[14]", "Max[15]", "Max[16]", "Max[17]", "Max[18]")
 Max.3 <- c("Max[19]", "Max[20]", "Max[21]", "Max[22]", "Max[23]")
+
+OBS.RF.1 <- c("OBS.RF[1]", "OBS.RF[2]", "OBS.RF[3]", "OBS.RF[4]", "OBS.RF[5]", "OBS.RF[6]",
+              "OBS.RF[7]", "OBS.RF[8]", "OBS.RF[9]", "OBS.RF[10]", "OBS.RF[11]", "OBS.RF[12]")
+
+mcmc_trace(jm.out.Laake$jm$samples, S1.1)
+mcmc_trace(jm.out.Laake$jm$samples, S2.1)
+mcmc_trace(jm.out.Laake$jm$samples, Max.1)
+
+mcmc_trace(jm.out.Laake$jm$samples, c("BF.Fixed", "VS.Fixed"))
+mcmc_trace(jm.out.Laake$jm$samples, OBS.RF.1)
+
