@@ -17,6 +17,22 @@
 # I built ERAnalysis using R 4.3.0. For R 4.4.0 and above, I can't seem to build it 
 # following Laake's instruction. So, I change the R version to run this code. 
 
+# 2024-08-14
+# Something to think about... the detection probability is not anchored to anything...
+# So, it gets too low, resulting in high estimates of abundance, or too high, resulting
+# in estimates being too low. This needs to be fixed. Common sense tells me that
+# the detection probability should be quite high when the condition is good, i.e.,
+# low visibility and low Beaufort scores. In fact, it should be quite close to 1 in
+# best conditions. The current formulation does not allow this. 
+#
+# With a double-observer sampling with identified groups, we can figure out the 
+# number of groups that were observed by one or both teams. With single-observer
+# sampling, this is not possible. I have to make some assumptions about how the
+# detection function changes with covariates. Laake et al. used logistic distribution
+# for the detection function. It would be something similar to estimating detection
+# functions for distance sampling, i.e., it is 1.0 along the track line. 
+
+
 rm(list = ls())
 
 library(ERAnalysis)

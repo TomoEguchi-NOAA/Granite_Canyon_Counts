@@ -113,12 +113,15 @@ model{
 	for(y in 1:n.year){
 		for(s in 1:n.station[y]){
 			for(d in 1:periods[y,s]){
-				# I'm going to make a bold assumption that when bf and vs are 0
-				# the probability is almost 1.0 plus the observer effect. 
-
-				logit(prob[d,s,y]) <- logit(0.99) + 
+			
+				# Another way to model the detection probability... 
+				prob[d,s,y] <- ilogit(mean.prob + 
 								(BF.Fixed * bf[d,s,y]) + 
-								(VS.Fixed * vs[d,s,y]) 
+								(VS.Fixed * vs[d,s,y]))
+								
+				#logit(prob[d,s,y]) <- logit(mean.prob) + 
+				#				(BF.Fixed * bf[d,s,y]) + 
+				#				(VS.Fixed * vs[d,s,y]) 
 								#(OBS.RF[obs[d,s,y]])						
 									
 				# watch.prop is the proportion of the total watch periods in a day (540 minutes) that
@@ -129,9 +132,16 @@ model{
 		}#s
 	}#y
   
-	# A wide prior for mean.prob
+	# Detection probability should be highest when Beaufort is zero and visibility
+	# is zero. The observer effect should be <= 1.0, where the best observer can do only
+	# the "mean"
+	# 
 	# when not using logit for mean.prob, use something like dunif(-2,2)  
 	#mean.prob ~ dbeta(1,1) 
+	
+	# I'm going to make a bold assumption that when bf and vs are 0
+	# the probability is almost 1.0. 
+	mean.prob <- 0.99
     
 	### Specification of terms within observation probability linear model
   
