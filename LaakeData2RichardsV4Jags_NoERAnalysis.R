@@ -153,6 +153,7 @@ if (!file.exists(out.file.name)){
                        jags.data = jags.data.Laake,
                        jags.params = jags.params,
                        jags.model = jags.model,
+                       model.text = readLines(jags.model),
                        MCMC.params = MCMC.params,
                        Run_Time = Run_Time,
                        Run_Date = Start_Time,
@@ -214,7 +215,7 @@ Nhat.Laake.df <- data.frame(Season =  Laake.estimates$Season,
 all.estimates <- rbind(Laake.estimates,
                        Nhat.Laake.df)
 
-ggplot(all.estimates) +
+p.estim <- ggplot(all.estimates) +
   geom_point(aes(x = Season, y = Nhat, color = Model)) +
   geom_errorbar(aes(x = Season, ymin = LCL, ymax = UCL,
                     color = Model))
@@ -254,13 +255,14 @@ Max.1 <- c("Max[1]", "Max[2]", "Max[3]", "Max[4]", "Max[5]", "Max[6]", "Max[7]",
 Max.2 <- c("Max[10]", "Max[11]", "Max[12]", "Max[13]", "Max[14]", "Max[15]", "Max[16]", "Max[17]", "Max[18]")
 Max.3 <- c("Max[19]", "Max[20]", "Max[21]", "Max[22]", "Max[23]")
 
-OBS.RF.1 <- c("OBS.RF[1]", "OBS.RF[2]", "OBS.RF[3]", "OBS.RF[4]", "OBS.RF[5]", "OBS.RF[6]",
-              "OBS.RF[7]", "OBS.RF[8]", "OBS.RF[9]", "OBS.RF[10]", "OBS.RF[11]", "OBS.RF[12]")
+# OBS.RF.1 <- c("OBS.RF[1]", "OBS.RF[2]", "OBS.RF[3]", "OBS.RF[4]", "OBS.RF[5]", "OBS.RF[6]",
+#               "OBS.RF[7]", "OBS.RF[8]", "OBS.RF[9]", "OBS.RF[10]", "OBS.RF[11]", "OBS.RF[12]")
 
 mcmc_trace(jm.out.Laake$jm$samples, S1.1)
 mcmc_trace(jm.out.Laake$jm$samples, S2.1)
 mcmc_trace(jm.out.Laake$jm$samples, Max.1)
 
 mcmc_trace(jm.out.Laake$jm$samples, c("BF.Fixed", "VS.Fixed"))
-mcmc_trace(jm.out.Laake$jm$samples, OBS.RF.1)
+mcmc_dens(jm.out.Laake$jm$samples, c("BF.Fixed", "VS.Fixed"))
+#mcmc_trace(jm.out.Laake$jm$samples, OBS.RF.1)
 
