@@ -16,6 +16,9 @@
 
 # I built ERAnalysis using R 4.3.0. For R 4.4.0 and above, I can't seem to build it 
 # following Laake's instruction. So, I change the R version to run this code. 
+#
+# This version eliminates using ERAnalysis by brining in an rds file from a previous
+# analysis.
 
 # 2024-08-14
 # Something to think about... the detection probability is not anchored to anything...
@@ -41,7 +44,7 @@
 
 rm(list = ls())
 
-library(ERAnalysis)
+#library(ERAnalysis)
 library(tidyverse)
 library(ggplot2)
 library(loo)
@@ -49,31 +52,18 @@ library(bayesplot)
 
 source("Granite_Canyon_Counts_fcns.R")
 
-jags.model <- "models/model_Richards_pois_bino_v4.txt"
+laake.results <- readRDS("RData/JAGS_Richards_v4_Laake_2024-08-14.rds")
+
+model.dist <- "gam_bino"  # "pois_bino"
+
+#jags.model <- "models/model_Richards_pois_bino_v4.txt" # Actually this uses Gamma instead of Poisson
+jags.model <- paste0("models/model_Richards_", model.dist, "_v4.txt") 
 
 # Output file name with run date.
 run.date.Laake <- Sys.Date() #"2024-08-13" #
 out.file.name <- paste0("RData/JAGS_Richards_v4_Laake_", 
+                        model.dist, "_",
                         run.date.Laake, ".rds")
-
-# Estimates from Laake et al. are here:
-col.defs <- cols(Year = col_character(),
-                 Nhat = col_double(),
-                 CV = col_double())
-
-Laake.estimates <- read_csv(file = "Data/Laake et al 2012 Table 9 Nhats.csv",
-                            col_types = col.defs) %>% 
-  mutate(SE = CV * Nhat,
-         LCL = Nhat - 1.96 * SE,
-         UCL = Nhat + 1.96 * SE,
-         Season = lapply(strsplit(Year, "_"), 
-                         FUN = function(x) paste0(x[1], "/", x[2])) %>% 
-           unlist) %>%
-  dplyr::select(Season, Nhat, SE, LCL, UCL)  %>%
-  mutate(Year = lapply(str_split(Season, "/"), 
-                       FUN = function(x) x[2]) %>% 
-           unlist() %>% 
-           as.numeric())
 
 # From example code in the ERAnalysis library
 # 
@@ -90,10 +80,6 @@ Laake.estimates <- read_csv(file = "Data/Laake et al 2012 Table 9 Nhats.csv",
 # The dataframe Primary contains all of the on effort sightings and PrimaryOff contains all
 # of the off-effort sightings.  
 #
-#data(PrimaryOff)   # off-effort sightings
-#data(Primary)      # on-effort sightings
-data(ERSurveyData)
-data("Observer")
 
 # The data in PrimarySightings are all southbound sightings for all years in which visibility and beaufort
 # are less than or equal to 4. Below the counts are shown for the 2 dataframes for
@@ -124,148 +110,8 @@ data("Observer")
 # Filter effort and sightings and store in dataframes Effort and Sightings
 # Effort = PrimaryEffort[PrimaryEffort$Use,]  
 # 
-# Sightings = PrimarySightings
-# Sightings$seq = 1:nrow(Sightings)
-# Sightings = merge(Sightings, subset(Effort, select=c("key")))
-# Sightings = Sightings[order(Sightings$seq),]
 
-# sightings
-Laake_PrimarySightings <- read.csv(file = "Data/Laake_PrimarySightings.csv")
-Laake_SecondarySightings <- read.csv(file = "Data/Laake_SecondarySightings.csv")
-
-# effort
-Laake_PrimaryEffort <- read.csv(file = "Data/Laake_PrimaryEffort.csv") %>%
-  filter(Use)
-Laake_SecondaryEffort <- read.csv(file = "Data/Laake_SecondaryEffort.csv") %>%
-  filter(Use)
-
-# observers
-obs <- c(unique(Laake_PrimaryEffort$Observer),
-         unique(Laake_SecondaryEffort$Observer)) %>% unique()
-Laake.obs <- data.frame(obs = obs,
-                        obs.ID = seq(1:length(obs)))
-
-Laake_PrimaryEffort %>% 
-  group_by(Date) %>% 
-  summarize(sum.effort = sum(effort)) -> tmp
-# maximum daily effort was 0.447917 days, or 10.75 hrs.
-# Effort is measured in decimal days
-
-max.effort <- max(tmp$sum.effort)
-Laake_PrimaryEffort %>% 
-  group_by(Start.year) %>%
-  reframe(Date = Date,
-          Year = first(Start.year),
-          n = nwhales,
-          Day = as.Date(Date) - as.Date(paste0(Year, "-12-01")),
-          Season = paste0(Year, "/", Year + 1),
-          obs = Observer,
-          vs = vis,
-          bf = beaufort,
-          watch.prop = effort/max.effort) -> Laake.primary.counts
-
-# Although the maximum effort for the secondary effort was 10 hrs, I use
-# the same max effort as the primary
-# Laake_SecondaryEffort %>% 
-#   group_by(Date) %>% 
-#   summarize(sum.effort = sum(effort)) -> tmp
-
-Laake_SecondaryEffort %>% 
-  group_by(Start.year) %>%
-  reframe(Date = Date,
-            Year = first(Start.year),
-            n = nwhales,
-            Day = as.Date(Date) - as.Date(paste0(Year, "-12-01")),
-            Season = paste0(Year, "/", Year + 1),
-            obs = Observer,
-            vs = vis,
-            bf = beaufort,
-            watch.prop = effort/max.effort) -> Laake.secondary.counts
-
-Laake.primary.counts %>% 
-  group_by(Date) %>%
-  reframe(Year = first(Start.year),
-            Date = Date,
-            Day = as.Date(Date) - as.Date(paste0(Year, "-12-01")),
-            Season = paste0(Year, "/", Year + 1),
-            Daily.n = sum(n)) -> Laake.primary.daily.counts
-
-
-# Richards function fit starts here:
-
-# Find double observer years
-double.obs.year <- unique(Laake_SecondaryEffort$Start.year) 
-all.year <- unique(Laake_PrimaryEffort$Start.year)
-
-n.station <- rep(1, length(all.year))
-n.station[all.year %in% double.obs.year] <- 2
-
-Laake.primary.counts %>%
-  group_by(Start.year) %>%
-  summarize(Season = first(Season),
-            periods = first(n())) -> Laake.primary.periods
-
-Laake.secondary.counts %>%
-  group_by(Start.year) %>%
-  summarize(Season = first(Season),
-            periods = first(n())) -> Laake.secondary.periods
-
-Laake.primary.periods %>% 
-  left_join(Laake.secondary.periods, by = "Season") %>%
-  select(Start.year.x, Season, periods.x, periods.y) %>%
-  transmute(Start.year = Start.year.x,
-            Season = Season,
-            periods.1 = periods.x,
-            periods.2 = periods.y) -> Laake.periods
-
-day <- bf <- vs <- watch.prop <- obs.input <- n.Laake <- array(dim = c(max(Laake.primary.periods$periods),
-                                                                       2, length(all.year)))
-
-y <- 3
-y2 <- 1
-for (y in 1:length(all.year)){
-  temp.data <- Laake.primary.counts %>%
-    filter(Start.year == all.year[y]) %>%
-    arrange(Day) %>%
-    left_join(Laake.obs, by = "obs")
-  
-  n.Laake[1:Laake.primary.periods$periods[y], 1, y] <- temp.data$n
-  obs.input[1:Laake.primary.periods$periods[y], 1, y] <- temp.data$obs.ID
-  watch.prop[1:Laake.primary.periods$periods[y], 1, y] <- temp.data$watch.prop
-  bf[1:Laake.primary.periods$periods[y], 1, y] <- temp.data$bf #scale(temp.data$bf)
-  vs[1:Laake.primary.periods$periods[y], 1, y] <- temp.data$vs #scale(temp.data$vs)
-  day[1:Laake.primary.periods$periods[y], 1, y] <- as.numeric(temp.data$Day)
-  
-  # fill in the secondary observations
-  if (isTRUE(all.year[y] %in% double.obs.year)){
-    temp.data <- Laake.secondary.counts %>%
-      filter(Start.year == all.year[y])%>%
-      left_join(Laake.obs, by = "obs")
-    
-    n.Laake[1:Laake.secondary.periods$periods[y2], 2, y] <- temp.data$n
-    obs.input[1:Laake.secondary.periods$periods[y2], 2, y] <- temp.data$obs.ID
-    watch.prop[1:Laake.secondary.periods$periods[y2], 2, y] <- temp.data$watch.prop
-    bf[1:Laake.secondary.periods$periods[y2], 2, y] <- temp.data$bf #scale(temp.data$bf)
-    vs[1:Laake.secondary.periods$periods[y2], 2, y] <- temp.data$vs #scale(temp.data$vs)
-    day[1:Laake.secondary.periods$periods[y2], 2, y] <- as.numeric(temp.data$Day)
-    
-    y2 <- y2 + 1
-    
-  }
-}
-
-jags.data.Laake <- list(  n = n.Laake,
-                          n.station = n.station,
-                          n.year = length(all.year),
-                          n.obs = nrow(Laake.obs),
-                          periods = Laake.periods %>% 
-                            select(periods.1, periods.2) %>% simplify2array(),
-                          obs = obs.input,
-                          vs = vs,
-                          bf = bf,
-                          watch.prop = watch.prop,
-                          day = day,
-                          n.days = 94)
+jags.data.Laake <- laake.results$jags.data
 
 jags.params <- c("BF.Fixed", "VS.Fixed",
                  #"OBS.RF",
@@ -287,24 +133,6 @@ MCMC.params <- list(n.samples = 250000,
                     n.burnin = 200000,
                     n.chains = 5)
 
-# Create initial values for N. Error returns... "Node inconsistent with parents"
-# n[1,1,1]; This was due to the incorrect specification of the prior for the 
-# mean.prob. 2024-07-09
-# N.inits <- function(n, days, n.chains){
-#   out.list <- vector(mode = "list", length = n.chains)
-#   return(lapply(out.list,
-#                 FUN = function(x){
-#                   N <- matrix(data = NA, nrow = 94, ncol = 23)
-#                   for (c in 1:23){
-#                     for (r in 1:94){
-#                       N[r,c] <- (sum(n[days[,c] == r, c], na.rm = T) + round(runif(1, 1, 20))) * 2
-#                     }
-#                   }
-#                   return(list(N = N))
-#                 }))
-# }
-# 
-# N.inits <- N.inits(n = n.Laake[,1,], days = day[,1,], n.chains = MCMC.params$n.chains)
 if (!file.exists(out.file.name)){
   
   Start_Time<-Sys.time()
@@ -351,6 +179,26 @@ max.Rhat.Laake <- lapply(jm.out.Laake$jm$Rhat, FUN = max, na.rm = T) %>%
   unlist()
 max.Rhat.Laake.big <- max.Rhat.Laake[which(max.Rhat.Laake > 1.1)]
 
+# Combine all results together:
+col.defs <- cols(Year = col_character(),
+                 Nhat = col_double(),
+                 CV = col_double())
+
+Laake.estimates <- read_csv(file = "Data/Laake et al 2012 Table 9 Nhats.csv",
+                            col_types = col.defs) %>% 
+  mutate(SE = CV * Nhat,
+         LCL = Nhat - 1.96 * SE,
+         UCL = Nhat + 1.96 * SE,
+         Season = lapply(strsplit(Year, "_"), 
+                         FUN = function(x) paste0(x[1], "/", x[2])) %>% 
+           unlist) %>%
+  dplyr::select(Season, Nhat, SE, LCL, UCL)  %>%
+  mutate(Year = lapply(str_split(Season, "/"), 
+                       FUN = function(x) x[2]) %>% 
+           unlist() %>% 
+           as.numeric(),
+         Model = "Laake")
+
 Nhat.Laake.df <- data.frame(Season =  Laake.estimates$Season,
                             Nhat = jm.out.Laake$jm$q50$Corrected.Est,
                             SE = jm.out.Laake$jm$sd$Corrected.Est,
@@ -359,7 +207,6 @@ Nhat.Laake.df <- data.frame(Season =  Laake.estimates$Season,
                             Year = Laake.estimates$Year,
                             Model = "Richards")
 
-Laake.estimates$Model <- "Laake"
 # Nhat.Laake.df %>% 
 #   left_join(Laake.estimates, by = "Season") %>%
 #   mutate(delta_Nhat = median - Nhat) -> all.estimates
