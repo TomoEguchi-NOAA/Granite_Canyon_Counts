@@ -28,8 +28,8 @@ jags.model <- "models/model_Richards_pois_bino_v4.txt"
 
 # Bring in the output from the most recent Jags run for Laake data:
 # Data are the same in the previous models (e.g., v3)
-run.date.Laake <- "2024-07-09" #Sys.Date() # # "2023-08-11"
-Laake.file.name <- paste0("RData/JAGS_Richards_v3_Laake_", 
+run.date.Laake <- "2024-07-11" #Sys.Date() # # "2023-08-11"
+Laake.file.name <- paste0("RData/JAGS_Richards_v4_Laake_", 
                         run.date.Laake, ".rds")
 
 Laake.jm.out <- readRDS(Laake.file.name)
@@ -215,21 +215,24 @@ max.Rhat <- lapply(jm.out$jm$Rhat, FUN = max, na.rm = T) %>%
   unlist()
 max.Rhat.big <- max.Rhat[which(max.Rhat > 1.1)]
 
-mcmc_dens(jm.out$jm$samples, c("Max.alpha", "Max.beta",
-                               "S1.alpha", "S1.beta",
-                               "S2.alpha", "S2.beta",
-                               "P.alpha", "P.beta",
-                               "K.alpha", "K.beta"))
+bayesplot::mcmc_dens(jm.out$jm$samples, c("S1.alpha", "S1.beta",
+                                          "S2.alpha", "S2.beta",
+                                          "P.alpha", "P.beta",
+                                          "K.alpha", "K.beta"))
+# P.alpha and P.beta seem to be not behaving well - the right tails are not 
+# captured. 
 
-mcmc_dens(jm.out$jm$samples, c("BF.Fixed", "VS.Fixed"))
+bayesplot::mcmc_dens(jm.out$jm$samples, c("BF.Fixed", "VS.Fixed"))
 
-par.idx <- c(1:nrow(jm.out$jm$mean$P))
+# v4 has one P and one K.
+par.idx <- c(1:nrow(jm.out$jm$mean$S1))
 
-mcmc_trace(jm.out$jm$samples, paste0("P[", par.idx, "]"))
-mcmc_trace(jm.out$jm$samples, paste0("K[", par.idx, "]"))
-mcmc_trace(jm.out$jm$samples, paste0("S1[", par.idx, "]"))
-mcmc_trace(jm.out$jm$samples, paste0("S2[", par.idx, "]"))
-mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
+# mcmc_trace(jm.out$jm$samples, paste0("P[", par.idx, "]"))
+# mcmc_trace(jm.out$jm$samples, paste0("K[", par.idx, "]"))
+bayesplot::mcmc_trace(jm.out$jm$samples, paste0("S1[", par.idx, "]"))
+bayesplot::mcmc_trace(jm.out$jm$samples, paste0("S2[", par.idx, "]"))
+bayesplot::mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
+# These three year-specific parameters seemed to behave fine.
 
 # Create a dataframe with all years, including unsampled years.
 all.years <- data.frame(year = seq(min(all.start.year), max(all.start.year))) %>%
@@ -427,3 +430,13 @@ p.Nhats <- ggplot(all.estimates) +
   geom_errorbar(aes(x = year, ymin = LCL, ymax = UCL,
                     color = Method)) +
   ylim(0, 35000)
+
+# Precision of the estimates using Richards function is a lot better than other 
+# methods. They are a bit lower (negatively biased) than other two. I think the
+# problem is detection probabilities. mean.prob gets very small (mean = 0.04) 
+# even though the prior is beta(0.95, 0.05). 
+
+# Changed the prior to unif(0.9, 1.0) - 2024-10-21
+
+
+

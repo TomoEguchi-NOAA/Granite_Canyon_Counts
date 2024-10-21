@@ -112,7 +112,8 @@ model{
 				# Another way to model the detection probability... 
 				prob[d,s,y] <- ilogit(mean.prob + 
 								(BF.Fixed * bf[d,s,y]) + 
-								(VS.Fixed * vs[d,s,y]))
+								(VS.Fixed * vs[d,s,y]) +
+								(OBS.RF[obs[d,s,y]]))
 								
 				#logit(prob[d,s,y]) <- logit(mean.prob) + 
 				#				(BF.Fixed * bf[d,s,y]) + 
@@ -136,7 +137,8 @@ model{
 	
 	# I'm going to make a bold assumption that when bf and vs are 0
 	# the probability is almost 1.0. 
-	mean.prob ~ dbeta(0.9, 0.1)
+	#mean.prob ~ dbeta(0.95, 0.05)
+	mean.prob ~ dunif(0.9, 1.0)
     
 	### Specification of terms within observation probability linear model
   

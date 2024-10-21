@@ -66,7 +66,7 @@ model{
 		for (s in 1:n.station[y]){
 			for (d in 1:periods[y,s]){
 				# observation per period d
-				N.d[d,s,y] <- N[day[d,s,y],y] * watch.prop[d,s,y]
+				N.d[d,s,y] <- N[day[d,s,y], y] * watch.prop[d,s,y]
 				n[d, s, y] ~ dbin(prob[d, s, y], round(N.d[d,s,y]))
 				log.lkhd[d,s,y] <- logdensity.bin(n[d,s,y], prob[d,s,y], round(N.d[d,s,y]))
 			}
@@ -140,7 +140,9 @@ model{
 	#mean.prob ~ dbeta(1,1) 
 	
 	# I'm going to make a bold assumption that when bf and vs are 0
-	# the probability is almost 1.0. 
+	# the probability is almost 1.0. Using a beta(0.9, 0.1), posterior
+	# is still centered around 0.0006. This is just too small... in the 
+	# inv-logit scale, this turns into about 0.5. 
 	mean.prob ~ dbeta(0.9, 0.1)
     
 	### Specification of terms within observation probability linear model

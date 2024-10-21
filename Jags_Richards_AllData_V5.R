@@ -28,8 +28,8 @@ jags.model <- "models/model_Richards_pois_bino_v5.txt"
 
 # Bring in the output from the most recent Jags run for Laake data:
 # Data are the same in the previous models (e.g., v3)
-run.date.Laake <- "2024-07-09" #Sys.Date() # # "2023-08-11"
-Laake.file.name <- paste0("RData/JAGS_Richards_v3_Laake_", 
+run.date.Laake <- "2024-09-05" #Sys.Date() # # "2023-08-11"
+Laake.file.name <- paste0("RData/JAGS_Richards_v4_Laake_", 
                         run.date.Laake, ".rds")
 
 Laake.jm.out <- readRDS(Laake.file.name)
@@ -118,13 +118,14 @@ periods <- rbind(Laake.data$periods, .data$periods[2:length(.data$n.station),])
 #                    matrix(nrow = dim(Laake.data$bf)[1] - nrow(.data$bf), 
 #                           ncol = ncol(.data$bf)-1)))
 
+# I subtract 1 from vs because the lowest value is 1 in the data. 2024-10-16
 jags.data <- list(n = all.n,
                   n.station = n.station,
                   n.year = n.year,
                   n.obs = n.obs,
                   periods = periods,
                   obs = all.obs,
-                  vs = vs,
+                  vs = vs - 1,
                   bf = bf,
                   watch.prop = watch.prop,
                   day = day,

@@ -29,7 +29,8 @@ source("Granite_Canyon_Counts_fcns.R")
 #models <- "norm_pois"
 models <- "pois_bino"
 #ver <- "v2"  # "v1" has a common K and "v2" has year-specific K
-ver <- "v3"  # "v3" has year-specific K parameters with hyper-parameters.
+#ver <- "v3"  # "v3" has year-specific K parameters with hyper-parameters.
+ver <- "v4"  # "v4" has common K and P parameters with hyper-parameters.
 
 #jags.model <- paste0("models/model_Richards_", models, ".txt")
 jags.model <- paste0("models/model_Richards_", models, "_", ver, ".txt")
