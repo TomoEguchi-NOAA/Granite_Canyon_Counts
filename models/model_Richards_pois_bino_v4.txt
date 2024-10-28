@@ -137,8 +137,8 @@ model{
 	
 	# I'm going to make a bold assumption that when bf and vs are 0
 	# the probability is almost 1.0. 
-	#mean.prob ~ dbeta(0.95, 0.05)
-	mean.prob ~ dunif(0.9, 1.0)
+	#mean.prob ~ dbeta(0.95, 0.05)  # This doesn't work well because the mean gets very small.
+	mean.prob ~ dunif(0.9, 1.0)     # This works.
     
 	### Specification of terms within observation probability linear model
   

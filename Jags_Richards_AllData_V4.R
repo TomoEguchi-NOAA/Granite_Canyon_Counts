@@ -16,8 +16,8 @@ library(bayesplot)
 
 source("Granite_Canyon_Counts_fcns.R")
 
-Run.date <- Sys.Date()
-#Run.date <- "2024-07-11"
+#Run.date <- Sys.Date()
+Run.date <- "2024-10-21"
 out.file.name <- paste0("RData/JAGS_Richards_pois_bino_v4_AllYears_",
                         Run.date, ".rds")
 
