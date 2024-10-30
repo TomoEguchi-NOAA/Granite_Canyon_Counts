@@ -342,7 +342,7 @@ Effort.1.by.period %>%
   dplyr::select(-c(Initials, Observer, Name, Sex, ID.char)) -> Effort.1.by.period.1
 
 #Effort.by.day.1$ID[is.na(Effort.by.day.1$ID)] <- Effort.by.day.1$ID.1[is.na(Effort.by.day.1$ID)]
-Effort.by.period.1$ID[is.na(Effort.by.period.1$ID)] <- Effort.by.period.1$ID.1[is.na(Effort.by.period.1$ID)]
+Effort.1.by.period.1$ID[is.na(Effort.1.by.period.1$ID)] <- Effort.1.by.period.1$ID.1[is.na(Effort.1.by.period.1$ID)]
 
 
 
@@ -407,7 +407,7 @@ create.WinBUGS.data <- function(in.data){
   return(BUGS.data)
 }
 
-BUGS.data.1 <- create.WinBUGS.data(Effort.by.period.1)
+BUGS.data.1 <- create.WinBUGS.data(Effort.1.by.period.1)
 
 
 

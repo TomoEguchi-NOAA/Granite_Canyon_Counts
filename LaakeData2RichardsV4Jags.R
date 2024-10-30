@@ -41,7 +41,7 @@
 
 rm(list = ls())
 
-library(ERAnalysis)
+#library(ERAnalysis)
 library(tidyverse)
 library(ggplot2)
 library(loo)
@@ -151,7 +151,7 @@ Laake_PrimaryEffort %>%
 # maximum daily effort was 0.447917 days, or 10.75 hrs.
 # Effort is measured in decimal days
 
-max.effort <- max(tmp$sum.effort)
+#max.effort <- max(tmp$sum.effort)
 Laake_PrimaryEffort %>% 
   group_by(Start.year) %>%
   reframe(Date = Date,
@@ -162,7 +162,7 @@ Laake_PrimaryEffort %>%
           obs = Observer,
           vs = vis,
           bf = beaufort,
-          watch.prop = effort/max.effort) -> Laake.primary.counts
+          watch.prop = effort) -> Laake.primary.counts
 
 # Although the maximum effort for the secondary effort was 10 hrs, I use
 # the same max effort as the primary
@@ -180,7 +180,7 @@ Laake_SecondaryEffort %>%
             obs = Observer,
             vs = vis,
             bf = beaufort,
-            watch.prop = effort/max.effort) -> Laake.secondary.counts
+            watch.prop = effort) -> Laake.secondary.counts
 
 Laake.primary.counts %>% 
   group_by(Date) %>%

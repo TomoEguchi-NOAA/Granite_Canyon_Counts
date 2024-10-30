@@ -6,7 +6,11 @@
 
 rm(list = ls())
 
-library(ERAnalysis)
+#library(ERAnalysis)
+# because I can't build new ERAnalysis library, I moved all the ERAnalysis data 
+# files to the Granite_Canyon_Counts/Data folder. This way, I can still use the
+# data files using the data() function
+
 library(tidyverse)
 library(ggplot2)
 library(R2WinBUGS)
