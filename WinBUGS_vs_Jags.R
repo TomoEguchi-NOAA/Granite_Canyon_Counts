@@ -216,12 +216,6 @@ Effort.2 %>%
          watch.prop = effort.min/540) -> Effort.2.by.period
 
 
-
-# Need to combine old and new effort dataframes, for primary and secondary
-
-
-
-#Effort.by.day %>%
 Effort.1.by.period %>%
   mutate(Initials = obs) %>%
   left_join(Observer, by = "Initials") %>%
@@ -233,4 +227,65 @@ Effort.1.by.period %>%
 
 #Effort.by.day.1$ID[is.na(Effort.by.day.1$ID)] <- Effort.by.day.1$ID.1[is.na(Effort.by.day.1$ID)]
 Effort.1.by.period.1$ID[is.na(Effort.1.by.period.1$ID)] <- Effort.1.by.period.1$ID.1[is.na(Effort.1.by.period.1$ID)]
+
+
+create.WinBUGS.data <- function(in.data){
+  # the number of years in the dataset. A lot! 
+  all.years <- unique(in.data$Start.year)
+  
+  in.data %>% 
+    group_by(Start.year) %>% 
+    summarise(n = n()) -> n.year
+  
+  in.data.1 <- in.data
+  # re-index observers
+  obs.df <- data.frame(ID = unique(in.data.1$ID %>%  sort),
+                       seq.ID = seq(1, length(unique(in.data.1$ID))))
+  
+  in.data.1 %>% 
+    left_join(obs.df, by = "ID") -> in.data.1
+  
+  # create matrices - don't know how to do this in one line...  
+  bf <- vs <- watch.prop <- day <- matrix(nrow = max(n.year$n), ncol = length(all.years))
+  BUGS.day <- effort <- matrix(nrow = (max(n.year$n) + 2), 
+                               ncol = length(all.years))
+  
+  BUGS.n <- matrix(data = 0, nrow= max(n.year$n), ncol= length(all.years))
+  BUGS.obs <- matrix(data = nrow(obs.df)+1, nrow = max(n.year$n), ncol= length(all.years))
+  
+  periods <- vector(mode = "numeric", length = length(all.years))
+  k <- 1
+  for (k in 1:length(all.years)){
+    in.data.1 %>% 
+      filter(Start.year == all.years[k]) -> tmp
+    
+    BUGS.n[1:nrow(tmp), k] <- tmp$nwhales + 1
+    BUGS.day[1:nrow(tmp), k] <- tmp$dt
+    BUGS.day[(nrow(tmp)+1):(nrow(tmp)+2), k] <- c(1,90)
+    bf[1:nrow(tmp), k] <- tmp$beaufort
+    vs[1:nrow(tmp), k] <- tmp$vis
+    effort[1:nrow(tmp), k] <- tmp$effort
+    effort[(nrow(tmp)+1):(nrow(tmp)+2), k] <- c(1,1)
+    BUGS.obs[1:nrow(tmp),  k] <- tmp$seq.ID
+    
+    periods[k] <- nrow(tmp)
+  }
+  
+  BUGS.data <- list(n = BUGS.n,
+                    n.com = BUGS.n,
+                    n.sp = BUGS.n,
+                    n.station = 2,
+                    n.year = as.integer(length(all.years)),
+                    n.obs = as.integer(length(unique(in.data.1$seq.ID))+1),
+                    periods = as.integer(periods),
+                    obs = BUGS.obs,
+                    vs = vs,
+                    bf = bf,
+                    Watch.Length = effort,    
+                    day = BUGS.day)
+  
+  return(BUGS.data)
+}
+
+BUGS.data.1 <- create.WinBUGS.data(Effort.1.by.period.1)
 
