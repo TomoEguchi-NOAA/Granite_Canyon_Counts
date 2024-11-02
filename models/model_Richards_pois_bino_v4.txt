@@ -181,4 +181,8 @@ model{
   # the median date of migration is Jan 15 (1 + 0.175 * 0.5 = 1.0875). This may have to
   # be fixed to adjust for the changing median migration date. SE of 0.03625 was not found
   # in the paper... 0.116*(14/24) = 0.0677	
+  
+  # There was a typographic error in Perryman et al. Laake et al. (2012) stated that "... a
+  # standard error of f x 15/24 x 0.116 after correcting the typographic errors in Perryman
+  # et al. (1999).
 }

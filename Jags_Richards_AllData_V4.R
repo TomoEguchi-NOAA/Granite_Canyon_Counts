@@ -16,8 +16,8 @@ library(bayesplot)
 
 source("Granite_Canyon_Counts_fcns.R")
 
-#Run.date <- Sys.Date()
-Run.date <- "2024-10-21"
+Run.date <- Sys.Date()
+#Run.date <- "2024-10-21"
 out.file.name <- paste0("RData/JAGS_Richards_pois_bino_v4_AllYears_",
                         Run.date, ".rds")
 
@@ -28,7 +28,7 @@ jags.model <- "models/model_Richards_pois_bino_v4.txt"
 
 # Bring in the output from the most recent Jags run for Laake data:
 # Data are the same in the previous models (e.g., v3)
-run.date.Laake <- "2024-07-11" #Sys.Date() # # "2023-08-11"
+run.date.Laake <- "2024-10-30" #Sys.Date() # # "2023-08-11"
 Laake.file.name <- paste0("RData/JAGS_Richards_v4_Laake_", 
                         run.date.Laake, ".rds")
 
@@ -40,9 +40,9 @@ Laake_PrimaryEffort <- read.csv(file = "Data/Laake_PrimaryEffort.csv") %>%
 Laake.start.year <- unique(Laake_PrimaryEffort$Start.year)
 Laake.data <- Laake.jm.out$jags.data
 
-# More recent data from the output of JAGS Richards Ver3.Rmd:
-run.date <- "2024-07-09"
-file.name <- paste0("RData/JAGS_Richards_pois_bino_v3_10yr_v2_", 
+# More recent data from the output of JAGS Richards Ver1.Rmd:
+run.date <- "2024-11-01"
+file.name <- paste0("RData/JAGS_Richards_pois_bino_v4_10yr_v2_", 
                            run.date, ".rds")
 
 jm.out <- readRDS(file.name)
@@ -53,8 +53,11 @@ jm.out <- readRDS(file.name)
 all.start.year <- c(Laake.start.year, .start.year)
 
 # Both datasets contain 2006. Take it out from the recent one.
-bf <- vs <- day <- watch.prop <- all.n <- all.obs <- array(dim = c(max(dim(Laake.data$n)[1], dim(.data$n)[1]), 
-                                                                   2, (dim(Laake.data$n)[3] + dim(.data$n)[3]-1)))
+bf <- vs <- all.n <- all.obs <- array(dim = c(max(dim(Laake.data$n)[1], dim(.data$n)[1]), 
+                                              2, (dim(Laake.data$n)[3] + dim(.data$n)[3]-1)))
+
+day <- watch.prop <- array(dim = c(max(dim(Laake.data$n)[1], dim(.data$n)[1]), 
+                                   2, (dim(Laake.data$n)[3] + dim(.data$n)[3]-1)))
 
 c2 <- 2
 c1 <- c <- 1
@@ -85,14 +88,14 @@ for (k in 1:length(all.start.year)){
     all.n[1:1:dim(.data$n)[1], 2, c] <- .data$n[, 2, c2]
     all.obs[1:1:dim(.data$obs)[1], 1, c] <- .data$obs[, 1, c2]
     all.obs[1:1:dim(.data$obs)[1], 2, c] <- .data$obs[, 2, c2]
-    watch.prop[1:1:dim(.data$watch.prop)[1], 1, c] <- .data$watch.prop[, c2]
-    watch.prop[1:1:dim(.data$watch.prop)[1], 2, c] <- .data$watch.prop[, c2]
-    day[1:1:dim(.data$day)[1], 1, c] <- .data$day[, c2]
-    day[1:1:dim(.data$day)[1], 2, c] <- .data$day[, c2]
-    bf[1:1:dim(.data$bf)[1], 1, c] <- .data$bf[, c2]
-    bf[1:1:dim(.data$bf)[1], 2, c] <- .data$bf[, c2]
-    vs[1:1:dim(.data$vs)[1], 1, c] <- .data$vs[, c2]
-    vs[1:1:dim(.data$vs)[1], 2, c] <- .data$vs[, c2]
+    watch.prop[1:1:dim(.data$watch.prop)[1], 1, c] <- .data$watch.prop[, 1, c2]
+    watch.prop[1:1:dim(.data$watch.prop)[1], 2, c] <- .data$watch.prop[, 2, c2]
+    day[1:1:dim(.data$day)[1], 1, c] <- .data$day[, 1, c2]
+    day[1:1:dim(.data$day)[1], 2, c] <- .data$day[, 2, c2]
+    bf[1:1:dim(.data$bf)[1], 1, c] <- .data$bf[, 1, c2]
+    bf[1:1:dim(.data$bf)[1], 2, c] <- .data$bf[, 2, c2]
+    vs[1:1:dim(.data$vs)[1], 1, c] <- .data$vs[, 1, c2]
+    vs[1:1:dim(.data$vs)[1], 2, c] <- .data$vs[, 2, c2]
     c <- c + 1
     c2 <- c2 + 1
   }
