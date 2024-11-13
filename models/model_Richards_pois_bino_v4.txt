@@ -80,7 +80,10 @@ model{
 	}
 
 	P ~ dgamma(P.alpha, P.beta) 
-	K ~ dgamma(K.alpha, K.beta) 
+	#K ~ dgamma(K.alpha, K.beta) 
+	K ~ dbeta(K.alpha, K.beta)
+	K.alpha ~ dunif(0.0, 1.0)
+	K.beta ~ dunif(0, 100)
 	
 	# Uniform distributions were adjusted after running to capture entire posterior 
 	# distributions. 
@@ -98,9 +101,9 @@ model{
 	
 	# K.beta <= K.alpha seems to work better with the gamma distribution for K
 	# So, I add a random number to K.beta to create K.alpha
-	K.beta ~ dunif(0, 10)
-	K.unif ~ dunif(0, 5)
-	K.alpha <- K.beta + K.unif
+	#K.beta ~ dunif(0, 10)
+	#K.unif ~ dunif(0, 5)
+	#K.alpha <- K.beta + K.unif
 	
 	### Observation probability - include the watch period durations (in proportions)
 	# I removed all "switches," which were 0/1 to exclude/include each variable. They
