@@ -31,6 +31,7 @@ jags.model <- paste0("models/model_", model.name, ".txt")
 out.file.name <- paste0("RData/JAGS_", model.name, "_AllYears_",
                         Run.date, ".rds")
 
+# This comes from LaakeData2Jags.R above
 Laake.data <- jags.data
 
 # More recent data from the output of JAGS Richards Ver1.Rmd:
