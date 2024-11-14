@@ -1,0 +1,2000 @@
+---
+title: "A new approach to gray whale abundance estimation"
+author: "Tomo Eguchi"
+date: "`r Sys.Date()`"
+output: 
+  bookdown::word_document2: default
+bibliography: reference.bib
+csl: marine-ecology-progress-series.csl
+---
+
+```{r setup, include=FALSE}
+rm(list = ls())
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+save.fig <- T
+
+source("Granite_Canyon_Counts_fcns.R")
+library(tidyverse)
+library(lubridate)
+library(flextable)
+library(jagsUI)
+library(bayesplot)
+library(ggpubr)
+library(R2WinBUGS)
+library(abind)
+library(rmarkdown)
+library(loo)
+
+set_flextable_defaults(font.size = 9,
+                       font.family = "Cambria")
+
+dpi.set <- 300
+
+save.fig.fcn <- function(fig, file.name, replace = F, 
+                         dpi = 300, device = "png",
+                         height = 3, width = 3, units = "in",
+                         bg = "white"){
+  if (isTRUE(replace) | (!isTRUE(replace) & !file.exists(file.name)))
+    ggsave(fig, 
+           filename = file.name, 
+           dpi = dpi, device = device,
+           height = height, width = width, units = units,
+           bg = bg)
+  
+}
+
+plots.trace <- function(jm, params, params.df = NULL){
+  out.list <- list()
+  for (i in 1:length(params)){
+    
+    p.tmp <- mcmc_trace(jm$samples, params[i]) +
+        legend_none() + xaxis_text(on = FALSE)
+      
+      if (!is.null(params.df)){
+        if (!is.na(params.df[i, "value"])){
+        p.tmp <- p.tmp + 
+          hline_at(params.df[i, "value"], 
+                   color = "red", size = 1.2)
+          
+        }
+      }
+      
+    out.list[[i]] <- p.tmp 
+  }
+  return(out.list)
+}
+
+plots.dens <- function(jm, params){
+  out.list <- list()
+  for (k in 1:length(params)){
+    out.list[[k]] <- mcmc_dens(jm$samples, params[k]) #+
+
+  }
+  
+  return(out.list)
+}
+
+```
+
+## Introduction {.unnumbered}
+
+Analytical methods to estimate abundance of gray whales from visual surveys at Granite Canyon, CA, have evolved over the years [@laakeGrayWhaleSouthbound2012; @durbanEstimatingGrayWhale2015]. Laake et al. (2012) used the distance sampling approach with generalized additive models (GAMs). Durban et al. (2015) developed a new method using a Bayesian N-mixture approach, which was approved by the IWC and it has been used for the analysis since the 2015/2016 season. Computation of the analysis is conducted using WinBUGS, which has become obsolete over the last decade or so. In this report, I provide improvements of the method by Durban et al.
+
+At a location along the migration corridor, the number of gray whale sightings increases over time until it reaches its peak, then decreases. The method by Durban et al. used a Gaussian function to capture this general trend. Deviations from the Gaussian function was captured via fitting a spline function to the observed counts.
+
+In the following, I first describe the method by Durban et al. and point out underlying assumptions that are somewhat questionable. Then, I introduce a new approach that is consistent with the basic idea of the method by Durban et al. but improve it by replacing the Gaussian/spline model with another function. I show the performance of the new approach using simulated data. Finally, I reanalyze the real data from Granite Canyon, CA, to compare abundance estimates between the two approaches.
+
+## Method by Durban et al. {.unnumbered}
+
+At the field station located at Granite Canyon, CA, in order to estimate detectability of gray whales by visual observers, counts from two independent stations of paired observers operating simultaneously were compared during two years (2009/2010 and 2010/2011). The two watch stations were positioned 35 m apart at the same elevation (22.5 m) above sea level (Durban et al. 2015). For the years with only one station, detectability was extrapolated for all monitored watch periods based on the fitted model for detectability, where the counts for the south watch station were treated as zero inflated binomial outcomes. The binomial probability was specified as the product of an indicator function and the detectability ($u_{i,j,t} \times p_{i,j,t}$), where $u$ = 1 or 0 to indicate whether or not count data were collected from that station. This formulation ensured that structural zero counts from periods without a second watch did not contribute to the likelihood for estimation of $p$ or $N$ (Durban et al. 2015).
+
+Consistent with Laake et al. (2012), the model for detectability incorporated fixed effects for visibility ($V$) and Beaufort Scale ($B$), whereas observers were treated as random effects ($O$). These were modelled as additive effects on a general intercept so that the direction and magnitude of the estimated effects away from zero (no effect) could be assessed. The selection for the inclusion of these effects were accomplished by using Bayesian model selection with stochastic binary indicator variables $I$ to switch each of the three possible effects either in or out of the model.
+
+### Mathematical description {.unnumbered}
+
+This section was extracted from Durban et al. (2015), almost verbatim. I edited some places to make explanations clearer in my mind and changed some symbols to make them consistent between theirs and my proposed approach, which is described later in this document.
+
+The total counts of whales ($n_{i,d(j),t}$) during the watch period $j$ of the $d$th day in the year $t$ at the watch station $i$ was modeled as a binomial random deviate (in the paper, $j$ was not specified as the $j$th watch period during the $d$th day of the season):
+
+$$ n_{i,d(j),t} \sim BIN(N_{d(j),t}, p_{i,d(j),t}). $$
+
+The binomial $N_{d(j),t}$ parameter is the unknown total number of gray whales passing through the study area during the watch period $j$ in the $d$th day in the year $t$.
+
+The detection probability was modeled as a function of visibility (V), Beaufort scale (B), and observers (O).
+
+$$ logit(p_{i,d(j),t}) = logit(p_0) + I_{V} \beta_{V} V_{d(j),t} + I_{B} \beta_{B} B_{d(j),t}+ I_{O} \mathbf{\beta}^{O_{i,d(j),t} = o}_{O} $$
+
+where the intercept $p_0$ was the base detection probability in the absence of covariate effects, assigned a Uniform(0,1) prior distribution, and $logit(p_0) = ln(p_0/(1–p_0))$. For each fixed effect, $\beta_{B}$ and $\beta_{V}$, a Normal prior distribution with mean zero and standard deviation of 10 was used. The random effect for each observer was drawn from a Normal distribution with mean zero and standard deviation $\sigma_{O} \sim Uniform(0,10)$. Each binary indicator variable, I, was assigned a Bernoulli(0.5) distribution to specify equal probability of inclusion (1) or exclusion (0) of the effect in the model (Durban et al. 2015).
+
+A Poisson distribution ($N_{d(j),t} \sim Poisson(\lambda_{d(j),t})$) was used as a hierarchical prior for the distribution of abundances, and specified a model for the Poisson mean ($\lambda$) in terms of the number of whales passing each day ($d$), with an offset for the effort duration of each watch period, $E_{d(j),t}$ in decimal days (Laake et al., 2012):
+
+$$ log(\lambda_{d(j),t}) = log(E_{d(j),t}) + model_{d,t}$$
+
+$$ model_{d,t} = z_{d,t} f_{d,t} + (1 – z_{d,t}) g_{d,t} $$
+
+where $z_{d,t}$ is an indicator function (see below). $f_{d,t}$ and $g_{d,t}$ also are explained below.
+
+Days were specified as d = 0 to 90, where days were counted from 12:00am on 1 December, and we added an abundance of 0 whales passing for day 0 and 90 to anchor the fitted model when we assumed whales did not pass (Buckland et al. 1993).
+
+Estimates were derived from either of two competing models ['Common' ($f$) and 'Specific' ($g$), e.g., @li2012] describing changes in abundance across each annual migration. The model contributing each daily estimate was indicated using stochastic binary indicator variables $z_{d,t}$, each assigned a Bernoulli(0.5) prior distribution. As such, the posterior distribution of each $z_{d,t}$ indicated the probability of a daily estimate conforming to the common trend, allowing flexibility for departures from this trend that may only exist on certain days in certain years to be identified and modeled (rather than assuming all counts from an entire year conform to or depart from a common trend). The total number of whales passing at the survey location during each migration was then estimated by summing the expected value from the model averaged number of whales passing each day ($d$) from 0 to 90 (Laake et al., 2012).
+
+These estimates were then rescaled to account for the differential passage rate at night (Perryman et al., 1999), based on the nine hour day multiplicative correction factor [@rugh2005]. Specifically, we applied a constant night time correction factor that was assumed to be a Normally distributed fixed effect with mean of 1.0875 and standard deviation of 0.037 [@perryman1999a].
+
+For the 'Common model' ($f_{d,t}$), we assumed a typical trend in abundance throughout each annual migration (e.g. Buckland et al., 1993), with abundance changes assumed Normally distributed around a migration mid-point. A Normal distribution was specified as a quadratic function of days, on the log scale:
+
+$$f_{d,t} = a_t + b_t *d_t + c_t * d^2_t$$
+
+where the mid-point of the migration curve for each year $t$ was derived by $–b_t/2a_t$. This assumed common migration curve allowed information to be 'borrowed' across years when needed, specifying association across years to strengthen inference about migration curves in years with relatively sparse counts. Each parameter was specified to be drawn from a hierarchical Normal distribution.
+
+$$ a_t \sim Normal(\mu_a, \sigma_a)$$
+
+$$ b_t \sim Normal(\mu_b, \sigma_b)$$
+
+$$ c_t \sim Normal(\mu_c, \sigma_c)$$
+
+and $\mu \sim Normal(0, 10)$ and $\sigma \sim Uniform(0, 10)$, for $a$, $b$, and $c$.
+
+This hierarchical and random effects approach allowed the timing, level and extent of the Normal migration curve to vary annually around the general pattern, if supported by the data.
+
+To acknowledge and incorporate deviations from the common Normal model, the selection of an alternative 'specific' migration model was allowed ($g_{d,t}$). The 'specific' model was a semi-parametric model that estimated the time trends independently for each year without making any prior assumptions about its form (e.g., Laake et al., 2012). In this model, the shape of the relationship of true abundance across days was determined by the data via penalized splines [@ruppert2002].
+
+A linear (on the log scale) penalized spline was used to describe this relationship [@crainiceanu2005]:
+
+$$ g_{d,t} = S_{0,t} + S_{1,t} * d_t + \sum_{k=1}^{m} \lambda_{k,t} (d_t – \kappa_{k,t}) $$ Where $S_{0,t}, S_{1,t}$ and $\lambda_{1,t}, \dots, \lambda_{m,t}$ were regression coefficients to be estimated separately for each year and $\kappa_{1,t} < \kappa_{2,t} < \dots < \kappa_{m,t}$ were fixed knots. To ensure the desired flexibility, we used m = 15 knots, which is a relatively large number. To avoid overfitting, the $\lambda$'s were penalized by assuming that they were Normally distributed random variables with mean 0 and standard deviation $\sim Uniform(0,10)$. The parameters $S_{0,t}, S_{1,t}$ were modeled as fixed effects with Normal(0, 10) prior distributions.
+
+### Some concerns about Durban et al's method {.unnumbered}
+
+The approach in Durban et al. (2015) used the "cut" function within WinBUGS to dissociate estimated parameters in one function (i.e., $f_{d,t}$ or $g_{d,t}$) from those in the other function (i.e., $g_{d,t}$ or $f_{d,t}$, respectively). The function (\cut) is unavailable in modern Bayesian computation packages (e.g., JAGS, STAN) and its use has been questioned [@plummer2015]. In short, "cut" function does not converge to a well-defined limiting distribution (Plummer 2015). In addition, the assumption that the number of gray whales migrating in front of the observation station follows a Gaussian distribution centered around the mid point of the pre-defined migration season is somewhat questionable. The true curve in abundance may not be symmetric around a peak and the peak may not be instantaneous. In other words, the peak may persist for a few days. Fitting spline functions to observed counts may alleviate some of these problems but a fitted spline to observed counts may be too flexible. A spline fit would lose the general idea that the number of whales increases from the beginning of a migration season, reaches a peak, then decreases over time to the end of the migration season.
+
+## Modification {.unnumbered}
+
+Because of the way spline is fit to data points, it is impossible to use just spline when data are not collected from day 1. Missing data points (weekends, not having 90 days of observations) are linearly interpolated unless there is an assumed data generating model (the Normal distribution in the approach by Durban et al.) that is common among years. Instead of using Normal and spline functions, I use one flexible function (Richards function).
+
+### Model description {.unnumbered}
+
+In order to overcome these difficulties with the previous approach, I use a more flexible function that can accommodate the general shape (increase, peak then decrease) and asymmetrical around the peak. The function is often called Richards' function [@richards1959] and it has been used, for example, to model changes in the number of nesting turtles [@girondotModelingApproachesQuantify2007]. The model is defined as follows.
+
+$$M_1 = (1 + (2 e^K - 1) * e^{(P-d)/(S_1)}) ^ {(-1/e^K)}$$
+
+$$M_2 = (1 + (2 e^K - 1) * e^{(P-d)/(S_2)}) ^ {(-1/e^K)}$$
+
+$$N = N_{min} + (N_{max} - N_{min}) * (M_1 * M_2),$$
+
+where $d$ is the number of days from the day that first gray whale migrate through the sampling location, or the number of days since an arbitrary date,
+
+$S_1 < 0$ and $S_2 > 0$ define how the slope decreases and increases, respectively,
+
+$K > 0$ defines the "flatness" at the peak of the function,
+
+$P$ defines where the peak is relative to the range of $d$, where $min(d) < P < max(d)$,
+
+$N_{min}$ is zero, i.e., the number of whales migrating outside of a migration season and,
+
+$N_{max} >> N_{min}$. $N_{max}$ is not the maximum number of whales migrating per day but it is a parameter that may be fixed or estimated during the analysis.
+
+Effects of these parameters on the shape of the function are described in the following section.
+
+### Function characteristics {.unnumbered}
+
+#### Effects of $S_1$ {.unnumbered}
+
+The parameter $S_1 < 0$ defines how the curve decreases from its peak. The rate of decline slows down as $S_1$ becomes greater (i.e., closer to zero; Figure \@ref(fig:Figure-S1)). Because we make an assumption that there are no whales migrating after day 90, the lower bound of $S_1$ can be restricted to a certain value, (e.g., $-5 < S_1 < 0$).
+
+```{r S1, echo=FALSE, message=FALSE}
+S1 <- c(-10, -5, -2.5, -1.2, -0.6, -0.3)
+S2 <- 1.5
+K <- 1
+P <- 40
+max.N <- 800
+
+true.mean.N <- matrix(data = 0, nrow = 90, ncol = length(S1))
+
+for (c in 1:length(S1)){
+  for (d in 1:90){
+    true.mean.N[d, c] <- floor(Richards_fcn(d = d, 
+                                            S1 = S1[c], 
+                                            S2 = S2,
+                                            K = K, 
+                                            P = P, 
+                                            min = 0, max = max.N)  )
+    
+
+  }
+  
+}
+
+data.df <- data.frame(Day = rep(1:90, times = length(S1)),
+                      mean.N = as.vector(true.mean.N),
+               
+                      S1 = rep(S1, each = 90))
+
+p.S1 <- ggplot(data = data.df) +
+  geom_path(aes(x = Day, y = mean.N), color = "red") +
+
+  facet_wrap(~ S1)
+
+save.fig.fcn(p.S1, 
+             file.name = paste0("figures/S1_", dpi.set, "dpi.png"), 
+             replace = T, dpi = dpi.set)
+
+```
+
+```{r Figure-S1, echo=FALSE, message=FALSE, fig.cap="Effects of $S_1$. In this example, $S_2 = 1.5$, $K = 1$, $P = 40$, $N_{max} = 800$."}
+
+knitr::include_graphics(paste0("figures/S1_", dpi.set, "dpi.png"))
+
+```
+
+#### Effects of $S_2$ {.unnumbered}
+
+The parameter $S_2 > 0$ defines how the curve increases to its peak. The rate of increase slows down as $S_2$ becomes larger (Figure \@ref(fig:Figure-S2)). Because we make an assumption that there are no whales migrating before day 1, the upper bound of $S_2$ can be restricted to a certain value (e.g., $0 < S_2 <5$).
+
+```{r S2, echo=FALSE, message=FALSE}
+S1 <- -1.5
+S2 <- c(0.3, 0.6, 1.2, 2.5, 5, 10)
+K <- 1
+P <- 40
+max.N <- 800
+
+true.mean.N <- matrix(data = 0, nrow = 90, ncol = length(S2))
+
+for (c in 1:length(S2)){
+  for (d in 1:90){
+    true.mean.N[d, c] <- floor(Richards_fcn(d = d, 
+                                            S1 = S1, 
+                                            S2 = S2[c],
+                                            K = K, 
+                                            P = P, 
+                                            min = 0, max = max.N)  )
+    
+  }
+  
+}
+
+data.df <- data.frame(Day = rep(1:90, times = length(S2)),
+                      mean.N = as.vector(true.mean.N),
+
+                      S2 = rep(S2, each = 90))
+
+p.S2 <- ggplot(data = data.df) +
+  geom_path(aes(x = Day, y = mean.N), color = "red") +
+
+  facet_wrap(~ S2)
+
+save.fig.fcn(p.S2, 
+             file.name = paste0("figures/S2_", dpi.set, "dpi.png"), 
+             replace = T, dpi = dpi.set)
+
+
+```
+
+```{r Figure-S2, echo=FALSE, message=FALSE, fig.cap="Effects of $S_2$. In this example, $S_1 = -1.5$, $K = 1$, $P = 40$, $N_{max} = 800$."}
+
+knitr::include_graphics(paste0("figures/S2_", dpi.set, "dpi.png"))
+
+```
+
+#### Effects of K {.unnumbered}
+
+The parameter $K > 0$ defines the flatness of the curve at its peak. Greater $K$ values correspond to flatter peaks (Figure \@ref(fig:Figure-K)). Similarly to $S_1$ and $S_2$, the upper bound of $K$ may be defined based on the assumption that the numbers of migrating gray whales are zero at day 1 and 90 (e.g., $0 < K < max(K)$). The upper bound ($max(K)$) may change when other parameters change, such as $S_1$ and $S_2$.
+
+```{r K, echo=FALSE, message=FALSE}
+S1 <- -2.5
+S2 <- 2.5
+K <- c(0.01, 0.1, 1, 2, 4, 8)
+P <- 40
+max.N <- 800
+
+true.mean.N <- matrix(data = 0, nrow = 90, 
+                           ncol = length(K))
+
+for (c in 1:length(K)){
+  for (d in 1:90){
+    true.mean.N[d, c] <- floor(Richards_fcn(d = d, 
+                                            S1 = S1, 
+                                            S2 = S2,
+                                            K = K[c], 
+                                            P = P, 
+                                            min = 0, max = max.N)  )
+    
+  }
+  
+}
+
+data.df <- data.frame(Day = rep(1:90, times = length(K)),
+                      mean.N = as.vector(true.mean.N),
+                      K = rep(K, each = 90))
+
+p.K <- ggplot(data = data.df) +
+  geom_path(aes(x = Day, y = mean.N), color = "red") +
+  facet_wrap(~ K)
+
+save.fig.fcn(p.K, 
+             file.name = paste0("figures/K_", dpi.set, "dpi.png"), 
+             replace = T, dpi = dpi.set)
+
+
+
+```
+
+```{r Figure-K, echo=FALSE, message=FALSE, fig.cap="Effects of $K$. In this example, $S_1 = -2.5$, $S_2 = 2.5$, $P = 40$, $N_{max} = 800$."}
+
+knitr::include_graphics(paste0("figures/K_", dpi.set, "dpi.png"))
+
+```
+
+#### Effects of P {.unnumbered}
+
+The parameter $P$ defines the location of its peak (Figure \@ref(fig:Figure-P)).
+
+```{r P, echo=FALSE, message=FALSE}
+S1 <- -2.5
+S2 <- 2.5
+K <- 1.5
+P <- c(20, 40, 60, 80)
+max.N <- 800
+
+true.mean.N <- matrix(data = 0, nrow = 90, 
+                           ncol = length(P))
+
+for (c in 1:length(P)){
+  for (d in 1:90){
+    true.mean.N[d, c] <- floor(Richards_fcn(d = d, 
+                                            S1 = S1, 
+                                            S2 = S2,
+                                            K = K, 
+                                            P = P[c], 
+                                            min = 0, max = max.N)  )
+    
+  }
+  
+}
+
+data.df <- data.frame(Day = rep(1:90, times = length(P)),
+                      mean.N = as.vector(true.mean.N),
+                      P = rep(P, each = 90))
+
+p.P <- ggplot(data = data.df) +
+  geom_path(aes(x = Day, y = mean.N), color = "red") +
+  facet_wrap(~ P)
+
+save.fig.fcn(p.P, 
+             file.name = paste0("figures/P_", dpi.set, "dpi.png"), 
+             replace = T, 
+             dpi = dpi.set)
+
+
+```
+
+```{r Figure-P, echo=FALSE, message=FALSE, fig.cap="Effects of $P$. In this example, $S_1 = -2.5$, $S_2 = 2.5$, $K = 1.5$, $N_{max} = 800$."}
+
+knitr::include_graphics(paste0("figures/P_", dpi.set, "dpi.png"))
+
+```
+
+#### Fitting the model to observed counts {.unnumbered}
+
+The proposed new approach replaces the spline-Gaussian selection step in Durban et al. with Richards' functions. The observed counts are modeled with binomial distributions as it was in Durban et al. (2015)
+
+$$ n_{i_t,s,y} \sim BIN(N_{t, y}, p_{i_t, s, y} * \theta_{i_t, y}) $$
+
+where $n_{i_t, s, y}$ is the observed number of gray whales during the watch period $i$ of the $t$-th day of the season $y$ from the station $s$, $N_{t, y}$ is the number of gray whales that migrated through the sampling area during the $t$-th day of season $y$, $p_{i_t, s, y}$ is the sighting probability of the station $s$ during the watch period $i$ of the $t$-th day of the season $y$, and $\theta_{i_t,y}$ is the fractional duration of the watch period $i_t$ to the total possible (9 hrs), e.g., 3 hrs equals to 3/9 = 0.3.
+
+The sighting probability $p_{i_t, s, y}$ is modeled as a function of Beaufort sea state ($B$), visibility ($V$), and observers ($O$). Beaufort sea state and visibility were treated as fixed effects, whereas observers were treated as random effects. Furthermore, additional parameters (indicator functions $I_{.}$) were added to determine whether or not to include any of these covariates.
+
+$$ logit(p_{i_t, s, y}) = \beta_0 + I_{B} * \beta_{B} * B_{i_t, y} + I_{V} * \beta_{V} * V_{i_t, y} + I_{O} * O_{i_t, s, y}  $$
+
+This is identical to how the sighting probability was modeled in Durban et al. (2015).
+
+The number of gray whales that migrated through the sampling area during the $t$-th day of the season was modeled as a random Poisson variable with the mean $\bar{N}_{t, y}$ [@raftery1988].
+
+$$ N_{t, y} \sim POI(\bar{N}_{t,y}) $$
+
+where $\bar{N}_{t,y}$ is the expected number of whales that migrate through the sampling area on the $t$-th day of the season $y$ and modeled with Richards functions above.
+
+The total number of gray whales for season $y$ is the sum of all $N_{t, y}$ and corrected for nighttime passage:
+
+$$ N_y = \lambda * \sum_{t = 1} ^ {90} N_{t, y} $$ and
+
+$$ \lambda \sim N(1.0875, 0.03625) $$ (Perryman et al. 1999).
+
+### Performance of the proposed approach {.unnumbered}
+
+#### Simulation {.unnumbered}
+
+```{r mean-N-fcns, echo=FALSE, message=FALSE}
+alpha.gam <- 5.4
+beta.gam <- 0.13
+multip.gam <- 6000
+gam.def <- data.frame(x = seq(0, 100, by = 0.01)) %>%
+  mutate(y = dgamma(x, alpha.gam, beta.gam) * multip.gam)
+
+p.gam.def <- ggplot(gam.def) +
+  geom_path(aes(x = x, y = y))+
+  ylab(latex2exp::TeX(sprintf("$\\bar{N}$")))
+
+S1 <- 0.9  # this gets fixed to a negative value in Richards_fcn.
+S2 <- 1.5
+P <- 48
+K <- 2.5
+Max <- 200
+Richards.def <- Richards_fcn(d =  seq(0, 100, by = 0.01),
+                             S1 = S1,
+                             S2 = S2,
+                             K = K,
+                             P = P,
+                             min = 0, max = Max)
+
+p.Richards.def <- ggplot(data.frame(x = seq(0, 100, by = 0.01),
+                                    y = Richards.def)) +
+  geom_path(aes(x = x, y = y)) +
+  ylab(latex2exp::TeX(sprintf("$\\bar{N}$")))
+
+p.mean.N.def <- cowplot::plot_grid(plotlist = list(p.gam.def, p.Richards.def),
+                            ncol = 2)
+
+save.fig.fcn(p.mean.N.def,
+             file.name = paste0("figures/mean_N_def_", dpi.set, "dpi.png"),
+             replace = save.fig,
+             dpi = dpi.set)
+
+```
+
+To evaluate the performance of the new approach using Richards function, I simulated data using the above relationships. To test for a mismatch between the within-season mean function between the true and model (i.e., Richards function), daily mean numbers of whales ($\bar{N}_{y,t}$, $y = 1, 2$, $t = 1, \dots, 90$) for the first year was simulated from a gamma distribution function (GAM(`r signif(alpha.gam,3)`, `r signif(beta.gam, 3)`) \* `r multip.gam`; Figure \@ref(fig:Figure-Gam-def)). For the second year, I used Richards function for the daily mean numbers.
+
+$$ \bar{N}_{1,t} = GAM(t, 5.4, 0.13) \times 6000$$ and
+
+$$ \bar{N}_{2,t} = R(t, S_1 = -0.9, S_2 = 1.5, P = 48, K = 2.5, max = 200) $$
+
+where $t = 1, \dots, 90$ and $R(\dots)$ indicates Richards function with necessary parameters (Figure \@ref(fig:Figure-Gam-def)).
+
+Daily true numbers of gray whales that migrated through the sampling area then were simulated using a Poisson distribution with the daily mean values:
+
+$$ N_{y,t} \sim POI(\bar{N}_{y,t})  $$
+
+Finally, the recorded numbers of whales by the observers during the $i$-th watch period ($n_{y,t,i}$) were simulated using a binomial distribution with the true number of gray whales ($N_{y,t}$) and the sighting probability ($p_{y,t,i}$), for the i-th observation period on day t, where the index of observation periods in a day can range from 1 to 6. The actual index of observation periods is inconsequential, however. Sighting probability for one period is treated as a function of (1) viewing condition (V), (2) Beaufort sea state (B), (3) the observation duration as a fraction of maximum ($q_{y,t,i}$; 6 periods equal to 540 minutes), and (4) observer random effects ($O_{y,t,i}$).
+
+$$ logit(\gamma_{y,t,i}) = \bar{p} + I(V) \beta_{V} V_{y,t,i} + I(B) \beta_{B} B_{y,t,i} + I(O) O_{y,t,i} $$
+
+I(.) is an indicator function (either 0 or 1) that is used to determine whether or not to include each term. Sighting probability, then is multiplied by the observation duration proportion for the day ($q_{t,y,i}$). If an observation period lasted 34 minutes, $q_{y,t,i}$ = 34/540.
+
+$$ p_{y,t,i} = \gamma_{y,t,i} \times q_{y,t,i} $$
+
+Finally, the observed number of whales during one sampling period was simulated using a binomial distribution.
+
+$$ n_{y,t,i} \sim BIN(N_{y,t}, p_{y,t,i}) $$
+
+To simplify the simulation, I did not add the observer random effects. To simulate the second observation team, two independent $n_{y,t,i}$ were simulated from the binomial distribution above for one year.
+
+The total number of whales per year was not simulated directly. Rather, daily numbers of whales were simulated from the mean curves (Gamma or Richards). The total number of gray whales during daily observation window (540 minutes) was multiplied by a correction factor (       mean = 1.0875, S = 0.03625, Perryman et al. 1999) and summed over 90 days to obtain the corrected total number of whales in one year.
+
+```{r Figure-Gam-def, echo=FALSE, message=FALSE, fig.cap="The shapes of $\\bar{N}$ for simulated data. A gamma distribution function was used for the first year (left) and Richards' function for the second year. Although there are non-zero values at x = 1 and beyond x = 90, the $\\bar{N}$ was fixed to 0 at x = 1 and 90."}
+
+knitr::include_graphics(paste0("figures/mean_N_def_", dpi.set, "dpi.png"))
+
+# Need $\\bar{N}$ rather than $\bar{N}. With the second one, MSWord would not open the file. 
+
+```
+
+```{r simulation, echo=FALSE, message=FALSE}
+sim.date <- "2023-04-14"
+data.sim.out.file <- paste0("RData/simulation_data_", sim.date, ".rds")
+save.fig <- F
+
+if (!file.exists(data.sim.out.file)){
+  set.seed(12345)
+  
+  # Define Richards function parameters
+  Days <- 1:90
+  
+  # Alternatively, use a different function to create real values for the means
+  N.mean <- matrix(nrow = 90, ncol = 2)
+  
+  # first year with gamma
+  N.mean[,1] <- dgamma(1:90, alpha.gam, beta.gam) * multip.gam
+  
+  # second year with Richards functions
+  N.mean[,2] <- Richards_fcn(d = Days, S1 = S1, S2 = S2,
+                             K = K, P = P, min = 0, max = Max)
+  
+  # This is by assumption
+  #N.mean[c(1,90), 1:2] <- 0
+  
+  # Define sighting probability parameters
+  B0 <- 0.7
+  B_BF <- -1.2
+  B_VS <- -1.8
+  
+  Season <- c("2020", "2022")
+  n.stations <- 2
+  
+  True.N <- matrix(nrow = 90, ncol = length(Season))
+  for (k in 1:nrow(N.mean)) {
+    for (c in 1:ncol(N.mean)){
+      True.N[k,c] <- rpois(n = 1, lambda = N.mean[k, c])
+    }
+    
+  }
+  
+  # Force True.N = 0 for day 1 and 90
+  True.N[1,] <- True.N[90,] <- 0
+  
+  # Use real data for observers, Beaufort, and visibility
+  set.seed(12345)
+  Data_True.N <- list()
+  periods <- vector(mode = "numeric", length = length(Season))
+  
+  # need to convert observer initials into numbers for all years
+  obs.list <- read.csv(file = "Data/Observer list 2022.csv")
+  
+  for (y in 1:length(Season)){
+    # I use the real data to emulate sampling and sighting conditions
+    tmp <- readRDS(paste0("RData/V2.1_Aug2022/out_", Season[y], "_Tomo_v2.rds"))
+    Final_Data <- tmp$Final_Data %>%
+      mutate(Year = Season[y],
+             Day = as.numeric(BeginDay)) %>%
+      mutate(effort = dur) %>%
+      mutate(watch.prop = effort * 24/9) %>%
+      dplyr::select(Year, Day, effort, watch.prop, bf, vs, n, obs) %>%
+      filter(bf < 5, vs < 5)
+    
+    # Find all observers and change them into integer code.
+    # These numbers have to be consistent over years.
+    obs.y <- data.frame(obs = Final_Data$obs) %>%
+      left_join(obs.list, by = "obs")
+    
+    Final_Data$obs.ID <- obs.y$ID
+    
+    # unique.obs <- unique(obs.y$ID)
+    # obs.ID.df <- data.frame(obs = obs.list[obs.list$ID %in% unique.obs, "obs"],
+    #                         obs.ID = unique.obs) %>%
+    #   arrange(by = obs.ID)
+    #
+    # Final_Data %>%
+    #   left_join(obs.ID.df, by = "obs") %>%
+    #   select(-obs) -> Final_Data
+    
+    # figure out the number of periods
+    Final_Data %>%
+      group_by(Year) %>%
+      #filter(effort > 0) %>%
+      summarise(n = n()) -> n.days
+    
+    periods[y] <- n.days$n
+    
+    Final_Data$n[Final_Data$effort == 0] <- NA
+    
+    # Create sighting probabilities
+    Final_Data %>%
+      mutate(Sighting.Prob.lm = as.vector(B0 + B_BF * scale(bf) +
+                                            B_VS * scale(vs)),
+             Sighting.Prob = exp(Sighting.Prob.lm)/(1 + exp(Sighting.Prob.lm)),
+             Binom.Prob = watch.prop * Sighting.Prob) -> Final_Data
+    
+    Final_Data %>%
+      left_join(data.frame(Day = Days,
+                           N.mean = N.mean[,y],
+                           N.True = True.N[,y]),
+                by = "Day") -> Data_True.N[[y]]
+  }
+  
+  max.n.rows <- lapply(Data_True.N, FUN = nrow) %>%
+    unlist() %>%
+    max()
+  
+  watch.prop <- bf <- vs <- day <- effort <- array(dim = c(max.n.rows, length(Season)))
+  obs <- obsd.n <- array(dim = c(max.n.rows, n.stations, length(Season)))
+  
+  for (y in 1:length(Season)){
+    
+    for (k in 1:nrow(Data_True.N[[y]])){
+      obsd.n[k, 1, y] <- rbinom(n = 1,
+                                size = Data_True.N[[y]]$N.True[k],
+                                prob = Data_True.N[[y]]$Binom.Prob[k])
+      
+      obs[k,1,y] <- Data_True.N[[y]]$obs.ID[k]
+      
+      if (y == 1){
+        obsd.n[k, 2, y] <- rbinom(n = 1,
+                                  size = Data_True.N[[y]]$N.True[k],
+                                  prob = Data_True.N[[y]]$Binom.Prob[k])
+        
+        # Create obs IDs for the second station that are not identical 
+        # to the 1st station. 
+        obs[k,2,y] <- Data_True.N[[y]]$obs.ID[k] - 1  
+        
+      }
+      watch.prop[k, y] <- Data_True.N[[y]]$watch.prop[k]
+      effort[k,y] <- Data_True.N[[y]]$effort[k]
+      
+      bf[k, y] <- Data_True.N[[y]]$bf[k]
+      vs[k, y] <- Data_True.N[[y]]$vs[k]
+      day[k, y] <- Data_True.N[[y]]$Day[k]
+    }
+  }
+  
+  # convert obs.ID to sequential number starting from 1.
+  unique.ID <- unique(c(unique(obs[,,1]), unique(obs[,,2]))) 
+  unique.ID.df <- data.frame(raw.ID = unique.ID,
+                             seq.ID = 1:length(unique.ID))
+  unique.ID.df[is.na(unique.ID.df$raw.ID), "seq.ID"] <- 36
+  
+  obs.1 <- obs
+  for (c1 in 1:dim(obs)[1]){
+    for (c2 in 1:dim(obs)[2]){
+      for (c3 in 1:dim(obs)[3]){
+        obs.tmp <- obs[c1,c2,c3]
+        if (!is.na(obs.tmp)){
+          obs.1[c1,c2,c3] <- unique.ID.df %>%
+            filter(raw.ID == obs.tmp) %>%
+            dplyr::select(seq.ID) %>%
+            pull()
+          
+        } else {
+          obs.1[c1,c2,c3] <- unique.ID.df %>%
+            filter(is.na(raw.ID)) %>%
+            dplyr::select(seq.ID) %>%
+            pull()
+        }
+        
+      }
+    }
+  }  
+
+  sim.data <- list(  n = obsd.n,
+                      n.station = c(2,1),
+                      n.year = length(Season),
+                      n.obs = length(unique(na.omit(as.vector(obs)))),
+                      periods = periods,
+                      obs = obs.1,
+                      vs = scale(vs),
+                      bf = scale(bf),
+                      watch.prop = watch.prop,
+                      day = day,
+                      effort = effort,
+                      bf.raw = bf,
+                      vs.raw = vs)
+  
+  sim.parameters <- list(S1 = S1,
+                         S2 = S2,
+                         Max = Max,
+                         K = K,
+                         P = P,
+                         B_BF = B_BF,
+                         B_VS = B_VS,
+                         B0 = B0,
+                         Data_True.N = Data_True.N,
+                         Season = Season,
+                         N.mean = N.mean,
+                         True.N = True.N)
+  
+  simulated.data <- list(sim.data = sim.data,
+                         sim.parameters = sim.parameters)
+  
+  saveRDS(simulated.data, file = data.sim.out.file)
+  
+} else {
+  
+  simulated.data <- readRDS(data.sim.out.file)
+}
+
+```
+
+```{r run-jags, echo=FALSE, message=FALSE}
+#Data_True.N$obsd.n <- obsd.n
+# change this accordingly 2022-11-08 was with a common K and one station
+# 2023-03-23 and later are with two stations
+
+run.date <- Sys.Date() #"2023-05-26" #"2023-04-14" #Sys.Date() #"2022-11-08" #   
+
+model.v <- "v1" # "v3"
+model.d <- "logN_bino_"
+#out.file.name <- paste0("RData/Pois_Binom_sim_results_", run.date, ".rds")
+#out.file.name <- paste0("RData/Pois_Binom_v2_sim_results_", run.date, ".rds")
+#out.file.name <- paste0("RData/Pois_Binom_", model.v, "_sim_results_", run.date, ".rds")
+out.file.name <- paste0("RData/", model.d, model.v, "_sim_results_", run.date, ".rds")
+
+if (!file.exists(out.file.name)){
+  MCMC.params <- list(n.samples = 120000,
+                      n.thin = 10,
+                      n.burnin = 100000,
+                      n.chains = 5)
+  
+  #jags.model <- paste0("models/model_Richards_pois_bino.txt")
+  #jags.model <- paste0("models/model_Richards_pois_bino_v2.txt")
+  #jags.model <- paste0("models/model_Richards_pois_bino_", model.v, ".txt")
+  jags.model <- paste0("models/model_Richards_", model.d, model.v, ".txt")
+  
+  jags.params <- c("OBS.RF", "OBS.Switch",
+                   "BF.Switch", "BF.Fixed",
+                   "VS.Switch", "VS.Fixed",
+                   "mean.prob", "mean.N", "Max",
+                   "Corrected.Est", "Raw.Est", "N",
+                   "K", "S1", "S2", "P",
+                   "log.lkhd")
+  
+  jags.data <- simulated.data$sim.data 
+  jags.data$n.days <- 90
+  # list(  n = obsd.n,
+  #        n.station = c(2,1),
+  #        n.year = length(Season),
+  #        n.obs = length(unique(na.omit(as.vector(obs)))),
+  #        periods = periods,
+  #        obs = obs.1,
+  #        vs = scale(vs),
+  #        bf = scale(bf),
+  #        watch.prop = watch.prop,
+  #        day = day,
+  #        effort = effort,
+  #        bf.raw = bf,
+  #        vs.raw = vs)
+  
+  #max.vec = c(3000, 3000))
+  
+  Start_Time<-Sys.time()
+  
+  jm <- jagsUI::jags(jags.data,
+                     inits = NULL,
+                     parameters.to.save= jags.params,
+                     model.file = jags.model,
+                     n.chains = MCMC.params$n.chains,
+                     n.burnin = MCMC.params$n.burnin,
+                     n.thin = MCMC.params$n.thin,
+                     n.iter = MCMC.params$n.samples,
+                     DIC = T,
+                     parallel=T)
+
+  Run_Time <- Sys.time() - Start_Time
+  jm.sim.out <- list(jm = jm,
+                     jags.data = jags.data,
+                     jags.params = jags.params,
+                     jags.model = jags.model,
+                     MCMC.params = MCMC.params,
+                     Run_Time = Run_Time,
+                     sys.env = Sys.getenv())
+
+  saveRDS(jm.sim.out,
+          file = out.file.name)
+
+} else {
+
+  jm.sim.out <- readRDS(out.file.name)
+}
+
+# observed n is in a 3D array with #periods x #stations x #years,
+# which makes the log-likelihood array to be 4D, which is not allowed
+# in the relative_eff function... fixed the function to allow array 
+# inputs - convert array into matrix 2023-01-06
+
+LOOIC.sim.n <- compute.LOOIC(loglik.array = jm.sim.out$jm$sims.list$log.lkhd,
+                             data.array = jm.sim.out$jags.data$n,
+                             MCMC.params = jm.sim.out$MCMC.params)
+
+
+
+```
+
+#### Goodness of fit {.unnumbered}
+
+Despite the difference in data generating (Gamma distribution for the first year) and fitted functions (Richards' function for both years), a majority of Pareto k statistics [@vehtariPracticalBayesianModel2017] were less than 0.7 (`r which(LOOIC.sim.n$loo.out$diagnostics$pareto_k < 0.7) %>% length()` out of `r length(LOOIC.sim.n$loo.out$diagnostics$pareto_k)`), with the maximum value of `r signif(max(LOOIC.sim.n$loo.out$diagnostics$pareto_k), 3)`.
+
+#### Estimated parameters from simulated data {.unnumbered}
+
+```{r jags-posteriors, echo=FALSE, message=FALSE, warning=FALSE}
+#save.fig <- T
+max.r.hat <- max(unlist(lapply(jm.sim.out$jm$Rhat,
+                               FUN = max,
+                               na.rm = T)))
+#jm <- jm.out$jm
+#true.values <- c(S1, S2, K, P, B0, B_BF, B_VS)
+# params <- data.frame(name = param.names,
+#                      value = true.values)
+Season <- simulated.data$sim.parameters$Season
+n.Season <- length(Season)
+if (model.v == "v3"){
+  params.to.summarize.n.Season <- c("S1", "S2", "P", "Max", "K")  
+  # Some are common among all years
+  params.to.summarize.n.1 <- c("mean.prob", "BF.Fixed", "VS.Fixed")
+} else if (model.v == "v1"){
+  params.to.summarize.n.Season <- c("S1", "S2", "Max")  
+  # Some are common among all years
+  params.to.summarize.n.1 <- c("mean.prob", "BF.Fixed", "VS.Fixed", "K", "P")
+
+}
+
+# Add year specific indices if exist
+param.names.n.Season <- lapply(params.to.summarize.n.Season,
+                               FUN = function(x, n.Season){
+                                 out <- vector(mode = "character", length = n.Season)
+                                 for (k in 1:n.Season){
+                                   out[k] <- paste0(x, "[", k, "]")
+
+                                 }
+                                 return(out)},
+                               n.Season)
+
+# Combine the two groups to make a vector of all parameter names
+param.names <- c(unlist(param.names.n.Season),
+                 params.to.summarize.n.1)
+
+params.df <- data.frame(names = param.names,
+                        value = c(NA, simulated.data$sim.parameters$S1,
+                                  NA, simulated.data$sim.parameters$S2,
+                                  NA, simulated.data$sim.parameters$P,
+                                  
+                                  NA, simulated.data$sim.parameters$Max,
+                                  NA, simulated.data$sim.parameters$K,
+                                  simulated.data$sim.parameters$B0, 
+                                  simulated.data$sim.parameters$B_BF, 
+                                  simulated.data$sim.parameters$B_VS))
+
+
+p.trace.sim.JAGS <- plots.trace(jm.sim.out$jm,
+                                params = param.names,
+                                params.df = params.df)
+
+p.dens.sim.JAGS <- plots.dens(jm.sim.out$jm, params = param.names)
+
+for (k in 1:length(param.names)){
+  save.fig.fcn(p.trace.sim.JAGS[[k]] +
+                 geom_hline(aes(yintercept = params.df[k, "value"]),
+                            color = "red", size = 1.2),
+               file.name = paste0("figures/", param.names[k], "_sim_trace_JAGS_", model.d, model.v, "_",
+                                  dpi.set, "dpi.png"),
+
+               dpi = dpi.set, replace = save.fig)
+
+  save.fig.fcn(fig = p.dens.sim.JAGS[[k]],
+               file.name = paste0("figures/", param.names[k], "_sim_dens_JAGS_", model.d, model.v, "_",
+                                  dpi.set, "dpi.png"),
+               dpi = dpi.set, replace = save.fig)
+
+}
+
+obsd.n.sim.df <- data.frame(Season = c(rep(Season[1], jm.sim.out$jags.data$periods[1]),
+                                       rep(Season[2], jm.sim.out$jags.data$periods[2])),
+                            day = c(jm.sim.out$jags.data$day[1:jm.sim.out$jags.data$periods[1],1],
+                                    jm.sim.out$jags.data$day[1:jm.sim.out$jags.data$periods[2],2]),
+                            n = c(jm.sim.out$jags.data$n[1:jm.sim.out$jags.data$periods[1],1,1],
+                                  jm.sim.out$jags.data$n[1:jm.sim.out$jags.data$periods[2],1,2]))
+
+mean.N.hats.sim.JAGS <- data.frame(Season = rep(Season, each = 90),
+                                   Day = rep(1:90, length(Season)),
+                                   Mean = as.vector(jm.sim.out$jm$mean$mean.N),
+                                   LCL = as.vector(jm.sim.out$jm$q2.5$mean.N),
+                                   UCL = as.vector(jm.sim.out$jm$q97.5$mean.N),
+                                   #true.mean = as.vector(True.N))
+                                   true.mean = as.vector(simulated.data$sim.parameters$N.mean))
+
+p.mean.N.hats.sim.JAGS <- ggplot(mean.N.hats.sim.JAGS %>% group_by(Season)) +
+  geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
+              fill = "blue", alpha = 0.5) +
+  geom_path(aes(x = Day, y = Mean)) +
+  geom_path(aes(x = Day, y = true.mean), 
+            color = "gold") +
+  facet_wrap(~ Season)
+
+save.fig.fcn(p.mean.N.hats.sim.JAGS,
+             file.name = paste0("figures/mean_N_sim_JAGS_",model.d,  model.v, "_", dpi.set, "dpi.png"),
+             replace = save.fig,
+             dpi = dpi.set)
+
+if (save.fig)
+  ggsave(p.mean.N.hats.sim.JAGS,
+         filename = paste0("figures/mean_N_sim_JAGS_",  model.d, model.v, "_", dpi.set, "dpi.png"),
+         device = "png", dpi = dpi.set)
+
+N.hats.sim.JAGS <- data.frame(Season = rep(Season, each = 90),
+                              Day = rep(1:90, times = length(Season)),
+                              Mean = as.vector(jm.sim.out$jm$mean$N),
+                              LCL = as.vector(jm.sim.out$jm$q2.5$N),
+                              UCL = as.vector(jm.sim.out$jm$q97.5$N),
+                              true.N = as.vector(simulated.data$sim.parameters$True.N))
+
+p.N.hats.sim.JAGS <- ggplot(N.hats.sim.JAGS) +
+  geom_path(aes(x = Day, y = true.N), color = "gold") +
+  geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
+              fill = "blue", alpha = 0.5) +
+  geom_path(aes(x = Day, y = Mean)) +
+  geom_point(data = obsd.n.sim.df, aes(x = day, y = n))+
+  facet_wrap(~ Season)
+
+save.fig.fcn(fig = p.N.hats.sim.JAGS,
+               file.name = paste0("figures/N_hats_sim_JAGS_", model.d,  model.v, "_", dpi.set, "dpi.png"),
+               dpi = dpi.set, replace = save.fig)
+
+# Simulation did not take into account the correction part so no need to look at this
+# for simulation analysis.
+# corrected.N.hats.sim.JAGS <- data.frame(Season = Season,
+#                                         Mean = as.vector(jm.sim.out$jm$mean$Corrected.Est),
+#                                         LCL = as.vector(jm.sim.out$jm$q2.5$Corrected.Est),
+#                                         UCL = as.vector(jm.sim.out$jm$q97.5$Corrected.Est))
+
+p.trace.all.sim.JAGS <- cowplot::plot_grid(plotlist = p.trace.sim.JAGS,
+                                      ncol = 2)
+
+save.fig.fcn(fig = p.trace.all.sim.JAGS,
+             file.name = paste0("figures/trace_plots_sim_JAGS_", model.d,  model.v, "_", dpi.set, "dpi.png"),
+             dpi = dpi.set, replace = save.fig)
+
+
+```
+
+Convergence was reached for all parameters according to the $\hat{R}$ statistic [@gelman2013], where the maximum value was `r signif(max.r.hat, 3)`. However, trace plots of some Richards function parameters did not look ideal (Figure \@ref(fig:Figure-trace-sim-JAGS)). The observed poor conversions of S1, S2, K, and max parameters might have been caused by the mismatch between the true (gamma) and assumed (Richards') functions, where Richards' functions could not match the rates of increase (S2) and decrease (S1) of the gamma function.
+
+For the parameters that associated with sighting probabilities (mean.prob, BF.Fixed, and VS.Fixed), MCMC samples appeared to converge and captured the true values (Figure \@ref(fig:Figure-trace-sim-JAGS)).
+
+```{r Figure-trace-sim-JAGS, echo=FALSE, message=FALSE, fig.cap="Trace plots of parameters. Red horizontal lines indicate the true values. Not all plots contain true values because the data generating function for the first year (gamma distribution) was different from the estimation function (Richards' function)."}
+
+knitr::include_graphics(paste0("figures/trace_plots_sim_JAGS_",model.d, model.v, "_", dpi.set, "dpi.png"))
+
+```
+
+Even with the apparent poor conversion of a few parameters, estimated $\bar{N}$ and $N$ might be considered acceptable (Figures \@ref(fig:Figure-mean-N-sim-JAGS) and \@ref(fig:Figure-N-sim-JAGS)). For the year when data generation and estimation models were different ("2020"), the estimated peak and tails were positively biased (Figure \@ref(fig:Figure-mean-N-sim-JAGS)). 
+
+
+```{r Figure-mean-N-sim-JAGS, echo=FALSE, message=FALSE, fig.cap = "Estimated $\\bar{N}$ and their 95% CI (blue ribbon) and the true $\\bar{N}$ in gold. "}
+
+knitr::include_graphics(paste0("figures/mean_N_sim_JAGS_", model.d,  model.v, "_", dpi.set, "dpi.png"))
+```
+
+```{r Figure-N-sim-JAGS, echo=FALSE, message=FALSE, fig.cap = "Estimated $N$ and their 95% CI (blue ribbon) and the true $N$ in gold. Black filled circles indicate observed counts."}
+
+knitr::include_graphics(paste0("figures/N_hats_sim_JAGS_", model.d,  model.v, "_", dpi.set, "dpi.png"))
+```
+
+#### Comparison to Durban et al's method {.unnumbered}
+
+In order to evaluate the performance of the proposed method, I compared the estimates of $N_{t,y}$ between the proposed and Durban et al. methods. Durban's method was applied to the same simulated dataset using WinBUGS.
+
+```{r WinBugs-sim-Analysis, echo=FALSE, message=FALSE}
+#run.date <- "2022-10-27"
+run.date <- "2023-04-14"
+if (!file.exists(paste0("RData/WinBUGS_sim_", run.date, ".rds"))){
+  WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
+  BUGS.model <- "GW_Nmix_Orig.bugs"
+  #BUGS.model <- "GW_Nmix_Orig_mod.bugs"  # Lower bounds of unif distributions were changed from 0 to 0.01 - this made no difference in errors (undefined real)
+  
+  #####################################################
+  # # The following is from WinBUGS Ver2.Rmd. It ran fine. I saved data and inits from
+  # # the run and saved it in an rds file. Compare data and inits.
+  # # This works fine!
+  
+  # I still keep these lines here to use the list of parameter names for WinBUGS runs.
+  worked.run.date <- "2022-10-21"   # the date that WinBUGS Ver2.Rmd was run and the output saved.
+  data.worked <- readRDS(paste0("RData/BUGS_data_runs_",
+                                worked.run.date, ".rds"))
+  # # N_inits <- data.worked$N_inits
+  # # x <- 2
+  # # #
+  # # # # Create data list from the one that worked using just the last 2 years:
+  # obs <- data.worked$BUGS.data$obs[, , 7:8]
+  # #obs <- obs - min(obs, na.rm = T) + 1
+  #
+  # # 36 was used for non-observer
+  # obs[obs==36] <- NA
+  # unique.obs <- sort(unique(c(unique(obs[,1,1]), unique(obs[,1,2]))))
+  # n.obs <- length(unique.obs)
+  #
+  # obs.df <- data.frame(new.ID = 1:n.obs,
+  #                      old.ID = unique.obs)
+  #
+  # for (k1 in 1:nrow(obs.df)){
+  #   for (k2 in 1:2){
+  #     obs[which(obs[,1,1] == obs.df[k1, "old.ID"]),1,1] <- obs.df[k1,"new.ID"]
+  #     obs[which(obs[,1,2] == obs.df[k1, "old.ID"]),1,2] <- obs.df[k1,"new.ID"]
+  #   }
+  # }
+  #
+  # # #
+  # # N_inits <- N_inits[, 7:8]
+  # # #
+  # BUGS.data.1 <- list(n = data.worked$BUGS.data$n[, , 7:8],
+  #                     n.com = data.worked$BUGS.data$n.com[, , 7:8],
+  #                     n.sp = data.worked$BUGS.data$n.sp[, , 7:8],
+  #                     n.station = 1,
+  #                     n.year = 2,
+  #                     obs = obs, #data.worked$BUGS.data$obs[, 1, 7:8],
+  #                     n.obs = max(obs, na.rm = T), #n.obs,
+  #                     periods = data.worked$BUGS.data$periods[7:8],
+  #                     u = data.worked$BUGS.data$u[, , 7:8],
+  #                     vs = data.worked$BUGS.data$vs[, 7:8],
+  #                     bf = data.worked$BUGS.data$bf[, 7:8],
+  #                     day = data.worked$BUGS.data$day[, 7:8],
+  #                     N = data.worked$BUGS.data$N[, 7:8],
+  #                     N.com = data.worked$BUGS.data$N.com[, 7:8],
+  #                     N.sp = data.worked$BUGS.data$N.sp[, 7:8],
+  #                     knot = data.worked$BUGS.data$knot,
+  #                     n.knots = data.worked$BUGS.data$n.knots,
+  #                     Watch.Length = data.worked$BUGS.data$Watch.Length[,7:8])
+  # #
+  # BUGS.inits.2 <- data.worked$BUGS.inits
+  #
+  # bm <- bugs(data =  BUGS.data.1,
+  #              inits = BUGS.inits.2,
+  #              parameters = data.worked$parameters,
+  #              model.file = BUGS.model,
+  #              n.chains = data.worked$MCMC.params$n.chains,
+  #              n.iter = data.worked$MCMC.params$n.iter,
+  #              n.burnin = data.worked$MCMC.params$n.burnin,
+  #              n.thin = data.worked$MCMC.params$n.thin,
+  #              debug=T,
+  #              bugs.directory = WinBUGS.dir)
+  #
+  # # value of bernoulli z[1,1] (or z[90,1], or z[90,2]) must be an integer - this happened after I renumbered
+  # # the observer IDs.
+  # # Compare data and inits of this section to the next section. DONE.
+  
+  #########################################################
+  
+  x <- length(Season)
+  
+  jags.data <- jm.sim.out$jags.data
+  MCMC.params <- jm.sim.out$MCMC.params  # takes about 3.6 hrs
+  
+  # To make computation faster, I reduce the sampling: this ran in about 2 hrs.
+  # Dated 2022-10-21 but actually ran on 2022-10-26
+  # MCMC.params <- list(n.samples = 60000,
+  #                     n.thin = 10,
+  #                     n.burnin = 30000,
+  #                     n.chains = 5)
+  
+  # Changed on 2023-04-14
+  # Model runs but with longer chains (jags setup is 120000/10/10000/5), Poisson 
+  # blows up during sampling. So, I reduced the # samples to 100000, and got the 
+  # same error, so reducing further to 60000
+  MCMC.params <- list(n.samples = 60000,
+                      n.thin = 10,
+                      n.burnin = 30000,
+                      n.chains = 5)
+
+  # Adds an all zero array to the second dimension, just as it was done for the
+  # real data.
+  # n <- abind(jags.data$n,
+  #            array(data = 0,
+  #                  dim = dim(jags.data$n)),
+  #            along = 2)
+  
+  n <- jags.data$n
+  # replace NAs with zeros
+  n[is.na(n)] <- 0
+  
+  # the u data is whether there were observers on watch.
+  # 0 counts are often associated with years/shifts with
+  # no second observer. So if u=0, it will fix observation probability at 0
+  # obs has no NAs (not true any more; 2023-03-23), but no observers were indicated by 25.
+  # u <- jags.data$obs
+  # u[u != 25] <- 1
+  # u[u == 25] <- 0
+  u <- simulated.data$sim.data$obs #obs.1
+  u[u == 36] <- 0
+  u[u != 36] <- 1
+  
+  # day indicators. Need to add 1 and 90 at the end
+  day <- rbind(jags.data$day, matrix(NA, nrow = 2, ncol = x))
+  
+  for(i in 1:x){ #Set the anchor points: days 1 and 90
+    day[(jags.data$periods[i]+1):(jags.data$periods[i]+2),i] <- c(1,90)
+    
+  }
+  
+  #The 'data' has to be the inverse of the inits, <- ??
+  # with NAs for all of the estimated Ns, and 0s for the days 1 and 90
+  N <- matrix(NA,
+              nrow = max(jags.data$periods)+2,
+              ncol = x)
+  
+  #True number of whales passing fixed at 0 for day 1 and 90
+  for(i in 1:x){
+    N[(jags.data$periods[i]+1):(jags.data$periods[i]+2),i] <- 0
+  }
+  
+  # WinBUGS gives errors when N inits are set to 0.
+  # Try setting them to 1 instead (seems to work):
+  #N_inits[which(N_inits == 0, arr.ind = T)] <- 1
+  
+  Watch.Length <- rbind(jags.data$effort,
+                        matrix(data = NA,
+                               nrow = 2,
+                               ncol = x))
+  
+  # WinBUGS crashed with Poisson unreal error. I thought it was something
+  # to do with the observer array - having 36 as non-observers. So, 
+  # replaced it with new array... then a different error. 
+  # Changed obs array and the following error popped up:
+  # "made use of undefined node obs"  2023-03-23
+  # According to this StackOverflow posting, NAs are not liked by WinBUGS
+  # https://stackoverflow.com/questions/39938942/made-use-of-undefined-node-winbugs-beginner
+  obs.BUGS <-  simulated.data$sim.data$obs #obs.1
+  
+  # obs <- abind(jags.data$obs,
+  #              array(data = NA,
+  #                    dim = dim(jags.data$obs)),
+  #              along = 2)
+  # 
+  # obs[obs==36] <- NA
+  
+  obs.BUGS[is.na(obs.BUGS)] <- 36
+  
+  # obs.BUGS.1 <- abind(obs.BUGS,
+  #                     array(data = NA,
+  #                           dim = dim(obs.BUGS)),
+  #                     along = 2)
+  
+  
+  # Should this be zeros? Watch length of day 1 and 90...
+  # They are 1s in data.worked.
+  for (k in 1:x){
+    Watch.Length[(jags.data$periods[k]+1) : (jags.data$periods[k]+2), k] <- 1
+  }
+  
+  ##############################################################
+  # let's swap the first and second columns (years)
+  # n.1 <- array(dim = dim(n))
+  # n.1[,,1] <- n[,,2]
+  # n.1[,,2] <- n[,,1]
+  #
+  # obs.1 <- array(dim = dim(jags.data$obs))
+  # obs.1[,,1] <- jags.data$obs[,,2]
+  # obs.1[,,2] <- jags.data$obs[,,1]
+  #
+  # bf.1 <- cbind(jags.data$bf.raw[,2], jags.data$bf.raw[,1])
+  # vs.1 <- cbind(jags.data$vs.raw[,2], jags.data$vs.raw[,1])
+  #
+  # periods.1 <- c(jags.data$periods[2], jags.data$periods[1])
+  #
+  # day.1 <- cbind(day[,2], day[,1])
+  #
+  # N.1 <- cbind(N[,2], N[,1])
+  #
+  # Watch.Length.1 <- cbind(Watch.Length[,2], Watch.Length[,1])
+  # This one didn't work either...
+  ##############################################################
+  
+  BUGS.data <- list(n = n, #unname(n), #n.1, #
+                    n.com = n, #unname(n), #n.1, #
+                    n.sp = n, #unname(n), #n.1, #
+                    n.station = dim(jags.data$n)[2], #jags.data$n.station, #
+                    n.year = dim(jags.data$n)[3],
+                    n.obs = max(obs.BUGS, na.rm = T),
+                    periods = jags.data$periods, #periods.1, #
+                    obs = obs.BUGS, #unname(obs.BUGS.1), #obs.1, #
+                    u = u,
+                    vs = jags.data$vs.raw, #bf.1, #
+                    bf = jags.data$bf.raw, #vs.1, #
+                    day = day, #day.1, #
+                    #N = N, #N.1, #   # See comments below for why these were taken out
+                    #N.com = N, #N.1, #
+                    #N.sp = N, #N.1, #
+                    knot = c(-1.46, -1.26, -1.02, -0.78,
+                             -0.58, -0.34, -0.10, 0.10,
+                             0.34, 0.57, 0.78, 1.02, 1.26, 1.46),
+                    n.knots = 14,
+                    Watch.Length = Watch.Length) #Watch.Length.1) #
+  
+  
+  #we're going to make N a partially observed data object with anchor points at day 1 and 90
+  # TE: I don't know how these numbers were created... they are generally 2x n (not all)
+  # N has to be greater than the largest of n, when there are two observation stations
+  # A loop is clunky but should work...
+  N_inits1 <- matrix(nrow = dim(n)[1], ncol = dim(n)[3])
+  
+  for (k in 1:dim(n)[1]){
+    for (k1 in 1:dim(n)[3]){
+      N_inits1[k, k1] <- max(n[k,,k1] * 2 + 2)
+    }
+  }
+  #N_inits1 <- n[, , ] * 2 + 2
+  #N_inits2 <- jags.data$n[, 2,] * 2 + 2
+  
+  # Create initial values for Ns
+  N_inits <- rbind(N_inits1,
+                   matrix(data = NA,
+                          nrow = 2,
+                          ncol = x))
+  
+  # Are these necessary? Rather than making NAs, should they be zeros?
+  # With these zeros, errors result.
+  for (k in 1:x){
+    N_inits[(jags.data$periods[k]+1) : nrow(N_inits), k] <- NA
+  }
+  
+  #N_inits.1 <- cbind(N_inits[,2], N_inits[,1])
+  BUGS.inits.1 <- function() list(mean.prob = 0.5,
+                                  BF.Fixed = 0,
+                                  VS.Fixed = 0,
+                                  mean.prob.sp = 0.5,
+                                  BF.Fixed.sp = 0,
+                                  VS.Fixed.sp = 0,
+                                  mean.prob.com = 0.5,
+                                  BF.Fixed.com = 0,
+                                  VS.Fixed.com = 0,
+                                  mean.beta = c(0,0,0),
+                                  beta.sigma = c(1,1,1),
+                                  BF.Switch = 1,
+                                  VS.Switch = 1,
+                                  OBS.Switch = 1,
+                                  sigma.Obs = 1,
+                                  BF.Switch.sp = 1,
+                                  VS.Switch.sp = 1,
+                                  OBS.Switch.sp = 1,
+                                  sigma.Obs.sp = 1,
+                                  BF.Switch.com = 1,
+                                  VS.Switch.com = 1,
+                                  OBS.Switch.com = 1,
+                                  sigma.Obs.com = 1,
+                                  N = N_inits,
+                                  N.com = N_inits,
+                                  N.sp = N_inits,
+                                  beta.sp = array(data=0, dim=c(2,x)),
+                                  sd.b.sp = rep(1, times = x),
+                                  z = matrix(1, nrow=90, ncol= x))
+  
+  Start_Time<-Sys.time()
+  
+  bm <- bugs(data = BUGS.data,
+             inits = BUGS.inits.1,
+             parameters = data.worked$parameters,
+             model.file = BUGS.model,
+             n.chains = MCMC.params$n.chains,
+             n.iter = MCMC.params$n.samples,
+             n.burnin = MCMC.params$n.burnin,
+             n.thin = MCMC.params$n.thin,
+             debug = F,
+             bugs.directory = WinBUGS.dir)
+  
+  Run_Time <- Sys.time() - Start_Time
+  
+  BUGS.out.sim <- list(BUGS.data = BUGS.data,
+                       bm = bm,
+                       N_inits = N_inits,
+                       MCMC.params = MCMC.params,
+                       BUGS.model = BUGS.model,
+                       Run_Time = Run_Time,
+                       Sys.env = Sys.getenv())
+  
+  # the Sys.env was added after the final run on 2022-10-27. So, may not be in the output.
+  
+  saveRDS(BUGS.out.sim,
+          paste0("RData/WinBUGS_sim_", run.date, ".rds"))
+} else {
+  BUGS.out.sim <- readRDS(paste0("RData/WinBUGS_sim_", run.date, ".rds"))
+  
+}
+
+# 2023-04-05
+# undefined real result
+# 
+#  MathRandnum.Poisson   [000010DBH] 
+# 	.floor	INTEGER	205013192
+# 	.lambda	REAL	3894519905.757908
+# 	.x	INTEGER	47594336
+#  GraphPoisson.StdNode.Sample   [00000470H] 
+# 	.lambda	REAL	3894519905.757908
+# 	.node	GraphPoisson.StdNode	[02C24320H] 
+# 	.res	INTEGER	0
+# 	.value	REAL	1.0
+#  UpdaterForward.Updater.MCMC   [00000035H] 
+# 	.overRelax	BOOLEAN	FALSE
+# 	.prior	GraphStochastic.Node	[02C24320H] 
+# 	.res	INTEGER	0
+# 	.updater	UpdaterForward.Updater	[02AB5EB0H] 
+#  BugsUpdaters.Updater.MCMC   [000005B8H] 
+# 	.chain	INTEGER	0
+# 	.depth	INTEGER	3
+# 	.i	INTEGER	404
+# 	.name	BugsNames.Name	[02A79C60H] 
+# 	.ok	BOOLEAN	TRUE
+# 	.overRelax	BOOLEAN	FALSE
+# 	.res	INTEGER	0
+# 	.size	INTEGER	406
+# 	.string	ARRAY 120 OF CHAR	""   ...
+# 	.updater	BugsUpdaters.Updater	[02DB9D70H] 
+#  BugsSampler.MCMC   [0000036DH] 
+# 	.chain	INTEGER	0
+# 	.cursor	BugsSampler.List	[02AB5ED0H] 
+# 	.depth	INTEGER	3
+# 	.depth0	INTEGER	1
+# 	.depth1	INTEGER	4
+# 	.offset	INTEGER	6416052
+# 	.ok	BOOLEAN	TRUE
+# 	.overRelax	BOOLEAN	FALSE
+# 	.updater	BugsUpdaters.Updater	[02DB9D70H] 
+#  BugsCmds.Action.Step   [00000B1FH] 
+# 	.a	BugsCmds.Action	[02C340D0H] 
+# 	.chain	INTEGER	0
+# 	.i	INTEGER	40
+# 	.j	INTEGER	0
+# 	.numChains	INTEGER	5
+#  BugsCmds.Action.Do   [00000C58H] 
+# 	.a	BugsCmds.Action	[02C340D0H] 
+# 	.elapsedTime	LONGINT	692B21F1692A0384H
+# 	.profileList	ARRAY 2024 OF CHAR	73F2X, 7673X, 9D88X, "g", 23DX   ...
+# 	.res	INTEGER	2
+# 	.s	ARRAY 120 OF CHAR	""   ...
+#  Services.Exec   [00000136H] 
+# 	.a	Services.Action	[02C340D0H] 
+# 	.t	POINTER	[692A0384H]
+#  Services.IterateOverActions   [000002F4H] 
+# 	.p	Services.Action	[02C340D0H] 
+# 	.t	POINTER	NIL
+# 	.time	LONGINT	950900265
+#  Services.StdHook.Step   [0000034DH] 
+# 	.h	Services.StdHook	[02A7E380H] 
+#  HostWindows.Idle   [00004A86H] 
+# 	.focus	BOOLEAN	FALSE
+# 	.tick	Controllers.TickMsg	Fields
+# 	.w	HostWindows.Window	NIL
+#  HostMenus.TimerTick   [00003422H] 
+# 	.lParam	INTEGER	0
+# 	.ops	Controllers.PollOpsMsg	Fields
+# 	.wParam	INTEGER	1
+# 	.wnd	INTEGER	4982818
+#  Kernel.Try   [00003A61H] 
+# 	.a	INTEGER	4982818
+# 	.b	INTEGER	1
+# 	.c	INTEGER	0
+# 	.h	PROCEDURE	HostMenus.TimerTick
+#  HostMenus.ApplWinHandler   [00003841H] 
+# 	.Proc	PROCEDURE	NIL
+# 	.hit	BOOLEAN	FALSE
+# 	.lParam	INTEGER	0
+# 	.message	INTEGER	275
+# 	.res	INTEGER	0
+# 	.s	ARRAY 256 OF SHORTCHAR	"|È", 8X, "w"   ...
+# 	.w	INTEGER	0
+# 	.wParam	INTEGER	1
+# 	.wnd	INTEGER	4982818
+# <system>   (pc=768010EAH,  fp=0061FAACH)
+# <system>   (pc=767F80A9H,  fp=0061FB90H)
+# <system>   (pc=767F5E19H,  fp=0061FC04H)
+# <system>   (pc=767E7EFFH,  fp=0061FC0CH)
+#  HostMenus.Loop   [00003BDEH] 
+# 	.done	BOOLEAN	FALSE
+# 	.f	SET	{0..5}
+# 	.n	INTEGER	9
+# 	.res	INTEGER	0
+# 	.w	HostWindows.Window	NIL
+#  Kernel.Start   [00002B8CH] 
+# 	.code	PROCEDURE	HostMenus.Loop
+
+
+
+## 2022-11-08 More undefined real...
+# undefined real result
+#
+#  UpdaterDFreeARS.BuildHull   [000009C5H]
+# 	.denom	REAL	-inf
+
+# I changed the True.N[1] and True.N[90] in the simulation to zeros and the error disappeared.
+# 2022-11-08
+
+###### Some bugs were worked out #######
+# undefined real result was caused by not having 1 in Watch.Length for day 1 and 90
+# Took me a couple days to figure it out... Still comes back with error (undefined
+# real result as of 2022-10-06). It starts fine but stops while computing. This tells
+# me that it must be something to do with parameter space (priors). But it works fine
+# on real datasets...
+
+# First error message of the trap is
+#
+#  Math.Ln   [0000018BH]
+# 	.x	REAL	-inf
+#
+# There must be log(0) somewhere... This was fixed when N, N.com, and N.sp were
+# taken out from the data. All those were NAs and seemed unnecessary.
+#
+# However, the next error is the following:
+#
+#undefined real result
+#  MathRandnum.Poisson   [000010DBH]
+# 	.floor	INTEGER	1372739575
+# 	.lambda	REAL	4254980750.573238
+# 	.x	INTEGER	48740688
+#
+# It appears that Poisson random number generator blew up.
+
+# All the problems were fixed after removing N, N.sp, and N.com in the data
+# And, fixing a line where the index for lambda (Poisson mean) in GW_Nmix_Orig.bugs:
+# Correct: log(lambda[j,t]) <- log(Watch.Length[j,t]) + selected[day[j,t],t]
+# Wrong: log(lambda[j,t]) <- log(Watch.Length[j,t]) + selected[j,t]
+
+# Finally, it ran on 2022-10-26.
+# The same number of MCMC runs as the jags run was completed on 2022-10-27
+
+# With new simulated data (two stations for the first year), unobserved real came back... reduced the number of steps to 60000 with burn in of 30000 and it ran okay. 
+
+```
+
+Results indicated that Durban's approach overestimated the true abundance by approximately 2.5 folds (Figure \@ref(fig:Figure-N-sim-BUGS)). Credible intervals were wide when no counts were available.
+
+```{r WinBUGS-results, echo=FALSE, message=FALSE}
+#seasons <- c("Year1", "Year2")
+
+# Extract estimated counts
+Daily.Est.sim <- BUGS.out.sim$bm$sims.list$Daily.Est
+sp.sim <- BUGS.out.sim$bm$sims.list$sp
+com.sim <- BUGS.out.sim$bm$sims.list$com
+#Corrected.Est.sim.BUGS <- BUGS.out.sim$bm$sims.list$Corrected.Est
+
+# Each one of them is (# samples) x (90 days) x (# years)
+# To plot them using ggplot's facet, I need to convert
+# these into 2D dataframes of statistics (upper and lower
+# CIs, median, etc.)
+# Daily.Est.list <- sp.list <- com.list <- vector(mode = "list",
+#                                                 length = dim(Daily.Est)[3])
+#
+# Daily.Est.UCIs <- Daily.Est.LCIs <- vector(mode = "list",
+#                                            length = dim(Daily.Est)[3])
+
+stats.list <- vector(mode = "list",
+                     length = dim(Daily.Est.sim)[3])
+
+for (k in 1:dim(Daily.Est.sim)[3]){
+  # Daily.Est.list[[k]] <- Daily.Est[,,k]
+  # Daily.Est.UCIs[[k]] <- apply(Daily.Est[,,k],2,quantile,0.975)
+  # Daily.Est.LCIs[[k]] <- apply(Daily.Est[,,k],2,quantile,0.275)
+  #
+  # sp.list[[k]] <- sp[,,k]
+  # com.list[[k]] <- com[,,k]
+
+  stats.list[[k]] <- data.frame(Daily.Est.median = apply(Daily.Est.sim[,,k], 2,
+                                                         median),
+                                Daily.Est.LCL = apply(Daily.Est.sim[,,k], 2,
+                                                      quantile,0.275),
+                                Daily.Est.UCL = apply(Daily.Est.sim[,,k], 2,
+                                                      quantile,0.975),
+                                sp.median = apply(exp(sp.sim[,,k]), 2,
+                                                  median),
+                                sp.LCL = apply(exp(sp.sim[,,k]), 2,
+                                               quantile,0.025),
+                                sp.UCL = apply(exp(sp.sim[,,k]), 2,
+                                               quantile,0.975),
+                                com.median = apply(exp(com.sim[,,k]), 2,
+                                                   median),
+                                com.LCL = apply(exp(com.sim[,,k]), 2,
+                                                quantile,0.025),
+                                com.UCL = apply(exp(com.sim[,,k]), 2,
+                                                quantile,0.975),
+                                #total.median = apply(exp(sp.sim[,,k]), 1, sum),
+                                days = 1:dim(Daily.Est.sim)[2],
+                                Season = Season[k])
+}
+
+all.stats.sim.BUGS <- do.call("rbind", stats.list) %>% group_by(Season)
+
+p.Daily.sim.BUGS <- ggplot(data = all.stats.sim.BUGS) +
+  geom_path(data = N.hats.sim.JAGS,
+            aes(x = Day, y = true.N),
+            color = "gold") +
+  geom_line(aes(x = days, y = Daily.Est.median)) +
+  geom_ribbon(aes(x = days,
+                  ymin = Daily.Est.LCL,
+                  ymax = Daily.Est.UCL),
+              fill = "olivedrab",
+              alpha = 0.5) +
+  geom_line(data = N.hats.sim.JAGS,
+            aes(x = Day, y = Mean),
+            color = "darkblue") +
+  geom_ribbon(data = N.hats.sim.JAGS,
+            aes(x = Day,
+                ymin = LCL,
+                ymax = UCL),
+            fill = "blue",
+            alpha = 0.5) +
+  geom_point(data = obsd.n.sim.df,
+             aes(x = day, y = n))+
+  facet_wrap(vars(Season))+
+  xlab("Days since December 1") +
+  ylab("Whales per day") +
+  ylim(c(0, 700))
+
+save.fig.fcn(fig = p.Daily.sim.BUGS,
+             file.name = paste0("figures/BUGS_daily_sim_", dpi.set, "dpi.png"),
+             dpi = dpi.set, replace = save.fig)
+
+```
+
+
+```{r Figure-N-sim-BUGS, echo=FALSE, message=FALSE, fig.cap = "Estimated $N$ and their 95% CI (green ribbon) using Durban's method, new approach (blue ribbon), the true $N$ (gold), and observed counts (black dots)."}
+
+knitr::include_graphics(paste0("figures/BUGS_daily_sim_", dpi.set, "dpi.png"))
+```
+
+#### Reanalysis of the last 8 seasons {.unnumbered}
+
+Data from last 9 seasons were analyzed using the new approach and the results compared to results from Durban et al's approach.
+
+```{r new-analysis-9yr-v2, echo=FALSE, message=FALSE, warning=FALSE}
+BUGS.out <- readRDS("RData/WinBUGS_10yr_v2_min85.rds")
+run.date.real <- "2024-02-27" #Sys.Date() #"2023-01-06"   # Change it accordingly
+# out.file.name <- paste0("RData/JAGS_pois_binom_9yr_v2_", 
+#                         run.date.real, ".rds")
+
+out.file.name <- paste0("RData/JAGS_", model.d, model.v, "_", "_9yr_v2_", 
+                        run.date.real, ".rds")
+
+n.station <- c(1,1,1,1,1,1,1,1,1,1)
+#n.station[colSums(BUGS.out$jags.data$n[,2,]) > 0] <- 2
+n.station[colSums(BUGS.out$BUGS.data$n[,2,]) > 0] <- 2
+jags.data.real <- list(  n = BUGS.out$BUGS.data$n,
+                         n.station = n.station,
+                         n.year = dim(BUGS.out$BUGS.data$n)[3],
+                         n.obs = BUGS.out$BUGS.data$n.obs,
+                         periods = BUGS.out$BUGS.data$periods,
+                         obs = BUGS.out$BUGS.data$obs,
+                         vs = scale(BUGS.out$BUGS.data$vs),
+                         bf = scale(BUGS.out$BUGS.data$bf),
+                         watch.prop = (BUGS.out$BUGS.data$Watch.Length*24*60)/540,
+                         day = BUGS.out$BUGS.data$day,
+                         n.days = 90)
+
+MCMC.params <- jm.sim.out$MCMC.params
+jags.params <- jm.sim.out$jags.params
+jags.model <- jm.sim.out$jags.model
+if (!file.exists(out.file.name)){
+
+  Start_Time<-Sys.time()
+
+  jm <- jagsUI::jags(jags.data.real,
+                     inits = NULL,
+                     parameters.to.save= jags.params,
+                     model.file = jags.model,
+                     n.chains = MCMC.params$n.chains,
+                     n.burnin = MCMC.params$n.burnin,
+                     n.thin = MCMC.params$n.thin,
+                     n.iter = MCMC.params$n.samples,
+                     DIC = T,
+                     parallel=T)
+
+  Run_Time <- Sys.time() - Start_Time
+  jm.out.real <- list(jm = jm,
+                      jags.data = jags.data.real,
+                      jags.params = jags.params,
+                      jags.model = jags.model,
+                      MCMC.params = MCMC.params,
+                      Run_Time = Run_Time,
+                      Sys.env = Sys.getenv())
+  
+  saveRDS(jm.out.real,
+          file = out.file.name)
+
+} else {
+
+  jm.out.real <- readRDS(out.file.name)
+}
+
+# need to turn zeros into NAs when there were no second station:
+data.array <- jm.out.real$jags.data$n
+data.array[,2,which(jm.out.real$jags.data$n.station == 1)] <- NA
+
+LOOIC.n <- compute.LOOIC(loglik.array = jm.out.real$jm$sims.list$log.lkhd,
+                         data.array = data.array,
+                         MCMC.params = jm.out.real$MCMC.params)
+
+# Look at Rhat statistics
+max.Rhat.real <- lapply(jm.out.real$jm$Rhat, FUN = max, na.rm = T) %>% unlist()
+max.Rhat.real.big <- max.Rhat.real[which(max.Rhat.real > 1.1)]
+```
+
+According to the Rhat statistics, convergence did not reach for `r length(max.Rhat.big)` parameters that were monitored (`r names(max.Rhat.big)[1:(length(max.Rhat.big)-1)]`). 
+
+
+Pareto k statistics indicated that the model fit reasonably well to the data. A majority of Pareto k statistics were less than 0.7 (`r which(LOOIC.n$loo.out$diagnostics$pareto_k < 0.7) %>% length()` out of `r length(LOOIC.n$loo.out$diagnostics$pareto_k)`), with the maximum value of `r signif(max(LOOIC.n$loo.out$diagnostics$pareto_k), 3)`. Convergence of MCMC did not reach for 
+
+```{r JAGS-results, echo=F,message=FALSE}
+Season <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011",
+            "2014/2015", "2015/2016", "2019/2020", "2021/2022",
+            "2022/2023", "2023/2024")
+
+# Create a vector of parameter names
+# Some are year specific:
+n.Season <- length(Season)
+params.to.summarize.n.Season <- c("S1", "S2", "P", "Max", "K",
+                                  "Corrected.Est", "Raw.Est")
+
+# Some are common among all years
+params.to.summarize.n.1 <- c("mean.prob", "BF.Fixed", "VS.Fixed")
+
+# Add year specific indices
+param.names.n.Season <- lapply(params.to.summarize.n.Season,
+                               FUN = function(x, n.Season){
+                                 out <- vector(mode = "character", length = n.Season)
+                                 for (k in 1:n.Season){
+                                   out[k] <- paste0(x, "[", k, "]")
+                                   
+                                 }
+                                 return(out)},
+                               n.Season)
+
+# Combine the two groups to make a vector of all parameter names
+param.names <- c(unlist(param.names.n.Season),
+                 params.to.summarize.n.1)
+
+p.dens <- plots.dens(jm.out.real$jm, params = param.names)
+p.trace <- plots.trace(jm.out.real$jm, params = param.names)
+
+for (k in 1:length(param.names)){
+  save.fig.fcn(fig = p.trace[[k]],
+               file.name = paste0("figures/", param.names[k], "_real_trace_", model.d,  model.v, "_", 
+                                  dpi.set, "dpi.png"),
+               dpi = dpi.set, replace = save.fig)
+
+  save.fig.fcn(fig = p.dens[[k]],
+               file.name = paste0("figures/", param.names[k], "_real_dens_", model.d,  model.v, "_", 
+                                  dpi.set, "dpi.png"),
+               dpi = dpi.set, replace = save.fig)
+
+
+}
+
+mean.N.hats.JAGS <- data.frame(Season = rep(Season, each = 90),
+                               Day = rep(1:90, length(Season)),
+                               Mean = as.vector(jm.out.real$jm$mean$mean.N),
+                               LCL = as.vector(jm.out.real$jm$q2.5$mean.N),
+                               UCL = as.vector(jm.out.real$jm$q97.5$mean.N))
+
+N.hats.JAGS <- data.frame(Season = rep(Season, each = 90),
+                          Day = rep(1:90, times = length(Season)),
+                          Mean = as.vector(jm.out.real$jm$mean$N),
+                          LCL = as.vector(jm.out.real$jm$q2.5$N),
+                          UCL = as.vector(jm.out.real$jm$q97.5$N))
+
+Corrected.Est.df.JAGS <- data.frame(Season = Season,
+                                    Mean = as.vector(jm.out.real$jm$mean$Corrected.Est),
+                                    Median = as.vector(jm.out.real$jm$q50$Corrected.Est),
+                                    LCL = as.vector(jm.out.real$jm$q2.5$Corrected.Est),
+                                    UCL = as.vector(jm.out.real$jm$q97.5$Corrected.Est))
+
+# get the BUGS output
+# Extract estimated daily counts
+Daily.Est.BUGS <- BUGS.out$BUGS_out$sims.list$Daily.Est
+sp.BUGS <- BUGS.out$BUGS_out$sims.list$sp
+com.BUGS <- BUGS.out$BUGS_out$sims.list$com
+Corrected.Est.BUGS <- BUGS.out$BUGS_out$sims.list$Corrected.Est
+
+stats.list <- vector(mode = "list",
+                     length = dim(Daily.Est.BUGS)[3])
+
+for (k in 1:dim(Daily.Est.BUGS)[3]){
+  stats.list[[k]] <- data.frame(Daily.Est.median = apply(Daily.Est.BUGS[,,k], 2,
+                                                         mean),
+                                Daily.Est.median = apply(Daily.Est.BUGS[,,k], 2,
+                                                         median),
+                                Daily.Est.LCL = apply(Daily.Est.BUGS[,,k], 2,
+                                                      quantile,0.275),
+                                Daily.Est.UCL = apply(Daily.Est.BUGS[,,k], 2,
+                                                      quantile,0.975),
+                                sp.median = apply(exp(sp.BUGS[,,k]), 2,
+                                                  median),
+                                sp.LCL = apply(exp(sp.BUGS[,,k]), 2,
+                                               quantile,0.025),
+                                sp.UCL = apply(exp(sp.BUGS[,,k]), 2,
+                                               quantile,0.975),
+                                com.median = apply(exp(com.BUGS[,,k]), 2,
+                                                   median),
+                                com.LCL = apply(exp(com.BUGS[,,k]), 2,
+                                                quantile,0.025),
+                                com.UCL = apply(exp(com.BUGS[,,k]), 2,
+                                                quantile,0.975),
+                                #total.median = apply(exp(sp[,,k]), 1, sum),
+                                days = 1:dim(Daily.Est.BUGS)[2],
+                                Season = Season[k])
+}
+
+all.stats.BUGS <- do.call("rbind", stats.list) %>% group_by(Season)
+
+Corrected.Est.df.BUGS <- data.frame(total.mean = apply(Corrected.Est.BUGS,
+                                                       FUN = mean,
+                                                       MARGIN = 2),
+                                    total.median = apply(Corrected.Est.BUGS,
+                                                         FUN = median,
+                                                         MARGIN = 2),
+                                    total.LCL = apply(Corrected.Est.BUGS,
+                                                      MARGIN = 2,
+                                                      FUN = quantile, 0.025),
+                                    total.UCL = apply(Corrected.Est.BUGS,
+                                                      MARGIN = 2,
+                                                      FUN = quantile, 0.975),
+                                    Season = Season)
+
+p.mean.N.hats.JAGS <- ggplot(mean.N.hats.JAGS %>% group_by(Season)) +
+  geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
+              fill = "blue", alpha = 0.5) +
+  geom_path(aes(x = Day, y = Mean)) +
+
+  facet_wrap(~ Season)
+
+save.fig.fcn(p.mean.N.hats.JAGS,
+             file.name = paste0("figures/mean_N_pois_bino_real_", model.d,  model.v, "_", 
+                                dpi.set, "dpi.png"),
+             dpi = dpi.set, replace = save.fig)
+
+Corrected.Est.df.JAGS %>% left_join(Corrected.Est.df.BUGS,
+                                    by = "Season") %>%
+  transmute(Season = Season,
+            Mean.JAGS = Mean,
+            Median.JAGS = Median,
+            LCL.JAGS = LCL,
+            UCL.JAGS = UCL,
+            Mean.BUGS = total.mean,
+            Median.BUGS = total.median,
+            LCL.BUGS = total.LCL,
+            UCL.BUGS = total.UCL) -> Corrected.Est.all
+
+p.N.hats <- ggplot(N.hats.JAGS) +
+  geom_ribbon(aes(x = Day,
+                  ymin = LCL,
+                  ymax = UCL),
+              fill = "blue",
+              alpha = 0.5) +
+  geom_path(aes(x = Day, y = Mean)) +
+  geom_ribbon(data = all.stats.BUGS,
+              aes(x = days,
+                  ymin = Daily.Est.LCL,
+                  ymax = Daily.Est.UCL),
+              fill = "olivedrab",
+              alpha = 0.5) +
+  geom_path(data = all.stats.BUGS,
+            aes(x = days, y = Daily.Est.median)) +
+  #geom_point(data = obsd.n.df, aes(x = day, y = n))+
+  facet_wrap(~ Season) 
+
+save.fig.fcn(p.N.hats,
+             file.name = paste0("figures/N_hats_BUGS_JAGS_real_",model.d,   model.v, "_", 
+                                dpi.set, "dpi.png"),
+             dpi = dpi.set, replace = save.fig)
+
+p.corrected.N.hats <- ggplot(Corrected.Est.all) +
+  geom_errorbar(aes(x = Season, ymin = LCL.JAGS, ymax = UCL.JAGS),
+                color = "blue") +
+  geom_point(aes(x = Season, y = Mean.JAGS)) +
+  #geom_point(data = Corrected.Est.df.JAGS,
+  #           aes(x = Season, y = Median),
+  #           shape = 0) +
+  geom_errorbar(aes(x = Season,
+                    ymin = LCL.BUGS,
+                    ymax = UCL.BUGS),
+                color = "olivedrab") +
+  geom_point(aes(x = Season, y = Median.BUGS)) +
+  xlab("") + ylab("Mean abundance (95% CI)") +
+  theme(axis.text.x = element_text(angle = 60, vjust = 1, hjust = 1))
+
+save.fig.fcn(p.corrected.N.hats,
+             file.name = paste0("figures/corrected_N_hats_BUGS_JAGS_real_", model.d,  model.v, "_", 
+                                dpi.set, "dpi.png"),
+             dpi = dpi.set, replace = save.fig)
+
+
+```
+
+Convergence was not reached for all parameters where the maximum $\hat{R}$ statistic was `r signif(max.r.hat.real, 3)`. There were `r length(which(unlist(jm.out.real$jm$Rhat) > 1.1))` parameters that resulted in $\hat{R}$ statistic \> 1.1. A closer examination of $\hat{R}$ statistics revealed that high values were associated with the mean.N and N parameters, as well as the parameters for Richards function (S1, S2, and P) for the 2015/2016 season.
+
+Similarly to the analysis of simulated data, daily estimates were generally less for the new approach than Durban's approach (Figure \@ref(fig:Figure-daily-N-hats)). Estimates from the new approach was more precise than those from Durban's method. As a consequence, annual estimates also were greater for Durban's method than for the new approach and precision was better for the new approach (Figure \@ref(fig:Figure-N-hats)).
+
+```{r Figure-daily-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated dailyt abundance and their 95% CIs using Durban's method (green) and new approach (blue)."}
+
+knitr::include_graphics(paste0("figures/N_hats_BUGS_JAGS_real_", model.d,   model.v, "_", dpi.set, "dpi.png"))
+```
+
+```{r Figure-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated annual abundance and their 95% CIs using Durban's method (green) and new approach (blue)."}
+
+knitr::include_graphics(paste0("figures/corrected_N_hats_BUGS_JAGS_real_", model.d,   model.v, "_", dpi.set, "dpi.png"))
+```
+
+
+#### Application of the novel approach to data in Laake et al. {-}
+
+In this section, I apply the novel approach of estimating the abundance of gray whale from data collected by visual surveys at Granite Canyon from the 1967/1968 season to 2006/2007 season. The data were obtained from Jeff Laake via Github (https://github.com/jlaake/ERAnalysis/tree/master/ERAnalysis). These data were analyzed and results published (Laake et al. 2012). 
+
+##### Data {-}
+
+START FROM THIS CHUNK 2023-08-11
+
+```{r Laake-data, echo=FALSE}
+# sightings
+Laake_PrimarySightings <- read.csv(file = "Data/Laake_PrimarySightings.csv")
+Laake_SecondarySightings <- read.csv(file = "Data/Laake_SecondarySightings.csv")
+
+# effort
+Laake_PrimaryEffort <- read.csv(file = "Data/Laake_PrimaryEffort.csv") %>%
+  filter(Use)
+Laake_SecondaryEffort <- read.csv(file = "Data/Laake_SecondaryEffort.csv") %>%
+  filter(Use)
+
+# observers
+obs <- c(unique(Laake_PrimaryEffort$Observer),
+  unique(Laake_SecondaryEffort$Observer)) %>% unique()
+Laake.obs <- data.frame(obs = obs,
+                        obs.ID = seq(1:length(obs)))
+
+Laake_PrimaryEffort %>% 
+  group_by(Date) %>% 
+  summarize(sum.effort = sum(effort)) -> tmp
+# maximum daily effort was 0.447917, or 10.75 hrs.
+ 
+max.effort <- max(tmp$sum.effort)
+Laake_PrimaryEffort %>% 
+         group_by(Start.year) %>%
+  summarize(Date = Date,
+            Year = first(Start.year),
+            n = nwhales,
+            Day = as.Date(Date) - as.Date(paste0(Year, "-12-01")),
+            Season = paste0(Year, "/", Year + 1),
+            obs = Observer,
+            vs = vis,
+            bf = beaufort,
+            watch.prop = effort/max.effort) -> Laake.primary.counts
+
+# Although the maximum effort for the secondary effort was 10 hrs, I use
+# the same max effort as the primary
+# Laake_SecondaryEffort %>% 
+#   group_by(Date) %>% 
+#   summarize(sum.effort = sum(effort)) -> tmp
+
+Laake_SecondaryEffort %>% 
+         group_by(Start.year) %>%
+  summarize(Date = Date,
+            Year = first(Start.year),
+            n = nwhales,
+            Day = as.Date(Date) - as.Date(paste0(Year, "-12-01")),
+            Season = paste0(Year, "/", Year + 1),
+            obs = Observer,
+            vs = vis,
+            bf = beaufort,
+            watch.prop = effort/max.effort) -> Laake.secondary.counts
+
+Laake.primary.counts %>% 
+  group_by(Date) %>%
+  summarize(Year = first(Start.year),
+            Date = Date,
+            Day = as.Date(Date) - as.Date(paste0(Year, "-12-01")),
+            Season = paste0(Year, "/", Year + 1),
+            Daily.n = sum(n)) -> Laake.primary.daily.counts
+
+p.Laake.daily.counts <- ggplot(data = Laake.primary.daily.counts) +
+  geom_path(aes(x = Day, y = Daily.n)) +
+    facet_wrap(~ Season) 
+
+
+```
+
+```{r jags-Laake, echo=FALSE}
+
+jags.model.Laake <- "models/model_Richards_pois_bino_v2_Laake.txt"
+
+run.date.Laake <- Sys.Date() #"2023-08-11"
+out.file.name <- paste0("RData/JAGS_Richards_v2_Laake_", 
+                        run.date.Laake, ".rds")
+
+# Find double observer years
+double.obs.year <- unique(Laake_SecondaryEffort$Start.year) 
+all.year <- unique(Laake_PrimaryEffort$Start.year)
+
+n.station <- rep(1, length(all.year))
+n.station[all.year %in% double.obs.year] <- 2
+
+# convert the dataframe into a 3D array of sighting numbers
+# n[d, s, y] with for (y in 1:n.year)
+# 		s in 1:n.station[y]
+#			d in 1:periods[y]
+
+Laake.primary.counts %>%
+  group_by(Start.year) %>%
+  summarize(Season = first(Season),
+            periods = first(n())) -> Laake.primary.periods
+
+Laake.secondary.counts %>%
+  group_by(Start.year) %>%
+  summarize(Season = first(Season),
+            periods = first(n())) -> Laake.secondary.periods
+
+Laake.primary.periods %>% 
+  left_join(Laake.secondary.periods, by = "Season") %>%
+  select(Start.year.x, Season, periods.x, periods.y) %>%
+  transmute(Start.year = Start.year.x,
+            Season = Season,
+            periods.1 = periods.x,
+            periods.2 = periods.y) -> Laake.periods
+
+day <- bf <- vs <- watch.prop <- obs.input <- n.Laake <- array(dim = c(max(Laake.primary.periods$periods),
+                         2, length(all.year)))
+
+
+y <- 3
+y2 <- 1
+for (y in 1:length(all.year)){
+  temp.data <- Laake.primary.counts %>%
+    filter(Start.year == all.year[y]) %>%
+    arrange(Day) %>%
+    left_join(Laake.obs, by = "obs")
+  
+  n.Laake[1:Laake.primary.periods$periods[y], 1, y] <- temp.data$n
+  obs.input[1:Laake.primary.periods$periods[y], 1, y] <- temp.data$obs.ID
+  watch.prop[1:Laake.primary.periods$periods[y], 1, y] <- temp.data$watch.prop
+  bf[1:Laake.primary.periods$periods[y], 1, y] <- scale(temp.data$bf)
+  vs[1:Laake.primary.periods$periods[y], 1, y] <- scale(temp.data$vs)
+  day[1:Laake.primary.periods$periods[y], 1, y] <- as.numeric(temp.data$Day)
+  
+  # fill in the secondary observations
+  if (isTRUE(all.year[y] %in% double.obs.year)){
+    temp.data <- Laake.secondary.counts %>%
+      filter(Start.year == all.year[y])%>%
+    left_join(Laake.obs, by = "obs")
+    
+    n.Laake[1:Laake.secondary.periods$periods[y2], 2, y] <- temp.data$n
+    obs.input[1:Laake.secondary.periods$periods[y2], 2, y] <- temp.data$obs.ID
+    watch.prop[1:Laake.secondary.periods$periods[y2], 2, y] <- temp.data$watch.prop
+    bf[1:Laake.secondary.periods$periods[y2], 2, y] <- scale(temp.data$bf)
+    vs[1:Laake.secondary.periods$periods[y2], 2, y] <- scale(temp.data$vs)
+    day[1:Laake.secondary.periods$periods[y2], 2, y] <- as.numeric(temp.data$Day)
+    
+    y2 <- y2 + 1
+    
+  }
+}
+
+jags.data.Laake <- list(  n = n.Laake,
+                         n.station = n.station,
+                         n.year = length(all.year),
+                         n.obs = nrow(Laake.obs),
+                         periods = Laake.periods %>% 
+                           select(periods.1, periods.2) %>% simplify2array(),
+                         obs = obs.input,
+                         vs = vs,
+                         bf = bf,
+                         watch.prop = watch.prop,
+                         day = day)
+
+MCMC.params <- jm.sim.out$MCMC.params
+jags.params <- jm.sim.out$jags.params
+
+if (!file.exists(out.file.name)){
+
+  Start_Time<-Sys.time()
+
+  jm <- jagsUI::jags(jags.data.Laake,
+                     inits = NULL,
+                     parameters.to.save= jags.params,
+                     model.file = jags.model.Laake,
+                     n.chains = MCMC.params$n.chains,
+                     n.burnin = MCMC.params$n.burnin,
+                     n.thin = MCMC.params$n.thin,
+                     n.iter = MCMC.params$n.samples,
+                     DIC = T,
+                     parallel=T)
+
+  Run_Time <- Sys.time() - Start_Time
+  jm.out.Laake <- list(jm = jm,
+                      jags.data = jags.data.Laake,
+                      jags.params = jags.params,
+                      jags.model = jags.model.Laake,
+                      MCMC.params = MCMC.params,
+                      Run_Time = Run_Time,
+                      Sys.env = Sys.getenv())
+  
+  saveRDS(jm.out.Laake,
+          file = out.file.name)
+
+} else {
+
+  jm.out.Laake <- readRDS(out.file.name)
+}
+
+# need to turn zeros into NAs when there were no second station:
+data.array <- jm.out.Laake$jags.data$n
+data.array[,2,which(jm.out.Laake$jags.data$n.station == 1)] <- NA
+
+LOOIC.n.Laake <- compute.LOOIC(loglik.array = jm.out.Laake$jm$sims.list$log.lkhd,
+                               data.array = data.array,
+                               MCMC.params = jm.out.Laake$MCMC.params)
+
+# Look at Rhat statistics
+max.Rhat.Laake <- lapply(jm.out.Laake$jm$Rhat, FUN = max, na.rm = T) %>%
+  unlist()
+max.Rhat.Laake.big <- max.Rhat.Laake[which(max.Rhat.real > 1.1)]
+```
+
+
+
+## Literature cited {.unnumbered}

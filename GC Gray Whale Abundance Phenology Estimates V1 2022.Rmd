@@ -12,7 +12,7 @@ output:
 ```{r setup, include=FALSE}
 rm(list = ls())
 knitr::opts_chunk$set(echo = TRUE)
-save.fig <- T
+save.fig <- F
 
 source("Granite_Canyon_Counts_fcns.R")
 library(tidyverse)
@@ -89,12 +89,15 @@ seasons <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011",
 x <- length(seasons)
 
 all.files.2022 <- list.files("Data/2022/")
-data.first.2022 <- get.data("Data/", 2022, 1)
-data.last.2022 <- get.data("Data/", 2022, length(all.files.2022))
+data.first.2022 <- get.data("Data/", YEAR = 2022, 
+                            FILES = all.files.2022, ff = 1)
+data.last.2022 <- get.data("Data/", YEAR = 2022, 
+                           FILES = all.files.2022, ff = length(all.files.2022))
 
 data.all.list <- list()
 for (k in 1:length(all.files.2022)){
-  data.all.list[[k]] <- get.data("Data/", 2022, k) 
+  data.all.list[[k]] <- get.data("Data/", YEAR = 2022, 
+                                 FILES = all.files.2022, ff = k) 
 }
 
 data.all <- do.call(rbind, data.all.list)
@@ -311,10 +314,43 @@ p.Nhat.v1 <- ggplot(data = all.estimates) +
   xlab("") +
   ylab("Abundance + 95% CI")
 
+# Modified version for the publication by Jonathan Scordino. Reviewers requested
+# to modify the original figure. Email from Jonathan on 2024-01-16.
+# 
+
+all.estimates %>%
+  right_join(data.frame(Year = seq(from = min(all.estimates$Year),
+                                   to = max(all.estimates$Year))) %>%
+               mutate(Season = paste0((Year-1), "/", Year))) %>%
+  arrange(by = Year) %>%
+  mutate(x.break = ifelse(Year%%2 == 0, T, F)) -> all.estimates.1
+
+p.Nhat.v1.mod <- ggplot(data = all.estimates.1) + 
+  geom_point(aes(x = Season, y = Nhat, color = Method)) + 
+  geom_errorbar(aes(x = Season, ymin = LCL, ymax = UCL, color = Method)) +
+  geom_tile(data = UMEs,
+            aes(x = Season, y = 20000, width = 1, height = 20000),
+            fill = "gold", alpha = 0.3) +
+  scale_color_discrete(breaks = c("Durban", "Laake")) +
+  scale_x_discrete(breaks = all.estimates.1$Season[all.estimates.1$x.break]) + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 12),
+        axis.text.y = element_text(size = 11),
+        axis.title = element_text(size = 16),
+        legend.position = c(0.1, 0.9)) +
+  xlab("Year") +
+  ylab("Abundance")
+
+
 if (save.fig)
   ggsave(filename = "figures/nhats_v1.png", 
          plot = p.Nhat.v1,
          device = "png", dpi = 600)
+
+# Changed the output file to jpg as per Jonathan's request on 2024-03-04
+if (save.fig)
+  ggsave(filename = "figures/nhats_v1_2022_mod.jpg", 
+         plot = p.Nhat.v1.mod,
+         device = "jpeg", dpi = 600)
 
 p.v1.both <- ggplot(data = all.stats.v1) + 
   geom_line(aes(x = days, y = sp.median),

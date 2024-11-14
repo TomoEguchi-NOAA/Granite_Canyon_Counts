@@ -1,13 +1,154 @@
 
-
-
 # define some functions
+
+shift.definition <- function(date, time){
+  dur.since.midnight <- difftime(paste(date, time), paste(date, "00:00:00"), units = "hours")
+  shift.id <- ifelse(dur.since.midnight <= 7.5, 0,
+                     ifelse(dur.since.midnight <= 9, 1,
+                            ifelse(dur.since.midnight <= 10.5, 2,
+                                   ifelse(dur.since.midnight <= 12, 3,
+                                          ifelse(dur.since.midnight <= 13.5, 4,
+                                                 ifelse(dur.since.midnight <= 15, 5,
+                                                        ifelse(dur.since.midnight <= 16.5, 6, 7)))))))
+  return(shift.id)
+}
+
+shift.definition.2010 <- function(time.dec.hrs){
+  
+  shift.id <- ifelse(time.dec.hrs <= 7.5, 0,
+                     ifelse(time.dec.hrs <= 9, 1,
+                            ifelse(time.dec.hrs <= 10.5, 2,
+                                   ifelse(time.dec.hrs <= 12, 3,
+                                          ifelse(time.dec.hrs <= 13.5, 4,
+                                                 ifelse(time.dec.hrs <= 15, 5,
+                                                        ifelse(time.dec.hrs <= 16.5, 6, 7)))))))
+  return(shift.id)
+}
+
+shift.hrs <- data.frame(shift = c(1:6),
+                        begin.hr = c(7.5,9,10.5,12,13.5,15),
+                        end.hr = c(9,10.5,12,13.5,15,16.5))
+
+
+compute.LOOIC <- function(loglik.array, data.array, MCMC.params){
+  n.per.chain <- (MCMC.params$n.samples - MCMC.params$n.burnin)/MCMC.params$n.thin
+  
+  # Convert the log-likelihood and data arrays into vectors
+  loglik.vec <- c(loglik.array)
+  data.vec <- c(data.array)
+  
+  # Convert the log-likelihood vector into a 2D array
+  n.data <- length(data.vec)
+  loglik.mat <- array(loglik.vec, 
+                      c((n.per.chain * MCMC.params$n.chains), n.data))
+  
+  # remove the log-likelihood values that correspond to NA data points
+  loglik.mat <- loglik.mat[, !is.na(data.vec)]
+  
+  # Also, some of data points (0s) were unobserved and no log likelihood values
+  # exist
+  colsums.loglik <- colSums(loglik.mat)
+  loglik.mat <- loglik.mat[, !is.na(colsums.loglik)]
+  
+  # remove NAs in the data vector
+  #data.vec <- data.vec[!is.na(data.vec)]
+  
+  Reff <- relative_eff(exp(loglik.mat),
+                       chain_id = rep(1:MCMC.params$n.chains,
+                                      each = n.per.chain),
+                       cores = 4)
+  
+  loo.out <- rstanarm::loo(loglik.mat, 
+                           r_eff = Reff, 
+                           cores = 4, k_threshold = 0.7)
+  
+  out.list <- list(Reff = Reff,
+                   loo.out = loo.out)
+  
+  return(out.list)  
+}
+
+
+# Multiple plot function
+# from http://www.cookbook-r.com/Graphs/Multiple_graphs_on_one_page_(ggplot2)/
+#
+# ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
+# - cols:   Number of columns in layout
+# - layout: A matrix specifying the layout. If present, 'cols' is ignored.
+#
+# If the layout is something like matrix(c(1,2,3,3), nrow=2, byrow=TRUE),
+# then plot 1 will go in the upper left, 2 will go in the upper right, and
+# 3 will go all the way across the bottom.
+#
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+  
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+  
+  numPlots = length(plots)
+  
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                     ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+  
+  if (numPlots==1) {
+    print(plots[[1]])
+    
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+    
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+      
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+
+
+Richards_fcn <- function(d, S1, S2, K, P, min, max){
+  K <- abs(K)
+  if (S1 > 0) S1 <- -S1
+  if (S2 < 0) S2 <- -S2
+  
+  M1 <- (1 + (2 * exp(K) - 1) * exp((1/S1) * (P - d))) ^ (-1/exp(K))
+  M2 <- (1 + (2 * exp(K) - 1) * exp((1/S2) * (P - d))) ^ (-1/exp(K))
+  N <- min + (max - min) * (M1 * M2)
+  return(N)
+}
+
+
+
+
 # A function to get one data file from selected directory
 # Inputs are data directory name, year of survey (2021/2022 is 2022), and
 # which file to be extracted (sequential number from 1 to length(files)).
-get.data <- function(dir, YEAR, ff){
-  FILES <- list.files(paste0(dir, "/", YEAR))
+get.data <- function(dir, YEAR, FILES, ff){
+  # 2023-03-02 Commented the following line and added FILES input because all data for 2023
+  # were combined in one file (EditedDataAll_2023.dat), which was parsed out to day-specific
+  # files so they will be the same as other years. The combined file also was stored in the
+  # same folder.
+  
   all.lines <- read_lines(file = paste0(dir, "/", YEAR, "/", FILES[ff]))
+  input.file.name <- FILES[ff]   # specify file name
+  
+  # look at the first three letters of the first line
+  first.3 <- str_sub(all.lines[1], start = 1, end = 3)
+  
+  if (is.na(as.numeric(first.3)))
+    all.lines <- all.lines[2:length(all.lines)]
   
   # look at all event code
   event.code <- str_sub(all.lines, start = 5, end = 5)
@@ -35,28 +176,37 @@ get.data <- function(dir, YEAR, ff){
   
   # Files with extensive comments in sightings are problematic because they get split into multiple lines. 
   # We need to pull out lines that contain only numeric V1 (when they are converted into numeric)
+  # data %>% 
+  #   mutate(line.num = as.numeric(V1)) -> data
   
   data <- data[!is.na(as.numeric(data$V1)),]
   
   Starts <- which(data$V2=="B") #Find all start times
   Ends <- which(data$V2=="E") #Find all end times
   
-  # if there is no "E" at the end, Add "E" with time equal to 5 seconds after
+  # if there is no "E" at the end, Add "E" with time equal to 1 second after
   # the last entry.
   if (length(Ends) == 0 | max(Ends) != nrow(data)){
     row.num <- as.numeric(data[nrow(data), 1])
     row.num.char <- ifelse(row.num < 100, 
                            paste0("0", as.character(row.num+1)),
                            as.character(row.num + 1))
-    tmp <- hour(hms(data[nrow(data),4])) + 
-      minute(hms(data[nrow(data),4]))/60 + 
-      (second(hms(data[nrow(data),4])) + 5)/3600 
     
-    h <- trunc(tmp)
-    m <- trunc((tmp - h) * 60)
-    s <- (((tmp - h) * 60) - m) * 60
+    if (YEAR != 2010){
+      tmp <- hour(hms(data[nrow(data),4])) + 
+        minute(hms(data[nrow(data),4]))/60 + 
+        (second(hms(data[nrow(data),4])) + 1)/3600 
+      
+    } else {
+      tmp <- data[nrow(data), 4]
+    }
+    
+    HMS <- fractional_Hr2HMS(as.numeric(tmp))
+    # h <- trunc(tmp)
+    # m <- trunc((tmp - h) * 60)
+    # s <- (((tmp - h) * 60) - m) * 60
     data <- rbind(data, c(row.num.char, "E", data[nrow(data), 3],
-                          paste(h,m,s, sep = ":"),
+                          HMS,
                           rep(NA, times = 12)))
   }
   
@@ -69,7 +219,12 @@ get.data <- function(dir, YEAR, ff){
       # before a start time, that's probably an error)
       # TE: I added [t] to Ends in the following line. I think it's needed. NO... 
       # Ends does not need the subscript. 
-      Diffs[t,] <- seconds(hms(data[Starts[t],4])) - seconds(hms(data[Ends,4])) 
+      if (YEAR != 2010){
+        Diffs[t,] <- seconds(hms(data[Starts[t],4])) - seconds(hms(data[Ends,4]))         
+      } else {
+        Diffs[t,] <- (as.numeric(data[Starts[t], 4]) - as.numeric(data[Ends, 4])) * 24 * 60 * 60
+      }
+
     }
     
     #Select the differences that are likely errors (End, <90 seconds, Start. Oops!)
@@ -82,98 +237,146 @@ get.data <- function(dir, YEAR, ff){
   
   BeginDay <- mdy(data$V3) - mdy(paste0("11/30/", (YEAR - 1)))
   # Decimal hour of shift start time
-  BeginHr <- hour(hms(data$V4)) + minute(hms(data$V4))/60 + second(hms(data$V4))/3600
-  
+  if (YEAR != 2010){
+    BeginHr <- hour(hms(data$V4)) + minute(hms(data$V4))/60 + second(hms(data$V4))/3600    
+  } else {
+    BeginHr <- as.numeric(data$V4)
+  }
+
   data %>% 
     mutate(begin = as.numeric(BeginDay) + BeginHr/24,
            shift = cumsum(V2=="P")) -> data
+  
+  # People like to enter comments on "E" lines... remove all extra comments:
+  data[data$V2 == "E", c("V5", "V6", "V7", "V8", "V9", "V10", 
+                         "V11", "V12", "V13", "V14", "V15", "V16")] <- NA
+  
+  data$ff <- input.file.name
+  
   return(data)
 }
 
 # 
 # A function to extract one shift from a data file. Use get.data first and
-# use the output of get.data in this function. 
-get.shift <- function(YEAR, data, ff, i){
-  # Each shift always begins with "P"
-  Shifts.begin <- which(data$V2 %in% "P")
-  Shifts.begin.df <- data.frame(event = "P",
-                                shift = 1:length(Shifts.begin),
-                                row = Shifts.begin)
+# use the output of get.data in this function. i indicates a shift number within
+# the day, which can be different from the defined shifts which are identified
+# below. The first shift of a survey day may start at any time of the day due 
+# to the environmental conditions. 
+# 
+# Defined shifts are;
+# 1: 7:30:01 - 9:00:00
+# 2: 9:00:01 - 10:30:00
+# 3: 10:30:01 - 12:00:00
+# 4: 12:00:01 - 13:30:00
+# 5: 13:30:01 - 15:00:00
+# 6: 15:00:01 - 16:30:00
+# 
+# These shifts are indicated by Shift with the capital S. 
+
+get.shift <- function(YEAR, data, i){
+  ff <- data$ff[1]   # file name
+  
+  if (YEAR == 2010){
+    data$Shift <- shift.definition.2010(data$V4)
+  } else {
+    data$Shift <- shift.definition(as.Date(data$V3, format = "%m/%d/%Y"), data$V4)
+  }
+
+  # Each shift always begins with "P" - change in observers
+  # Note that this can happen in the middle of an official shift... 
+  shifts.begin <- which(data$V2 %in% "P")
+  shifts.begin.df <- data.frame(event = "P",
+                                shift = 1:length(shifts.begin),
+                                row = shifts.begin)
   # But each shift does not always have an explicit end. 
   # The end of data file does not always contain "E" either.
-  Shifts.end <- which(data$V2 %in% "E")
-  Shifts.end.df <- data.frame(event = "E",
+  shifts.end <- which(data$V2 %in% "E")
+  shifts.end.df <- data.frame(event = "E",
                               shift = NA,
-                              row = Shifts.end)
+                              row = shifts.end)
   
-  Shifts.df <- arrange(rbind(Shifts.begin.df, Shifts.end.df), row)
+  shifts.df <- arrange(rbind(shifts.begin.df, shifts.end.df), row)
   
-  max.shifts <- length(Shifts.begin)
-  #Only use the first observer for model random effect
-  Observer <- data[Shifts.begin[i], 5] 
-  # Days since Nov 30th of the previous year
-  BeginDay <- mdy(data[Shifts.begin[i], 3]) - mdy(paste0("11/30/", (YEAR - 1)))
+  max.shifts <- length(shifts.begin)
+  #Only use the first observer to model random effect
+  Observer <- data[shifts.begin[i], 5] %>% toupper()
+  # Days since Nov 30th of the previous year because 12/1 is 1. 
+  BeginDay <- mdy(data[shifts.begin[i], 3]) - mdy(paste0("11/30/", (YEAR - 1)))
   # Decimal hour of shift start time - need to add seconds because sometimes
   # the last sighting and next shift starts within one minute. This happened
   # in a 2020 data file (file 41, 2020-02-04)
   
-  # Beginning hr of the shift.
-  BeginHr <- (hour(hms(data[Shifts.begin[i], 4])) + 
-                (minute(hms(data[Shifts.begin[i], 4]))/60) 
-              + (second(hms(data[Shifts.begin[i], 4]))/3600))
-  
+  # Beginning hr of the shift. For 2010, time was recorded in decimal hours
+  BeginHr <- ifelse(YEAR != 2010,
+                    (hour(hms(data[shifts.begin[i], 4])) + 
+                       (minute(hms(data[shifts.begin[i], 4]))/60) 
+                     + (second(hms(data[shifts.begin[i], 4]))/3600)),
+                    as.numeric(data[shifts.begin[i], 4]))
+    
   # Decimal hour of next shift start time
   if (i < max.shifts){
-    event.idx <- which(Shifts.df$shift %in% i)
-    next.event <- Shifts.df[event.idx + 1,]
+    event.idx <- which(shifts.df$shift %in% i)
+    next.event <- shifts.df[event.idx + 1,]
     if (next.event$event == "P"){
-      NextBeginHr <- (hour(hms(data[next.event$row, 4])) + 
-                        (minute(hms(data[next.event$row, 4]))/60)
-                      + (second(hms(data[next.event$row, 4]))/3600))
+      NextBeginHr <- ifelse(YEAR != 2010,
+                            (hour(hms(data[next.event$row, 4])) + 
+                               (minute(hms(data[next.event$row, 4]))/60)
+                             + (second(hms(data[next.event$row, 4]))/3600)),
+                            as.numeric(data[next.event$row, 4]))
+      
       EndHr <- NextBeginHr - 0.00001
     } else {  # if the event is "E"
-      next.P <- Shifts.df[event.idx+2,]
-      NextBeginHr <- (hour(hms(data[next.P$row, 4])) + 
-                        (minute(hms(data[next.P$row, 4]))/60) 
-                      + (second(hms(data[next.P$row, 4]))/3600))
+      next.P <- shifts.df[event.idx+2,]
+      NextBeginHr <- ifelse(YEAR != 2010, 
+                            (hour(hms(data[next.P$row, 4])) + 
+                               (minute(hms(data[next.P$row, 4]))/60) 
+                             + (second(hms(data[next.P$row, 4]))/3600)),
+                            as.numeric(data[next.P$row, 4]))
       
-      EndHr <- (hour(hms(data[next.event$row, 4])) + 
-                  (minute(hms(data[next.event$row, 4]))/60) + 
-                  (second(hms(data[next.event$row, 4]))/3600))
+      EndHr <- ifelse(YEAR != 2010,
+                      (hour(hms(data[next.event$row, 4])) + 
+                         (minute(hms(data[next.event$row, 4]))/60) + 
+                         (second(hms(data[next.event$row, 4]))/3600)),
+                      as.numeric(data[next.event$row, 4]))
     }
 
     # Find next end hr to find the next shift to figure out spillovers
-    event.idx2 <- which(Shifts.df$shift %in% (i+1))
-    next.event2 <- Shifts.df[event.idx2+1,]
+    event.idx2 <- which(shifts.df$shift %in% (i+1))
+    next.event2 <- shifts.df[event.idx2+1,]
     
     if (next.event2$event == "P"){   # if the next event is also "P"
-       NextEndHr <- (hour(hms(data[next.event2$row, 4])) + 
-                       (minute(hms(data[next.event2$row, 4]))/60) + 
-                       (second(hms(data[next.event2$row, 4]))/3600) ) - 0.00001
+       NextEndHr <- ifelse(YEAR != 2010,
+                           (hour(hms(data[next.event2$row, 4])) + 
+                              (minute(hms(data[next.event2$row, 4]))/60) + 
+                              (second(hms(data[next.event2$row, 4]))/3600) ) - 0.00001,
+                           as.numeric(data[next.event2$row, 4]) - 0.00001)
        # 
     } else {  # if the event is "E"
-       NextEndHr <- (hour(hms(data[next.event2$row, 4])) + 
-                       (minute(hms(data[next.event2$row, 4]))/60) 
-                     + (second(hms(data[next.event2$row, 4]))/3600))
+       NextEndHr <- ifelse(YEAR != 2010,
+                           (hour(hms(data[next.event2$row, 4])) + 
+                              (minute(hms(data[next.event2$row, 4]))/60) 
+                            + (second(hms(data[next.event2$row, 4]))/3600)),
+                           as.numeric(data[next.event2$row, 4]))
     }
     
 
   } else {    # for the last shift
-    event.idx <- which(Shifts.df$shift %in% max.shifts)
-    next.event <- Shifts.df[event.idx + 1,]  # This has to be E
+    event.idx <- which(shifts.df$shift %in% max.shifts)
+    next.event <- shifts.df[event.idx + 1,]  # This has to be E
     if (length(next.event) == 0){
       end.row <- nrow(data)
     } else {
       end.row <- next.event$row
     }
-    EndHr <-  (hour(hms(data[end.row, 4])) + 
-                 (minute(hms(data[end.row, 4]))/60) + 
-                 (second(hms(data[end.row, 4]))/3600))
+    EndHr <-  ifelse(YEAR != 2010,
+                     (hour(hms(data[end.row, 4])) + 
+                        (minute(hms(data[end.row, 4]))/60) + 
+                        (second(hms(data[end.row, 4]))/3600)),
+                     as.numeric(data[end.row, 4]))
   }
   
-  
   # End time is just before next start time (replicating J Durban's calculations)
-  # TE: This is incorrect. If there was "E", we should use it. 
+  # TE: This is incorrect. If there was an "E", we should use it. 
   #EndHr <- NextBeginHr - 0.00001 
   # Beginning time as a decimal day - NextBeginHr needs to include seconds for the
   # rare occasions when a sighting happens within a minute of the start of a
@@ -185,6 +388,16 @@ get.shift <- function(YEAR, data, ff, i){
   data.shift <- data %>% filter(begin >= Begin & 
                                   begin <= End)
   
+  # Remove those that were moving north:
+  # Changed V14 != "North" to tolower(V14) != "north" because of entries using
+  # uppercase "NORTH" in 2015 (file 11), which was not filtered out correctly in V2. 
+  # This was further changed to "grep(north)" because "northbound" or "NORTHBOUND" were
+  # used in some years. 
+  # 
+  # find those that were moving north
+  north.idx <- grep("north", tolower(data.shift$V14))
+  if (length(north.idx) > 0) data.shift <- data.shift[-north.idx,]
+  
   if (i < max.shifts){
     # when there are multiple Es in one file: Take the first of positive values
     if (length(NextBeginHr) > 1){
@@ -193,20 +406,16 @@ get.shift <- function(YEAR, data, ff, i){
     }
     
     # following shift for finding out spillovers.
-    data.shift2 <- data %>% filter(begin >= as.numeric(BeginDay) + NextBeginHr/24 & 
+    data.shift2 <- data %>% 
+      filter(begin >= as.numeric(BeginDay) + NextBeginHr/24 & 
                                      begin <= as.numeric(BeginDay) + NextEndHr/24)
+    
+    north.idx <- grep("north", tolower(data.shift2$V14))
+    if (length(north.idx) > 0) data.shift2 <- data.shift2[-north.idx,]
     
   } else {
     data.shift2 <- NA
   }
-
-    # pull out the data for this shift
-  # if (i < max.shifts){
-  #   data.shift <- data[(Shifts.begin[i]):(Shifts.begin[i+1]-1),]    
-  # } else {
-  #   data.shift <- data %>% filter(begin >= data[Shifts.begin[i], "begin"] & 
-  #                                   begin <= End)
-  # }
 
   # This really removes information from "V" entries because there is no
   # V12 when "V" is entered (i.e., NA). I think this is better because
@@ -217,27 +426,37 @@ get.shift <- function(YEAR, data, ff, i){
   # However... there were shifts (e.g., 2/5/2015 9:00-10:30) where BF changed to
   # 5 in the middle of the shift (1 hr in), so that shift should be removed. But
   # by using just "S" entries, it was not removed. So, I need to fix that. 2022-03-30
+  # 
+  # This is dealt by having a minimum duration of a shift to be included, which
+  # is currently 85 minutes. 
+  # 
+  # These issues become moot if we use the method of Laake et al., in which data
+  # are pooled by a constant continuing viewing condition, rather than arbitrary
+  # 90 minute chunks.
+
+  # extract all Beaufort and visibility information from "V" and "S"
+  # BF based on "S" entries
   BFs.S <- data.shift %>% 
     filter(V2 == "S") %>% 
-    select(V12, begin) %>%
+    dplyr::select(V12, begin) %>%
     transmute(BF = as.numeric(V12),
               time = begin)
-    #pull() %>% as.numeric()
   
+  # BFs based on "V" entries
   BFs.V <- data.shift %>% 
     filter(V2 == "V") %>% 
-    select(V5, begin) %>%
+    dplyr::select(V5, begin) %>%
     transmute(BF = as.numeric(V5),
               time = begin)
   
-    #pull()%>% as.numeric()
-  
+  # Combine them together and find out time from the beginning of the shift
   BFs.dt <- rbind(BFs.S, BFs.V) %>%
     arrange(time) %>%
     mutate(dt = (time - min(time)) * (24*60))  # dt in minutes
   
-  # if BF changed to 5 within the last 5 minutes, keep the entire period (max(BF) < 5)
+  # if BF changed to >4 within the last 5 minutes, keep the entire period (max(BF) < 5)
   # but if BF changed to 5 before then, make the max BF = 5.
+  # This is a very clumsy way of dealing with changes in the environment. 
   BFs.dt %>% 
     filter(BF > 4) -> High.BFs
   
@@ -250,34 +469,26 @@ get.shift <- function(YEAR, data, ff, i){
       BFs <- BFs.dt$BF
     }
   }
-  # if (i < max.shifts){
-  #   BFs <- as.numeric(data[Shifts.begin[i]:(Shifts.begin[i+1]-1), 12])    
-  # } else {
-  #   BFs <- data.shift %>% 
-  #     select(V12) %>% pull()
-  # }
   
-  
+  # The entire shift is given the maximum BF value... 
   if (sum(!is.na(BFs)) == 0){
     BF <- NA
   } else {
     BF <- max(BFs, na.rm=T)
   }
   
+  # Do the same with visibility conditions (VS)
   VSs.S <- data.shift %>% 
     filter(V2 == "S") %>% 
-    select(V13, begin) %>%
+    dplyr::select(V13, begin) %>%
     transmute(VS = as.numeric(V13),
               time = begin)
-  #pull() %>% as.numeric()
-  
+
   VSs.V <- data.shift %>% 
     filter(V2 == "V") %>% 
-    select(V6, begin) %>%
+    dplyr::select(V6, begin) %>%
     transmute(VS = as.numeric(V6),
               time = begin)
-  
-  #pull()%>% as.numeric()
   
   VSs.dt <- rbind(VSs.S, VSs.V) %>%
     arrange(time) %>%
@@ -305,61 +516,304 @@ get.shift <- function(YEAR, data, ff, i){
   }
 
   # if still NA, take the first "V" entry
-  if (is.na(BF)) {BF <- data[Shifts.begin[i]+1, 5]}
-  if (is.na(VS)) {VS <- data[Shifts.begin[i]+1, 6]}
+  if (is.na(BF)) {BF <- data[shifts.begin[i]+1, 5]}
+  if (is.na(VS)) {VS <- data[shifts.begin[i]+1, 6]}
   
+  # Finding groups that were sighted over two shifts. We take the later sighting.
   Spillover <- vector(length = 0)
   # No spillover for the last shift
   if (i < max.shifts){
     # Groups = Observers. Only the first (primary) observer is considered (V5)
     # Group numbers from this watch period
-    GroupsThisWatch <- data.shift %>% #[Shifts.begin[i]:(Shifts.begin[i+1]-1),] %>% 
-      filter(V2 == "S") %>%
-      distinct(V5) %>%
-      pull()
-    # Group numbers from next watch period
-    GroupsNextWatch <- data.shift2 %>% #[Shifts.begin[i+1]:(Shifts.begin[i+2]-1),] %>% 
+    GroupsThisWatch <- data.shift %>% 
       filter(V2 == "S") %>%
       distinct(V5) %>%
       pull()
     
-    # Which groups from watch i were also observed in watch i+1? They should be excluded from i and counted in i+1
+    # Group numbers from next watch period
+    GroupsNextWatch <- data.shift2 %>% 
+      filter(V2 == "S") %>%
+      distinct(V5) %>%
+      pull()
+    
+    # Which groups from watch i were also observed in watch i+1? 
+    # They should be excluded from i and counted in i+1
     Spillover <- GroupsThisWatch[GroupsThisWatch %in% GroupsNextWatch] 
     
   }
   
-  # Changed V14 != "North" to tolower(V14) != "north" because of entries using
-  # uppercase "NORTH" in 2015 (file 11), which was not filtered out correctly in V2. 
-  if(length(Spillover > 0)){ #if there are groups that spill over into following watch, 
-    # figure out if there were any sightings that need to be considered:
-    sub.data <- data.shift %>% #data[(Shifts.begin[i]):(Shifts.begin[i+1]-1),] %>% 
-      filter(V2 == "S", !(V5 %in% Spillover), tolower(V14) != "north")
+  
+  # v4 is only time and End is the number of days. So, it doesn't matter what year
+  # I use as the starting point. I use 2022-12-01 00:00:00
+  # If the last one is not E, add an E line. 
+  if (data.shift[nrow(data.shift), "V2"] != "E"){
+    if (YEAR == 2010){
+      # This Shift is the defined shift IDs - not based on changes in observers
+      Shift.End <- shift.definition.2010(data.shift$V4[nrow(data.shift)])
+      if (NextBeginHr > (BeginHr + 1.5)){
+        V4 <- shift.hrs %>% 
+          filter(shift == Shift.End) %>% 
+          select(end.hr) %>%
+          pull()        
+      } else {
+        V4 <- NextBeginHr - 0.00001
+      }
+
+    } else {
+      Shift.End <- shift.definition(as.Date(data.shift$V3[nrow(data.shift)], 
+                                            format = "%m/%d/%Y"), 
+                                    data.shift$V4[nrow(data.shift)])
+      if (NextBeginHr > (BeginHr + 1.5)){
+        V4 <- format(as.POSIXct(as.Date("2022-12-01 00:00:00") + End),
+                   format = "%H:%M:%S")
+      } else {
+        V4 <- NextBeginHr - 0.00001
+      }
+    }
     
+    # Add one line with "E" as the event
+    data.shift <- rbind(data.shift, 
+                        data.frame(V1 = max(as.numeric(data.shift$V1), na.rm = T) + 1, 
+                                   V2 = "E", 
+                                   V3 = data.shift[1, "V3"],
+                                   V4 = V4,
+                                   V5 = NA,
+                                   V6 = NA,
+                                   V7 = NA,
+                                   V8 = NA,
+                                   V9 = NA,
+                                   V10 = NA,
+                                   V11 = NA,
+                                   V12 = NA,
+                                   V13 = NA,
+                                   V14 = NA,
+                                   V15 = NA,
+                                   V16 = NA,
+                                   begin = End,
+                                   shift = i, 
+                                   ff = ff,
+                                   Shift = Shift.End))
+  }
+
+  # Add the "key" variable, which defines a segment with constant environmental 
+  # data like visibility and wind force (beaufort) and observer. It is in the format of 
+  # Date_shift_ID. ID is the sequential identification number within the shift.
+  # Find changes in the viewing condition
+  idx.V <- which(data.shift$V2 == "V")
+  bft <- c(NA, as.numeric(data.shift$V5[idx.V]))
+  vis <- c(NA, as.numeric(data.shift$V6[idx.V]))
+  
+  # max(idx.V) should be always less than the number of rows of data.shift because
+  # I added an "E" row at the end above. 
+  idx.V <- c(idx.V, nrow(data.shift))
+  
+  bft.num <- vis.num <- key.num <- vector(mode = "numeric", length = nrow(data.shift))
+  k1 <- 1
+  k2 <- 0
+  for (k in 1:length(idx.V)){
+    key.num[k1:(idx.V[k]-1)] <- k2
+    bft.num[k1:(idx.V[k]-1)] <- bft[k]
+    vis.num[k1:(idx.V[k]-1)] <- vis[k]
+    k1 <- idx.V[k]
+    k2 <- k2 + 1
+  }
+  
+  key.num[last(idx.V):length(key.num)] <- max(key.num)
+  bft.num[last(idx.V):length(key.num)] <- last(bft)
+  vis.num[last(idx.V):length(key.num)] <- last(vis)
+  
+  data.shift$key <- key.num
+  data.shift$effort <- NA
+  data.shift$start <- NA
+  data.shift$end <- NA
+  data.shift$time <- NA
+  
+  # Compute effort for each block of constant environment and observer
+  k <- 1
+  for (k in 1:max(key.num)){
+    tmp.1 <- data.shift %>%
+      filter(key == k) %>%
+      summarise(time = first(begin)) %>%
+      pull(time) %>% as.numeric()
+    
+    if (k < max(key.num)){
+      tmp.2 <- data.shift %>%
+        filter(key == (k + 1)) %>%
+        summarise(time = first(begin)) %>%
+        pull(time) %>% as.numeric()
+      
+    } else {
+      tmp.2 <- data.shift$begin[nrow(data.shift)]
+    }
+    
+    data.shift$effort[data.shift$key == k] <- tmp.2 - tmp.1
+    data.shift$start[data.shift$key == k] <- tmp.1
+    data.shift$end[data.shift$key == k] <- tmp.2
+    data.shift$time[data.shift$key == k] <- tmp.1 + (tmp.2-tmp.1)/2
+  }
+  
+  # Need to remove the spillover groups in order to count npods and nwhales
+  # if there was a spillover
+  if(length(Spillover > 0)){ #if there are groups that spill over into following watch, 
+    is.spillover <- T
+    # figure out if there were any sightings that need to be considered:
+    sub.data <- data.shift %>% 
+      filter(V2 == "S", !(V5 %in% Spillover))  
+    
+    # 2023-11-29, In the following if statement, non-spillover groups are counted.
     if (nrow(sub.data) > 0){
       N <- sub.data %>%
         group_by(V5) %>% #group by the whale group number
-        select(V5, V9) %>%
+        dplyr::select(V5, V9) %>%
         #summarize(N = max(as.numeric(V9), na.rm = T)) %>% 
         summarize(N = last(as.numeric(V9))) %>% 
-        select(N)  %>% sum()
+        dplyr::select(N)  %>% sum()
+      npods <- length(unique(sub.data$V5))
+      
     } else {
       N <- 0
+      npods <- 0
     }
     
   } else {   # if there were no spillover
-    sub.data <- data.shift %>% #data[Shifts.begin[i]:(Shifts.begin[i+1]-1),]  %>%  
-      filter(V2 == "S", tolower(V14) != "north")
+    is.spillover <- F
+    sub.data <- data.shift %>% 
+      filter(V2 == "S")
     
     if (nrow(sub.data) > 0){
       N <- sub.data %>%
         group_by(V5) %>% #group by the whale group number
-        select(V5, V9) %>%
+        dplyr::select(V5, V9) %>%
         #summarize(N = max(as.numeric(V9), na.rm = T)) %>% 
         summarize(N = last(as.numeric(V9))) %>% 
-        select(N)  %>% sum()
+        dplyr::select(N)  %>% sum()
+      npods <- length(unique(sub.data$V5))
+      
     } else {
       N <- 0
+      npods <- 0
     }
+    
+  }
+  
+  # shift and Shift are the same if the first shift of a day started before 0900 
+  # and observations didn't stop until 1630. 
+  # key is the sequential number within each shift that defines an equal 
+  # environmental condition.
+  
+  # When there were at least one sighting
+  #if (length(which(data.shift$V2 == "S")) != 0){
+  
+  # There were at least one spillover to the next shift and at least one group
+  # was recorded within the shift other than the spilled over groups
+  #if (is.spillover & nrow(sub.data) > 0){
+  if (nrow(sub.data) > 0){
+    # sightings summary
+    sub.data %>%
+      transmute(Date = V3, 
+                Time = V4, 
+                Group_ID = as.numeric(V5), 
+                n = as.numeric(V9), 
+                bft = as.numeric(V12), 
+                vis = as.numeric(V13),
+                Bearing = as.numeric(V6),
+                Reticle = as.numeric(V7),
+                Distance = as.numeric(V8),
+                Observer = V10,
+                shift = shift, 
+                key = key, 
+                begin = start,
+                end = end,
+                time = time,
+                effort = effort,
+                Shift = Shift) %>%
+      group_by(Group_ID) %>%
+      summarise(Date = first(Date),
+                Time = first(Time),
+                n = max(n, na.rm = T),
+                bft = first(bft),
+                vis = first(vis),
+                Bearing = first(Bearing[n == max(n)]),
+                Reticle = first(Reticle[n == max(n)]),
+                Distance = first(Distance[n == max(n)]),
+                Observer = first(Observer),
+                shift = first(shift),
+                key = first(key),
+                begin = first(begin),
+                end = first(end),
+                time = first(time),
+                effort = first(effort),
+                Shift = first(Shift)) -> sub.data.shift
+    
+    # effort summary
+    # Rare occasions when observer changes within a shift... this needs to be
+    # separated because "observer" is a covariate
+    
+    sub.data.shift %>%
+      filter(key > 0) %>%
+      group_by(key, Observer) %>%
+      summarise(Date = first(Date),
+                npods = n(),
+                nwhales = sum(n, na.rm = T),
+                bft = first(bft),
+                vis = first(vis),
+                shift = first(shift),
+                Observer = first(Observer),
+                key = first(key),
+                begin = first(begin),
+                end = first(end),
+                time = first(time),
+                effort = first(effort),
+                Shift = first(Shift)) -> data.shift.effort
+    
+    
+    
+  } else {
+    # There were only spillover sightings, which means no sightings were
+    # recorded for this shift, meaning (is.spillover & nrow(sub.data) == 0)
+    # or !is.spillover & nrow(sub.data == 0). All differing sighting conditions have
+    # to be separated
+    data.shift %>%
+      filter(key > 0, V2 != "E") %>%
+      transmute(Group_ID = NA,
+                Date = V3, 
+                Time = V4, 
+                n = 0, 
+                bft = NA, 
+                vis = NA,
+                Bearing = NA,
+                Reticle = NA,
+                Distance = NA,
+                Observer = Observer,
+                shift = shift, 
+                key = key, 
+                begin = start,
+                end = end,
+                time = time,
+                effort = effort,
+                Shift = Shift) -> sub.data.shift
+    
+    # fix beaufort and visibility 
+    for (k1 in 1:nrow(BFs.dt)){
+      sub.data.shift$bft[sub.data.shift$begin == BFs.dt$time[k1]] <- BFs.dt$BF[k1]
+      sub.data.shift$vis[sub.data.shift$begin == VSs.dt$time[k1]] <- VSs.dt$VS[k1]      
+    }
+    
+    sub.data.shift %>%
+      group_by(key, Observer) %>%
+      summarise(Date = first(Date),
+                npods = 0,
+                nwhales = 0,
+                bft = first(bft),
+                vis = first(vis),
+                shift = first(shift),
+                Observer = first(Observer),
+                key = first(key),
+                begin = first(begin),
+                end = first(end),
+                time = first(time),
+                effort = first(effort),
+                Shift = first(Shift)) -> data.shift.effort
     
   }
   
@@ -369,13 +823,15 @@ get.shift <- function(YEAR, data, ff, i){
                                        bf = as.numeric(BF),
                                        vs = as.numeric(VS),
                                        n = N,
+                                       npods = npods,
                                        obs = as.character(Observer),
                                        ff = ff,
                                        i = i,
                                        BeginHr = BeginHr,
                                        BeginDay = BeginDay),
-                   data = sub.data,
+                   data = sub.data.shift,
                    data.shift = data.shift,
+                   shift.effort = data.shift.effort,
                    data.next.shift = data.shift2)
   return( out.list )
 }
@@ -398,20 +854,35 @@ fractional_Day2YMDhms <- function(x, YEAR){
                           ifelse(s < 10, paste0("0", s), s), sep = ":")))  
 }
 
+fractional_Hr2HMS <- function(tmp){
+  tmp[tmp>24] <- tmp[tmp>24] %% 24
+  
+  h <- trunc(tmp)
+  m <- trunc((tmp - h) * 60)
+  s <- round((((tmp - h) * 60) - m) * 60)
+  
+  HMS <- paste(ifelse(h < 10, paste0("0", h), h), 
+               ifelse(m < 10, paste0("0", m), m), 
+               ifelse(s < 10, paste0("0", s), s), sep = ":")
+  
+  return(HMS)
+
+}
+
 # This function compares Ver1.0 and Ver2.0 data extraction code for using
 # raw data files (starting the 2020 season). The raw data files should be 
 # analyzed using Formatting GC Data TE.R for Ver1.0 (saves in a .rds file)
 # and Extract_Data_All_v2.Rmd for Ver2.0 (saves in a .rds file).
 compare.V0.V2.raw <- function(YEAR, obs.list){
   v0.out <- readRDS(paste0("RData/out_", YEAR, "_Joshs.rds"))
-  v2.out <- readRDS(paste0("RData/out_", YEAR, "_Tomo_v2.rds"))
+  v2.out <- readRDS(paste0("RData/V2.1_Sep2023/out_", YEAR, "_min85_Tomo_v2.rds"))
   
-  FinalData.v2 <- v2.out$FinalData %>% mutate(v = "V2") %>% select(-dur)
+  v2.out$Final_Data %>% 
+    mutate(v = "V2") %>% # -> tmp
+    dplyr::select(-dur) %>% 
+    left_join(obs.list, by = "obs") -> FinalData.v2
+  
   FinalData.v0 <- v0.out$FinalData %>% mutate(v = "V0") 
-  
-  FinalData.v2 <- v2.out$FinalData %>% 
-    mutate(v = "V2") %>% 
-    left_join(obs.list, by = "obs") 
   
   # find if there is NA in ID - not in the look up table  
   ID.NA <- filter(FinalData.v2, is.na(ID))
@@ -421,7 +892,7 @@ compare.V0.V2.raw <- function(YEAR, obs.list){
   if (length(unique.ID.NA) > 0){
     new.obs <- data.frame(obs = NA, ID = NA)
     for (k in 1:length(unique.ID.NA)){
-      FinalData.v2[FinalData.v2$obs == unique.ID.NA[k], "ID"] <- max(obs.list$ID) + k
+      FinalData.v2$ID[FinalData.v2$obs == unique.ID.NA[k]] <- max(obs.list$ID) + k
       new.obs[k,] <- c(unique.ID.NA[k], max(obs.list$ID)+k)
     }
     obs.list <- rbind(obs.list, new.obs)
@@ -430,9 +901,9 @@ compare.V0.V2.raw <- function(YEAR, obs.list){
   
   
   # replace column names
-  FinalData.v2 %>% select(-obs) %>%
+  FinalData.v2 %>% dplyr::select(-obs) %>%
     mutate(obs = ID) %>%
-    select(-ID) -> FinalData.v2
+    dplyr::select(-ID) -> FinalData.v2
   
   # rearrange the columns to match v0
   FinalData.v2 <- FinalData.v2[, names(FinalData.v0)]
@@ -457,18 +928,42 @@ compare.V0.V2.raw <- function(YEAR, obs.list){
   for (k in 1:(length(time.steps)-1)){
     tmp <- filter(FinalData.Both, begin >= time.steps[k] & begin < time.steps[k+1])
     if (nrow(tmp) > 0){
+      
       tmp %>% filter(v == "V0") -> tmp.1
       tmp %>% filter(v == "V2") -> tmp.2
       
-      difs[c,] <- c(min(tmp$begin), 
-                    max(tmp$end),
-                    min(tmp.1$begin) - min(tmp.2$begin), 
-                    max(tmp.1$end) - max(tmp.2$end),
-                    nrow(tmp.1) - nrow(tmp.2),
-                    max(tmp.1$bf) - max(tmp.1$bf),
-                    max(tmp.1$vs) - max(tmp.1$vs),
-                    sum(tmp.1$n) - sum(tmp.2$n),
-                    time.steps[k])
+      if (nrow(tmp.1) > 0 & nrow(tmp.2) > 0){
+        difs[c,] <- c(min(tmp$begin), 
+                      max(tmp$end),
+                      min(tmp.1$begin) - min(tmp.2$begin), 
+                      max(tmp.1$end) - max(tmp.2$end),
+                      nrow(tmp.1) - nrow(tmp.2),
+                      max(tmp.1$bf) - max(tmp.1$bf),
+                      max(tmp.1$vs) - max(tmp.1$vs),
+                      sum(tmp.1$n) - sum(tmp.2$n),
+                      time.steps[k])
+        
+        
+      } else if (nrow(tmp.1) > 0 & nrow(tmp.2) == 0){
+        difs[c,] <- c(min(tmp$begin), 
+                      max(tmp$end),
+                      NA, NA, NA, 
+                      max(tmp.1$bf) - max(tmp.1$bf),
+                      max(tmp.1$vs) - max(tmp.1$vs),
+                      NA, time.steps[k])
+      } else if (nrow(tmp.1) == 0 & nrow(tmp.2) > 0){
+        difs[c,] <- c(min(tmp$begin), 
+                      max(tmp$end),
+                      NA, 
+                      NA,
+                      NA,
+                      NA,
+                      NA,
+                      NA,
+                      time.steps[k])
+        
+      }
+      
       c <- c + 1
       
     }
@@ -481,8 +976,8 @@ compare.V0.V2.raw <- function(YEAR, obs.list){
   v2.out$Data_Out %>% 
     mutate(time.steps = floor(v2.out$Data_Out$begin)) -> Data_Out.v2 
   
-  v2.out$CorrectLength %>%
-    mutate(time.steps = floor(v2.out$CorrectLength$begin)) -> CorrectLength.v2 
+  v2.out$Correct_Length %>%
+    mutate(time.steps = floor(v2.out$Correct_Length$begin)) -> CorrectLength.v2 
   
   return(out.list <- list(difs = difs,
                           difs.1 = difs.1,
@@ -514,32 +1009,32 @@ compare.V0.V2.BUGSinput <- function(YEAR, idx.yr, periods, obs.list){
   # this file contains all input data for WinBUGS.
   V0.out <- readRDS("RData/2006-2019_GC_Formatted_Data.RDS")
   
-  # Pull out the information for 2015
-  periods.2015 <- V0.out$periods[idx.yr]
-  n.2015 <- V0.out$n[1:periods.2015,,idx.yr]
-  n.com.2015 <- V0.out$n.com[1:periods.2015,,idx.yr]
-  n.sp.2015 <- V0.out$n.sp[1:periods.2015,,idx.yr]
-  obs.2015 <- V0.out$obs[1:periods.2015,,idx.yr]
+  # Pull out the information for V0 dataset
+  periods.V0 <- V0.out$periods[idx.yr]
+  n.V0 <- V0.out$n[1:periods.V0,,idx.yr]
+  n.com.V0 <- V0.out$n.com[1:periods.V0,,idx.yr]
+  n.sp.V0 <- V0.out$n.sp[1:periods.V0,,idx.yr]
+  obs.V0 <- V0.out$obs[1:periods.V0,,idx.yr]
   
-  vs.2015 <- V0.out$vs[1:periods.2015,idx.yr]
-  bf.2015 <- V0.out$bf[1:periods.2015,idx.yr]
-  day.2015 <- V0.out$day[1:periods.2015,idx.yr]
+  vs.V0 <- V0.out$vs[1:periods.V0,idx.yr]
+  bf.V0 <- V0.out$bf[1:periods.V0,idx.yr]
+  day.V0 <- V0.out$day[1:periods.V0,idx.yr]
   
   FinalData.V0 <- data.frame(begin = begin[1:periods[idx.yr], idx.yr],
                              end = end[1:periods[idx.yr], idx.yr],
-                             bf = bf.2015,
-                             vs = vs.2015,
-                             n = n.2015[,1],
-                             obs = obs.2015[,1],
-                             BeginDay = day.2015,
+                             bf = bf.V0,
+                             vs = vs.V0,
+                             n = n.V0[,1],
+                             obs = obs.V0[,1],
+                             BeginDay = day.V0,
                              v = "V0")
   
   # This contains the results from my version
-  v2.out <- readRDS(paste0("RData/out_", YEAR, "_Tomo_v2.rds"))
-  FinalData.v2 <- v2.out$FinalData %>% 
+  v2.out <- readRDS(paste0("RData/V2.1_Sep2023/out_", YEAR, "_min85_Tomo_v2.rds"))
+  FinalData.v2 <- v2.out$Final_Data %>% 
     mutate(v = "V2") %>% 
     left_join(obs.list, by = "obs") %>%
-    select(-c(dur, ff, i, BeginHr)) 
+    dplyr::select(-c(dur, ff, i, BeginHr)) 
   
   # find if there is NA in ID - not in the look up table  
   ID.NA <- filter(FinalData.v2, is.na(ID))
@@ -559,9 +1054,9 @@ compare.V0.V2.BUGSinput <- function(YEAR, idx.yr, periods, obs.list){
   
   # replace column names
   FinalData.v2 %>% 
-    select(-obs) %>%
+    dplyr::select(-obs) %>%
     mutate(obs = ID) %>%
-    select(-ID) -> FinalData.v2
+    dplyr::select(-ID) -> FinalData.v2
   
   # rearrange the columns to match V0
   FinalData.v2 <- FinalData.v2[, names(FinalData.V0)]
@@ -570,8 +1065,8 @@ compare.V0.V2.BUGSinput <- function(YEAR, idx.yr, periods, obs.list){
   v2.out$Data_Out %>% 
     mutate(time.steps = floor(v2.out$Data_Out$begin)) -> Data_Out.v2 
   
-  v2.out$CorrectLength %>%
-    mutate(time.steps = floor(v2.out$CorrectLength$begin)) -> CorrectLength.v2 
+  v2.out$Correct_Length %>%
+    mutate(time.steps = floor(v2.out$Correct_Length$begin)) -> CorrectLength.v2 
   
   min.begin <- min(floor(FinalData.Both$begin))
   max.begin <- max(ceiling(FinalData.Both$begin))
@@ -591,23 +1086,47 @@ compare.V0.V2.BUGSinput <- function(YEAR, idx.yr, periods, obs.list){
   c <- k <- 1
   for (k in 1:(length(time.steps)-1)){
     tmp <- filter(FinalData.Both, begin >= time.steps[k] & begin < time.steps[k+1])
+    
     if (nrow(tmp) > 0){
+  
       tmp %>% filter(v == "V0") -> tmp.1
       tmp %>% filter(v == "V2") -> tmp.2
       
-      difs[c,] <- c(min(tmp$begin), 
-                    max(tmp$end),
-                    min(tmp.1$begin) - min(tmp.2$begin), 
-                    max(tmp.1$end) - max(tmp.2$end),
-                    nrow(tmp.1) - nrow(tmp.2),
-                    max(tmp.1$bf) - max(tmp.1$bf),
-                    max(tmp.1$vs) - max(tmp.1$vs),
-                    sum(tmp.1$n) - sum(tmp.2$n),
-                    time.steps[k])
+      if (nrow(tmp.1) > 0 & nrow(tmp.2) > 0){
+        difs[c,] <- c(min(tmp$begin), 
+                      max(tmp$end),
+                      min(tmp.1$begin) - min(tmp.2$begin), 
+                      max(tmp.1$end) - max(tmp.2$end),
+                      nrow(tmp.1) - nrow(tmp.2),
+                      max(tmp.1$bf) - max(tmp.1$bf),
+                      max(tmp.1$vs) - max(tmp.1$vs),
+                      sum(tmp.1$n) - sum(tmp.2$n),
+                      time.steps[k])
+
+        
+      } else if (nrow(tmp.1) > 0 & nrow(tmp.2) == 0){
+        difs[c,] <- c(min(tmp$begin), 
+                      max(tmp$end),
+                      NA, NA, NA, 
+                      max(tmp.1$bf) - max(tmp.1$bf),
+                      max(tmp.1$vs) - max(tmp.1$vs),
+                      NA, time.steps[k])
+      } else if (nrow(tmp.1) == 0 & nrow(tmp.2) > 0){
+        difs[c,] <- c(min(tmp$begin), 
+                      max(tmp$end),
+                      NA, 
+                      NA,
+                      NA,
+                      NA,
+                      NA,
+                      NA,
+                      time.steps[k])
+        
+      }
       c <- c + 1
       
     }
-    
+    #Sys.sleep(1.5)  
   }
   
   
@@ -635,7 +1154,7 @@ n.comparison <- function(FinalData.Both, difs.1, idx, YEAR){
     filter(time.steps == difs.1[idx, "time.step"]) %>%
     mutate(begin.time = fractional_Day2YMDhms(begin, YEAR)$hms,
            end.time = fractional_Day2YMDhms(end, YEAR)$hms) %>% 
-    select(begin.time, end.time, n, bf, vs, v) -> tmp
+    dplyr::select(begin.time, end.time, n, bf, vs, v) -> tmp
   
   tmp %>%
     filter(v == "V0") -> tmp.0
@@ -656,9 +1175,9 @@ n.comparison <- function(FinalData.Both, difs.1, idx, YEAR){
               Bf.Ver2.0 = bf.y) -> tmp.0.2
   
   total <- c(NA, NA, "Total", 
-           sum(tmp.0.2$n.Ver1.0, na.rm = T), 
-           sum(tmp.0.2$n.Ver2.0, na.rm = T), 
-           NA, NA, NA, NA)
+             sum(tmp.0.2$n.Ver1.0, na.rm = T), 
+             sum(tmp.0.2$n.Ver2.0, na.rm = T), 
+             NA, NA, NA, NA)
   
   return(rbind(tmp.0.2, total))  
 }

@@ -3,13 +3,11 @@ title: "R Notebook"
 output: html_notebook
 ---
 
-This notebook describes abundance estimation of gray whales using Durban's WinBUGS code and Ver2.0 data extraction method. Ver1.0 was developed by John Durban and updated by Josh Stewart. I created Ver2.0, which corrected some errors in Ver1.0. In this notebook, the new data from the 2021/2022, 2022/2023, and 2023/2024 seasons were added to the previous data and run with WinBUGS. 
+This notebook describes abundance estimation of gray whales using Durban's WinBUGS code and Ver2.0 data extraction method. Ver1.0 was developed by John Durban and updated by Josh Stewart. I created Ver2.0, which corrected some errors in Ver1.0. In this notebook, the new data from the 2021/2022 and 2022/2023 seasons were added to the previous data and run with WinBUGS. 
 
-For 2009/2010 and 2010/2011, there were two stations. The original bugs code uses the same watch lengths for two stations. Actual watch periods, however, were different. So, that needs to be addressed. I will use the results from previous analysis (Durban or Stewart) in the analysis for the 2023/2024 season. 
+For 2009/2010 and 2010/2011, there were two stations. The original bugs code uses the same watch lengths for two stations. Actual watch periods, however, were different. So, that needs to be addressed. I will use the results from previous analysis (Durban or Stewart) in this analysis. 
 
-For now, I used the input list directly out of Durban/Stewart analysis for 2006/2007, 2007/2008, 2009/2010, and 2010/2011.
-
-Need to fix the secondary station data setup. 2024-03-04
+For now, I used the input list directly out of Durban/Stewart analysis for 2006/2007, 2007/2008, 2009/2010, and 2010/2011. 
 
 Set up libraries
 
@@ -48,16 +46,15 @@ years <- c("2015", "2016", "2020", "2022", "2023", "2024")
 min.duration <- 85 #30
 
 # Change file names accordingly:
-Nhats.filename <- paste0("Data/abundance_", years[length(years)], "_", min.duration, "min.csv")
+Nhats.filename <- paste0("Data/abundance_", years[length(years)], "_NoCut_", min.duration, "min.csv")
 #Nhats.filename <- paste0("Data/abundance_", years[length(years)], "_", min.duration, "min_8weeks.csv")
 
 # Analysis with minimum of 85 or 30 minutes sampling duration:
 # out.v2 <- lapply(years, FUN = function(x) readRDS(paste0("RData/V2.1_Mar2023/out_", x,
 #                                                          "_min", min.duration, "_Tomo_v2.rds")))
 
-out.v2 <- lapply(years, 
-                 FUN = function(x) readRDS(paste0("RData/V2.1_Feb2024/out_", x,
-                                                  "_min", min.duration, "_Tomo_v2.rds")))
+out.v2 <- lapply(years, FUN = function(x) readRDS(paste0("RData/V2.1_Feb2024/out_", x,
+                                                         "_min", min.duration, "_Tomo_v2.rds")))
 
 # just for 8 weeks in 2023
 #out.v2 <- lapply(years, FUN = function(x) readRDS(paste0("RData/V2.1_Mar2023_8weeks/out_", x, 
@@ -81,7 +78,7 @@ periods <-c(136, 135, 164, 178,
 # Or use it for other purposes.
 x <- length(periods)
 
-out.file.name <- paste0("RData/WinBUGS_", x, "yr_v2_min", min.duration, ".rds")
+out.file.name <- paste0("RData/WinBUGS_", x, "yr_NoCut_v2_min", min.duration, ".rds")
 #out.file.name <- paste0("RData/WinBUGS_", x, "yr_v2_min", min.duration, "_8weeks_2023.rds")
 
 Watch.Length. <- list()
@@ -372,6 +369,15 @@ MCMCparams <- list(n.iter = 100000,
 
 ```
 
+Compare the set up with a sucessful run from WinBUGS Ver2 2023.Rmd
+
+```{r}
+# success.run <- read_rds(file = "RData/WinBUGS_9yr_v2_min85_2023.rds")
+# 
+# success.data <- success.run$BUGS.data
+# 
+
+```
 
 
 Run WinBUGS if it hasn't been run..
@@ -387,7 +393,7 @@ if (!file.exists(out.file.name)){
   BUGS_out <- bugs(data = BUGS.data,
                   inits = BUGS.inits,
                   parameters = parameters,
-                  model.file="GW_Nmix_Orig.bugs",
+                  model.file="GW_Nmix_Orig_NoCut.bugs",
                   n.chains = MCMCparams$n.chains,
                   n.iter = MCMCparams$n.iter, 
                   n.burnin = MCMCparams$n.burnin, 
@@ -522,37 +528,9 @@ for (k in 1:dim(Daily.Est)[3]){
 
 all.stats <- do.call("rbind", stats.list) %>% group_by(year)
 
-
-```
-
-Figure out how many were observed per day, which are not stored in WinBUGS input. Then, divide them by watch length to come up with naive estimates of how many were seen per day. 
-
-```{r}
-obs.day <- BUGS.data$day
-Nhats <- list()
-k <- 1
-for (k in 1:ncol(obs.day)){
-  tmp.day <- BUGS.data$day[,k] %>% 
-    na.omit() 
-  tmp.n <- n.obs.primary[1:(length(tmp.day)-2),k]
-  tmp.watch <- BUGS.data$Watch.Length[1:(length(tmp.day)-2),k] %>% na.omit()
-  Nhats[[k]] <- data.frame(day = tmp.day[tmp.day > 1 & tmp.day < 90],
-                      n = tmp.n,
-                      watch = tmp.watch) %>%
-    group_by(day) %>%
-    summarize(day = first(day),
-              n = sum(n),
-              watch = sum(watch),
-              Nhat = n/watch,
-              year = seasons[k])
-  
-}
-
-Nhats.df <- do.call("rbind", Nhats) %>% group_by(year)
-
 ggplot(data = all.stats) + 
-  geom_line(aes(x = days, y = sp.median),
-            color = "darkorange") + 
+  geom_line(aes(x = days, y = sp.median)) + 
+  #geom_line(aes(x = days, y = com.median)) +
   geom_ribbon(aes(x = days, 
                   ymin = sp.LCL, 
                   ymax = sp.UCL),
@@ -565,16 +543,12 @@ ggplot(data = all.stats) +
                   ymax = com.UCL),
               fill = "red", 
               alpha = 0.5) +
-  geom_point(aes(x = days, y = Daily.Est.median),
-             shape = 16, fill = "blue", alpha = 0.3) +
-  geom_point(data = Nhats.df,
-             aes(x = day, y = Nhat),
-             shape = 4, color = "darkgreen", alpha = 0.5) +
   facet_wrap(vars(year)) +
   xlab("Days since December 1") + 
   ylab("Whales per day")
 
 ```
+
 
 
 ```{r}
@@ -652,7 +626,8 @@ ggplot(data = abundance.df) +
 
 #median(apply(exp(sp[,,4]),1,sum))
 
-#write_csv(abundance.df, file = Nhats.filename)
+
+write_csv(abundance.df, file = Nhats.filename)
 
 ```
 

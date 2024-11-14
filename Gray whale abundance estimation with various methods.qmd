@@ -1,0 +1,175 @@
+---
+title: "Gray whale abundance estimation with various methods"
+format: html
+editor: visual
+#bibliography: reference.bib
+#csl: marine-ecology-progress-series.csl
+---
+
+## Introduction
+
+Analytical methods to estimate abundance of gray whales from visual surveys at Granite Canyon, CA, have evolved over the years [@laakeGrayWhaleSouthbound2012; @durbanEstimatingGrayWhale2015]. Laake et al. (2012) used the distance sampling approach with generalized additive models (GAMs). Durban et al. (2015) developed a new method using a Bayesian N-mixture approach, which was approved by the IWC and it has been used for the analysis since the 2015/2016 season. Computation of the analysis is conducted using WinBUGS, which has become obsolete over the last decade or so. In this report, I compare the two approaches on all available data to compare the results from the two approaches. 
+
+During gray whale migration, the number of gray whale sightings at a location increases over time until it reaches its peak, then decreases. The method by Durban et al. used a Gaussian function to capture this general trend. Deviations from the Gaussian function was captured via fitting a spline function to the observed counts.
+
+At the field station located at Granite Canyon, CA, in order to estimate detectability of gray whales by visual observers, counts from two independent stations of paired observers operating simultaneously were compared during two years (2009/2010 and 2010/2011). The two watch stations were positioned 35 m apart at the same elevation (22.5 m) above sea level (Durban et al. 2015). For the years with only one station, detectability was extrapolated for all monitored watch periods based on the fitted model for detectability, where the counts for the south watch station were treated as zero inflated binomial outcomes. The binomial probability was specified as the product of an indicator function and the detectability ($u_{i,j,t} \times p_{i,j,t}$), where $u$ = 1 or 0 to indicate whether or not count data were collected from that station. This formulation ensured that structural zero counts from periods without a second watch did not contribute to the likelihood for estimation of $p$ or $N$ (Durban et al. 2015).
+
+Consistent with Laake et al. (2012), the model for detectability incorporated fixed effects for visibility ($V$) and Beaufort Scale ($B$), whereas observers were treated as random effects ($O$). These were modelled as additive effects on a general intercept so that the direction and magnitude of the estimated effects away from zero (no effect) could be assessed. The selection for the inclusion of these effects were accomplished by using Bayesian model selection with stochastic binary indicator variables $I$ to switch each of the three possible effects either in or out of the model.
+
+## Methods
+
+### Laake et al.'s approach
+
+
+
+### Durban et al.'s approach
+
+#### Mathematical description {.unnumbered}
+
+This section was extracted from Durban et al. (2015), almost verbatim. I edited some places to make explanations clearer in my mind and changed some symbols to make them consistent between theirs and my proposed approach, which is described later in this document. Durban et al.'s approach was conceptually simpler than that of Laake et al's. 
+
+The total counts of whales ($n_{i,d(j),t}$) during the watch period $j$ of the $d$th day in the year $t$ at the watch station $i$ was modeled as a binomial random deviate (in the paper, $j$ was not specified as the $j$th watch period during the $d$th day of the season):
+
+$$ n_{i,d(j),t} \sim BIN(N_{d(j),t}, p_{i,d(j),t}). $$
+
+The binomial $N_{d(j),t}$ parameter is the unknown total number of gray whales passing through the study area during the watch period $j$ in the $d$th day in the year $t$.
+
+The detection probability was modeled as a function of visibility (V), Beaufort scale (B), and observers (O).
+
+$$ logit(p_{i,d(j),t}) = logit(p_0) + I_{V} \beta_{V} V_{d(j),t} + I_{B} \beta_{B} B_{d(j),t}+ I_{O} \mathbf{\beta}^{O_{i,d(j),t} = o}_{O} $$
+
+where the intercept $p_0$ was the base detection probability in the absence of covariate effects, assigned a Uniform(0,1) prior distribution, and $logit(p_0) = ln(p_0/(1–p_0))$. For each fixed effect, $\beta_{B}$ and $\beta_{V}$, a Normal prior distribution with mean zero and standard deviation of 10 was used. The random effect for each observer was drawn from a Normal distribution with mean zero and standard deviation $\sigma_{O} \sim Uniform(0,10)$. Each binary indicator variable, I, was assigned a Bernoulli(0.5) distribution to specify equal probability of inclusion (1) or exclusion (0) of the effect in the model (Durban et al. 2015).
+
+A Poisson distribution ($N_{d(j),t} \sim Poisson(\lambda_{d(j),t})$) was used as a hierarchical prior for the distribution of abundances, and specified a model for the Poisson mean ($\lambda$) in terms of the number of whales passing each day ($d$), with an offset for the effort duration of each watch period, $E_{d(j),t}$ in decimal days (Laake et al., 2012):
+
+$$ log(\lambda_{d(j),t}) = log(E_{d(j),t}) + model_{d,t}$$
+
+$$ model_{d,t} = z_{d,t} f_{d,t} + (1 – z_{d,t}) g_{d,t} $$
+
+where $z_{d,t}$ is an indicator function (see below). $f_{d,t}$ and $g_{d,t}$ also are explained below.
+
+Days were specified as d = 0 to 90, where days were counted from 12:00am on 1 December, and we added an abundance of 0 whales passing for day 0 and 90 to anchor the fitted model when we assumed whales did not pass (Buckland et al. 1993).
+
+Estimates were derived from either of two competing models ['Common' ($f$) and 'Specific' ($g$), e.g., @li2012] describing changes in abundance across each annual migration. The model contributing each daily estimate was indicated using stochastic binary indicator variables $z_{d,t}$, each assigned a Bernoulli(0.5) prior distribution. As such, the posterior distribution of each $z_{d,t}$ indicated the probability of a daily estimate conforming to the common trend, allowing flexibility for departures from this trend that may only exist on certain days in certain years to be identified and modeled (rather than assuming all counts from an entire year conform to or depart from a common trend). The total number of whales passing at the survey location during each migration was then estimated by summing the expected value from the model averaged number of whales passing each day ($d$) from 0 to 90 (Laake et al., 2012).
+
+These estimates were then re-scaled to account for the differential passage rate at night (Perryman et al., 1999), based on the nine hour day multiplicative correction factor [@rugh2005]. Specifically, we applied a constant night time correction factor that was assumed to be a Normally distributed fixed effect with mean of 1.0875 and standard deviation of 0.037 [@perryman1999a].
+
+For the 'Common model' ($f_{d,t}$), we assumed a typical trend in abundance throughout each annual migration (e.g. Buckland et al., 1993), with abundance changes assumed Normally distributed around a migration mid-point. A Normal distribution was specified as a quadratic function of days, on the log scale:
+
+$$f_{d,t} = a_t + b_t *d_t + c_t * d^2_t$$
+
+where the mid-point of the migration curve for each year $t$ was derived by $–b_t/2a_t$. This assumed common migration curve allowed information to be 'borrowed' across years when needed, specifying association across years to strengthen inference about migration curves in years with relatively sparse counts. Each parameter was specified to be drawn from a hierarchical Normal distribution.
+
+$$ a_t \sim Normal(\mu_a, \sigma_a)$$
+
+$$ b_t \sim Normal(\mu_b, \sigma_b)$$
+
+$$ c_t \sim Normal(\mu_c, \sigma_c)$$
+
+and $\mu \sim Normal(0, 10)$ and $\sigma \sim Uniform(0, 10)$, for $a$, $b$, and $c$.
+
+This hierarchical and random effects approach allowed the timing, level and extent of the Normal migration curve to vary annually around the general pattern, if supported by the data.
+
+To acknowledge and incorporate deviations from the common Normal model, the selection of an alternative 'specific' migration model was allowed ($g_{d,t}$). The 'specific' model was a semi-parametric model that estimated the time trends independently for each year without making any prior assumptions about its form (e.g., Laake et al., 2012). In this model, the shape of the relationship of true abundance across days was determined by the data via penalized splines [@ruppert2002].
+
+A linear (on the log scale) penalized spline was used to describe this relationship [@crainiceanu2005]:
+
+$$ g_{d,t} = S_{0,t} + S_{1,t} * d_t + \sum_{k=1}^{m} \lambda_{k,t} (d_t – \kappa_{k,t}) $$ Where $S_{0,t}, S_{1,t}$ and $\lambda_{1,t}, \dots, \lambda_{m,t}$ were regression coefficients to be estimated separately for each year and $\kappa_{1,t} < \kappa_{2,t} < \dots < \kappa_{m,t}$ were fixed knots. To ensure the desired flexibility, we used m = 15 knots, which is a relatively large number. To avoid overfitting, the $\lambda$'s were penalized by assuming that they were Normally distributed random variables with mean 0 and standard deviation $\sim Uniform(0,10)$. The parameters $S_{0,t}, S_{1,t}$ were modeled as fixed effects with Normal(0, 10) prior distributions.
+
+#### Some concerns about Durban et al's method {.unnumbered}
+
+The mean of the Poisson distribution was modeled in terms of the number of whales passing each day ($d$), with an offset for the effort duration of each watch period, $E_{d(j),t}$ in decimal days. This formulation was fine in Laake et al's approach because a GAM was fitted to observed counts. In Durban's approach, however, the mean of the Poisson distribution ($\lambda$) models the true abundance, which should not be a function of effort.  
+
+The approach in Durban et al. (2015) used the "cut" function within WinBUGS to dissociate estimated parameters in one function (i.e., $f_{d,t}$ or $g_{d,t}$) from those in the other function (i.e., $g_{d,t}$ or $f_{d,t}$, respectively). The function (cut) is unavailable in modern Bayesian computation packages (e.g., JAGS, STAN) and its use has been questioned [@plummer2015]. In short, "cut" function does not converge to a well-defined limiting distribution (Plummer 2015). In addition, the assumption that the number of gray whales migrating in front of the observation station follows a Gaussian distribution centered around the mid point of the pre-defined migration season is somewhat questionable. The true curve in abundance may not be symmetric around a peak and the peak may not be instantaneous. In other words, the peak may persist for a few days. Fitting spline functions to observed counts may alleviate some of these problems. Consequently, I removed the Gaussian portion of Durban's approach and translated into JAGS from WinBUGS. I also ran Laake's approach on all data to compare abundance estimates from methods by Laake et al. and spline-only.
+
+### An alternative approach using a non-symmetrical function 
+
+I'm not sure if the approach using Richards function should be included here... Rather than coming up with a new function, I wonder we can do the same N-mixture approach with GAM or spline-only fitting to the observed counts.  
+
+## Results
+
+### Laake's approach
+
+I used the ERAnalysis package (https://github.com/jlaake/ERAnalysis) to obtain code and data (1967/1968 - 2006/2007). Data for recent years (2009/2010 - 2023/2024) were arranged to the input format and analysis ran. The analysis was run in LaakeAnalysis_NewData.R and results saved in a file. 
+
+```{r}
+rm(list = ls())
+
+# from LaakeAnalysis_NewData.R
+library(tidyverse)
+library(ERAnalysis)
+library(readr)
+library(ggplot2)
+
+Laake.estimates <- read_csv("Data/all_estimates_Laake_2024.csv",
+                            col_types = cols(Year = col_integer(),
+                                             Nhat = col_double(),
+                                             SE = col_double(),
+                                             CV = col_double(),
+                                             Season = col_character(),
+                                             CL.low = col_double(),
+                                             CL.high = col_double())) %>%
+  rename(Start.Year = Year) %>%
+  mutate(Year = Start.Year + 1,
+         Method = "Laake") %>%
+  select(Year, Nhat, CV, SE, Season, CL.low, CL.high, Method)
+
+
+```
+
+### Durban's approach
+
+Analysis was conducted in WinBUGS Ver2.Rmd. (Ver2 refers to the data extraction protocol. Ver1 was the method of Stewart. I found some inconsistencies in the method so I created a new script (Extract_Data_All_v2.Rmd).) Results were saved in  
+
+```{r}
+seasons <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011", 
+             "2014/2015", "2015/2016", "2019/2020", "2021/2022",
+             "2022/2023", "2023/2024")
+
+x <- length(seasons)
+
+# The most recent estimates (2023/2024) are here:
+Durban.estimates <- read_csv(file = "Data/abundance_2024_85min.csv",
+                             col_types = cols(Season = col_character(),
+                                              total.mean = col_double(),
+                                              total.CV = col_double(),
+                                              total.median = col_double(),
+                                              total.LCL = col_double(),
+                                              total.UCL = col_double())) %>%
+  transmute(Year = lapply(str_split(Season, "/"), 
+                       FUN = function(x) x[2]) %>% 
+              unlist() %>% 
+              as.numeric(),
+            Nhat = total.mean,
+            CV = total.CV/100,
+            SE = CV * Nhat,   
+            Season = Season,
+            CL.low = total.LCL,
+            CL.high = total.UCL,
+            Method = "Durban") %>%
+  relocate(SE, .before = CV)
+
+
+```
+
+
+### Comparison
+
+The two approaches were applied to the datasets from the 2006/2007 season to the 2023/2024 season, except the 2007/2008 season. Durban's approach generally provided higher point estimates than Laake's approach (Figure). I have not run the entire dataset with WinBUGS code. Given 10 data points require 12 hrs, the entire dataset would probably take 1.5 days. 
+
+```{r}
+all.estimates <- rbind(Laake.estimates, Durban.estimates) %>%
+  arrange(by = Year)
+
+all.years <- data.frame(Year = seq(min(all.estimates$Year), max(all.estimates$Year)))
+
+all.years %>% left_join(all.estimates, by = "Year") -> all.estimates.df
+
+ggplot(all.estimates.df) +
+  geom_point(aes(x = Year, y = Nhat, color = Method)) +
+  geom_errorbar(aes(x = Year, ymin = CL.low, ymax = CL.high, color = Method))
+
+```
+
+
+

@@ -1,0 +1,263 @@
+# This is a similar model to the original BUGS code except the normal distribution
+# and the cut function are removed. Also, the maximum number of days is
+# an input, rather than fixed at 90. Also, I changed it so that the secondary 
+# station can have its own independent sighting data, not linked to the same 
+# period as the primary station. Primary and secondary stations are treated independent. 
+#
+# This is for JAGS, not WinBUGS.
+
+# 2024-03-20
+
+model{ 
+  
+  # count i
+  # station (Trailer) s
+  # year t
+    
+  ### Linking Lambda from N Mixture to Spline Model
+  # For Laake's dataset, they surveyed beyond day 90 (max is 95).
+  # So, n.days needs to be defined for either (1) each year differently, (2) a larger number, 
+  # e.g., 100, or (3) 90 if max day is < 90, but something else, e.g., 100, if > 90. 
+  
+  # sp (the number of whales) is defined for each day, whereas observed n is for each period. 
+  # A period is a survey duration in which the sighting condition and observers were constant, 
+  # up to 90 minutes.  
+  #
+  # The mean number of passing whales was proportional to the observation duration in proportion 
+  # (max = 90 x 6 = 540 minutes per day).
+  
+  # lambda.1 and lambda.2 are the mean number of observable whales by station 1 and 2, respectively.  
+  # the total number of whales in a day (sp) is multiplied (addition in the log space) by the 
+  # proportion of the watch length.
+  
+  # For days 1 and 90, watch length is 1.0. This makes it the zero "observation" 
+  # a certainty. For periods with no secondary station,
+  # watch length matrix for the secondary station has NA.
+
+  for(t in 1:n.year){
+	for(j.1 in 1:(periods.1[t]+2)){
+        
+		log(lambda.1[j.1,t]) <- log(Watch.Length.1[j.1,t]) + sp[day.1[j.1,t], t]
+	}#j.1
+	
+	for(j.2 in 1:(periods.2[t]+2)){
+      
+		log(lambda.2[j.2,t]) <- log(Watch.Length.2[j.2,t]) + sp[day.2[j.2,t], t]
+	} #j.2
+	
+  }#t
+  
+  ### N Mixture process
+  # Primay and secondary observers are not always "on" at the same time. So, the number of periods
+  # can be different between the stations. N is the number of observable whales, accounting for
+  # the observation duration - see above lines watch.length x sp. sp is the number of whales for 
+  # that day. N.1 and N.2 are different because watch durations are different between stations.
+  for(t in 1:n.year){
+    # Primary
+	for(j.1 in 1:(periods.1[t])){ 
+        # N mixture model - observations of 'observable' N (passing whales)
+        n.1[j.1,t] ~ dbin(obs.prob.1[j.1,t], N.1[j.1,t]) 
+		log.lkhd.1[j.1,t] <- logdensity.bin(n.1[j.1,t], obs.prob.1[j.1,t], N.1[j.1,t])
+                            
+	}#j.1
+    
+	# Secondary
+	for(j.2 in 1:(periods.2[t])){
+      
+		# N mixture model - observations of 'observable' N (passing whales), 		
+		n.2[j.2,t] ~ dbin(obs.prob.2[j.2,t], N.2[j.2,t]) 
+		log.lkhd.2[j.2,t] <- logdensity.bin(n.2[j.2,t], obs.prob.2[j.2,t], N.2[j.2,t])
+	}#j.2    
+  }#t
+
+  # The primary station usually has equal or more periods than the secondary (not always).		
+  # With this formulation, even if the watch length is equal between the station, the
+  # true N may be different between the stations because they are random deviates.
+
+  # The 'observable' N's for a given period are Poisson distributed with 
+  # the mean whales per watch (lambda) 
+  for(t in 1:n.year){
+    for(j.1 in 1:(periods.1[t]+2)){ 
+
+		N.1[j.1, t] ~ dpois(lambda.1[j.1, t]) 
+    }#j.1
+	
+	for(j.2 in 1:(periods.2[t]+2)){ 
+
+		N.2[j.2, t] ~ dpois(lambda.2[j.2, t]) 
+	}#j.2
+
+  }#t
+  
+  ### Observation probability
+  # obs prob = observer 1/0 * 
+  #                (base obs prob + 
+  #                 Fixed effect of BF * BF + 
+  #                 Fixed effect of VS * VS    + 
+  #                 Random effect of observer)
+
+  # the u data is whether there were observers on watch (u.1 and u.2 for primary and secondary). 
+  for(t in 1:n.year){
+    # Primary
+	for(j.1 in 1:periods.1[t]){
+		
+		# Without switches because they should be in there
+		# Also... mean is year-specific, rather than one mean
+		logit(prob.sp.1[j.1,t]) <- logit(mean.prob.sp.1[t]) + BF.Fixed.sp.1 * bf.1[j.1,t] + VS.Fixed.sp.1 * vs.1[j.1,t] + (OBS.RF.sp[obs.1[j.1,t]])
+        
+		obs.prob.1[j.1,t] <- ifelse(u.1[j.1,t] == 1, prob.sp.1[j.1,t], 0)
+		        
+    }#j.1
+	  
+	# Secondary
+	for (j.2 in 1:periods.2[t]){
+
+		# Without switches because they should be in there
+		logit(prob.sp.2[j.2,t]) <- logit(mean.prob.sp.2[t]) + BF.Fixed.sp.2 * bf.2[j.2,t] + VS.Fixed.sp.2 * vs.2[j.2,t] + (OBS.RF.sp[obs.2[j.2,t]])
+		
+	    obs.prob.2[j.2,t] <- ifelse(u.2[j.2,t] == 1, prob.sp.2[j.2,t], 0)
+	}#j.2
+  }#t
+  
+  # Uninformative prior for mean.prob
+  # mean.prob.sp.1 ~ dunif(0,1)
+  # mean.prob.sp.2 ~ dunif(0,1)
+  
+  ### Specification of terms within observation probability linear model
+  
+  ## Observer random effect
+  for(o in 1:n.obs){
+    OBS.RF.sp[o] ~ dnorm(0, tau.Obs.sp)
+  }#o
+  
+  # Uninformative prior for tau.Obs (I don't think Unif(0,2) was uninformative... )
+  sigma.Obs.sp ~ dgamma(1, 0.5)
+  #sigma.Obs.sp ~ dunif(0,2)
+  tau.Obs.sp <- pow(sigma.Obs.sp, -2)
+  
+  #OBS.Switch.sp.1 ~ dbern(0.5)
+  #OBS.Switch.sp.2 ~ dbern(0.5)
+  
+  ## Beaufort and visibility
+  #uninformative prior for the BF.Switch and VS.Switch, which determines whether to include the effect of beaufort conditions (multiply by 0 or 1) - Should these be year-specific? Does that make sense?
+  # It seems that these should be always included, rather than trying to exclude in some years... 
+  
+  #Below is the single fixed effect multiplied by BF rating in the updated obs prob equation:
+  BF.Fixed.sp.1 ~ dnorm(0,0.01)
+  BF.Fixed.sp.2 ~ dnorm(0,0.01)
+  
+  VS.Fixed.sp.1 ~ dnorm(0,0.01)
+  VS.Fixed.sp.2 ~ dnorm(0,0.01)
+	
+  # year-specifi priors	
+  for (t in 1:n.year){
+  
+    mean.prob.sp.1[t] ~ dunif(0,1)
+    mean.prob.sp.2[t] ~ dunif(0,1)
+  
+	#Below is the single fixed effect multiplied by BF rating in the updated obs prob equation:
+	#BF.Fixed.sp.1[t] ~ dnorm(0,0.01)
+	#BF.Fixed.sp.2[t] ~ dnorm(0,0.01)
+  
+	## Visibility	
+	#Below is the single fixed effect multiplied by VS rating in the updated obs prob equation:
+	#VS.Fixed.sp.1[t] ~ dnorm(0,0.01)
+	#VS.Fixed.sp.2[t] ~ dnorm(0,0.01)
+	
+	# mean and sd of the time vector below
+    mean.time.sp[t] <- mean(time.sp[1:n.days[t], t])
+    sd.time.sp[t] <- sd(time.sp[1:n.days[t], t])
+  }#t
+  
+  ### Seasonal Curve Models
+  for(t in 1:n.year){
+	for(d in 1:max.n.days){ 
+    
+		time.sp[d,t] <- d
+		# this makes a 'covariate', which is just a straight line
+        covariate.sp[d,t]<-(time.sp[d,t] - mean.time.sp[t])/sd.time.sp[t] 
+
+	}#d
+  }#t
+
+  ## spline fit Specific Model
+  # step(x) = 1 if x >= 0, else = 0
+  for(t in 1:n.year){  
+    for(d in 1:max.n.days){
+	  	
+      for(k in 1:n.knots){
+        Z1[d,k,t] <- pow(uZ1[d,k,t], 1)   # I'm not sure what this does... shouldn't make any dif
+        uZ1[d,k,t] <- (covariate.sp[d,t] - knot[k]) * step(covariate.sp[d,t] - knot[k])
+      }#k
+    }#d
+  }#t
+  
+  # this makes three vectors related to day 'd' - one a flat line, one a straight increasing line 
+  for(t in 1:n.year){
+	for(d in 1:max.n.days){
+		for (l in 1:2){
+			
+			X.sp[d,l,t] <- pow(covariate.sp[d,t], l-1) 
+		}#l
+    }#d
+  }#t
+
+  # I changed these to common among years rather than year-specific as it was defined
+  # below. 2024-07-02
+  tau.b.sp <- pow(sd.b.sp, -2)
+  sd.b.sp ~ dunif(0,10) #uniform prior on regression coefficient SD, as per Durban et al
+  
+  tau.beta.sp <- pow(sd.beta.sp, -2)
+  sd.beta.sp ~ dunif(0, 100)
+  
+  for(t in 1:n.year){  
+    for(k in 1:n.knots){
+      #b.sp[k, t] ~ dnorm(0, tau.b.sp[t]) #annual regression coefficients for each spline knot
+	  b.sp[k, t] ~ dnorm(0, tau.b.sp) #annual regression coefficients for each spline knot
+    }#k
+    
+    #tau.b.sp[t] <- pow(sd.b.sp[t], -2)
+    #sd.b.sp[t] ~ dunif(0,10) #uniform prior on regression coefficient SD, as per Durban et al
+  
+    for(l in 1:2){
+      beta.sp[l, t] ~ dnorm(0, tau.beta.sp) # prior for S0 and S1 coefficients, as per Durban et al
+    }#l
+
+    for(d in 1:max.n.days){
+      # multiplying splines across days to make the penalized spline model fit
+      sp[d, t] <- inprod(beta.sp[,t], X.sp[d,,t]) + inprod(b.sp[,t], Z1[d,,t]) 
+	
+      # NOTE: Model is inverse-logged (exp) as below for the full season summation
+      log(exp.sp[d,t]) <- sp[d,t]  
+
+    }#d
+  }#t
+  
+  ### Summaries, Abundance Estimates, and Other Derived Quantities
+  
+  ## Seasonal Abundance Estimate:
+  for(t in 1:n.year){
+    raw.unrounded[t] <- sum(exp.sp[1:max.n.days, t])
+    Raw.Est[t] <- round(raw.unrounded[t])
+	
+	# multiply raw estimates by correction factor for nighttime passage rates (below)
+	#(Perryman et al. 1999 Marine Mammal Science)
+    Corrected.Est[t] <- Raw.Est[t] * corr.factor 
+  }#t
+  
+  # Correction factor for nighttime passage rates:
+  corr.factor ~ dnorm(mean.corr, tau.corr)
+  mean.corr <- 1.0875
+  sd.corr <- 0.03625
+  tau.corr <- pow(sd.corr, -2)
+  
+  # In the paper, Perryman et al. stated that "... the multiplicative correction 
+  # factor for the entire visual survey based on a 15-h nocturnal (i.e., non-survey)
+  # period would be 1 + 0.175f (SE = 0.116 * (14/24)), where f is the fraction of total
+  # whales migrating afer 15 January." So, fixing the mean to be 1.0875, it assumes that
+  # the median date of migration is Jan 15 (1 + 0.175 * 0.5 = 1.0875). This may have to
+  # be fixed to adjust for the changing median migration date. SE of 0.03625 was not found
+  # in the paper... 0.116*(14/24) = 0.0677
+  
+}#model
+    

@@ -1,4 +1,4 @@
-
+# Removed the cut function from the original model. 
 
     model{
       
@@ -28,10 +28,10 @@
 #        log(lambda[d,t]) <- log(Watch.Length) + selected[d,t] # the 'best-fit' model, selected through the deily z switch
         
         com.tmp[d,t] <- com[d,t] # coded with an intermediate 'temp' vector, identical to John's code (but with dsum() instead of cut())
-        com.cut[d,t] <- cut(com.tmp[d,t]) #to prevent feedback (supposedly analogous to cut() function in BUGS)
+        #com.cut[d,t] <- cut(com.tmp[d,t]) #to prevent feedback (supposedly analogous to cut() function in BUGS)
         
         sp.tmp[d,t] <- sp[d,t]
-        sp.cut[d,t] <- cut(sp.tmp[d,t])
+        #sp.cut[d,t] <- cut(sp.tmp[d,t])
       
   
         #selected[d,t] <- (z[d,t]*com[d,t]) + (1-z[d,t])*sp[d,t] #where com[] is the common seasonal curve model, sp[] is the specific spline model, and z[d,t] is the dbern(0.5) daily switch to select between model types. Also consider a simple annual switch, z[t] instead of selecting daily
@@ -46,7 +46,7 @@
     for(t in 1:n.year){
       for(j in 1:(periods[t]+2)){
       
-        selected[j,t] <- (z[day[j,t],t]*com.cut[day[j,t],t]) + (1-z[day[j,t],t])*sp.cut[day[j,t],t] #where com[] is the common seasonal curve model, sp[] is the specific spline model, and z[d,t] is the dbern(0.5) daily switch to select between model types. Also consider a simple annual switch, z[t] instead of selecting daily
+        selected[j,t] <- (z[day[j,t],t]*com.tmp[day[j,t],t]) + (1-z[day[j,t],t])*sp.tmp[day[j,t],t] #where com[] is the common seasonal curve model, sp[] is the specific spline model, and z[d,t] is the dbern(0.5) daily switch to select between model types. Also consider a simple annual switch, z[t] instead of selecting daily
 
         
         log(lambda.com[j,t]) <- log(Watch.Length[j,t]) + com[day[j,t],t] #common model daily lambda fit
@@ -278,7 +278,7 @@
   for(t in 1:n.year){
     for(d in 1:90){
       # Daily estimate, based on either the common model (f) or the specific model (sp). For days with observations, this should have a somewhat confident z estimate. For days with no watches, I assume it will be balanced 50/50 between the two models
-      log(Daily.Est[d,t]) <- z[d,t]*com.cut[d,t] + (1-z[d,t])*sp.cut[d,t] #where sp[] is the specific model, and z[j,t] is the dbern(0.5) daily switch to select between model types. Also consider a simple annual switch, z[t] instead of selecting daily
+      log(Daily.Est[d,t]) <- z[d,t]*com.tmp[d,t] + (1-z[d,t])*sp.tmp[d,t] #where sp[] is the specific model, and z[j,t] is the dbern(0.5) daily switch to select between model types. Also consider a simple annual switch, z[t] instead of selecting daily
 
       #Daily.Est[d,t] <- z[d,t]*Common[d,t] + (1-z[d,t])*Specific[d,t]
 

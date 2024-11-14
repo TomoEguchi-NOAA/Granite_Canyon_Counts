@@ -9,7 +9,7 @@ output:
 ```{r setup, include=FALSE}
 rm(list = ls())
 knitr::opts_chunk$set(echo = TRUE)
-save.fig <- F
+save.fig <- T
 
 source("Granite_Canyon_Counts_fcns.R")
 library(tidyverse)
@@ -18,6 +18,8 @@ library(flextable)
 
 set_flextable_defaults(font.size = 9,
                        font.family = "Cambria")
+
+
 # some constants here:
 # # periods for the 6 survey years
 periods <-c(136, 135, 164, 178, 179, 151)

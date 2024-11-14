@@ -1,0 +1,26 @@
+# Tweedie jags code from https://stackoverflow.com/questions/63473064/how-do-you-code-a-tweedie-distribution-in-jags-bugs
+
+y = mgcv::rTweedie(mu=rep(2,100),p=1.33,phi=1)
+shape_mat <- matrix(NA, nrow=length(y), ncol=2)
+shape_mat[,2] <- 1
+jags_data = list(y=y,n=length(y), yind = 2-(y > 0), shape = shape_mat)
+
+ model{
+    
+    for (i in 1:n) {
+      lambda[i] <- pow(mu,2-p)/(phi *(2-p))
+      num[i] ~ dpois(lambda[i])
+      shape[i,1] <- num[i]*((2-p)/(p-1))
+      rate[i,1] <- 1/(phi*(p-1)*pow(mu,p-1))
+      ## moved to data
+      # shape[i,2] <- 1
+      rate[i,2] <- exp(-lambda[i])
+      # Takes shape/rate parameter 1 if y > 0 and 2 if y = 0
+      y[i] ~ dgamma(shape[i,yind[i]],rate[i,yind[i]]) 
+    }
+    
+    mu    ~ dunif(0,100)
+    p     ~ dunif(1,2)  ## Tweedie power parameter
+    phi   ~ dunif(0,30) ## Dispersion parameter
+    
+  }

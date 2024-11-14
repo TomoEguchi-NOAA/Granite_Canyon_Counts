@@ -1,0 +1,148 @@
+# JAGS model for estimating gray whale abundance off Granite Canyon
+
+# known cyclical nature of gray whale counts is modeled by the function
+# provided in Girondot et al. (2007): Modeling approaches to quantify
+# leatherback nesting trends in French Guiana and Suriname. Chelonian
+# Conservation and Biology 6(1): 37-46.
+#
+# The function has the following form:
+# S1 <- -S
+# M1 <- (1 + (2 * exp(K) - 1) * exp((1/S1) * (P - d))) ^ (-1/exp(K))
+# M2 <- (1 + (2 * exp(K) - 1) * exp((1/S) * (P - d))) ^ (-1/exp(K))
+# N <- min + (max - min) * (M1 * M2)
+#
+# d is the number of days from the beginning of nesting season
+# S > 0 and S1 = -S define the "fatness" of the function
+# K > 0 defines the "flatness" at the peak of the function
+# P defines where the peak is relatvie to the range of d min(d) < P < max(d)
+# min is "the basal level of nesting outside the nesting season"
+# max > min
+#
+# Observed counts are assumed to be binomial distribution from this function and
+# sighting probability, which is a function of visibility, Beaufort, and observer.
+
+
+model{
+
+	# Define Richards function - this is the mean of "true" daily abundance
+	# The realization is a normal deviate with the mean and variance, which
+	# changes with the mean, while the CV remains constant. 
+	for (y in 1:n.year){
+		# by assumption:
+		mean.N[1,y] <- 0
+		mean.N[90,y] <- 0
+		N[1,y] ~ dnorm(mean.N[1,y], 1)T(0,)
+		N[90,y] ~ dnorm(mean.N[90,y], 1)T(0,)
+		
+		for (t in 2:89){
+			M1[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/(-S2[y])) * (P[y] - t))) ^ (-1/exp(K[y]))
+			M2[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K[y]))
+			mean.N[t, y] <- (max.vec[y]) * (M1[t, y] * M2[t, y])
+			
+			sigma.N[t,y] <- cv.N * mean.N[t,y]
+			tau.N[t,y] <- sigma.N[t,y] ^ (-2)
+			N[t, y] ~ dnorm(mean.N[t,y], tau.N[t,y])T(0,)
+			
+		}
+	}  
+
+	# observations are from the realized abundance: N-mixture part with 
+	# binomial sampling, where the probability is modeled below
+	for (y in 1:n.year){
+		for (s in 1:n.station[y]){
+			for (d in 1:periods[y]){
+				# observation
+				#n[d, s, y] ~ dpois(N[day[d,y], y] * obs.prob[d,s,y])   
+				n[d, s, y] ~ dbin(obs.prob[d, s, y], round(N[day[d,y], y]))
+			}
+		}
+	}
+
+	# priors for Richards function parameters. Year-specific parameters
+	# seem to work better than common parameters
+	for (y in 1:n.year){
+		max[y] ~ dnorm(max.vec[y], 0.001)T(0,)
+		S1[y] ~ dunif(-5, 0)
+		S2[y] ~ dunif(0, 7)
+		K[y] ~ dunif(0, 3)
+		P[y] ~ dunif(20, 80)
+
+	}
+
+	#S ~ dunif(0, 7)
+	#K ~ dunif(0, 2)
+	
+	### Observation probability - include the watch period durations
+	for(y in 1:n.year){
+		for(s in 1:n.station[y]){
+			for(d in 1:periods[y]){
+
+				# Final obs prob = observer 1/0 * 
+				#                (base obs prob + BF on/off * Fixed effect of BF * BF + 
+				#                 VS on/off * Fixed effect of VS * VS    + 
+				#                Obs effect on/off * Random effect of observer)
+
+				logit(prob[d,s,y]) <- logit(mean.prob) + 
+								(BF.Switch * BF.Fixed * bf[d,y]) + 
+								(VS.Switch * VS.Fixed * vs[d,y]) + 
+								(OBS.Switch * OBS.RF[obs[d,s,y]])						
+       
+				# watch.prop is the proportion of the total watch periods in a day (540 minutes) that
+				# was actually observed. 
+				obs.prob[d,s,y] <- watch.prop[d,y] * prob[d,s,y]
+                
+			}#d
+		}#s
+	}#y
+  
+	# Flat prior for mean.prob
+	mean.prob ~ dunif(0,1)
+    
+	### Specification of terms within observation probability linear model
+  
+	## Observer random effect
+	for(o in 1:n.obs){
+		OBS.RF[o] ~ dnorm(0,tau.Obs)
+	}#o
+  
+	sigma.Obs ~ dgamma(1, 0.1)
+	tau.Obs <- pow(sigma.Obs,-2)
+       
+	OBS.Switch ~ dbern(0.5)
+  
+	## Beaufort
+	#uninformative prior for the BF.Switch, which determines whether to include the effect of beaufort conditions (multiply by 0 or 1)
+	BF.Switch ~ dbern(0.5) 
+  
+	#Below is the single fixed effect multiplied by BF rating in the updated obs prob equation:
+	BF.Fixed ~ dnorm(0,0.01)
+  
+	## Visibility
+	VS.Switch ~ dbern(0.5) #uninformative prior for the VS.Switch
+    
+	#Below is the single fixed effect multiplied by VS rating in the updated obs prob equation:
+	VS.Fixed ~ dnorm(0,0.01)
+  
+	### Summaries, Abundance Estimates, and Other Derived Quantities 
+	for(t in 1:n.year){
+	
+		raw.unrounded[t] <- sum(N[1:90,t])
+		Raw.Est[t] <- round(raw.unrounded[t])
+	
+		# multiply raw estimates by correction factor for nighttime passage rates (below)
+		Corrected.Est[t] <- Raw.Est[t] * corr.factor 
+	}#t
+  
+
+	# Correction factor for nighttime passage rates:
+	corr.factor ~ dnorm(mean.corr, tau.corr)
+	mean.corr <- 1.0875
+	sd.corr <- 0.03625
+	tau.corr <- pow(sd.corr,-2)
+  
+	sigma.n ~ dgamma(0.1, 0.01)
+	tau.n <- sigma.n ^ (-2)
+	
+	cv.N ~ dbeta(1,1)
+	
+}

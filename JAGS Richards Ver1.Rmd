@@ -1,0 +1,563 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This notebook describes an attempt to use Richards' function to estimate the true N in the N-mixture model of Granite Canyon counts. The observed counts are binomial deviates with the "true" N and capture probabilities that are affected by covariates; Beaufort sea state, visibility, and observers.  
+
+
+The station information needs to be added. The data files that I have don't have that info... this needs to be fixed in the future. 
+
+Set up libraries
+
+```{r}
+rm(list=ls())
+library(abind)
+library(jagsUI)
+library(tidyverse)
+library(bayesplot)
+library(loo)
+
+source("Granite_Canyon_Counts_fcns.R")
+# library(mgcv)
+# library(splines)
+
+# Poisson seems to work better than binomial
+#obs.model <- "pois"
+#obs.model <- "bino"
+#models <- "norm_bino"
+#models <- "norm_pois"
+models <- "pois_bino"
+#ver <- "v2"  # "v1" has a common K and "v2" has year-specific K
+#ver <- "v3"  # "v3" has year-specific K parameters with hyper-parameters.
+ver <- "v4"  # "v4" has common K and P parameters with hyper-parameters.
+
+#jags.model <- paste0("models/model_Richards_", models, ".txt")
+jags.model <- paste0("models/model_Richards_", models, "_", ver, ".txt")
+
+out.file.name <- paste0("RData/JAGS_Richards_", models, "_", ver,  
+                        "_", Sys.Date(), ".rds")
+
+# Observer list gets updated as new observers are added. 
+# obs.list <- read.csv("Data/Observer list.csv", header = T) 
+# colnames(obs.list) <- c("obs", "ID")
+seasons <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011",
+             "2014/2015", "2015/2016", "2019/2020", "2021/2022",
+             "2022/2023", "2023/2024")
+
+#seasons <- c("2014/2015", "2015/2016", "2019/2020", "2021/2022")
+
+n.seasons <- length(seasons)
+
+# Load the most recent data that were newly extracted for the last four surveys:
+# Using Final_Data, which contains only data for observation periods that are 90 +/- 5 minutes
+# This can be changed to use all data (Data_Out) in the future 2022-09-06 - this was
+# done and seemed to work fine. See below. I'm now using Durban's data. I don't know
+# how this dataset was extracted as it has "v2" on it... Compare it to "v1" later. 2022-09-15
+
+# Final_Data <- list()
+# k <- 3
+# for (k in 1:length(seasons)){
+#   tmp <- readRDS(paste0("RData/V2.1_Aug2022/out_",
+#                         strsplit(seasons[k], "/")[[1]][2],
+#                         "_Tomo_v2.rds"))
+# 
+#   #Final_Data[[k]] <- tmp$Final_Data %>%
+#   Final_Data[[k]] <- tmp$Data_Out %>%  
+#     mutate(Year = as.numeric(strsplit(seasons[k], "/")[[1]][2]),
+#            Day = as.numeric(BeginDay)) %>%
+#     # right_join(., data.frame(Day = 1:90,
+#     #                          n = NA,
+#     #                          Year = as.numeric(strsplit(seasons[k], "/")[[1]][2])), 
+#     #            by = "Day") %>%
+#     # 
+#     # select(Year.y, Day, n.x, n.y, dur, bf, vs, obs, begin) %>%
+#     # mutate(n = n.x,
+#     #        effort = ifelse(is.na(dur), 0, dur),
+#     #        Year = Year.y) %>%
+#     # select(-c(Year.y, n.x, n.y, dur)) %>%
+#     # arrange(Day) 
+#     mutate(effort = dur) %>%
+#     select(Year, Day, effort, bf, vs, n, obs)
+#   
+#     #complete(Day, i) %>%
+#     #filter(!is.na(i))
+# 
+# }
+# 
+# Final_Data.all <- do.call(rbind, Final_Data)
+# Final_Data.all$St <- 1            # for this one, we only have 1 station (2022-08-19)
+# 
+# # Find all observers and change them into integer code:
+# unique.obs <- unique(Final_Data.all$obs)
+# unique.obs <- unique.obs[!is.na(unique.obs)]
+# obs.ID.df <- data.frame(obs = unique.obs,
+#                         obs.ID = 1:length(unique.obs))
+# 
+# Final_Data.all %>% 
+#   left_join(obs.ID.df, by = "obs") %>% 
+#   select(-obs) -> Final_Data.all
+# 
+# # figure out the number of periods
+# Final_Data.all %>% 
+#   group_by(Year) %>%
+#   #filter(effort > 0) %>%
+#   summarise(n = n()) -> periods
+# 
+# Final_Data.all$n[Final_Data.all$effort == 0] <- NA
+# 
+# years <- unique(Final_Data.all$Year)
+
+# v2 refers to v2 data extraction. 
+data.v2 <- readRDS("RData/WinBUGS_10yr_v2_min85.rds")
+data.WinBUGS <- data.v2$BUGS.data
+
+# watch lengths are assumed equal between primary and secondary stations in
+# WinBUGS code. But not in Jags. So, I duplicate the secondary watch effort
+
+bf <- vs <- array(dim = c(max(data.WinBUGS$periods),
+                                 2, 
+                                 length(data.WinBUGS$periods)))
+
+watch.prop <- day <- array(dim = c(dim(data.WinBUGS$Watch.Length)[1],
+                            2, 
+                            dim(data.WinBUGS$Watch.Length)[2]))
+
+bf[,1,] <- data.WinBUGS$bf
+bf[,2,] <- data.WinBUGS$bf
+
+vs[,1,] <- data.WinBUGS$vs
+vs[,2,] <- data.WinBUGS$vs
+
+day[,1,] <- data.WinBUGS$day
+day[,2,] <- data.WinBUGS$day
+
+watch.prop[,1,] <- data.WinBUGS$Watch.Length
+watch.prop[,2,] <- data.WinBUGS$Watch.Length
+
+run.date <- "2024-11-01" #Sys.Date()
+out.file.name <- paste0("RData/JAGS_Richards_", 
+                        models, "_", ver,
+                        "_10yr_v2_", run.date, ".rds")
+
+```
+
+The daily mean is a function of days (1:90)
+
+```{r data_setup}
+# Final_Data.all %>% 
+#   group_by(Year, Day) %>%
+#   summarise(daily.effort = sum(effort, na.rm = T)) %>%
+#   pivot_wider(values_from = daily.effort,
+#               names_from = Year,
+#               names_prefix = "Y")-> daily.effort
+# 
+# # daily.effort %>%
+# #   #group_by(Day) %>%
+# #   summarise_at(vars(Y2015:Y2022), funs(Day[. > 0][1])) %>%
+# #   select(starts_with("Y")) -> first.day
+# 
+# Final_Data.all %>% 
+#   group_by(Year, Day) %>%
+#   summarise(daily.counts = sum(n, na.rm = T)) %>%
+#   pivot_wider(values_from = daily.counts,
+#               names_from = Year,
+#               names_prefix = "Y")-> daily.counts
+# 
+# # Final_Data.all %>% 
+# #   group_by(Year, Day) %>%
+# #   summarise(daily.effort = sum(effort, na.rm = T),
+# #             daily.counts = sum(n, na.rm = T)) %>%
+# #   mutate(daily.N = daily.counts/daily.effort) %>%
+# #   select(-c(daily.effort, daily.counts)) %>%
+# #   pivot_wider(values_from = daily.N,
+# #               names_from = Year,
+# #               names_prefix = "Y")-> daily.N
+# 
+# Final_Data.all %>%
+#   group_by(Year, Day) %>%
+#   summarise(daily.effort = sum(effort, na.rm = T),
+#             daily.counts = sum(n, na.rm = T)) %>%
+#   mutate(daily.N = ceiling(daily.counts/daily.effort) ) %>%
+#   select(-c(daily.effort, daily.counts)) %>%
+#   pivot_wider(values_from = daily.N,
+#               names_from = Year,
+#               names_prefix = "Y") %>%
+#   right_join(y = data.frame(Day = seq(1:90)),
+#              by = "Day") %>%
+#   arrange(Day) -> daily.N
+# 
+# daily.N[is.na(daily.N)] <- 0
+# 
+# Final_Data.all %>% 
+#   group_by(Year, Day) %>%
+#   summarise(daily.obs = first(obs.ID)) %>%
+#   pivot_wider(values_from = daily.obs,
+#               names_from = Year,
+#               names_prefix = "Y")-> daily.obs
+# 
+# n.per.day <- obs.all <- n.all <- array(data = 0, 
+#                                        dim = c(max(periods$n), 2, length(seasons)))
+# 
+# days.all <- bf.all <- vs.all <- watch.prop <- matrix(data = NA,
+#                                                      nrow = max(periods$n), 
+#                                                      ncol = length(seasons))
+# 
+# for (k in 1:length(seasons)){
+#   n.all[1:periods$n[k],1, k] <- Final_Data[[k]]$n
+#   n.per.day[1:periods$n[k],1, k] <- Final_Data[[k]]$n/Final_Data[[k]]$effort
+#   bf.all[1:periods$n[k],k] <- Final_Data[[k]]$bf
+#   vs.all[1:periods$n[k],k] <- Final_Data[[k]]$vs
+#   # 540 minutes (maximum observation duration in a day) in unit of days
+#   watch.prop[1:periods$n[k],k] <- Final_Data[[k]]$effort/(540/24/60)
+#   
+#   days.all[1:periods$n[k],k] <- Final_Data[[k]]$Day
+#   
+#   obs.all[1:periods$n[k],1, k] <- Final_Data.all %>% 
+#     filter(Year == years[k]) %>%
+#     select(obs.ID) %>% 
+#     pull() 
+# }
+# 
+# #bf.all[is.na(bf.all)] <- 0
+# #vs.all[is.na(vs.all)] <- 0
+# obs.all[is.na(obs.all)] <- max(obs.ID.df$obs.ID) + 1
+# n.per.day[is.na(n.per.day)] <- 0
+
+```
+
+
+$$M_1 = (1 + (2 e^K - 1) * e^{(P-d)/(-S)}) ^ {(-1/e^K)}$$
+
+$$M_2 = (1 + (2 e^K - 1) * e^{(P-d)/(S)}) ^ {(-1/e^K)}$$
+
+$$N = min_N + (max_N - min_N) * (M_1 * M_2),$$ 
+
+where $d$ is the number of days from the beginning of nesting season,
+
+$S$ defines the "fatness" of the function ($S > 0$),
+
+$K > 0$ defines the "flatness" at the peak of the function,
+
+$P$ defines where the peak is relative to the range of $d$, where $min(d) < P < max(d)$,
+
+$min_N$ is "the basal level of nesting outside the nesting season" and,
+
+$max_N >> min_N$
+
+
+
+```{r run-jags}
+MCMC.params <- list(n.samples = 250000,
+                    n.thin = 100,
+                    n.burnin = 200000,
+                    n.chains = 5)
+
+# list(n.samples = 100000,
+#                     n.thin = 10,
+#                     n.burnin = 80000,
+#                     n.chains = 5)
+
+# jags.params <- c("lambda","OBS.RF","OBS.Switch",
+#                 "BF.Switch","BF.Fixed","VS.Switch",
+#                 "VS.Fixed","mean.prob",
+#                 "BF.Fixed",
+#                 "VS.Fixed", "mean.N", "max",
+#                 "Corrected.Est","Raw.Est","N",
+#                 "K", "S1", "S2", "P", "log.lkhd")
+
+jags.params.v3 <- c("OBS.RF", "OBS.Switch",
+                    "BF.Switch", "BF.Fixed",
+                    "VS.Switch", "VS.Fixed",
+                    "mean.prob", "mean.N", "Max",
+                    "Corrected.Est", "Raw.Est", "N",
+                    "K", "S1", "S2", "P",
+                    "Max.alpha", "Max.beta",
+                    "S1.alpha", "S2.alpha",
+                    "S1.beta", "S2.beta",
+                    "P.alpha", "P.beta",
+                    "log.lkhd")
+
+jags.params <- jags.params.v3
+
+jags.data <- list(  n = data.WinBUGS$n,
+                    n.station = c(1, 1, 2, 2, rep(1, times = 6)),
+                    n.year = length(seasons),
+                    n.obs = data.WinBUGS$n.obs,
+                    #Daily.N = daily.N,
+                    periods = cbind(data.WinBUGS$periods,
+                                    data.WinBUGS$periods),
+                    n.days = 90,
+                    #first.day = unlist(as.vector(first.day)),
+                    obs = data.WinBUGS$obs,
+                    vs = vs,
+                    bf = bf,
+                    watch.prop = watch.prop,
+                    #watch.prop = (data.WinBUGS$Watch.Length*24*60)/540,
+                    day = day)
+
+if (!file.exists(out.file.name)){
+
+  Start_Time<-Sys.time()
+  jm <- jags(jags.data,
+             inits = NULL,
+             parameters.to.save= jags.params,
+             model.file = jags.model,
+             n.chains = MCMC.params$n.chains,
+             n.burnin = MCMC.params$n.burnin,
+             n.thin = MCMC.params$n.thin,
+             n.iter = MCMC.params$n.samples,
+             DIC = T, parallel=T)
+  Run_Time <- Sys.time() - Start_Time
+  
+  jm.out <- list(jm = jm,
+                 jags.data = jags.data,
+                 jags.params = jags.params,
+                 jags.model = jags.model,
+                 MCMC.params = MCMC.params,
+                 Run_Time = Run_Time,
+                 Run_Date = Start_Time,
+                 Sys.env = Sys.getenv())
+  saveRDS(jm.out,
+          file = out.file.name)
+  
+} else {
+  
+  jm.out <- readRDS(out.file.name)
+}
+
+# need to turn zeros into NAs when there were no second station:
+data.array <- jags.data$n
+data.array[,2,which(jags.data$n.station == 1)] <- NA
+
+LOOIC.n <- compute.LOOIC(loglik.array = jm.out$jm$sims.list$log.lkhd,
+                               data.array = data.array,
+                               MCMC.params = MCMC.params)
+
+# Look at Rhat statistics
+max.Rhat <- lapply(jm.out$jm$Rhat, FUN = max, na.rm = T) %>%
+  unlist()
+max.Rhat.big <- max.Rhat[which(max.Rhat > 1.1)]
+
+
+
+# This is the output file name
+# jags.out.file <- paste0("RData/jagam_dailyN_k", 
+#                         basis.dim, "_", family, "_jags.rds")
+
+```
+
+
+
+
+```{r}
+if (ver != "v4"){
+  mcmc_trace(jm.out$jm$samples, c("K[1]", "K[2]",
+                           "K[3]", "K[4]",
+                           "K[5]", "K[6]",
+                           "K[7]", "K[8]", 
+                           "K[9]", "K[10]"))
+
+} else {
+  mcmc_trace(jm.out$jm$samples, "K")  
+}
+  
+
+
+```
+
+
+
+```{r}
+mcmc_trace(jm.out$jm$samples, c("S1[1]", "S1[2]",
+                         "S1[3]", "S1[4]",
+                         "S1[5]", "S1[6]",
+                         "S1[7]", "S1[8]", 
+                         "S1[9]", "S1[10]"))
+
+```
+
+
+
+
+```{r}
+mcmc_dens(jm.out$jm$samples, c("S1[1]", "S1[2]",
+                         "S1[3]", "S1[4]",
+                         "S1[5]", "S1[6]",
+                         "S1[7]", "S1[8]", 
+                        "S1[9]", "S1[10]"))
+
+```
+
+
+
+```{r}
+mcmc_trace(jm.out$jm$samples, c("S2[1]", "S2[2]",
+                         "S2[3]", "S2[4]",
+                         "S2[5]", "S2[6]",
+                         "S2[7]", "S2[8]", 
+                         "S2[9]", "S2[10]"))
+
+```
+
+
+
+
+```{r}
+mcmc_dens(jm.out$jm$samples, c("S2[1]", "S2[2]",
+                         "S2[3]", "S2[4]",
+                         "S2[5]", "S2[6]",
+                         "S2[7]", "S2[8]", 
+                        "S2[9]", "S2[10]"))
+
+```
+
+```{r}
+mcmc_trace(jm.out$jm$samples, c("BF.Fixed", "VS.Fixed"))
+```
+
+
+```{r}
+#mcmc_trace(jm$samples, "cv.N")
+```
+
+
+```{r}
+mcmc_trace(jm.out$jm$samples, c("Max[1]", "Max[2]",
+                          "Max[3]", "Max[4]",
+                         "Max[5]", "Max[6]",
+                          "Max[7]", "Max[8]", 
+                         "Max[9]", "Max[10]"))
+
+#mcmc_trace(jm$samples, "Max")
+
+```
+
+
+
+```{r}
+mcmc_dens(jm.out$jm$samples, c("Max[1]", "Max[2]",
+                          "Max[3]", "Max[4]",
+                         "Max[5]", "Max[6]",
+                          "Max[7]", "Max[8]", 
+                        "Max[9]", "Max[10]"))
+
+#mcmc_dens(jm$samples, c("max"))
+
+```
+
+
+How do estimates look?
+
+
+```{r}
+
+mean.N.hats <- data.frame(Season = rep(seasons, each = 90),
+                          Day = rep(1:90, times = length(seasons)),
+                          Mean = as.vector(jm.out$jm$mean$mean.N),
+                          LCL = as.vector(jm.out$jm$q2.5$mean.N),
+                          UCL = as.vector(jm.out$jm$q97.5$mean.N))
+
+
+ggplot(mean.N.hats %>% group_by(Season)) + 
+  geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
+              fill = "blue", alpha = 0.5) +
+  geom_path(aes(x = Day, y = Mean)) + 
+  facet_wrap(~ Season)
+
+
+
+```
+
+
+
+```{r}
+
+N.hats <- data.frame(Season = rep(seasons, each = 90),
+                     Day = rep(1:90, times = length(seasons)),
+                     Mean = as.vector(jm.out$jm$mean$N),
+                     LCL = as.vector(jm.out$jm$q2.5$N),
+                     UCL = as.vector(jm.out$jm$q97.5$N))
+
+
+ggplot(N.hats %>% group_by(Season)) + 
+  geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
+              fill = "blue", alpha = 0.5) +
+  geom_path(aes(x = Day, y = Mean)) + 
+  facet_wrap(~ Season)
+
+
+
+```
+
+
+```{r}
+n.st1 <- jags.data$n[,1,]
+obsd.n <- data.frame(Season = rep(seasons, each = (nrow(n.st1) + 2)), # +2 for 1 and 90
+                     Day = as.vector(jags.data$day),
+                     n = as.vector(rbind(n.st1, matrix(nrow = 2, 
+                                                       ncol = ncol(n.st1))))) %>% na.omit()
+                     
+ggplot(obsd.n %>% group_by(Season)) +
+  geom_point(aes(x = Day, y = n)) +
+  facet_wrap(~Season)
+```
+
+
+```{r}
+# Check conversions
+mcmc_trace(jm.out$jm$samples, 
+           c("Corrected.Est[1]", "Corrected.Est[2]",
+             "Corrected.Est[3]", "Corrected.Est[4]",
+             "Corrected.Est[5]", "Corrected.Est[6]",
+             "Corrected.Est[7]", "Corrected.Est[8]", 
+             "Corrected.Est[9]", "Corrected.Est[10]"))
+
+```
+
+
+```{r}
+mcmc_dens(jm.out$jm$samples, 
+          c("Corrected.Est[1]", "Corrected.Est[2]",
+            "Corrected.Est[3]", "Corrected.Est[4]",
+            "Corrected.Est[5]", "Corrected.Est[6]",
+            "Corrected.Est[7]", "Corrected.Est[8]", 
+            "Corrected.Est[9]", "Corrected.Est[10]"))
+
+```
+
+```{r}
+WinBugs.summary <- data.v2$BUGS_out$summary %>% 
+  as.data.frame() %>% 
+  rownames_to_column("parameter")
+
+WinBugs.summary %>% 
+  filter(str_detect(parameter, "Corrected")) -> WinBugs.Corrected.Est
+
+WinBugs.estimates <- data.frame(seasons = seasons,
+                                mean = WinBugs.Corrected.Est$mean,
+                                low = WinBugs.Corrected.Est$`2.5%`,
+                                high = WinBugs.Corrected.Est$`97.5%`,
+                                Method = "WinBugs")
+
+Jags.summary <- jm.out$jm$summary %>% 
+  as.data.frame() %>% 
+  rownames_to_column("parameter")
+
+Jags.summary %>% 
+  filter(str_detect(parameter, "Corrected")) -> Jags.Corrected.Est
+
+Jags.estiamtes <- data.frame(seasons = seasons,
+                             mean = Jags.Corrected.Est$mean,
+                             low = Jags.Corrected.Est$`2.5%`,
+                             high = Jags.Corrected.Est$`97.5%`,
+                             Method = "Jags")
+
+all.estimates <- rbind(WinBugs.estimates, Jags.estiamtes)
+
+ggplot(all.estimates) +
+  geom_point(aes(x = seasons, y = mean, color = Method)) +
+  geom_errorbar(aes(x = seasons, ymin = low, ymax = high, color = Method))
+
+```
+

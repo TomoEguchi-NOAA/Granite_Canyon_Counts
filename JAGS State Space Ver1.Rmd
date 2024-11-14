@@ -3,7 +3,7 @@ title: "R Notebook"
 output: html_notebook
 ---
 
-This notebook includes the part that a polynomial regression is used to model "true" N as a function of the day of the season. The  observed counts are binomial deviates with the "true" N and capture probabilities that are affected by covariates; Beaufort sea state, visibility, and observers.  
+This notebook describes an attempt to use the state space modeling approach (AR(1)) to estimate the true N in the N-mixture model of Granite Canyon counts. The observed counts are binomial deviates with the "true" N and capture probabilities that are affected by covariates; Beaufort sea state, visibility, and observers.  
 
 
 The station information needs to be added. The data files that I have don't have that info... this needs to be fixed in the future. 
@@ -19,29 +19,7 @@ library(bayesplot)
 library(mgcv)
 library(splines)
 
-jags.model <- paste0("models/Model_dailyN_spline_Nmix_bin_negbin_JAGS.txt")
-
-# from https://github.com/andrewcparnell/jags_examples/blob/master/R%20Code/jags_spline.R
-# A function that uses the bs() function to generate the B-spline basis functions
-# following Eilers and Marx 'Craft of smoothing' course. This bs_bbase() function
-# is equivalent to the bbase() function available at http://statweb.lsu.edu/faculty/marx/
-
-bs_bbase <- function(x, xl = min(x), xr = max(x), nseg = 10, deg = 3) {
-  # Compute the length of the partitions
-  dx <- (xr - xl) / nseg
-  # Create equally spaced knots
-  knots <- seq(xl - deg * dx, xr + deg * dx, by = dx)
-  # Use bs() function to generate the B-spline basis
-  get_bs_matrix <- matrix(bs(x, knots = knots, 
-                             degree = deg, 
-                             Boundary.knots = c(knots[1], knots[length(knots)])), 
-                          nrow = length(x))
-  # Remove columns that contain zero only
-  bs_matrix <- get_bs_matrix[, -c(1:deg, ncol(get_bs_matrix):(ncol(get_bs_matrix) - deg))]
-
-  return(bs_matrix)
-}
-
+jags.model <- paste0("models/Model_dailyN_StateSpace_Nmix_Norm_Binom_JAGS.txt")
 
 # Observer list gets updated as new observers are added. 
 # obs.list <- read.csv("Data/Observer list.csv", header = T) 
@@ -54,6 +32,9 @@ seasons <- c("2014/2015", "2015/2016", "2019/2020", "2021/2022")
 n.seasons <- length(seasons)
 
 # Load the most recent data that were newly extracted for the last four surveys:
+# Using Final_Data, which contains only data for observation periods that are 90 +/- 5 minutes
+# This can be changed to use all data (Data_Out) in the future 2022-09-06
+
 Final_Data <- list()
 k <- 3
 for (k in 1:length(seasons)){
@@ -65,12 +46,12 @@ for (k in 1:length(seasons)){
     mutate(Year = as.numeric(strsplit(seasons[k], "/")[[1]][2]),
            Day = as.numeric(BeginDay)) %>%
     right_join(., data.frame(Day = 1:90,
-                             n = 0,
+                             n = NA,
                              Year = as.numeric(strsplit(seasons[k], "/")[[1]][2])), 
                by = "Day") %>%
 
     select(Year.y, Day, n.x, n.y, dur, bf, vs, obs, begin) %>%
-    mutate(n = ifelse(is.na(n.x), n.y, n.x),
+    mutate(n = n.x,
            effort = ifelse(is.na(dur), 0, dur),
            Year = Year.y) %>%
     select(-c(Year.y, n.x, n.y, dur)) %>%
@@ -99,15 +80,14 @@ Final_Data.all %>%
   #filter(effort > 0) %>%
   summarise(n = n()) -> periods
 
+Final_Data.all$n[Final_Data.all$effort == 0] <- NA
+
 years <- unique(Final_Data.all$Year)
-MCMC.params <- list(n.samples = 100000,
-                    n.thin = 80,
-                    n.burnin = 60000,
-                    n.chains = 5)
+
 
 ```
 
-The daily mean is a smooth function of days (1:90)
+The daily mean is a function of days (1:90)
 
 ```{r data_setup}
 Final_Data.all %>% 
@@ -116,6 +96,11 @@ Final_Data.all %>%
   pivot_wider(values_from = daily.effort,
               names_from = Year,
               names_prefix = "Y")-> daily.effort
+
+# daily.effort %>%
+#   #group_by(Day) %>%
+#   summarise_at(vars(Y2015:Y2022), funs(Day[. > 0][1])) %>%
+#   select(starts_with("Y")) -> first.day
 
 Final_Data.all %>% 
   group_by(Year, Day) %>%
@@ -142,8 +127,9 @@ Final_Data.all %>%
               names_prefix = "Y")-> daily.obs
 
 n.per.day <- obs.all <- n.all <- array(data = 0, 
-               dim = c(max(periods$n), 2, length(seasons)))
-days.all <- bf.all <- vs.all <- watch.prop <- matrix(data = 0,
+                                       dim = c(max(periods$n), 2, length(seasons)))
+
+days.all <- bf.all <- vs.all <- watch.prop <- matrix(data = NA,
                                                      nrow = max(periods$n), 
                                                      ncol = length(seasons))
 
@@ -154,16 +140,17 @@ for (k in 1:length(seasons)){
   vs.all[1:periods$n[k],k] <- Final_Data[[k]]$vs
   # 540 minutes (maximum observation duration in a day) in unit of days
   watch.prop[1:periods$n[k],k] <- Final_Data[[k]]$effort/(540/24/60)
+  
   days.all[1:periods$n[k],k] <- Final_Data[[k]]$Day
   
-  obs.all[1:periods$n[k],1, k] <-   Final_Data.all %>% 
+  obs.all[1:periods$n[k],1, k] <- Final_Data.all %>% 
     filter(Year == years[k]) %>%
     select(obs.ID) %>% 
     pull() 
 }
 
-bf.all[is.na(bf.all)] <- 0
-vs.all[is.na(vs.all)] <- 0
+#bf.all[is.na(bf.all)] <- 0
+#vs.all[is.na(vs.all)] <- 0
 obs.all[is.na(obs.all)] <- max(obs.ID.df$obs.ID) + 1
 n.per.day[is.na(n.per.day)] <- 0
 
@@ -171,13 +158,114 @@ n.per.day[is.na(n.per.day)] <- 0
 
 
 
+Simulate data:
+
+```{r}
+
+# simulate counts from a known distribution:
+obs <- array(rdunif(n = prod(dim(obs.all)), 
+                    a = 1, b = max(obs.all)+1),
+             dim = dim(obs.all))
+             
+# bf <- matrix(rdunif(n = prod(dim(bf.all)), a = 0, b = 4),
+#              nrow = nrow(bf.all), ncol = ncol(bf.all))
+# 
+# vs <- matrix(rdunif(n = prod(dim(bf.all)), a = 0, b = 4),
+#              nrow = nrow(bf.all), ncol = ncol(bf.all))
+
+#logit <- function(p) log(p/(1-p))
+
+prob <- array(data = 0, dim = dim(obs))
+
+BF.fixed <- -4
+VS.fixed <- -2
+mean <- 0.3
+for (c in 1:dim(prob)[3]){
+  for (r in 1:dim(prob)[1]){
+    for (s in 1:2){
+      linear.model <- mean + 
+                      BF.fixed * bf.all[r,c] + 
+                      VS.fixed * vs.all[r,c] + 
+                      obs[r,s,c] + rnorm(n = 1, mean = 0, sd = 10) 
+      
+      prob[r,s,c] <- 1/(1 + exp(linear.model)) * watch.prop[r,c]
+    }
+    
+  }
+}
+
+Richards_fcn <- function(d, S, K, P, min, max){
+  K <- abs(K)
+  S <- abs(S)
+  S1 <- -S
+  M1 <- (1 + (2 * exp(K) - 1) * exp((1/S1) * (P - d))) ^ (-1/exp(K))
+  M2 <- (1 + (2 * exp(K) - 1) * exp((1/S) * (P - d))) ^ (-1/exp(K))
+  N <- min + (max - min) * (M1 * M2)
+  return(N)
+}
+
+S <- c(1.5, 2.1, 1.2, 1.9)   # fatness
+K <- c(1.0, 1.2, 1.3, 1.2)   # peak flatness
+P <- c(40, 45, 50, 42)       # peak timing
+max.N <- c(800, 850, 820, 600)
+
+true.N <- matrix(data = 0, nrow = 90, ncol = dim(prob)[3])
+
+for (t in 1:dim(prob)[3]){
+  for (d in 1:90){
+    true.N[d,t] <- floor(Richards_fcn(d = d, 
+                                      S = S[t], 
+                                      K = K[t], 
+                                      P = P[t], 
+                                      min = 0, max = max.N[t])  )
+    
+  }
+}
+
+obsd.n <- array(data = 0, dim = dim(prob))
+
+for (t in 1:dim(prob)[3]){
+  for (s in 1:2){
+    for (k in 1:dim(prob)[1]){
+      obsd.n[k,s,t] <- ifelse(is.na(prob[k,s,t]),
+                              NA,       
+                              rbinom(n = 1, 
+                              size = true.N[days.all[k,t],t], 
+                              prob = prob[k,s,t]))
+        
+    }
+    
+  }
+}
+
+
+```
+
+$$M_1 = (1 + (2 e^K - 1) * e^{(P-d)/(-S)}) ^ {(-1/e^K)}$$
+
+$$M_2 = (1 + (2 e^K - 1) * e^{(P-d)/(S)}) ^ {(-1/e^K)}$$
+
+$$N = min_N + (max_N - min_N) * (M_1 * M_2),$$ 
+
+where $d$ is the number of days from the beginning of nesting season,
+
+$S$ defines the "fatness" of the function ($S > 0$),
+
+$K > 0$ defines the "flatness" at the peak of the function,
+
+$P$ defines where the peak is relative to the range of $d$, where $min(d) < P < max(d)$,
+
+$min_N$ is "the basal level of nesting outside the nesting season" and,
+
+$max_N >> min_N$
+
+
+
 ```{r run-jags}
-nseg <- 30
-
-# time steps (1:90). Create the basis matrix
-# bs_bbase is defined above.
-
-X.j <- bs_bbase(1:90, nseg = nseg, deg = 3)
+MCMC.params <- list(n.samples = 100000,
+                    n.thin = 80,
+                    n.burnin = 60000,
+                    n.chains = 5)
 
 jags.params <- c("lambda","OBS.RF","OBS.Switch",
                 "BF.Switch","BF.Fixed","VS.Switch",
@@ -186,27 +274,25 @@ jags.params <- c("lambda","OBS.RF","OBS.Switch",
                 "VS.Fixed",
                 "Corrected.Est","Raw.Est","N",
                 "Daily.Est",
-                "mu.N.beta", "sigma.N.beta",
-                "sigma.N", "alpha", "r", "log.lkhd")
+                "theta", "N", "N.0",
+                "sigma.N", "log.lkhd")
 
-jags.data <- list(  n = n.all,
+jags.data <- list(  n = obsd.n, #n.all,
                     n.station = c(1,1,1,1),
                     n.year = length(seasons),
                     n.obs = nrow(obs.ID.df)+1,
                     periods = periods$n,
+                    #first.day = unlist(as.vector(first.day)),
                     obs = obs.all,
                     vs = vs.all,
                     bf = bf.all,
                     watch.prop = watch.prop,
-                    day = days.all,
-                    X.j = X.j,
-                    N_knots = ncol(X.j))
+                    day = days.all)
 
-# 5 nodes produced errors; first error: Error in node N[63,4]
-# Failure to calculate log density 
-# Probably need to look at how nseg affects the outcome. Also,
-# the variance of binomial distribution may be too small for the
-# observed day-to-day variability. May try another distribution 2022-08-29
+# Error in checkForRemoteErrors(val) : 
+#   5 nodes produced errors; first error: Error in node n[30,1,1]
+# Node inconsistent with parents
+#n[30,1,1] is the first non-NA value in the n array.
 
 jm <- jags(jags.data,
              inits = NULL,

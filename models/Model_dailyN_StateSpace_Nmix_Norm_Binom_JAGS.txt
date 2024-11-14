@@ -13,11 +13,9 @@ model{
   # count i
   # station (Trailer) s
   # year t
-    
-  ### Linking Lambda from N Mixture to GAM
-     
+         
   ### N Mixture process
-  
+  # Observation model - binomial 
   for(t in 1:n.year){
 	
     for(j in 1:periods[t]){ 
@@ -29,60 +27,43 @@ model{
 		# Otherwise, zero observation probability from the second observation point
 				
         n[j,s,t] ~ dbin(obs.prob[j, s, t], N[day[j,t], t]) 
-		# 5 nodes produced errors; first error: Error in node log.lkhd[30,1,1]
+		# 5 nodes produced errors; first error: Error in node n[30,1,1]
+		# Node inconsistent with parents
+		
 		log.lkhd[j,s,t] <- logdensity.bin(n[j,s,t], obs.prob[j,s,t], N[day[j,t], t])
 		
       }#s    
     }#j
   }#t
 
-  # The state mean is modeled with spline, which is the true number of whales passing through the study area
-  # Provide X.j in the data
+  # The state mean is modeled with a State-Space model (AR(1)), which is the true 
+  # number of whales passing through the study area
+
+  for (t in 1:n.year){
+	mu.N[1,t] <- 0   # by assumption 
+	N[1,t] <- mu.N[1,t]
+  }
+  
   for(t in 1:n.year){
 
-    for(d in 1:90){ 
+    for(d in 2:90){ 
 
-      mu.N[d,t] <- inprod(X.j[d,], mu.N.beta) 
-	  
-	  # The following two lines work, using normal distribution
-	  #N.0[d,t] ~ dnorm(mu.N[d,t], 0.01)T(0,)  
-	  #N[d,t] <- round(N.0[d,t])               
-
-	  # negativ binomial returns errors about failing to calculate
-	  # log density, which is a result of getting NaN. 
-	  # No error returns when alpha is fixed at 100. So, problem is 
-	  # the next line where I compute the alpha value. 
-	  # in JAGS, the negative binomial distribution is defined as the following:
-	  # y ~ dnegbin(p, alpha)
-	  # P(Y = y) = (y + alpha - 1 choose y) * (p^alpha) * (1 - p)^y
-	  # The mean of it is alpha*(1-p)/p. 
-	  
-	  # maybe I should try round, instead of dround. If round works,
-      # then try removing ifelse. 	  
-	  alpha[d,t] <- round((mu.N[d,t] * r[d,t])/(1 - r[d,t]))
-	  
-	  #alpha[d,t] <- ifelse(mu.N[d,t] < 0, 0, round((mu.N[d,t] * r[d,t])/(1 - r[d,t])))	  
+      mu.N[d,t] <- theta[d] * mu.N[d-1,t]
+	  N.0[d,t] ~ dnorm(mu.N[d,t], tau.N[t])
+	  N[d,t] <- ifelse(N.0[d,t] > 0, round(N.0[d,t]), 0)
 	  	  
-	  N[d,t] ~ dnegbin(r[d,t], alpha[d,t])  #
-	  r[d,t] ~ dbeta(1,1)
-	  
     }#d
   }#t
   
   sigma.N ~ dgamma(1, 0.1)
-  tau.N <- sigma.N^(-2)
 
-  sigma.n ~ dgamma(1, 0.1)
-  tau.n <- sigma.n^(-2)
-  
-  # Prior on N.beta
-  #for (t in 1:n.year){
-	mu.N.beta[1] ~ dnorm(100, 0.01)I(0,)
-    for (i in 2:N_knots){
-      mu.N.beta[i] ~ dnorm(mu.N.beta[i-1], tau.N.beta)
-
-    }
-  #}
+  for (d in 1:90){
+	theta[d] ~ dnorm(0,0.1)
+  }
+	  
+  for (t in 1:n.year){
+	tau.N[t] <- sigma.N^(-2)
+  }
 
   ### Observation probability - include the watch period durations
   for(t in 1:n.year){
@@ -94,13 +75,17 @@ model{
         #                 VS on/off * Fixed effect of VS * VS    + 
         #                Obs effect on/off * Random effect of observer)
 
-        logit(prob[j,s,t]) <- ifelse(watch.prop[j,t] > 0,
-						logit(mean.prob) + (BF.Switch * BF.Fixed * bf[j,t]) + (VS.Switch * VS.Fixed * vs[j,t]) + (OBS.Switch * OBS.RF[obs[j,s,t]]),
-						0.0)
+        logit(prob[j,s,t]) <- logit(mean.prob) + 
+								(BF.Switch * BF.Fixed * bf[j,t]) + 
+								(VS.Switch * VS.Fixed * vs[j,t]) + 
+								(OBS.Switch * OBS.RF[obs[j,s,t]])
+						
        
         # watch.prop is the proportion of the total watch periods in a day (540 minutes) that
         # was actually observed. 
-        obs.prob[j,s,t] <- watch.prop[j,t] * prob[j,s,t] 
+        obs.prob[j,s,t] <- ifelse(watch.prop[j,t] > 0,
+									watch.prop[j,t] * prob[j,s,t],
+									0)
                 
       }#s
     }#j
@@ -108,10 +93,7 @@ model{
   
   # Flat prior for mean.prob
   mean.prob ~ dunif(0,1)
-  
-  sigma.N.beta ~ dgamma(5, 0.5)
-  tau.N.beta <- sigma.N.beta^(-2)
-  
+    
   ### Specification of terms within observation probability linear model
   
   ## Observer random effect
