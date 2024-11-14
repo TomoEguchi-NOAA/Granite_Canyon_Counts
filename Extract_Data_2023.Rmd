@@ -14,7 +14,6 @@ library(lubridate)
 library(readr)
 source("Granite_Canyon_Counts_fcns.R")
 
-
 YEAR <- 2023 #Enter the year of the data files
 min_dur <- 85
 
@@ -74,7 +73,8 @@ FILES <- list.files(path = paste0("Data/", YEAR, "/"),
 # FILES <- list.files(path = paste0("Data/", YEAR, "_8weeks/"),
 #                     pattern = "EditedGW")
 
-out.rds.filename <- paste0("RData/V2.1_Mar2023/out_", YEAR, "_min", min_dur, "_Tomo_v2.rds")
+out.rds.filename <- paste0("RData/V2.1_Nov2024/out_", YEAR, "_min", min_dur, "_Tomo_v2.rds")
+#out.rds.filename <- paste0("RData/V2.1_Mar2023/out_", YEAR, "_min", min_dur, "_Tomo_v2.rds")
 #out.rds.filename <- paste0("RData/V2.1_Aug2022/out_", YEAR, "_Tomo_v2.rds")
 #out.rds.filename <-  paste0("RData/V2.1_Mar2023_8weeks/out_", YEAR, "_min", min_dur, "_Tomo_v2.rds")
 
@@ -135,9 +135,9 @@ shift_dur_min <- 90   # 90 minutes - 5 minutes
 
 # Final data
 # Remove watches that were less than 85 minutes or greater than 95 minutes:
-grace_min <- 5
-max_dur <- 90 + grace_min
-min_dur <- 90 - grace_min
+grace_min <- shift_dur_min - min_dur #5
+max_dur <- shift_dur_min + grace_min
+min_dur <- shift_dur_min - grace_min
 
 # For Mar 2023 analysis, I changed this to minimum duration of 30 minutes
 #min_dur <- 30

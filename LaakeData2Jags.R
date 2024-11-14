@@ -4,12 +4,13 @@
 # 
 # Code chunks with var1 = expressions are by Laake. I use var1 <- expressions
 
-rm(list = ls())
+#rm(list = ls())
 
 #library(ERAnalysis)
 # because I can't build new ERAnalysis library, I moved all the ERAnalysis data 
 # files to the Granite_Canyon_Counts/Data folder. This way, I can still use the
-# data files using the data() function
+# data files using the data() function - I can't use it on my linux laptop... So,
+# I changed it to the load function. 2024-11-14
 
 library(tidyverse)
 library(ggplot2)
@@ -31,16 +32,16 @@ library(R2WinBUGS)
 # of the off-effort sightings.  
 #
 #data(PrimaryOff)   # off-effort sightings
-data(Primary)      # on-effort sightings
-data(ERSurveyData)
-data("Observer")
+load("Data/Primary.rda")      # on-effort sightings
+load("Data/ERSurveyData.rda")
+load("Data/Observer.rda")
 
 # The data in PrimarySightings are all southbound sightings for all years in which visibility and beaufort
 # are less than or equal to 4. Below the counts are shown for the 2 dataframes for
 # recent surveys since 1987/88.
 #table(Primary$Start.year[Primary$vis<=4 & Primary$beaufort<=4])
-data(PrimarySightings)
-data(PrimaryEffort)
+load("Data/PrimarySightings.rda")
+load("Data/PrimaryEffort.rda")
 
 # Likewise, the secondary sightings are those with EXPERIMENT==2 but the LOCATION that
 # is not designated as primary.  there is no effort data for the secondary sightings... 
@@ -189,58 +190,58 @@ create.jags.data <- function(Effort.by.period.1){
 
 jags.data <- create.jags.data(Effort.by.period.1)
 
-jags.params <- c("OBS.RF", "OBS.Switch",
-                 "BF.Switch", "BF.Fixed", 
-                 "VS.Switch", "VS.Fixed",
-                 "mean.prob", "mean.N", "max",
-                 "Corrected.Est", "Raw.Est", "N",
-                 "K", "S1", "S2", "P",
-                 "log.lkhd")
-
-MCMC.params <- list(n.samples = 250000,
-                    n.thin = 100,
-                    n.burnin = 200000,
-                    n.chains = 5)
-
-# The first attempt used counts per day, which worked fine and estimates were
-# pretty close to Laake's estimates. But, the model uses all data at observation
-# period level
-#out.file.name <- "RData/JAGS_pois_binom_results_Laake_Data.rds"
-
-# v2 uses data from the observation period level. 
-out.file.name <- "RData/JAGS_pois_binom_results_Laake_Data_v2.rds"
-jags.model <- paste0("models/model_Richards_pois_bino.txt")
-
-
-if (!file.exists(out.file.name)){
-  Start_Time<-Sys.time()
-  
-  jm <- jagsUI::jags(jags.data,
-                     inits = NULL,
-                     parameters.to.save= jags.params,
-                     model.file = jags.model,
-                     n.chains = MCMC.params$n.chains,
-                     n.burnin = MCMC.params$n.burnin,
-                     n.thin = MCMC.params$n.thin,
-                     n.iter = MCMC.params$n.samples,
-                     DIC = T, 
-                     parallel=T)
-  
-  Run_Time <- Sys.time() - Start_Time
-  jm.out <- list(jm = jm,
-                 jags.data = jags.data,
-                 jags.params = jags.params,
-                 jags.model = jags.model,
-                 MCMC.params = MCMC.params,
-                 Run_Time = Run_Time,
-                 System = Sys.getenv())
-  
-  saveRDS(jm.out,
-          file = out.file.name)
-  
-} else {
-  jm.out <- readRDS(out.file.name)
-}
-
-
+# jags.params <- c("OBS.RF", "OBS.Switch",
+#                  "BF.Switch", "BF.Fixed", 
+#                  "VS.Switch", "VS.Fixed",
+#                  "mean.prob", "mean.N", "max",
+#                  "Corrected.Est", "Raw.Est", "N",
+#                  "K", "S1", "S2", "P",
+#                  "log.lkhd")
+# 
+# MCMC.params <- list(n.samples = 250000,
+#                     n.thin = 100,
+#                     n.burnin = 200000,
+#                     n.chains = 5)
+# 
+# # The first attempt used counts per day, which worked fine and estimates were
+# # pretty close to Laake's estimates. But, the model uses all data at observation
+# # period level
+# #out.file.name <- "RData/JAGS_pois_binom_results_Laake_Data.rds"
+# 
+# # v2 uses data from the observation period level. 
+# out.file.name <- "RData/JAGS_pois_binom_results_Laake_Data_v2.rds"
+# jags.model <- paste0("models/model_Richards_pois_bino.txt")
+# 
+# 
+# if (!file.exists(out.file.name)){
+#   Start_Time<-Sys.time()
+#   
+#   jm <- jagsUI::jags(jags.data,
+#                      inits = NULL,
+#                      parameters.to.save= jags.params,
+#                      model.file = jags.model,
+#                      n.chains = MCMC.params$n.chains,
+#                      n.burnin = MCMC.params$n.burnin,
+#                      n.thin = MCMC.params$n.thin,
+#                      n.iter = MCMC.params$n.samples,
+#                      DIC = T, 
+#                      parallel=T)
+#   
+#   Run_Time <- Sys.time() - Start_Time
+#   jm.out <- list(jm = jm,
+#                  jags.data = jags.data,
+#                  jags.params = jags.params,
+#                  jags.model = jags.model,
+#                  MCMC.params = MCMC.params,
+#                  Run_Time = Run_Time,
+#                  System = Sys.getenv())
+#   
+#   saveRDS(jm.out,
+#           file = out.file.name)
+#   
+# } else {
+#   jm.out <- readRDS(out.file.name)
+# }
+# 
+# 
 

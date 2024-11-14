@@ -2,7 +2,9 @@
 # 
 # Combines Laake data and more recent data and runs
 # model_Richards_pois_bino_v4.txt. 
-# It uses the gamma distribution in place of Poisson in v3.
+
+# The v4 model has constant P and K. It seems that these two parameters are
+# a bit of problem. In v5, P is year-specific and K is constant over years.
 # 
  
 
@@ -15,6 +17,7 @@ library(loo)
 library(bayesplot)
 
 source("Granite_Canyon_Counts_fcns.R")
+source("LaakeData2Jags.R")
 
 Run.date <- Sys.Date()
 #Run.date <- "2024-11-01"
@@ -28,19 +31,7 @@ jags.model <- paste0("models/model_", model.name, ".txt")
 out.file.name <- paste0("RData/JAGS_", model.name, "_AllYears_",
                         Run.date, ".rds")
 
-# Bring in the output from the most recent Jags run for Laake data:
-# Data are the same in the previous models (e.g., v3)
-run.date.Laake <- "2024-10-30" #Sys.Date() # # "2023-08-11"
-Laake.file.name <- paste0("RData/JAGS_Richards_v4_Laake_", 
-                          run.date.Laake, ".rds")
-
-Laake.jm.out <- readRDS(Laake.file.name)
-
-# effort
-Laake_PrimaryEffort <- read.csv(file = "Data/Laake_PrimaryEffort.csv") %>%
-  filter(Use)
-Laake.start.year <- unique(Laake_PrimaryEffort$Start.year)
-Laake.data <- Laake.jm.out$jags.data
+Laake.data <- jags.data
 
 # More recent data from the output of JAGS Richards Ver1.Rmd:
 run.date <- "2024-11-01"
