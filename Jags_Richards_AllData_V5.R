@@ -2,7 +2,7 @@
 # 
 # Combines Laake data and more recent data and runs
 # model_Richards_pois_bino_v4.txt. 
-# It uses the tweedy distribution in place of Poisson in v3.
+# It uses the gamma distribution in place of Poisson in v3.
 # 
  
 
@@ -17,20 +17,22 @@ library(bayesplot)
 source("Granite_Canyon_Counts_fcns.R")
 
 Run.date <- Sys.Date()
-#Run.date <- "2024-07-11"
-out.file.name <- paste0("RData/JAGS_Richards_pois_bino_v5_AllYears_",
-                        Run.date, ".rds")
-
+#Run.date <- "2024-11-01"
 # I use the "Laake" model because the number of periods per year
 # can be different. This should be the same as non-Laake version
 # as of 2024-07-09
-jags.model <- "models/model_Richards_pois_bino_v5.txt"
+
+model.name <- "Richards_pois_bino_v5"
+jags.model <- paste0("models/model_", model.name, ".txt")
+
+out.file.name <- paste0("RData/JAGS_", model.name, "_AllYears_",
+                        Run.date, ".rds")
 
 # Bring in the output from the most recent Jags run for Laake data:
 # Data are the same in the previous models (e.g., v3)
-run.date.Laake <- "2024-09-05" #Sys.Date() # # "2023-08-11"
+run.date.Laake <- "2024-10-30" #Sys.Date() # # "2023-08-11"
 Laake.file.name <- paste0("RData/JAGS_Richards_v4_Laake_", 
-                        run.date.Laake, ".rds")
+                          run.date.Laake, ".rds")
 
 Laake.jm.out <- readRDS(Laake.file.name)
 
@@ -40,9 +42,9 @@ Laake_PrimaryEffort <- read.csv(file = "Data/Laake_PrimaryEffort.csv") %>%
 Laake.start.year <- unique(Laake_PrimaryEffort$Start.year)
 Laake.data <- Laake.jm.out$jags.data
 
-# More recent data from the output of JAGS Richards Ver3.Rmd:
-run.date <- "2024-07-09"
-file.name <- paste0("RData/JAGS_Richards_pois_bino_v3_10yr_v2_", 
+# More recent data from the output of JAGS Richards Ver1.Rmd:
+run.date <- "2024-11-01"
+file.name <- paste0("RData/JAGS_Richards_pois_bino_v4_10yr_v2_", 
                            run.date, ".rds")
 
 jm.out <- readRDS(file.name)
@@ -53,8 +55,11 @@ jm.out <- readRDS(file.name)
 all.start.year <- c(Laake.start.year, .start.year)
 
 # Both datasets contain 2006. Take it out from the recent one.
-bf <- vs <- day <- watch.prop <- all.n <- all.obs <- array(dim = c(max(dim(Laake.data$n)[1], dim(.data$n)[1]), 
-                                                                   2, (dim(Laake.data$n)[3] + dim(.data$n)[3]-1)))
+bf <- vs <- all.n <- all.obs <- array(dim = c(max(dim(Laake.data$n)[1], dim(.data$n)[1]), 
+                                              2, (dim(Laake.data$n)[3] + dim(.data$n)[3]-1)))
+
+day <- watch.prop <- array(dim = c(max(dim(Laake.data$n)[1], dim(.data$n)[1]), 
+                                   2, (dim(Laake.data$n)[3] + dim(.data$n)[3]-1)))
 
 c2 <- 2
 c1 <- c <- 1
@@ -85,14 +90,14 @@ for (k in 1:length(all.start.year)){
     all.n[1:1:dim(.data$n)[1], 2, c] <- .data$n[, 2, c2]
     all.obs[1:1:dim(.data$obs)[1], 1, c] <- .data$obs[, 1, c2]
     all.obs[1:1:dim(.data$obs)[1], 2, c] <- .data$obs[, 2, c2]
-    watch.prop[1:1:dim(.data$watch.prop)[1], 1, c] <- .data$watch.prop[, c2]
-    watch.prop[1:1:dim(.data$watch.prop)[1], 2, c] <- .data$watch.prop[, c2]
-    day[1:1:dim(.data$day)[1], 1, c] <- .data$day[, c2]
-    day[1:1:dim(.data$day)[1], 2, c] <- .data$day[, c2]
-    bf[1:1:dim(.data$bf)[1], 1, c] <- .data$bf[, c2]
-    bf[1:1:dim(.data$bf)[1], 2, c] <- .data$bf[, c2]
-    vs[1:1:dim(.data$vs)[1], 1, c] <- .data$vs[, c2]
-    vs[1:1:dim(.data$vs)[1], 2, c] <- .data$vs[, c2]
+    watch.prop[1:1:dim(.data$watch.prop)[1], 1, c] <- .data$watch.prop[, 1, c2]
+    watch.prop[1:1:dim(.data$watch.prop)[1], 2, c] <- .data$watch.prop[, 2, c2]
+    day[1:1:dim(.data$day)[1], 1, c] <- .data$day[, 1, c2]
+    day[1:1:dim(.data$day)[1], 2, c] <- .data$day[, 2, c2]
+    bf[1:1:dim(.data$bf)[1], 1, c] <- .data$bf[, 1, c2]
+    bf[1:1:dim(.data$bf)[1], 2, c] <- .data$bf[, 2, c2]
+    vs[1:1:dim(.data$vs)[1], 1, c] <- .data$vs[, 1, c2]
+    vs[1:1:dim(.data$vs)[1], 2, c] <- .data$vs[, 2, c2]
     c <- c + 1
     c2 <- c2 + 1
   }
@@ -118,14 +123,13 @@ periods <- rbind(Laake.data$periods, .data$periods[2:length(.data$n.station),])
 #                    matrix(nrow = dim(Laake.data$bf)[1] - nrow(.data$bf), 
 #                           ncol = ncol(.data$bf)-1)))
 
-# I subtract 1 from vs because the lowest value is 1 in the data. 2024-10-16
 jags.data <- list(n = all.n,
                   n.station = n.station,
                   n.year = n.year,
                   n.obs = n.obs,
                   periods = periods,
                   obs = all.obs,
-                  vs = vs - 1,
+                  vs = vs,
                   bf = bf,
                   watch.prop = watch.prop,
                   day = day,
@@ -141,9 +145,7 @@ jags.params <- c("OBS.RF", "BF.Fixed",
                  "S1.beta", "S2.beta",
                  "P.alpha", "P.beta",
                  "K.alpha", "K.beta",
-                 "shape.1", "rate.1",
-                 "rate.2",
-                 "mu", "p", "phi",
+                 "N.alpha",
                  "log.lkhd")
 
 MCMC.params <- list(n.samples = 250000,
@@ -218,21 +220,31 @@ max.Rhat <- lapply(jm.out$jm$Rhat, FUN = max, na.rm = T) %>%
   unlist()
 max.Rhat.big <- max.Rhat[which(max.Rhat > 1.1)]
 
-mcmc_dens(jm.out$jm$samples, c("Max.alpha", "Max.beta",
-                               "S1.alpha", "S1.beta",
-                               "S2.alpha", "S2.beta",
-                               "P.alpha", "P.beta",
-                               "K.alpha", "K.beta"))
+bayesplot::mcmc_dens(jm.out$jm$samples, c("S1.alpha", "S1.beta",
+                                          "S2.alpha", "S2.beta",
+                                          "P.alpha", "P.beta",
+                                          "K.alpha", "K.beta"))
+# P.alpha and P.beta seem to be not behaving well - the right tails are not 
+# captured. 
+bayesplot::mcmc_trace(jm.out$jm$samples, c("S1.alpha", "S1.beta",
+                                          "S2.alpha", "S2.beta",
+                                          "P.alpha", "P.beta",
+                                          "K.alpha", "K.beta"))
 
-mcmc_dens(jm.out$jm$samples, c("BF.Fixed", "VS.Fixed"))
+bayesplot::mcmc_dens(jm.out$jm$samples, c("BF.Fixed", "VS.Fixed"))
 
-par.idx <- c(1:nrow(jm.out$jm$mean$P))
+# v4 has one P and one K.
+par.idx <- c(1:nrow(jm.out$jm$mean$S1))
 
-mcmc_trace(jm.out$jm$samples, paste0("P[", par.idx, "]"))
-mcmc_trace(jm.out$jm$samples, paste0("K[", par.idx, "]"))
-mcmc_trace(jm.out$jm$samples, paste0("S1[", par.idx, "]"))
-mcmc_trace(jm.out$jm$samples, paste0("S2[", par.idx, "]"))
-mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
+mcmc_trace(jm.out$jm$samples, c("P", "K"))
+mcmc_dens(jm.out$jm$samples, c("P", "K"))
+
+# mcmc_trace(jm.out$jm$samples, paste0("P[", par.idx, "]"))
+# mcmc_trace(jm.out$jm$samples, paste0("K[", par.idx, "]"))
+bayesplot::mcmc_trace(jm.out$jm$samples, paste0("S1[", par.idx, "]"))
+bayesplot::mcmc_trace(jm.out$jm$samples, paste0("S2[", par.idx, "]"))
+bayesplot::mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
+# These three year-specific parameters seemed to behave fine.
 
 # Create a dataframe with all years, including unsampled years.
 all.years <- data.frame(year = seq(min(all.start.year), max(all.start.year))) %>%
@@ -356,50 +368,50 @@ Reported.estimates %>%
   select(Season) %>% 
   unique() -> sampled.seasons 
 
-# read in spline results
+# read in spline results - Not very good so remove
 # JAGS spline Ver1.Rmd
-spline.out <- read_rds("RData/JAGS_Spline_v2_results_All_Data_2024-07-09.rds")
-
-spline.Nhat <- data.frame(Season = sampled.seasons$Season,
-                          Nhat = spline.out$jm$q50$Corrected.Est,
-                          LCL = spline.out$jm$q2.5$Corrected.Est,
-                          UCL = spline.out$jm$q97.5$Corrected.Est) %>%
-  right_join(all.years, by = "Season") %>%
-  arrange(year) %>%
-  mutate(Method = "Bayesian Spline")
-
-daily.estim.spline <- exp(spline.out$jm$sims.list$sp)
+# spline.out <- read_rds("RData/JAGS_Spline_v2_results_All_Data_2024-07-09.rds")
+# 
+# spline.Nhat <- data.frame(Season = sampled.seasons$Season,
+#                           Nhat = spline.out$jm$q50$Corrected.Est,
+#                           LCL = spline.out$jm$q2.5$Corrected.Est,
+#                           UCL = spline.out$jm$q97.5$Corrected.Est) %>%
+#   right_join(all.years, by = "Season") %>%
+#   arrange(year) %>%
+#   mutate(Method = "Bayesian Spline")
+# 
+# daily.estim.spline <- exp(spline.out$jm$sims.list$sp)
 
 # get stats:
-mean.mat.spline <- LCL.mat.spline <- UCL.mat.spline <- matrix(data = NA, 
-                                         nrow = dim(daily.estim.spline)[2], 
-                                         ncol = dim(daily.estim.spline)[3])
-
-for (k1 in 1:dim(daily.estim.spline)[2]){
-  for (k2 in 1:dim(daily.estim.spline)[3]){
-    mean.mat.spline[k1, k2] <- mean(daily.estim.spline[,k1,k2])
-    LCL.mat.spline[k1, k2] <- quantile(daily.estim.spline[,k1,k2], 0.025)
-    UCL.mat.spline[k1, k2] <- quantile(daily.estim.spline[,k1,k2], 0.975)
-  }
-  
-}
-
-N.hats.day.spline <- data.frame(Season = rep(paste0(all.start.year, "/", all.start.year+1), 
-                                                       each = nrow(spline.out$jm$mean$sp)),
-                                Day = rep(1:dim(daily.estim.spline)[2], dim(daily.estim.spline)[3]),
-                                Mean = as.vector(mean.mat.spline),
-                                LCL = as.vector(LCL.mat.spline),
-                                UCL = as.vector(UCL.mat.spline))
-
-# Daily estimates plots
-p.daily.spline <- ggplot(N.hats.day.spline %>% group_by(Season)) + 
-  geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
-              fill = "blue", alpha = 0.5) +
-  geom_path(aes(x = Day, y = Mean)) + 
-  geom_point(data = Nhats.HT.all,
-             aes(x = Day, y = Nhat),
-             alpha = 0.3) + 
-  facet_wrap(~ Season)
+# mean.mat.spline <- LCL.mat.spline <- UCL.mat.spline <- matrix(data = NA, 
+#                                          nrow = dim(daily.estim.spline)[2], 
+#                                          ncol = dim(daily.estim.spline)[3])
+# 
+# for (k1 in 1:dim(daily.estim.spline)[2]){
+#   for (k2 in 1:dim(daily.estim.spline)[3]){
+#     mean.mat.spline[k1, k2] <- mean(daily.estim.spline[,k1,k2])
+#     LCL.mat.spline[k1, k2] <- quantile(daily.estim.spline[,k1,k2], 0.025)
+#     UCL.mat.spline[k1, k2] <- quantile(daily.estim.spline[,k1,k2], 0.975)
+#   }
+#   
+# }
+# 
+# N.hats.day.spline <- data.frame(Season = rep(paste0(all.start.year, "/", all.start.year+1), 
+#                                                        each = nrow(spline.out$jm$mean$sp)),
+#                                 Day = rep(1:dim(daily.estim.spline)[2], dim(daily.estim.spline)[3]),
+#                                 Mean = as.vector(mean.mat.spline),
+#                                 LCL = as.vector(LCL.mat.spline),
+#                                 UCL = as.vector(UCL.mat.spline))
+# 
+# # Daily estimates plots
+# p.daily.spline <- ggplot(N.hats.day.spline %>% group_by(Season)) + 
+#   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
+#               fill = "blue", alpha = 0.5) +
+#   geom_path(aes(x = Day, y = Mean)) + 
+#   geom_point(data = Nhats.HT.all,
+#              aes(x = Day, y = Nhat),
+#              alpha = 0.3) + 
+#   facet_wrap(~ Season)
 
 # Laake.abundance.new %>%
 #   rbind(Durban.abundance.df) %>%
@@ -421,6 +433,7 @@ p.daily.spline <- ggplot(N.hats.day.spline %>% group_by(Season)) +
 Laake.abundance.new %>%
   rbind(Durban.abundance.df) %>%
   rbind(Nhat.) -> all.estimates
+#  rbind(spline.Nhat) 
 #  rbind(Reported.estimates %>% na.omit()) -> all.estimates
 
 p.Nhats <- ggplot(all.estimates) +
@@ -429,4 +442,24 @@ p.Nhats <- ggplot(all.estimates) +
              alpha = 0.5) +
   geom_errorbar(aes(x = year, ymin = LCL, ymax = UCL,
                     color = Method)) +
-  ylim(0, 35000)
+  ylim(0, 45000)
+
+# Precision of the estimates using Richards function is a lot better than other 
+# methods. They are a bit lower (negatively biased) than other two. I think the
+# problem is detection probabilities. mean.prob gets very small (mean = 0.04) 
+# even though the prior is beta(0.95, 0.05). 
+
+# Changed the prior to unif(0.9, 1.0) - 2024-10-21
+
+# This problem has been fixed as of November 1, 2024. The problem was how I set
+# up the proportion of watch period. It was set at hours observed over maximum
+# possible. But, this should have been over 24 hrs (or one day), which was 
+# already computed when data were extracted. By dividing that (times 60 min times
+# 24 hrs) by 540 minutes made those numbers bigger by 2.667 times (24*60/540), 
+# resulting in a smaller estimated abundance. 
+
+# Although the estimates are a lot better now they are a bit off, especially in 
+# some years. These need to be looked at carefully. 2024-11-13
+
+
+

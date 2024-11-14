@@ -23,53 +23,36 @@
 # Observed counts are assumed to be binomial distribution from this function and
 # sighting probability, which is a function of visibility, Beaufort, and observer.
 #
-# For the prior for N, I use the Tweedie distribution. V3 used Poisson and
-# v4 used gamma. 
+# For the prior for N, I use the gamma distribution. V3 used Poisson. 
 #
-# Tweedie jags code from https://stackoverflow.com/questions/63473064/how-do-you-code-a-tweedie-distribution-in-jags-bugs
+# This version (v5) has year spcific P, S1 and S2 parameters with hyperparameters.
 #
-# Y ~ Tweedie(mu, phi, p)
-# E[Y] = mu, var(Y) = phi * mu^p 
-
-# This version has year spcific K, S1, S2, and P parameters with hyperparameters.
+# Year specific K and P parameters ended up in poor convergence. They still have 
+# hyper distributions. 2024-08-08
  
 # It allows different numbers of sampling periods between primary
 # and secondary sampling stations. 2024-07-09
 
+# The variability in P is quite small. So, I changed it to be a constant from 
+# a gamma distribution among all years. 2024-08-07
+
 model{
 
 	# Define Richards function - this is the mean of "true" daily abundance
-	# The realization is a Tweedie deviate. 
+	# The realization is a gamma deviate. 
 	for (y in 1:n.year){
 				
 		for (t in 1:n.days){
 			# year-specific K - results in conversion issues. 2022-11-09 
 			# This was fixed with hyperparameters. 2024
-			M1[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/(-S1[y])) * (P[y] - t))) ^ (-1/exp(K[y]))
-			M2[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K[y]))
+			M1[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/(-S1[y])) * (P[y] - t))) ^ (-1/exp(K))
+			M2[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K))
 			
 			mean.N[t, y] <- (Max[y]) * (M1[t, y] * M2[t, y])
+						
+			N[t, y] ~ dpois(mean.N[t,y])
 			
-			# Tweedie distribution bit starts here.
-			lambda[t,y] <- pow(mean.N[t,y], 2-p[y])/(phi[y] * (2-p[y]))
-			num[t,y] ~ dpois(lambda[t,y])  
-			
-			shape[t,y] <- ifelse(mean.N[t,y] == 0, 1, num[t,y] * ((2 - p[y])/(p[y] - 1)))
-			rate[t,y] <- ifelse(mean.N[t,y] == 0, exp(-lambda[t,y]), 1/(phi[y] * (p[y]-1) * pow(mean.N[t, y], (p[y]-1))))
-			
-			# Takes shape/rate parameter 1 if y > 0 and 2 if y = 0
-			N[t,y] ~ dgamma(shape[t,y], rate[t,y])
-			
-			# The original code used y-index to select different shape/rate parameters, which
-			# were stored in arrays. I changed them into two separate variables, I use ifelse.
-						    			
 		}
-
-		# Tweedie parameters.
-		#mu[y] ~ dunif(0,100)
-		p[y] ~ dunif(1,2)  ## Tweedie power parameter
-		phi[y] ~ dunif(0,30) ## Dispersion parameter
-
 	}  
 
 	# observations are from the realized abundance: N-mixture part with 
@@ -87,32 +70,40 @@ model{
 
 	# priors for Richards function parameters. 
 	for (y in 1:n.year){
-		Max[y] ~ dgamma(Max.alpha, Max.beta)  
+		#Max[y] ~ dgamma(Max.alpha, Max.beta)  
+		Max[y] ~ dnorm(10000, 1/(4000^2))T(0,)
 		S1[y] ~ dgamma(S1.alpha, S1.beta)  
 		S2[y] ~ dgamma(S2.alpha, S2.beta)  
-		K[y] ~ dgamma(K.alpha, K.beta)   
-		P[y] ~ dgamma(P.alpha, P.beta) 		
+		#K[y] ~ dgamma(K.alpha, K.beta)   
+		P[y] ~ dgamma(P.alpha, P.beta) 
+		N.beta[y] ~ dunif(0, 5)   # this has to be a pretty small number
 	}
 
+	#P ~ dgamma(P.alpha, P.beta) 
+	K ~ dgamma(K.alpha, K.beta) 
+	#K ~ dbeta(K.alpha, K.beta)
+	#K.alpha ~ dunif(0.0, 1.0)
+	#K.beta ~ dunif(0, 100)
+	
 	# Uniform distributions were adjusted after running to capture entire posterior 
 	# distributions. 
-	Max.alpha ~ dunif(1, 20)
-	Max.beta ~ dunif(0, 0.02)  
+	#Max.alpha ~ dunif(1, 30)
+	#Max.beta ~ dunif(0, 0.01)  
 	
-	S1.alpha ~ dunif(0.1, 15)
+	S1.alpha ~ dunif(0.1, 50)
 	S1.beta ~ dunif(0.01, 5)
 	
-	S2.alpha ~ dunif(0.1, 15)
-	S2.beta ~ dunif(0.01, 2.5)
+	S2.alpha ~ dunif(0.1, 50)
+	S2.beta ~ dunif(0.01, 10)
 	
-	P.alpha ~ dunif(15, 50)
-	P.beta ~ dunif(0.01, 1.5)
+	P.alpha ~ dunif(1, 10000)
+	P.beta ~ dunif(0.01, 250)
 	
 	# K.beta <= K.alpha seems to work better with the gamma distribution for K
-	# So, I subtract a random number from K.alpha to create K.beta
-	K.alpha ~ dunif(0, 3)
-	K.unif ~ dunif(0, 1)
-	K.beta <- K.alpha - K.unif
+	# So, I add a random number to K.beta to create K.alpha
+	K.beta ~ dunif(0, 5000)
+	K.unif ~ dunif(0, 500)
+	K.alpha <- K.beta + K.unif
 	
 	### Observation probability - include the watch period durations (in proportions)
 	# I removed all "switches," which were 0/1 to exclude/include each variable. They
@@ -120,11 +111,17 @@ model{
 	for(y in 1:n.year){
 		for(s in 1:n.station[y]){
 			for(d in 1:periods[y,s]){
-
-				logit(prob[d,s,y]) <- logit(mean.prob) + 
+			
+				# Another way to model the detection probability... 
+				prob[d,s,y] <- ilogit(mean.prob + 
 								(BF.Fixed * bf[d,s,y]) + 
 								(VS.Fixed * vs[d,s,y]) +
-								(OBS.RF[obs[d,s,y]])						
+								(OBS.RF[obs[d,s,y]]))
+								
+				#logit(prob[d,s,y]) <- logit(mean.prob) + 
+				#				(BF.Fixed * bf[d,s,y]) + 
+				#				(VS.Fixed * vs[d,s,y]) 
+								#(OBS.RF[obs[d,s,y]])						
 									
 				# watch.prop is the proportion of the total watch periods in a day (540 minutes) that
 				# was actually observed. 
@@ -134,9 +131,17 @@ model{
 		}#s
 	}#y
   
-	# A wide prior for mean.prob
+	# Detection probability should be highest when Beaufort is zero and visibility
+	# is zero. The observer effect should be <= 1.0, where the best observer can do only
+	# the "mean"
+	# 
 	# when not using logit for mean.prob, use something like dunif(-2,2)  
-	mean.prob ~ dbeta(1,1) 
+	#mean.prob ~ dbeta(1,1) 
+	
+	# I'm going to make a bold assumption that when bf and vs are 0
+	# the probability is almost 1.0. 
+	#mean.prob ~ dbeta(0.95, 0.05)  # This doesn't work well because the mean gets very small.
+	mean.prob ~ dunif(0.9, 1.0)     # This works.
     
 	### Specification of terms within observation probability linear model
   
@@ -148,7 +153,7 @@ model{
 	sigma.Obs ~ dgamma(1, 0.1)
 	tau.Obs <- pow(sigma.Obs,-2)
      
-	## Beaufort 
+	## Beaufort and visibility
 	#Below is the single fixed effect multiplied by BF rating in the updated obs prob equation:
 	BF.Fixed ~ dnorm(0,0.01)
   
@@ -179,4 +184,8 @@ model{
   # the median date of migration is Jan 15 (1 + 0.175 * 0.5 = 1.0875). This may have to
   # be fixed to adjust for the changing median migration date. SE of 0.03625 was not found
   # in the paper... 0.116*(14/24) = 0.0677	
+  
+  # There was a typographic error in Perryman et al. Laake et al. (2012) stated that "... a
+  # standard error of f x 15/24 x 0.116 after correcting the typographic errors in Perryman
+  # et al. (1999).
 }
