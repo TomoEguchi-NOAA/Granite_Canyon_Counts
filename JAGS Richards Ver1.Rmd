@@ -30,13 +30,13 @@ source("Granite_Canyon_Counts_fcns.R")
 models <- "pois_bino"
 #ver <- "v2"  # "v1" has a common K and "v2" has year-specific K
 #ver <- "v3"  # "v3" has year-specific K parameters with hyper-parameters.
-#ver <- "v4"  # "v4" has common K and P parameters with hyper-parameters.
-ver <- "v5"  # "v5" has year-specific K and a common P parameters with hyper-parameters.
+ver <- "v4"  # "v4" has common K and P parameters with hyper-parameters.
+#ver <- "v5"  # "v5" has year-specific K and a common P parameters with hyper-parameters.
 
 #jags.model <- paste0("models/model_Richards_", models, ".txt")
 jags.model <- paste0("models/model_Richards_", models, "_", ver, ".txt")
 
-run.date <- Sys.Date()
+run.date <- Sys.Date() #"2024-11-14" #Sys.Date()#
 out.file.name <- paste0("RData/JAGS_Richards_", 
                         models, "_", ver,
                         "_10yr_v2_", run.date, ".rds")
@@ -311,15 +311,15 @@ jags.data <- list(  n = data.WinBUGS$n,
 if (!file.exists(out.file.name)){
 
   Start_Time<-Sys.time()
-  jm <- jags(jags.data,
-             inits = NULL,
-             parameters.to.save= jags.params,
-             model.file = jags.model,
-             n.chains = MCMC.params$n.chains,
-             n.burnin = MCMC.params$n.burnin,
-             n.thin = MCMC.params$n.thin,
-             n.iter = MCMC.params$n.samples,
-             DIC = T, parallel=T)
+  jm <- jagsUI::jags(jags.data,
+                     inits = NULL,
+                     parameters.to.save= jags.params,
+                     model.file = jags.model,
+                     n.chains = MCMC.params$n.chains,
+                     n.burnin = MCMC.params$n.burnin,
+                     n.thin = MCMC.params$n.thin,
+                     n.iter = MCMC.params$n.samples,
+                     DIC = T, parallel = T)
   Run_Time <- Sys.time() - Start_Time
   
   jm.out <- list(jm = jm,
@@ -363,8 +363,8 @@ max.Rhat.big <- max.Rhat[which(max.Rhat > 1.1)]
 
 
 ```{r}
-if (ver != "v4"){
-  par.idx <- c(1:nrow(jm.out$jm$mean$K))
+if (length(jm.out$jm$mean$K) > 1){
+  par.idx <- c(1:length(jm.out$jm$mean$K))
   mcmc_trace(jm.out$jm$samples, paste0("K[", par.idx, "]"))
 
 } else {
@@ -378,7 +378,7 @@ if (ver != "v4"){
 
 
 ```{r}
-par.idx <- c(1:nrow(jm.out$jm$mean$S1))
+par.idx <- c(1:length(jm.out$jm$mean$S1))
 mcmc_trace(jm.out$jm$samples, paste0("S1[", par.idx, "]"))
 
 ```
@@ -392,7 +392,7 @@ mcmc_dens(jm.out$jm$samples, paste0("S1[", par.idx, "]"))
 
 
 ```{r}
-par.idx <- c(1:nrow(jm.out$jm$mean$S2))
+par.idx <- c(1:length(jm.out$jm$mean$S2))
 mcmc_trace(jm.out$jm$samples, paste0("S2[", par.idx, "]"))
 
 ```
@@ -414,7 +414,7 @@ mcmc_trace(jm.out$jm$samples, c("BF.Fixed", "VS.Fixed"))
 
 
 ```{r}
-par.idx <- c(1:nrow(jm.out$jm$mean$Max))
+par.idx <- c(1:length(jm.out$jm$mean$Max))
 mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
 
 ```
@@ -486,7 +486,7 @@ ggplot(obsd.n %>% group_by(Season)) +
 
 ```{r}
 # Check conversions
-par.idx <- c(1:nrow(jm.out$jm$mean$Corrected.Est))
+par.idx <- c(1:length(jm.out$jm$mean$Corrected.Est))
 mcmc_trace(jm.out$jm$samples, paste0("Corrected.Est[", par.idx, "]"))
 
 ```
