@@ -109,9 +109,19 @@ n.seasons <- length(seasons)
 # years <- unique(Final_Data.all$Year)
 
 # v2 refers to v2 data extraction. 
-data.v2 <- readRDS("RData/WinBUGS_10yr_v2_min85.rds")
-data.WinBUGS <- data.v2$BUGS.data
+#data.v2 <- readRDS("RData/WinBUGS_10yr_v2_min85.rds")
+#data.WinBUGS <- data.v2$BUGS.data
 
+# New as of 2024-11-14
+# Use data2WinBUGS_input_fcn.R
+source("data2WinBUGS_input_fcn.R")
+WinBUGS.inputs <- data2WinBUGS_input(data.dir = "RData/V2.1_Nov2024",
+                                     years = c("2010", "2011", "2015", 
+                                               "2016", "2020", "2022", 
+                                               "2023", "2024"),
+                                     min.duration = 10)
+
+data.WinBUGS <- WinBUGS.inputs$data
 # watch lengths are assumed equal between primary and secondary stations in
 # WinBUGS code. But not in Jags. So, I duplicate the secondary watch effort
 
