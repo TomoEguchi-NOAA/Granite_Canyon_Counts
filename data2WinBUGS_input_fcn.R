@@ -206,7 +206,7 @@ data2WinBUGS_input <- function(data.dir, years, min.duration){
                     n.sp = n[1:max(periods[1:x]),,1:x],
                     n.station = dim(n[1:max(periods[1:x]),,1:x])[2],
                     n.year = dim(n[1:max(periods[1:x]),,1:x])[3],
-                    n.obs = max(obs[1:max(periods[1:x]),,1:x]),
+                    n.obs = max(obs[1:max(periods[1:x]),,1:x], na.rm = T),
                     periods = periods[1:x],
                     obs = obs[1:max(periods[1:x]),,1:x],
                     #Watch.Length = 0.0625,
