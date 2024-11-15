@@ -24,20 +24,24 @@ save.output <- TRUE
 # https://statisticsglobe.com/dplyr-message-summarise-has-grouped-output-r
 options(dplyr.summarise.inform = FALSE)
 
+out.dir <- "RData/V2.1_Nov2024/out_"
+
 # Do not run 2023 with this script. Use Extract_Data_2023.Rmd for 2023. 
 # I ran 2023 data and seemed to work fine... 2023-10-19
 # YEAR should be one of 2010, 2011, 2015, 2016, 2020, 2022, 2023 (and beyond)
 # They are the end year of the season, which is the season name. For example, the 
 # 2020/2021 season is called the 2021 season.
- 
-YEAR <- 2010 #Enter the year of the data files
+
+all.years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024)
+
+YEAR <- 2024 #Enter the year of the data files
 
 # For 2009/2010 (maybe in the previous years too but I don't have any of those files),
 # Time is entered in decimal hours, not hh:mm:ss. So, that needs to be accommodated in
 # data extraction code. 2022-10-05
 
 shift_dur_min <- 90   # 90 minutes
-grace_min <- 80       # this makes it minimum of shift_dur_min - grace_min
+grace_min <- 60       # this makes it minimum of shift_dur_min - grace_min
 
 # For Mar 2023 analysis, I changed this to minimum duration of 30 minutes
 max_dur <- shift_dur_min + 5
@@ -521,7 +525,7 @@ if (save.output){
   # saveRDS(out.obj, file = paste0("RData/V2.1_Feb2024/out_", 
   #YEAR, "_min", min_dur, "_Tomo_v2.rds"))
   
-  saveRDS(out.obj, file = paste0("RData/V2.1_Nov2024/out_", 
+  saveRDS(out.obj, file = paste0(out.dir,  
                                  YEAR, "_min", min_dur, 
                                  "_Tomo_v2.rds"))
   

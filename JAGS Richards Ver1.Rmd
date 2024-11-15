@@ -36,9 +36,11 @@ ver <- "v4"  # "v4" has common K and P parameters with hyper-parameters.
 #jags.model <- paste0("models/model_Richards_", models, ".txt")
 jags.model <- paste0("models/model_Richards_", models, "_", ver, ".txt")
 
+min.dur <- 30
+
 run.date <- Sys.Date() #"2024-11-14" #Sys.Date()#
 out.file.name <- paste0("RData/JAGS_Richards_", 
-                        models, "_", ver,
+                        models, "_", ver, "_min", min.dur,
                         "_10yr_v2_", run.date, ".rds")
 
 # out.file.name <- paste0("RData/JAGS_Richards_", models, "_", ver,  
@@ -125,7 +127,7 @@ WinBUGS.inputs <- data2WinBUGS_input(data.dir = "RData/V2.1_Nov2024",
                                      years = c("2010", "2011", "2015", 
                                                "2016", "2020", "2022", 
                                                "2023", "2024"),
-                                     min.duration = 10)
+                                     min.duration = min.dur)
 
 data.WinBUGS <- WinBUGS.inputs$data
 # watch lengths are assumed equal between primary and secondary stations in
