@@ -236,10 +236,11 @@ bayesplot::mcmc_dens(jm.out$jm$samples, c("BF.Fixed", "VS.Fixed"))
 # v4 has one P and one K.
 par.idx <- c(1:nrow(jm.out$jm$mean$S1))
 
-mcmc_trace(jm.out$jm$samples, c("P", "K"))
-mcmc_dens(jm.out$jm$samples, c("P", "K"))
+mcmc_trace(jm.out$jm$samples, c("K"))
+mcmc_dens(jm.out$jm$samples, c("K"))
 
-# mcmc_trace(jm.out$jm$samples, paste0("P[", par.idx, "]"))
+mcmc_trace(jm.out$jm$samples, paste0("P[", par.idx, "]"))
+mcmc_dens(jm.out$jm$samples, paste0("P[", par.idx, "]"))
 # mcmc_trace(jm.out$jm$samples, paste0("K[", par.idx, "]"))
 bayesplot::mcmc_trace(jm.out$jm$samples, paste0("S1[", par.idx, "]"))
 bayesplot::mcmc_trace(jm.out$jm$samples, paste0("S2[", par.idx, "]"))

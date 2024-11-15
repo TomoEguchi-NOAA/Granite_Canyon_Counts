@@ -3,10 +3,10 @@
 # should be treated by Extract_Data_All_v2.Rmd. All output files should be in
 # one directory, e.g., V2.1_Nov2024. 
 
-rm(list=ls())
-library(R2jags)
+#rm(list=ls())
+#library(R2jags)
 library(abind)
-library(R2WinBUGS)
+#library(R2WinBUGS)
 library(tidyverse)
 
 # this file contains all necessary inputs for 2006 - 2019:
@@ -15,9 +15,10 @@ data.0 <- readRDS("RData/2006-2019_GC_Formatted_Data.RDS")
 # data directory name
 data.dir <- "RData/V2.1_Nov2024"
 
+# e.g., 2007 refers to 2006/2007
 all.years <- c(2007, 2008, 2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024)
 
-# output from Ver2.0 extraction - end year
+# output from Ver2.0 extraction (I don't have raw data for 2006/2007 and 2007/2008)
 years <- c("2010", "2011", "2015", "2016", "2020", "2022", "2023", "2024")
 
 # can be 85, 30, 10, or anything that was assigned at the time of running
@@ -118,27 +119,12 @@ day <- rbind(data.0$day[,1:2],
 
 k <- 1
 for (k in 1:length(begin.)){
-  # Final_Data is correct length and correct BF and VS
-  n.stations <- length(unique(out.v2[[k]]$Final_Data$station))
-  
-  if (n.stations == 1){
-    n.k <- cbind(c(out.v2[[k]]$Final_Data$n, 
-                   rep(0, times = (dim(n)[1] - length(out.v2[[k]]$Final_Data$n)))), 
-                 rep(0, times = dim(n)[1]))
-  } else {
-    n.1 <- out.v2[[k]]$Final_Data %>% filter(station == "P")# %>% select(n)
-    n.2 <- out.v2[[k]]$Final_Data %>% filter(station == "S")# %>% select(n)
-    n.k <- cbind(c())  
-  }
-  # n <- abind(n, 
-  #            cbind(c(out.v2[[k]]$Final_Data$n, 
-  #                    rep(0, times = (dim(n)[1] - length(out.v2[[k]]$Final_Data$n)))), 
-  #                  rep(0, times = dim(n)[1]))) %>%
-  #   labelled::remove_attributes("dimnames")
-  
-  n <- abind(n, n.k) %>%
+  n <- abind(n, 
+             cbind(c(out.v2[[k]]$Final_Data$n, 
+                     rep(0, times = (dim(n)[1] - length(out.v2[[k]]$Final_Data$n)))), 
+                   rep(0, times = dim(n)[1]))) %>%
     labelled::remove_attributes("dimnames")
-
+  
   u <- abind(u, 
              cbind(c(rep(1, times = length(out.v2[[k]]$Final_Data$n)), 
                      rep(0, times = (dim(u)[1] - length(out.v2[[k]]$Final_Data$n)))), 
@@ -160,7 +146,7 @@ for (k in 1:length(begin.)){
                cbind(c(obs.year$ID, 
                        rep(36, times = (max(periods) - length(obs.year$ID)))), 
                      rep(36, times = max(periods))))
-
+  
   Watch.Length <- cbind(Watch.Length,
                         c(Watch.Length.[[k]], 
                           rep(NA, 
@@ -169,7 +155,7 @@ for (k in 1:length(begin.)){
   
   day <- cbind(day, 
                c(floor(begin.[[k]]), 
-               rep(NA, times = max(periods) - length(begin.[[k]])))) %>%
+                 rep(NA, times = max(periods) - length(begin.[[k]])))) %>%
     labelled::remove_attributes("dimnames")
   
 }
