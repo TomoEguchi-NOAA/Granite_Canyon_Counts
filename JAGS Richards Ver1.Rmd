@@ -306,7 +306,7 @@ jags.data <- list(  n = data.WinBUGS$n,
                     watch.prop = watch.prop,
                     #watch.prop = (data.WinBUGS$Watch.Length*24*60)/540,
                     day = day)
-
+#obs[244,1,3] (line 119)
 if (!file.exists(out.file.name)){
 
   Start_Time<-Sys.time()
@@ -342,8 +342,8 @@ data.array <- jags.data$n
 data.array[,2,which(jags.data$n.station == 1)] <- NA
 
 LOOIC.n <- compute.LOOIC(loglik.array = jm.out$jm$sims.list$log.lkhd,
-                               data.array = data.array,
-                               MCMC.params = MCMC.params)
+                         data.array = data.array,
+                         MCMC.params = MCMC.params)
 
 # Look at Rhat statistics
 max.Rhat <- lapply(jm.out$jm$Rhat, FUN = max, na.rm = T) %>%
