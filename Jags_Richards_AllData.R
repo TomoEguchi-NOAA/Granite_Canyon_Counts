@@ -35,6 +35,8 @@ out.file.name <- paste0("RData/JAGS_", model.name,"_min", min.dur,
 jags.data <- AllData2JagsInput(min.dur = min.dur)
 all.start.year <- as.numeric(jags.data$all.start.year)
 
+jags.data[["all.start.year"]] <- NULL
+
 jags.params <- c("OBS.RF", "BF.Fixed",
                  "VS.Fixed",
                  "mean.prob", "mean.N", "Max",
