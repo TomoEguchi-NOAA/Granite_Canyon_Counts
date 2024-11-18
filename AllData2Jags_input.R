@@ -5,7 +5,7 @@ AllData2JagsInput <- function(min.dur){
   source("LaakeData2Jags.R")
   
   load("Data/PrimaryEffort.rda")
-  Laake.jags.data <- LaakeData2JagsInput()
+  Laake.jags.data <- LaakeData2JagsInput(min.dur = min.dur)
   Laake.start.year <- unique(PrimaryEffort$Start.year)
   
   Jags.input.2006<- data2Jags_input(min.dur = min.dur)
@@ -84,7 +84,8 @@ AllData2JagsInput <- function(min.dur){
                     bf = bf,
                     watch.prop = watch.prop,
                     day = day,
-                    n.days = 94) 
+                    n.days = 94,
+                    all.start.year = all.start.year) 
   return(jags.data)
 }
 

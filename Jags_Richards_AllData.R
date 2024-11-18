@@ -18,13 +18,13 @@ source("Granite_Canyon_Counts_fcns.R")
 source("AllData2Jags_input.R")
 
 Run.date <- Sys.Date()
-#Run.date <- "2024-11-01"
+#Run.date <- "2024-11-15"
 # I use the "Laake" model because the number of periods per year
 # can be different. This should be the same as non-Laake version
 # as of 2024-07-09
 
 min.dur <- 30
-ver <- "v5"
+ver <- "v3"
 model.name <- paste0("Richards_pois_bino_", ver) 
 jags.model <- paste0("models/model_", model.name, ".txt")
 
@@ -33,6 +33,7 @@ out.file.name <- paste0("RData/JAGS_", model.name,"_min", min.dur,
                         Run.date, ".rds")
 
 jags.data <- AllData2JagsInput(min.dur = min.dur)
+all.start.year <- as.numeric(jags.data$all.start.year)
 
 jags.params <- c("OBS.RF", "BF.Fixed",
                  "VS.Fixed",
@@ -54,6 +55,10 @@ MCMC.params <- list(n.samples = 250000,
 
 if (!file.exists(out.file.name)){
   
+  out.file.name <- paste0("RData/JAGS_", model.name,"_min", min.dur,
+                          "_AllYears_",
+                          Sys.Date(), ".rds")
+  
   Start_Time<-Sys.time()
   
   jm <- jagsUI::jags(jags.data,
@@ -70,7 +75,7 @@ if (!file.exists(out.file.name)){
   Run_Time <- Sys.time() - Start_Time
   jm.out <- list(jm = jm,
                  jags.data = jags.data,
-                 start.year = all.start.year,
+                 #start.year = all.start.year,
                  jags.params = jags.params,
                  jags.model = jags.model,
                  MCMC.params = MCMC.params,
@@ -260,81 +265,15 @@ Laake.abundance.new <- read.csv(file = "Data/all_estimates_Laake_2024.csv") %>%
   arrange(year) %>%
   mutate(Method = "Laake")
 
-#Laake.output <- read_rds(file = "RData/Laake_abundance_estimates_2024.rds")
-
 # In reported estimates, there are two 2006/2007.
 Reported.estimates %>%
   na.omit() %>%
   select(Season) %>% 
   unique() -> sampled.seasons 
 
-# read in spline results - Not very good so remove
-# JAGS spline Ver1.Rmd
-# spline.out <- read_rds("RData/JAGS_Spline_v2_results_All_Data_2024-07-09.rds")
-# 
-# spline.Nhat <- data.frame(Season = sampled.seasons$Season,
-#                           Nhat = spline.out$jm$q50$Corrected.Est,
-#                           LCL = spline.out$jm$q2.5$Corrected.Est,
-#                           UCL = spline.out$jm$q97.5$Corrected.Est) %>%
-#   right_join(all.years, by = "Season") %>%
-#   arrange(year) %>%
-#   mutate(Method = "Bayesian Spline")
-# 
-# daily.estim.spline <- exp(spline.out$jm$sims.list$sp)
-
-# get stats:
-# mean.mat.spline <- LCL.mat.spline <- UCL.mat.spline <- matrix(data = NA, 
-#                                          nrow = dim(daily.estim.spline)[2], 
-#                                          ncol = dim(daily.estim.spline)[3])
-# 
-# for (k1 in 1:dim(daily.estim.spline)[2]){
-#   for (k2 in 1:dim(daily.estim.spline)[3]){
-#     mean.mat.spline[k1, k2] <- mean(daily.estim.spline[,k1,k2])
-#     LCL.mat.spline[k1, k2] <- quantile(daily.estim.spline[,k1,k2], 0.025)
-#     UCL.mat.spline[k1, k2] <- quantile(daily.estim.spline[,k1,k2], 0.975)
-#   }
-#   
-# }
-# 
-# N.hats.day.spline <- data.frame(Season = rep(paste0(all.start.year, "/", all.start.year+1), 
-#                                                        each = nrow(spline.out$jm$mean$sp)),
-#                                 Day = rep(1:dim(daily.estim.spline)[2], dim(daily.estim.spline)[3]),
-#                                 Mean = as.vector(mean.mat.spline),
-#                                 LCL = as.vector(LCL.mat.spline),
-#                                 UCL = as.vector(UCL.mat.spline))
-# 
-# # Daily estimates plots
-# p.daily.spline <- ggplot(N.hats.day.spline %>% group_by(Season)) + 
-#   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
-#               fill = "blue", alpha = 0.5) +
-#   geom_path(aes(x = Day, y = Mean)) + 
-#   geom_point(data = Nhats.HT.all,
-#              aes(x = Day, y = Nhat),
-#              alpha = 0.3) + 
-#   facet_wrap(~ Season)
-
-# Laake.abundance.new %>%
-#   rbind(Durban.abundance.df) %>%
-#   rbind(Nhat.) %>%
-#   rbind(spline.Nhat) %>%
-#   rbind(Reported.estimates) -> all.estimates
-# Reported.estimates %>%
-#   filter(Method == "Laake") %>%
-#   rbind(Durban.abundance.df) -> previous.estimates
-
-# ggplot(all.estimates) +
-#   geom_point(aes(x = year, y = Nhat,
-#                  color = Method)) +
-#   geom_errorbar(aes(x = year, ymin = LCL, ymax = UCL,
-#                     color = Method)) +
-#   ylim(0, 50000)
-
-# Bayesian spline is the worst, so remove and re-plot
 Laake.abundance.new %>%
   rbind(Durban.abundance.df) %>%
   rbind(Nhat.) -> all.estimates
-#  rbind(spline.Nhat) 
-#  rbind(Reported.estimates %>% na.omit()) -> all.estimates
 
 p.Nhats <- ggplot(all.estimates) +
   geom_point(aes(x = year, y = Nhat,
@@ -344,6 +283,7 @@ p.Nhats <- ggplot(all.estimates) +
                     color = Method)) +
   ylim(0, 45000)
 
+#### Some observations in results over time. ###########################
 # Precision of the estimates using Richards function is a lot better than other 
 # methods. They are a bit lower (negatively biased) than other two. I think the
 # problem is detection probabilities. mean.prob gets very small (mean = 0.04) 
@@ -361,5 +301,5 @@ p.Nhats <- ggplot(all.estimates) +
 # Although the estimates are a lot better now they are a bit off, especially in 
 # some years. These need to be looked at carefully. 2024-11-13
 
-
+####    ###########################
 

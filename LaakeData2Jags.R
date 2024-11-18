@@ -12,7 +12,9 @@
 # data files using the data() function - I can't use it on my linux laptop... So,
 # I changed it to the load function. 2024-11-14
 
-LaakeData2JagsInput <- function(){
+# min.dur is the minimum effort duration in minutes to be included in the analysis
+LaakeData2JagsInput <- function(min.dur){
+  
   library(tidyverse)
   # library(ggplot2)
   # library(R2WinBUGS)
@@ -66,7 +68,15 @@ LaakeData2JagsInput <- function(){
   
   # Filter effort and sightings and store in dataframes Effort and Sightings
   Laake_PrimaryEffort = PrimaryEffort[PrimaryEffort$Use,]  
+  
   Laake_SecondaryEffort <- SecondaryEffort[SecondaryEffort$Use,]
+
+    # Filter to minimum duration:
+  Laake_PrimaryEffort %>%
+    filter(effort >= min.dur / (60 * 24) ) -> Laake_PrimaryEffort
+  
+  Laake_SecondaryEffort %>%
+    filter(effort >= min.dur / (60 * 24) ) -> Laake_SecondaryEffort
   
   Sightings = PrimarySightings
   Sightings$seq = 1:nrow(Sightings)
@@ -113,9 +123,9 @@ LaakeData2JagsInput <- function(){
   Laake.obs <- data.frame(obs = obs,
                           obs.ID = seq(1:length(obs)))
   
-  Laake_PrimaryEffort %>% 
-    group_by(Date) %>% 
-    summarize(sum.effort = sum(effort)) -> tmp
+  # Laake_PrimaryEffort %>% 
+  #   group_by(Date) %>% 
+  #   summarize(sum.effort = sum(effort)) -> tmp
   # maximum daily effort was 0.447917 days, or 10.75 hrs.
   # Effort is measured in decimal days
   
