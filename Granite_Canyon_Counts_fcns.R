@@ -1,6 +1,29 @@
 
 # define some functions
 
+# Create trace and density plots for MCMC samples from jagsUI
+plot.trace.dens <- function(param, jags.out){
+  if (!is.character(jags.out)) stop("jags.out input has to be a character string")
+  
+  n.param <- ncol(eval(parse(text = paste0(jags.out, "$sims.list$", param))))
+  samples <- eval(parse(text = paste0(jags.out, "$samples")))
+  
+  if (n.param == 1){
+    p.trace <- bayesplot::mcmc_trace(samples, param)
+    p.dense <- bayesplot::mcmc_dens(samples, param)
+    
+  } else {
+    par.idx <- c(1:n.param)
+    p.trace <- bayesplot::mcmc_trace(samples, paste0(param, "[", par.idx, "]"))
+    p.dens <- bayesplot::mcmc_dens(samples, paste0(param, "[", par.idx, "]"))
+    
+  }
+  
+  return(list(trace = p.trace,
+              dens = p.dens))
+}
+
+
 shift.definition <- function(date, time){
   dur.since.midnight <- difftime(paste(date, time), paste(date, "00:00:00"), units = "hours")
   shift.id <- ifelse(dur.since.midnight <= 7.5, 0,

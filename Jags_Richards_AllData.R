@@ -24,7 +24,7 @@ Run.date <- Sys.Date()
 # as of 2024-07-09
 
 min.dur <- 30
-ver <- "v3"
+ver <- "v4"
 model.name <- paste0("Richards_pois_bino_", ver) 
 jags.model <- paste0("models/model_", model.name, ".txt")
 
@@ -59,7 +59,7 @@ if (!file.exists(out.file.name)){
   
   out.file.name <- paste0("RData/JAGS_", model.name,"_min", min.dur,
                           "_AllYears_",
-                          Sys.Date(), ".rds")
+                          Run.date, ".rds")
   
   Start_Time<-Sys.time()
   
@@ -139,19 +139,22 @@ bayesplot::mcmc_trace(jm.out$jm$samples, c("S1.alpha", "S1.beta",
 
 bayesplot::mcmc_dens(jm.out$jm$samples, c("BF.Fixed", "VS.Fixed"))
 
-# v4 has one P and one K.
-par.idx <- c(1:nrow(jm.out$jm$mean$S1))
+# plot.trace.dens function is in Granite_Canyon_Counts_fcns.R
+ps.K <- plot.trace.dens(param = "K", 
+                        jags.out = "jm.out$jm")
 
-mcmc_trace(jm.out$jm$samples, c("K"))
-mcmc_dens(jm.out$jm$samples, c("K"))
+ps.P <- plot.trace.dens(param = "P", 
+                        jags.out = "jm.out$jm")
 
-mcmc_trace(jm.out$jm$samples, paste0("P[", par.idx, "]"))
-mcmc_dens(jm.out$jm$samples, paste0("P[", par.idx, "]"))
-# mcmc_trace(jm.out$jm$samples, paste0("K[", par.idx, "]"))
-bayesplot::mcmc_trace(jm.out$jm$samples, paste0("S1[", par.idx, "]"))
-bayesplot::mcmc_trace(jm.out$jm$samples, paste0("S2[", par.idx, "]"))
-bayesplot::mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
-# These three year-specific parameters seemed to behave fine.
+
+ps.S1 <- plot.trace.dens(param = "S1", 
+                         jags.out = "jm.out$jm")
+
+ps.S2 <- plot.trace.dens(param = "S2", 
+                         jags.out = "jm.out$jm")
+
+ps.Max <- plot.trace.dens(param = "Max", 
+                          jags.out = "jm.out$jm")
 
 # Create a dataframe with all years, including unsampled years.
 all.years <- data.frame(year = seq(min(all.start.year), max(all.start.year))) %>%

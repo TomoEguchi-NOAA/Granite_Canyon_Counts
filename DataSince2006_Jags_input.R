@@ -1,6 +1,12 @@
 #data2Jags_input.R
 
-# Creates Jags inputs from data files
+# Creates Jags inputs from data files since the 2006/2007 season. Because raw
+# data files are not available for the 2006/2007 and 2007/2008 seasons, the 
+# WinBUGS input file is needed. Seasons for which data are availablle should
+# be specified in the "years" input (end year). The number of watch stations
+# per season is specified in the n.stations input. data.dir points to a directory
+# in which outputs of Extract_Data_All_v2.Rmd. min.dur should match with the 
+# output of Extract_Data_All_v2.Rmd. See details in the file.
 
 data2Jags_input <- function(min.dur = 85, 
                             seasons = c("2006/2007", "2007/2008", "2009/2010", "2010/2011",
