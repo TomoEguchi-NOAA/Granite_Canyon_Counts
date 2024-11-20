@@ -1,10 +1,23 @@
-# Jags_Richards_AllData_V4
+# Jags_Richards_AllData.R
 # 
 # Combines Laake data and more recent data and runs
-# model_Richards_pois_bino_v4.txt. 
-# It uses the gamma distribution in place of Poisson in v3.
-# 
+# model_Richards_pois_bino_vX, where X is version number. See below.  
  
+# M1 <- (1 + (2 * exp(K) - 1) * exp((1/S1) * (P - d))) ^ (-1/exp(K))
+# M2 <- (1 + (2 * exp(K) - 1) * exp((1/S2) * (P - d))) ^ (-1/exp(K))
+# N <- min + (max - min) * (M1 * M2)
+#
+# d is the number of days from the beginning of nesting season
+# S1 < 0 and S2 > 0 define the "fatness" of the function
+# K > 0 defines the "flatness" at the peak of the function
+# P defines where the peak is relatvie to the range of d min(d) < P < max(d)
+# min is "the basal level of nesting outside the nesting season"
+# max > min
+
+# Model version - depending on which parameters are constant/year-specific
+# v3: Max, P, S1, S2, and K are time specific
+# v4: Max, S1, and S2 are time specific. K and P are constant.
+# v5: Max, P, S1 and S2 are time specific. K is constant.
 
 rm(list = ls())
 
@@ -17,14 +30,14 @@ library(bayesplot)
 source("Granite_Canyon_Counts_fcns.R")
 source("AllData2Jags_input.R")
 
-Run.date <- Sys.Date()
-#Run.date <- "2024-11-15"
-# I use the "Laake" model because the number of periods per year
-# can be different. This should be the same as non-Laake version
-# as of 2024-07-09
+#Run.date <- Sys.Date()
+Run.date <- "2024-11-15"
 
+# Minimum length of observation periods in minutes
 min.dur <- 30
-ver <- "v4"
+
+ver <- "v5"
+
 model.name <- paste0("Richards_pois_bino_", ver) 
 jags.model <- paste0("models/model_", model.name, ".txt")
 
@@ -32,9 +45,14 @@ out.file.name <- paste0("RData/JAGS_", model.name,"_min", min.dur,
                         "_AllYears_",
                         Run.date, ".rds")
 
+# This function is in AllData2Jags_input.R
 jags.data <- AllData2JagsInput(min.dur = min.dur)
+
+# make all start years in numeric
 all.start.year <- as.numeric(jags.data$all.start.year)
 
+# Remove the "all.start.year" object in the jags.data list. Non-numeric objects
+# are not allowed in the data list for jags
 jags.data[["all.start.year"]] <- NULL
 
 jags.params <- c("OBS.RF", "BF.Fixed",
@@ -104,7 +122,8 @@ LOOIC.n <- compute.LOOIC(loglik.array = jm.out$jm$sims.list$log.lkhd,
 # There are some (< 2%) bad ones. I should look at which ones are not fitting well.
  
 
-# Horwitz-Thompson estimates:
+# Horwitz-Thompson estimates. This should use sighting probability from 
+# estimates. 
 Nhats.HT <- jm.out$jags.data$n[,1,]/jm.out$jags.data$watch.prop[,1,]
 day.idx <- jm.out$jags.data$day[,1,]
 
@@ -132,12 +151,12 @@ bayesplot::mcmc_dens(jm.out$jm$samples, c("S1.alpha", "S1.beta",
                                           "K.alpha", "K.beta"))
 # P.alpha and P.beta seem to be not behaving well - the right tails are not 
 # captured. 
-bayesplot::mcmc_trace(jm.out$jm$samples, c("S1.alpha", "S1.beta",
+mcmc_trace(jm.out$jm$samples, c("S1.alpha", "S1.beta",
                                           "S2.alpha", "S2.beta",
                                           "P.alpha", "P.beta",
                                           "K.alpha", "K.beta"))
 
-bayesplot::mcmc_dens(jm.out$jm$samples, c("BF.Fixed", "VS.Fixed"))
+mcmc_dens(jm.out$jm$samples, c("BF.Fixed", "VS.Fixed"))
 
 # plot.trace.dens function is in Granite_Canyon_Counts_fcns.R
 ps.K <- plot.trace.dens(param = "K", 

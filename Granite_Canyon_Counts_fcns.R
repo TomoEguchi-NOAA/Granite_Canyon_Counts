@@ -8,14 +8,15 @@ plot.trace.dens <- function(param, jags.out){
   n.param <- ncol(eval(parse(text = paste0(jags.out, "$sims.list$", param))))
   samples <- eval(parse(text = paste0(jags.out, "$samples")))
   
-  if (n.param == 1){
-    p.trace <- bayesplot::mcmc_trace(samples, param)
-    p.dense <- bayesplot::mcmc_dens(samples, param)
+  if (!is.null(n.param)){
     
-  } else {
     par.idx <- c(1:n.param)
     p.trace <- bayesplot::mcmc_trace(samples, paste0(param, "[", par.idx, "]"))
     p.dens <- bayesplot::mcmc_dens(samples, paste0(param, "[", par.idx, "]"))
+    
+  } else {
+    p.trace <- bayesplot::mcmc_trace(samples, param)
+    p.dens <- bayesplot::mcmc_dens(samples, param)
     
   }
   
