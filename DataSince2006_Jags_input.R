@@ -21,6 +21,11 @@ data2Jags_input <- function(min.dur = 85,
   min.dur <- min.dur
   seasons <- seasons
   
+  start.years <- lapply(seasons, 
+                        FUN = str_split, pattern = "/") %>% 
+    lapply(FUN = function(x) {tmp <- unlist(x); tmp[1]}) %>%
+    unlist()
+  
   # v2 refers to v2 data extraction. 
   WinBUGS.out <- readRDS(WinBUGS.out.file)
   #data.WinBUGS <- data.v2$BUGS.data
@@ -77,6 +82,7 @@ data2Jags_input <- function(min.dur = 85,
                    seasons = seasons, 
                    WinBUGS.out.file = WinBUGS.out.file,
                    years = years,
+                   start.years = start.years,
                    data.dir = data.dir)
   return(out.list)
 }
