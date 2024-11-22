@@ -1,7 +1,7 @@
 #Jags_Richards_NoLaakeData.R
 #
 # Uses only data since 2006 without data from Laake. It is the
-# same as Jags Richards Ver1.Rmd. 
+# same as Jags Richards Ver1.Rmd. Some diagnostics are conducted.
 # 
 # It runs model_Richards_pois_bino_vX, where X is version number. 
 # See below.  
@@ -51,9 +51,6 @@ out.file.name <- paste0("RData/JAGS_", model.name,
 
 jags.input<- data2Jags_input(min.dur = min.dur,
                             data.dir = "RData/V2.1_Nov2024")
-
-# make all start years in numeric
-start.years <- as.numeric(jags.input$start.years)
 
 jags.params <- c("OBS.RF", "BF.Fixed",
                  "VS.Fixed",

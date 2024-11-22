@@ -6,17 +6,17 @@ AllData2JagsInput <- function(min.dur){
   
   load("Data/PrimaryEffort.rda")
   Laake.jags.data <- LaakeData2JagsInput(min.dur = min.dur)
-  Laake.start.year <- unique(PrimaryEffort$Start.year)
+  Laake.start.years <- unique(PrimaryEffort$Start.year)
   
   Jags.input.2006<- data2Jags_input(min.dur = min.dur)
   .data <- Jags.input.2006$jags.data
-  .start.year <- lapply(Jags.input.2006$seasons, 
+  .start.years <- lapply(Jags.input.2006$seasons, 
                         FUN = str_split, pattern = "/") %>% 
     lapply(FUN = function(x) {tmp <- unlist(x); tmp[1]}) %>%
     unlist()
   
-  all.start.year <- c(Laake.start.year, .start.year)
-  all.start.year <- all.start.year[!duplicated(all.start.year)]
+  all.start.years <- c(Laake.start.years, .start.years)
+  all.start.years <- all.start.years[!duplicated(all.start.years)]
   
   # Both datasets contain 2006. Take it out from the recent one.
   bf <- vs <- all.n <- all.obs <- array(dim = c(max(dim(Laake.jags.data$n)[1], dim(.data$n)[1]), 
@@ -27,8 +27,8 @@ AllData2JagsInput <- function(min.dur){
   
   c2 <- 2
   c1 <- c <- 1
-  for (k in 1:length(all.start.year)){
-    if (all.start.year[k] < 2007){
+  for (k in 1:length(all.start.years)){
+    if (all.start.years[k] < 2007){
       all.n[1:dim(Laake.jags.data$n)[1], 1, c] <- Laake.jags.data$n[, 1, c1]
       all.n[1:dim(Laake.jags.data$n)[1], 2, c] <- Laake.jags.data$n[, 2, c1]
       
@@ -69,7 +69,7 @@ AllData2JagsInput <- function(min.dur){
   }
   
   n.station <- c(Laake.jags.data$n.station, .data$n.station[2:length(.data$n.station)])
-  n.year <- length(all.start.year)
+  n.year <- length(all.start.years)
   n.obs <- length(unique(as.vector(all.obs))) 
   
   periods <- rbind(Laake.jags.data$periods, .data$periods[2:length(.data$n.station),])
@@ -84,8 +84,14 @@ AllData2JagsInput <- function(min.dur){
                     bf = bf,
                     watch.prop = watch.prop,
                     day = day,
-                    n.days = 94,
-                    all.start.year = all.start.year) 
-  return(jags.data)
+                    n.days = 94)
+  
+  out.list <- list(jags.data = jags.data,
+                   min.dur = min.dur, 
+                   #seasons = seasons, 
+                   #WinBUGS.out.file = WinBUGS.out.file,
+                   years = years,
+                   start.years = all.start.years)
+  return(out.list)
 }
 
