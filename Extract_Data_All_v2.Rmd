@@ -24,7 +24,7 @@ save.output <- TRUE
 # https://statisticsglobe.com/dplyr-message-summarise-has-grouped-output-r
 options(dplyr.summarise.inform = FALSE)
 
-out.dir <- "RData/V2.1_Nov2024/out_"
+out.dir <- "RData/V2.1_Nov2024"
 
 # Do not run 2023 with this script. Use Extract_Data_2023.Rmd for 2023. 
 # I ran 2023 data and seemed to work fine... 2023-10-19
@@ -34,14 +34,14 @@ out.dir <- "RData/V2.1_Nov2024/out_"
 
 #all.years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024)
 
-YEAR <- 2010 #Enter the year of the data files
+YEAR <- 2024 #Enter the year of the data files
 
 # For 2009/2010 (maybe in the previous years too but I don't have any of those files),
 # Time is entered in decimal hours, not hh:mm:ss. So, that needs to be accommodated in
 # data extraction code. 2022-10-05
 
 shift_dur_min <- 90   # 90 minutes
-grace_min <- 5 #60       # this makes it minimum of shift_dur_min - grace_min
+grace_min <- 60 #5 #       # this makes it minimum of shift_dur_min - grace_min
 
 # For Mar 2023 analysis, I changed this to minimum duration of 30 minutes
 max_dur <- shift_dur_min + 5
@@ -514,7 +514,7 @@ out.obj <- list(Data_Out = Data_Out,
                 WPH = WPH,
                 sightings_primary = all.sightings.list.1,
                 sightings_secondary = all.sightings.list.2,
-                Data4Laake = data4Laake_all,
+                Data4Laake = Data4Laake_all,
                 Effort4Laake = Effort4Laake_all)
 
 # Saving RDS file for Bayesian analyses (Durban and Eguchi)
@@ -527,7 +527,7 @@ if (save.output){
   # saveRDS(out.obj, file = paste0("RData/V2.1_Feb2024/out_", 
   #YEAR, "_min", min_dur, "_Tomo_v2.rds"))
   
-  saveRDS(out.obj, file = paste0(out.dir,  
+  saveRDS(out.obj, file = paste0(out.dir, "/out_", 
                                  YEAR, "_min", min_dur, 
                                  "_Tomo_v2.rds"))
   
