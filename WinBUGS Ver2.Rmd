@@ -22,30 +22,32 @@ library(R2jags)
 library(abind)
 library(R2WinBUGS)
 library(tidyverse)
-# PARAMETER NAME TRANSFERS:
-
-# JOSH     JOHN
-#    Spline 
-# b.sp     b1 
-# beta.sp  beta1
-# X.sp     X1
 
 WinBUGS.dir <- paste0(Sys.getenv("HOME"), "/WinBUGS14")
 
-source("data2WinBUGS_input.R")
+source("data2WinBUGS_input_fcn.R")
+
+# data.dir refers to the output directory of Extract_Data_All_v2.Rmd
+# years in this function refers to the years for which raw data were available
+# and Extract_Data_All_v2.Rmd was run. The 2006/2007 and 2007/2008 data were not
+# available. 
+# min.dur is the minimum duration of a observation period - this is in the
+# file names in data.dir, e.g., min85, min30. 
+WinBUGS.input <- data2WinBUGS_input(data.dir = "RData/V2.1_Nov2024",
+                                    years = c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024),
+                                    min.dur = 85)
+
+out.file.name <- WinBUGS.input$out.file.name
 ```
 
 
 
-Set up BUGS:
+Set up WinBUGS and run if it hasn't been run..:
 
 ```{r}
 parameters <- c("lambda","OBS.RF","OBS.Switch",
                 "BF.Switch","BF.Fixed","VS.Switch",
-                "VS.Fixed","mean.prob","mean.prob.com",
-                "mean.prob.sp","BF.Fixed.com",
-                "BF.Fixed.sp","VS.Fixed.com",
-                "VS.Fixed.sp",
+                "VS.Fixed","mean.prob", 
                 "Corrected.Est","Raw.Est","z",
                 "com","sp","Daily.Est","mean.beta",
                 "beta.sigma","beta","beta.sp","b.sp","sd.b.sp")
@@ -58,23 +60,13 @@ MCMCparams <- list(n.iter = 100000,
                    n.burnin = 60000,
                    n.chains = 5)
 
-
-```
-
-
-
-Run WinBUGS if it hasn't been run..
-
-```{r}
-#out.file.name <- paste0("RData/WinBUGS_", x, "yr_v2.rds")
-
 if (!file.exists(out.file.name)){
   
   #Run time: 
   Start_Time<-Sys.time()
   
-  BUGS_out <- bugs(data = BUGS.data,
-                  inits = BUGS.inits,
+  BUGS_out <- bugs(data = WinBUGS.input$data,
+                  inits = WinBUGS,input$inits,
                   parameters = parameters,
                   model.file="GW_Nmix_Orig.bugs",
                   n.chains = MCMCparams$n.chains,

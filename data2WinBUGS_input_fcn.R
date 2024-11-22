@@ -16,8 +16,8 @@ data2WinBUGS_input <- function(data.dir, years, min.duration){
   all.years <- c("2007", "2008", years)
   
   # Change file names accordingly:
-  Nhats.filename <- paste0("Data/abundance_", years[length(years)], "_", 
-                           min.duration, "min.csv")
+  # Nhats.filename <- paste0("Data/abundance_", years[length(years)], "_", 
+  #                          min.duration, "min.csv")
   
   out.v2 <- lapply(years, 
                    FUN = function(x) readRDS(paste0(data.dir, "/out_", x,
@@ -37,7 +37,9 @@ data2WinBUGS_input <- function(data.dir, years, min.duration){
   
   x <- length(periods)
   
-  out.file.name <- paste0("RData/WinBUGS_", x, "yr_v2_min", min.duration, ".rds")
+  out.file.name <- paste0("RData/WinBUGS_", all.years[1], "to", 
+                          all.years[length(all.years)], "_v2_min", 
+                          min.duration, ".rds")
   
   Watch.Length. <- list()
 
@@ -258,5 +260,7 @@ data2WinBUGS_input <- function(data.dir, years, min.duration){
                                 z = matrix(1, nrow=90, ncol= x))
 
   return(out.list <- list(data = BUGS.data,
-                          inits = BUGS.inits))  
+                          inits = BUGS.inits,
+                          all.years = all.years,
+                          out.file.name = out.file.name))  
 }

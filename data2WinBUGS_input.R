@@ -26,8 +26,8 @@ years <- c("2010", "2011", "2015", "2016", "2020", "2022", "2023", "2024")
 min.duration <- 10# 85 #30
 
 # Change file names accordingly:
-Nhats.filename <- paste0("Data/abundance_", years[length(years)], "_", 
-                         min.duration, "min.csv")
+# Nhats.filename <- paste0("Data/abundance_", years[length(years)], "_", 
+#                          min.duration, "min.csv")
 
 out.v2 <- lapply(years, 
                  FUN = function(x) readRDS(paste0(data.dir, "/out_", x,
