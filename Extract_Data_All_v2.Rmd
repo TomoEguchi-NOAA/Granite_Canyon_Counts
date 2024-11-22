@@ -513,7 +513,9 @@ out.obj <- list(Data_Out = Data_Out,
                 Complete_Data = Complete_Data,
                 WPH = WPH,
                 sightings_primary = all.sightings.list.1,
-                sightings_secondary = all.sightings.list.2)
+                sightings_secondary = all.sightings.list.2,
+                Data4Laake = data4Laake_all,
+                Effort4Laake = Effort4Laake_all)
 
 # Saving RDS file for Bayesian analyses (Durban and Eguchi)
 # saveRDS(out.obj, file = paste0("RData/V2.1_Nov2023/out_", YEAR, "_Tomo_v2.rds"))
