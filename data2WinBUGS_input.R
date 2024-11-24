@@ -3,7 +3,10 @@
 # should be treated by Extract_Data_All_v2.Rmd. All output files should be in
 # one directory, e.g., V2.1_Nov2024. 
 
-#rm(list=ls())
+# For 30 min datasets, some observers are NAs when u = 1. That is a problem...
+# 2024-11-22
+
+rm(list=ls())
 #library(R2jags)
 library(abind)
 #library(R2WinBUGS)
@@ -15,15 +18,16 @@ data.0 <- readRDS("RData/2006-2019_GC_Formatted_Data.RDS")
 # data directory name
 data.dir <- "RData/V2.1_Nov2024"
 
-# e.g., 2007 refers to 2006/2007
-all.years <- c(2007, 2008, 2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024)
-
-# output from Ver2.0 extraction (I don't have raw data for 2006/2007 and 2007/2008)
-years <- c("2010", "2011", "2015", "2016", "2020", "2022", "2023", "2024")
-
 # can be 85, 30, 10, or anything that was assigned at the time of running
 # Extract_Data_All_v2.Rmd
-min.duration <- 10# 85 #30
+min.duration <- 30
+
+years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024)
+# e.g., 2007 refers to 2006/2007
+all.years <- c(2007, 2008, years)
+
+# output from Ver2.0 extraction (I don't have raw data for 2006/2007 and 2007/2008)
+#years <- c("2010", "2011", "2015", "2016", "2020", "2022", "2023", "2024")
 
 # Change file names accordingly:
 # Nhats.filename <- paste0("Data/abundance_", years[length(years)], "_", 
@@ -51,8 +55,9 @@ periods <-c(136, 135,
 # Or use it for other purposes.
 x <- length(periods)
 
-out.file.name <- paste0("RData/WinBUGS_", x, "yr_v2_min", min.duration, ".rds")
-#out.file.name <- paste0("RData/WinBUGS_", x, "yr_v2_min", min.duration, "_8weeks_2023.rds")
+# out.file.name <- paste0("RData/WinBUGS_", all.years[1], "to", 
+#                         all.years[length(all.years)], "_v2_min", 
+#                         min.duration, ".rds")
 
 Watch.Length. <- list()
 
