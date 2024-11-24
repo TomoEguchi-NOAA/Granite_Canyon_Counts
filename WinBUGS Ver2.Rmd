@@ -35,7 +35,7 @@ source("data2WinBUGS_input_fcn.R")
 # file names in data.dir, e.g., min85, min30. 
 WinBUGS.input <- data2WinBUGS_input(data.dir = "RData/V2.1_Nov2024",
                                     years = c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024),
-                                    min.dur = 85)
+                                    min.dur = 30)
 
 out.file.name <- WinBUGS.input$out.file.name
 ```
@@ -96,8 +96,12 @@ if (!file.exists(out.file.name)){
   # cutoff time (30 min) picked up the first (1 hr) and the second (30 min) as separate observation periods.
 
   Run_Time <- Sys.time() - Start_Time
+<<<<<<< HEAD
   Ver2.results <-list(BUGS.data = WinBUGS.input$data,
                       N_inits = WinBUGS.input$inits,
+=======
+  Ver2.results <-list(WinBUGS.input = WinBUGS.input,
+>>>>>>> 8dcb3a1c049b0dfc728cb3c28171393c618ba12b
                       BUGS_out = BUGS_out,
                       Run_Time = Run_Time,
                       Sys.info = Sys.info())
