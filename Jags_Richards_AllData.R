@@ -35,7 +35,7 @@ Run.date <- Sys.Date()
 #Run.date <- "2024-11-15"
 
 # Minimum length of observation periods in minutes
-min.dur <- 30
+min.dur <- 85 #30 #
 
 ver <- "v5"
 
@@ -98,7 +98,7 @@ if (!file.exists(out.file.name)){
   
   Run_Time <- Sys.time() - Start_Time
   jm.out <- list(jm = jm,
-                 jags.data = jags.data,
+                 jags.data = jags.input$jags.data,
                  #start.year = all.start.year,
                  jags.params = jags.params,
                  jags.model = jags.model,
@@ -150,15 +150,15 @@ max.Rhat <- lapply(jm.out$jm$Rhat, FUN = max, na.rm = T) %>%
 max.Rhat.big <- max.Rhat[which(max.Rhat > 1.1)]
 
 mcmc_dens(jm.out$jm$samples, c("S1.alpha", "S1.beta",
-                                          "S2.alpha", "S2.beta",
-                                          "P.alpha", "P.beta",
-                                          "K.alpha", "K.beta"))
+                               "S2.alpha", "S2.beta",
+                               "P.alpha", "P.beta",
+                               "K.alpha", "K.beta"))
 # P.alpha and P.beta seem to be not behaving well - the right tails are not 
 # captured. 
 mcmc_trace(jm.out$jm$samples, c("S1.alpha", "S1.beta",
-                                          "S2.alpha", "S2.beta",
-                                          "P.alpha", "P.beta",
-                                          "K.alpha", "K.beta"))
+                                "S2.alpha", "S2.beta",
+                                "P.alpha", "P.beta",
+                                "K.alpha", "K.beta"))
 
 mcmc_dens(jm.out$jm$samples, c("BF.Fixed", "VS.Fixed"))
 
