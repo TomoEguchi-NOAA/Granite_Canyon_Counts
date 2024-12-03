@@ -3,9 +3,6 @@ title: "R Notebook"
 output: html_notebook
 ---
 
-THIS DOES NOT RUN AS OF 2024-11-14. WINBUGS THROWS BACK UNKNOWN ERROR... 
-
-
 This notebook describes abundance estimation of gray whales using Durban's WinBUGS code and Ver2.0 data extraction method. Ver1.0 was developed by John Durban and updated by Josh Stewart. I created Ver2.0, which corrected some errors in Ver1.0. In this notebook, the new data from the 2021/2022, 2022/2023, and 2023/2024 seasons were added to the previous data and run with WinBUGS. 
 
 For 2009/2010 and 2010/2011, there were two stations. The original bugs code uses the same watch lengths for two stations. Actual watch periods, however, were different. So, that needs to be addressed. I will use the results from previous analysis (Durban or Stewart) in the analysis for the 2023/2024 season. 
@@ -77,7 +74,7 @@ if (!file.exists(out.file.name)){
                   bugs.directory = WinBUGS.dir,
                   DIC = FALSE)
   
-  # 2023-03-03 (problem solved but leavee the comments below for future reference)
+  # 2023-03-03 (problem solved but leave the comments below for future reference)
   # ERROR: NIL dereference (read). According to the user manual, this error may
   # happen "at compilation in some circumstances when an inappropriate
   # transformation is made, for example an array into a scalar." 
@@ -96,12 +93,8 @@ if (!file.exists(out.file.name)){
   # cutoff time (30 min) picked up the first (1 hr) and the second (30 min) as separate observation periods.
 
   Run_Time <- Sys.time() - Start_Time
-<<<<<<< HEAD
   Ver2.results <-list(BUGS.data = WinBUGS.input$data,
                       N_inits = WinBUGS.input$inits,
-=======
-  Ver2.results <-list(WinBUGS.input = WinBUGS.input,
->>>>>>> 8dcb3a1c049b0dfc728cb3c28171393c618ba12b
                       BUGS_out = BUGS_out,
                       Run_Time = Run_Time,
                       Sys.info = Sys.info())
@@ -112,48 +105,11 @@ if (!file.exists(out.file.name)){
   Ver2.results <- readRDS(out.file.name)
 }
 
-# The following line is for saving the data list and inits list. This was done to check why simulation
-# data were resulting in error - "undefined real result" 
-# (ran with n.iter = 1000, n.thin = 8, n.burnin = 600, n.chains = 3) as well as n.iter = 10000,
-# n.thin = 80, n.burnin = 6000, n.chains = 5
-# data.worked <- list(BUGS.data = BUGS.data,
-#                     BUGS.inits = BUGS.inits,
-#                     N_inits = N_inits,
-#                     x = x,
-#                     parameters = parameters,
-#                     MCMC.params = MCMCparams,
-#                     model.file = "GW_Nmix_Orig.bugs",
-#                     WinBUGS.dir = WinBUGS.dir)
-# 
-# saveRDS(file = paste0("RData/BUGS_data_runs_", Sys.Date(), ".rds"), 
-#         data.worked)
-
-# clear the workspace, bring in the data that worked.
-#rm(list = ls())
-#
-# Runs from the saved list? Yes.
-# data.worked <- readRDS(paste0("RData/BUGS_data_runs_2022-10-21.rds"))
-# N_inits <- data.worked$N_inits
-# x <- data.worked$x
-# bm <- bugs(data = data.worked$BUGS.data,
-#              inits = data.worked$BUGS.inits,
-#              parameters = data.worked$parameters,
-#              model.file = data.worked$model.file,
-#              n.chains = data.worked$MCMC.params$n.chains,
-#              n.iter = data.worked$MCMC.params$n.iter,
-#              n.burnin = data.worked$MCMC.params$n.burnin,
-#              n.thin = data.worked$MCMC.params$n.thin,
-#              debug=T,
-#              bugs.directory = data.worked$WinBUGS.dir)
-
 ```
 
 Make some plots:
 
 ```{r}
-seasons <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011", 
-             "2014/2015", "2015/2016", "2019/2020", "2021/2022",
-             "2022/2023", "2023/2024")
 
 # Extract estimated counts
 Daily.Est <- Ver2.results$BUGS_out$sims.list$Daily.Est
@@ -202,7 +158,7 @@ for (k in 1:dim(Daily.Est)[3]){
                                                 quantile,0.975),
                                 #total.median = apply(exp(sp[,,k]), 1, sum),
                                 days = 1:dim(Daily.Est)[2],
-                                year = seasons[k])
+                                year = WinBUGS.input$seasons[k])
 }
 
 all.stats <- do.call("rbind", stats.list) %>% group_by(year)
@@ -213,14 +169,15 @@ all.stats <- do.call("rbind", stats.list) %>% group_by(year)
 Figure out how many were observed per day, which are not stored in WinBUGS input. Then, divide them by watch length to come up with naive estimates of how many were seen per day. 
 
 ```{r}
-obs.day <- BUGS.data$day
+obs.day <- WinBUGS.input$data$day
+n.obs.primary <- WinBUGS.input$data$n.com[,1,]
 Nhats <- list()
 k <- 1
 for (k in 1:ncol(obs.day)){
-  tmp.day <- BUGS.data$day[,k] %>% 
+  tmp.day <-  WinBUGS.input$data$day[,k] %>% 
     na.omit() 
   tmp.n <- n.obs.primary[1:(length(tmp.day)-2),k]
-  tmp.watch <- BUGS.data$Watch.Length[1:(length(tmp.day)-2),k] %>% na.omit()
+  tmp.watch <- WinBUGS.input$data$Watch.Length[1:(length(tmp.day)-2),k] %>% na.omit()
   Nhats[[k]] <- data.frame(day = tmp.day[tmp.day > 1 & tmp.day < 90],
                       n = tmp.n,
                       watch = tmp.watch) %>%
@@ -229,7 +186,7 @@ for (k in 1:ncol(obs.day)){
               n = sum(n),
               watch = sum(watch),
               Nhat = n/watch,
-              year = seasons[k])
+              year = WinBUGS.input$seasons[k])
   
 }
 
@@ -313,7 +270,7 @@ ggplot(data = all.stats) +
 
 Total abundance
 ```{r}
-abundance.df <- data.frame(Season = seasons,
+abundance.df <- data.frame(Season = WinBUGS.input$seasons,
                            total.mean = apply(Corrected.Est,
                                               FUN = mean,
                                               MARGIN = 2),
@@ -349,18 +306,18 @@ ggplot(data = abundance.df) +
 #ggsave(filename = "figures/abundance_9yrs.png", device = "png", dpi = 600)
 ```
 
-```{r}
-n.obs.primary <- as.matrix(n[,1,])
-n.total <- colSums(n, na.rm = T)
 
-n.df <- data.frame(Season = seasons,
-                   n = n.total[1,])
+<!-- ```{r} -->
+<!-- n.obs.primary <- as.matrix(n[,1,]) -->
+<!-- n.total <- colSums(n, na.rm = T) -->
+
+<!-- n.df <- data.frame(Season = seasons, -->
+<!--                    n = n.total[1,]) -->
 
 
-ggplot(data = n.df) +
-  geom_point(aes(x = Season, y = n))
-```
-
+<!-- ggplot(data = n.df) + -->
+<!--   geom_point(aes(x = Season, y = n)) -->
+<!-- ``` -->
 
 
 <!-- Abundance estimates are quite different from the last year's... bring in the raw data and see if they are the same... -->

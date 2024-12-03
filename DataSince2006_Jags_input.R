@@ -12,10 +12,10 @@ data2Jags_input <- function(min.dur = 85,
                             seasons = c("2006/2007", "2007/2008", "2009/2010", "2010/2011",
                                         "2014/2015", "2015/2016", "2019/2020", "2021/2022",
                                         "2022/2023", "2023/2024"), 
-                            WinBUGS.out.file = "RData/WinBUGS_10yr_v2_min85.rds",
-                            years = c("2010", "2011", "2015", 
-                                      "2016", "2020", "2022", 
-                                      "2023", "2024"),
+                            WinBUGS.out.file = "RData/WinBUGS_2007to2024_v2_min85.rds",
+                            years = c(2010, 2011, 2015, 
+                                      2016, 2020, 2022, 
+                                      2023, 2024),
                             n.stations = c(1, 1, 2, 2, rep(1, times = 6)),
                             data.dir = "RData/V2.1_Nov2024"){
   min.dur <- min.dur
@@ -32,7 +32,7 @@ data2Jags_input <- function(min.dur = 85,
   
   # New as of 2024-11-14
   # Use data2WinBUGS_input_fcn.R
-  source("data2WinBUGS_input_fcn.R")
+  #source("data2WinBUGS_input_fcn.R")
   WinBUGS.inputs <- data2WinBUGS_input(data.dir = data.dir,
                                        years = years,
                                        min.duration = min.dur)

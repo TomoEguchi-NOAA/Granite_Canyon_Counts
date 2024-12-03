@@ -13,7 +13,9 @@ data2WinBUGS_input <- function(data.dir, years, min.duration){
   data.0 <- readRDS("RData/2006-2019_GC_Formatted_Data.RDS")
 
   # e.g., 2007 refers to 2006/2007
-  all.years <- c("2007", "2008", years)
+  all.years <- c(2007, 2008, years)
+  seasons <- sapply(all.years, 
+                    FUN = function(x) paste0(x-1, "/", x))
   
   # Change file names accordingly:
   # Nhats.filename <- paste0("Data/abundance_", years[length(years)], "_", 
@@ -262,5 +264,6 @@ data2WinBUGS_input <- function(data.dir, years, min.duration){
   return(out.list <- list(data = BUGS.data,
                           inits = BUGS.inits,
                           all.years = all.years,
+                          seasons = seasons,
                           out.file.name = out.file.name))  
 }

@@ -62,12 +62,20 @@ Reported.estimates <- read.csv(file = "Data/all_estimates_2024.csv") %>%
   arrange(start.year) %>%
   relocate(Method, .after = start.year)
 
-WinBugs.out <- readRDS(file = "RData/WinBUGS_10yr_v2_min85.rds")
+
+min.period <- 85
+WinBUGS.input <- data2WinBUGS_input(data.dir = "RData/V2.1_Nov2024",
+                                    years = c(2010, 2011, 2015, 2016, 
+                                              2020, 2022, 2023, 2024),
+                                    min.dur = min.period)
+
+WinBugs.out <- readRDS(file = paste0("RData/WinBUGS_", 
+                                     min(WinBUGS.input$all.years), "to", 
+                                     max(WinBUGS.input$all.years), "_v2_min", 
+                                     min.period, ".rds"))
 
 Corrected.Est <- WinBugs.out$BUGS_out$sims.list$Corrected.Est
-WinBUGS.seasons <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011", 
-             "2014/2015", "2015/2016", "2019/2020", "2021/2022",
-             "2022/2023", "2023/2024")
+WinBUGS.seasons <- WinBUGS.input$seasons 
 
 WinBUGS.abundance.df <- data.frame(Season = WinBUGS.seasons,
                                   Nhat = apply(Corrected.Est,

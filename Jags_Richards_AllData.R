@@ -29,10 +29,10 @@ library(loo)
 library(bayesplot)
 
 source("Granite_Canyon_Counts_fcns.R")
-source("AllData2Jags_input.R")
+#source("AllData2Jags_input.R")
 
-#Run.date <- Sys.Date()
-Run.date <- "2024-11-15"
+Run.date <- Sys.Date()
+#Run.date <- "2024-11-15"
 
 # Minimum length of observation periods in minutes
 min.dur <- 30
@@ -46,8 +46,18 @@ out.file.name <- paste0("RData/JAGS_", model.name,"_min", min.dur,
                         "_AllYears_",
                         Run.date, ".rds")
 
-# This function is in AllData2Jags_input.R
-jags.input <- AllData2JagsInput(min.dur = min.dur)
+WinBUGS.years <- c(2010, 2011, 2015, 2016, 
+                   2020, 2022, 2023, 2024)
+all.years <- c(2007, 2008, WinBUGS.years)
+
+jags.input <- AllData2JagsInput(min.dur = min.dur, 
+                                WinBUGS.years = WinBUGS.years, 
+                                WinBUGS.n.stations = c(1, 1, 2, 2, rep(1, times = 6)), 
+                                WinBUGS.out.file = paste0("RData/WinBUGS_",
+                                                          min(all.years), "to", 
+                                                          max(all.years), "_v2_min",
+                                                          min.dur, ".rds"),
+                                data.dir = "RData/V2.1_Nov2024")
 
 jags.params <- c("OBS.RF", "BF.Fixed",
                  "VS.Fixed",
