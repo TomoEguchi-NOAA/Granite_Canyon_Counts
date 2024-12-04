@@ -35,7 +35,7 @@ Run.date <- Sys.Date()
 #Run.date <- "2024-11-15"
 
 # Minimum length of observation periods in minutes
-min.dur <- 30 #85 #
+min.dur <- 85 #30 #
 
 ver <- "v5"
 

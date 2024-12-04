@@ -1,6 +1,94 @@
 
 # define some functions
 
+# Creating Jags input list from WinBUGS input, which does not include Laake's 
+# data. WinBUGS has to be run first and results saved in a .rds file using
+# WinBUGS Ver2.Rmd. 
+# min.dur is the minimum duration of a watch period to be 
+# included in the analysis. 
+# years in this function refers to the years for which raw data were available
+# and Extract_Data_All_v2.Rmd was run. The 2006/2007 and 2007/2008 data were not
+# available. c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024)
+# n.stations is the number of watch stations per year. There were two years (2009/2010
+# and 2010/2011) when two independent stations were used. So for the first 10 years,
+# this should be n.stations =  = c(1, 1, 2, 2, rep(1, times = 6))
+# data.dir refers to the output directory of Extract_Data_All_v2.Rmd
+# 
+dataSince2006_Jags_input <- function(min.dur, 
+                                     WinBUGS.out.file = "RData/WinBUGS_2007to2024_v2_min85.rds",
+                                     years,
+                                     n.stations,
+                                     data.dir){
+  #n.stations =  = c(1, 1, 2, 2, rep(1, times = 6))
+  
+  # e.g., 2007 refers to 2006/2007
+  all.years <- c(2007, 2008, years)
+  seasons <- sapply(all.years, 
+                    FUN = function(x) paste0(x-1, "/", x))
+  
+  start.years <- all.years - 1
+  
+  # v2 refers to v2 data extraction. 
+  WinBUGS.out <- readRDS(WinBUGS.out.file)
+  #data.WinBUGS <- data.v2$BUGS.data
+  
+  # New as of 2024-11-14
+  # Use data2WinBUGS_input_fcn.R
+  #source("data2WinBUGS_input_fcn.R")
+  WinBUGS.inputs <- data2WinBUGS_input(data.dir = data.dir,
+                                       years = years,
+                                       min.duration = min.dur)
+  
+  data.WinBUGS <- WinBUGS.inputs$data
+  # watch lengths are assumed equal between primary and secondary stations in
+  # WinBUGS code. But not in Jags. So, I duplicate the secondary watch effort
+  
+  bf <- vs <- array(dim = c(max(data.WinBUGS$periods),
+                            2, 
+                            length(data.WinBUGS$periods)))
+  
+  watch.prop <- day <- array(dim = c(dim(data.WinBUGS$Watch.Length)[1],
+                                     2, 
+                                     dim(data.WinBUGS$Watch.Length)[2]))
+  
+  bf[,1,] <- data.WinBUGS$bf
+  bf[,2,] <- data.WinBUGS$bf
+  
+  vs[,1,] <- data.WinBUGS$vs
+  vs[,2,] <- data.WinBUGS$vs
+  
+  day[,1,] <- data.WinBUGS$day
+  day[,2,] <- data.WinBUGS$day
+  
+  watch.prop[,1,] <- data.WinBUGS$Watch.Length
+  watch.prop[,2,] <- data.WinBUGS$Watch.Length
+  
+  jags.data <- list(  n = data.WinBUGS$n,
+                      n.station = n.stations,
+                      n.year = length(seasons),
+                      n.obs = data.WinBUGS$n.obs,
+                      #Daily.N = daily.N,
+                      periods = cbind(data.WinBUGS$periods,
+                                      data.WinBUGS$periods),
+                      n.days = max(day, na.rm = T),
+                      #first.day = unlist(as.vector(first.day)),
+                      obs = data.WinBUGS$obs,
+                      vs = vs,
+                      bf = bf,
+                      watch.prop = watch.prop,
+                      #watch.prop = (data.WinBUGS$Watch.Length*24*60)/540,
+                      day = day)
+  
+  out.list <- list(jags.data = jags.data,
+                   min.dur = min.dur, 
+                   seasons = seasons, 
+                   WinBUGS.out.file = WinBUGS.out.file,
+                   years = years,
+                   start.years = start.years,
+                   data.dir = data.dir)
+  return(out.list)
+}
+
 
 # Converts Granite Canyon count data to WinBUGS inputs. All raw data files 
 # should be treated by Extract_Data_All_v2.Rmd. All output files should be in
@@ -489,7 +577,7 @@ LaakeData2JagsInput <- function(min.dur){
                       bf = bf,
                       watch.prop = watch.prop,
                       day = day,
-                      n.days = 94)
+                      n.days = max(day, na.rm = T))
   
   return(jags.data)  
 }
