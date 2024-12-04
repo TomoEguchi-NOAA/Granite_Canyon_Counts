@@ -1,18 +1,23 @@
 # plot_Jags_results.R
 # Creates plots from results of Jags analysis
-# It needs to run Jags_Richards_AllData.R or Jags_Richards_NoLaakeData.R.
+# It uses output from either Jags_Richards_AllData.R or Jags_Richards_NoLaakeData.R.
 # 
-# Make sure to edit these scripts to match what is needed
-# 
+
+RUN JAGS_RICHARDS_ALLDATA.R AND JAGS_RICHARDS_NOLAAKEDATA.R again to have all necessary
+information in the output. 2024-12-04
 
 rm(list=ls())
 
 .data <- "all" # or "no Laake"
 
+Run.date <- "2024-12-04"
 if (.data == "all"){
-  source("Jags_Richards_AllData.R")
+
+  jags.out <- readRDS(paste0("RData/JAGS_Richards_pois_bino_v5_min85_AllYears_",
+                      Run.date, ".rds"))
 } else {
-  source("Jags_Richards_NoLaakeData.R")
+  jags.out <- readRDS("RData/JAGS_Richards_pois_bino_v5_min85_Since2006_",
+                      Run.date, ".rds")
 }
 
 # make all start years in numeric

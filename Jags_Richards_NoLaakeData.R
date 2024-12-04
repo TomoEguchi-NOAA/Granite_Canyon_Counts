@@ -13,7 +13,7 @@
 # d is the number of days from the beginning of nesting season
 # S1 < 0 and S2 > 0 define the "fatness" of the function
 # K > 0 defines the "flatness" at the peak of the function
-# P defines where the peak is relatvie to the range of d min(d) < P < max(d)
+# P defines where the peak is relative to the range of d min(d) < P < max(d)
 # min is "the basal level of nesting outside the nesting season"
 # max > min
 
@@ -37,7 +37,7 @@ Run.date <- Sys.Date()
 #Run.date <- "2024-11-15"
 
 # Minimum length of observation periods in minutes
-min.dur <- 85  #30
+min.dur <- 30 #85  #
 
 ver <- "v5"
 
@@ -75,11 +75,6 @@ MCMC.params <- list(n.samples = 250000,
 
 if (!file.exists(out.file.name)){
   
-  out.file.name <- paste0("RData/JAGS_", model.name,
-                          "_min", min.dur,
-                          "_Since2006_",
-                          Run.date, ".rds")
-  
   Start_Time<-Sys.time()
   
   jm <- jagsUI::jags(jags.input$jags.data,
@@ -95,7 +90,7 @@ if (!file.exists(out.file.name)){
   
   Run_Time <- Sys.time() - Start_Time
   jm.out <- list(jm = jm,
-                 jags.data = jags.input$jags.data,
+                 jags.input = jags.input,
                  #start.year = all.start.year,
                  jags.params = jags.params,
                  jags.model = jags.model,
@@ -113,8 +108,9 @@ if (!file.exists(out.file.name)){
 }
 
 # need to turn zeros into NAs when there were no second station:
-data.array <- jm.out$jags.data$n
-data.array[,2,which(jm.out$jags.data$n.station == 1)] <- NA
+jags.data <- jm.out$jags.input$jags.data
+data.array <- jags.data$n
+data.array[,2,which(jags.data$n.station == 1)] <- NA
 
 LOOIC.n <- compute.LOOIC(loglik.array = jm.out$jm$sims.list$log.lkhd,
                          data.array = data.array,

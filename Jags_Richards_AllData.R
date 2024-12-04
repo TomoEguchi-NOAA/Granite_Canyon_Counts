@@ -98,7 +98,7 @@ if (!file.exists(out.file.name)){
   
   Run_Time <- Sys.time() - Start_Time
   jm.out <- list(jm = jm,
-                 jags.data = jags.input$jags.data,
+                 jags.input = jags.input,
                  #start.year = all.start.year,
                  jags.params = jags.params,
                  jags.model = jags.model,
@@ -116,8 +116,9 @@ if (!file.exists(out.file.name)){
 }
 
 # need to turn zeros into NAs when there were no second station:
-data.array <- jm.out$jags.data$n
-data.array[,2,which(jm.out$jags.data$n.station == 1)] <- NA
+jags.data <- jm.out$jags.input$jags.data
+data.array <- jags.data$n
+data.array[,2,which(jags.data$n.station == 1)] <- NA
 
 LOOIC.n <- compute.LOOIC(loglik.array = jm.out$jm$sims.list$log.lkhd,
                          data.array = data.array,
