@@ -598,7 +598,7 @@ AllData2JagsInput <- function(min.dur,
                     bf = bf,
                     watch.prop = watch.prop,
                     day = day,
-                    n.days = 94)
+                    n.days = max(day, na.rm = T))
   
   out.list <- list(jags.data = jags.data,
                    min.dur = min.dur, 
@@ -658,7 +658,7 @@ data2Jags_input <- function(min.dur,
                       #Daily.N = daily.N,
                       periods = cbind(data.WinBUGS$periods,
                                       data.WinBUGS$periods),
-                      n.days = 90,
+                      n.days = max(day, na.rm = T),
                       #first.day = unlist(as.vector(first.day)),
                       obs = data.WinBUGS$obs,
                       vs = vs,
