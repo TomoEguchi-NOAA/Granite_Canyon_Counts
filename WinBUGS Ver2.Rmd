@@ -32,12 +32,11 @@ source("Granite_Canyon_Counts_fcns.R")
 # file names in data.dir, e.g., min85, min30. 
 WinBUGS.input <- data2WinBUGS_input(data.dir = "RData/V2.1_Nov2024",
                                     years = c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024),
-                                    min.dur = 30)
+                                    min.dur = 30,
+                                    run.date = "2024-11-23")
 
 out.file.name <- WinBUGS.input$out.file.name
 ```
-
-
 
 Set up WinBUGS and run if it hasn't been run..:
 
@@ -93,9 +92,8 @@ if (!file.exists(out.file.name)){
   # cutoff time (30 min) picked up the first (1 hr) and the second (30 min) as separate observation periods.
 
   Run_Time <- Sys.time() - Start_Time
-  Ver2.results <-list(BUGS.data = WinBUGS.input$data,
-                      N_inits = WinBUGS.input$inits,
-                      BUGS_out = BUGS_out,
+  Ver2.results <-list(BUGS.input = WinBUGS.input,
+                      BUGS.out = BUGS_out,
                       Run_Time = Run_Time,
                       Sys.info = Sys.info())
   
@@ -112,10 +110,10 @@ Make some plots:
 ```{r}
 
 # Extract estimated counts
-Daily.Est <- Ver2.results$BUGS_out$sims.list$Daily.Est
-sp <- Ver2.results$BUGS_out$sims.list$sp
-com <- Ver2.results$BUGS_out$sims.list$com
-Corrected.Est <- Ver2.results$BUGS_out$sims.list$Corrected.Est
+Daily.Est <- Ver2.results$BUGS.out$sims.list$Daily.Est
+sp <- Ver2.results$BUGS.out$sims.list$sp
+com <- Ver2.results$BUGS.out$sims.list$com
+Corrected.Est <- Ver2.results$BUGS.out$sims.list$Corrected.Est
 
 # Each one of them is (# samples) x (90 days) x (# years)
 # To plot them using ggplot's facet, I need to convert
@@ -169,6 +167,7 @@ all.stats <- do.call("rbind", stats.list) %>% group_by(year)
 Figure out how many were observed per day, which are not stored in WinBUGS input. Then, divide them by watch length to come up with naive estimates of how many were seen per day. 
 
 ```{r}
+
 obs.day <- WinBUGS.input$data$day
 n.obs.primary <- WinBUGS.input$data$n.com[,1,]
 Nhats <- list()

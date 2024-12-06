@@ -33,11 +33,11 @@ library(bayesplot)
 source("Granite_Canyon_Counts_fcns.R")
 #source("DataSince2006_Jags_Input.R")
 
-Run.date <- Sys.Date()
-#Run.date <- "2024-11-15"
+#Run.date <- Sys.Date()
+Run.date <- "2024-12-04"
 
 # Minimum length of observation periods in minutes
-min.dur <- 30 #85  #
+min.dur <- 85 #30 #
 
 ver <- "v5"
 

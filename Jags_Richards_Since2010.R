@@ -1,4 +1,4 @@
-# Jags_Richards_AllData.R
+# Jags_Richards_Since2010.R
 # 
 # Combines Laake data and more recent data and runs
 # model_Richards_pois_bino_vX, where X is version number. See below.  
@@ -36,7 +36,7 @@ Run.date <- Sys.Date()
 
 # Minimum length of observation periods in minutes
 # In order to run a new minimum duration, WinBUGS needs to be run first.
-min.dur <- 30 #10 #85 #
+min.dur <- 85 #30 #10 #85 #
 
 ver <- "v5"
 
@@ -44,21 +44,17 @@ model.name <- paste0("Richards_pois_bino_", ver)
 jags.model <- paste0("models/model_", model.name, ".txt")
 
 out.file.name <- paste0("RData/JAGS_", model.name,"_min", min.dur,
-                        "_AllYears_",
+                        "_Since2010_",
                         Run.date, ".rds")
 
-WinBUGS.years <- c(2010, 2011, 2015, 2016, 
+years <- c(2010, 2011, 2015, 2016, 
                    2020, 2022, 2023, 2024)
-all.years <- c(2007, 2008, WinBUGS.years)
 
-jags.input <- AllData2JagsInput(min.dur = min.dur, 
-                                WinBUGS.years = WinBUGS.years, 
-                                WinBUGS.n.stations = c(1, 1, 2, 2, rep(1, times = 6)), 
-                                WinBUGS.out.file = paste0("RData/WinBUGS_",
-                                                          min(all.years), "to", 
-                                                          max(all.years), "_v2_min",
-                                                          min.dur, ".rds"),
-                                data.dir = "RData/V2.1_Nov2024")
+jags.input <- data2Jags_input_NoBUGS(min.dur = min.dur, 
+                                     years = years,
+                                     n.stations = c(2, 2, rep(1, times = 6)), 
+                                     data.dir = "RData/V2.1_Nov2024",
+                                     run.date = Sys.Date())
 
 jags.params <- c("OBS.RF", "BF.Fixed",
                  "VS.Fixed",
@@ -79,10 +75,6 @@ MCMC.params <- list(n.samples = 250000,
                     n.chains = 5)
 
 if (!file.exists(out.file.name)){
-  
-  out.file.name <- paste0("RData/JAGS_", model.name,"_min", min.dur,
-                          "_AllYears_",
-                          Run.date, ".rds")
   
   Start_Time<-Sys.time()
   

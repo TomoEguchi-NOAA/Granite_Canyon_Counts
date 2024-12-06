@@ -95,7 +95,8 @@ dataSince2006_Jags_input <- function(min.dur,
 # one directory (data.dir), e.g., V2.1_Nov2024. 
 # years refer to years with raw data. I don't have raw data for 2006/2007 and 
 # 2007/2008 and use WinBUGS input. 
-data2WinBUGS_input <- function(data.dir, years, min.duration){
+data2WinBUGS_input <- function(data.dir, years, min.duration,
+                               run.date = Sys.Date()){
   
   library(abind)
   library(tidyverse)
@@ -129,7 +130,7 @@ data2WinBUGS_input <- function(data.dir, years, min.duration){
   
   out.file.name <- paste0("RData/WinBUGS_", all.years[1], "to", 
                           all.years[length(all.years)], "_v2_min", 
-                          min.duration, ".rds")
+                          min.duration, "_", run.date, ".rds")
   
   Watch.Length. <- list()
   
@@ -390,7 +391,7 @@ LaakeData2JagsInput <- function(min.dur){
   # are less than or equal to 4. Below the counts are shown for the 2 dataframes for
   # recent surveys since 1987/88.
   #table(Primary$Start.year[Primary$vis<=4 & Primary$beaufort<=4])
-  load("Data/PrimarySightings.rda")
+  #load("Data/PrimarySightings.rda")
   load("Data/PrimaryEffort.rda")
   load("Data/SecondaryEffort.rda")
   
@@ -415,7 +416,7 @@ LaakeData2JagsInput <- function(min.dur){
   #        
   
   # Filter effort and sightings and store in dataframes Effort and Sightings
-  Laake_PrimaryEffort = PrimaryEffort[PrimaryEffort$Use,]  
+  Laake_PrimaryEffort <- PrimaryEffort[PrimaryEffort$Use,]  
   
   Laake_SecondaryEffort <- SecondaryEffort[SecondaryEffort$Use,]
   
@@ -426,10 +427,10 @@ LaakeData2JagsInput <- function(min.dur){
   Laake_SecondaryEffort %>%
     filter(effort >= min.dur / (60 * 24) ) -> Laake_SecondaryEffort
   
-  Sightings = PrimarySightings
-  Sightings$seq = 1:nrow(Sightings)
-  Sightings = merge(Sightings, subset(Laake_PrimaryEffort, select=c("key")))
-  Sightings = Sightings[order(Sightings$seq),]
+  # Sightings = PrimarySightings
+  # Sightings$seq = 1:nrow(Sightings)
+  # Sightings = merge(Sightings, subset(Laake_PrimaryEffort, select=c("key")))
+  # Sightings = Sightings[order(Sightings$seq),]
   
   # filter off-effort sightings and high Beaufort/vis lines from secondary sightings
   # but... there is no effort data for the secondary sightings... so, can't use it
@@ -579,7 +580,12 @@ LaakeData2JagsInput <- function(min.dur){
                       day = day,
                       n.days = max(day, na.rm = T))
   
-  return(jags.data)  
+  out.list <- list(jags.data = jags.data,
+                   all.start.year = all.year,
+                   double.obs.year = double.obs.year,
+                   obs = Laake.obs)
+  
+  return(out.list)  
 }
 
 
@@ -696,6 +702,169 @@ AllData2JagsInput <- function(min.dur,
                    start.years = all.start.years)
   return(out.list)
 }
+
+# Create data input for Jags without running WinBUGS. Only works if
+# there are raw data files. 
+data2Jags_input_NoBUGS <- function(min.dur,
+                                   years,
+                                   n.stations,
+                                   data.dir,
+                                   run.date){
+  
+  seasons <- sapply(years, FUN = function(x) paste0(x-1, "/", x))
+  start.years <- years - 1
+  
+  # These are extracted data files (Extract_Data_All_v2.Rmd)
+  out.v2 <- lapply(years, 
+                   FUN = function(x) readRDS(paste0(data.dir, "/out_", x,
+                                                    "_min", min.dur, "_Tomo_v2.rds")))
+  
+  begin. <- lapply(out.v2, FUN = function(x) x$Final_Data$begin)
+  end. <- lapply(out.v2, FUN = function(x) x$Final_Data$end)
+  
+  periods <- lapply(begin., FUN = function(x) length(x)) %>% unlist
+  
+  x <- length(periods)
+  
+  out.file.name <- paste0("RData/JAGS_", years[1], "to", 
+                          years[length(years)], "_v2_min", 
+                          min.dur, "_", run.date, ".rds")
+  
+  Watch.Length <- list()
+
+  for (k in 1:length(begin.)){
+    Watch.Length[[k]] <- end.[[k]] - begin.[[k]]
+  }
+  
+  vs <- bf <- array(data = NA, 
+                    dim = c(max(periods), 
+                            2, length(years)))
+  
+  periods.mat <- array(data = NA,
+                       dim = c(length(periods), 2))
+  # observers
+  # need to convert observer initials into numbers for all years
+  # This needs to be redone... 
+  obs.list <- read.csv(file = "Data/ObserverList2023.csv")
+  
+  obs.2024 <- unique(out.v2[[length(years)]]$Complete_Data$obs)
+  new.obs <- obs.2024[!c(obs.2024 %in% obs.list$obs)]
+  obs.list <- rbind(obs.list,
+                    data.frame(obs = new.obs,
+                               ID = seq(max(obs.list$ID) + 1, 
+                                        max(obs.list$ID) + length(new.obs))))
+  
+  # Obs==36 is no observer
+  watch.length <- n <- day <- array(NA, dim = c(max(periods)+2, 
+                                                2, length(years)))
+  obs <- array(36, dim = dim(n))
+  
+  k <- 1
+  for (k in 1:length(begin.)){
+    Final_data <- out.v2[[k]]$Final_Data %>%
+      mutate(watch.length = end - begin,
+             f.station = as.factor(station))
+    
+    if (n.stations[k] == 2){
+      Final_data.P <- Final_data %>% 
+        filter(f.station == "P")
+      Final_data.S <- Final_data %>%
+        filter(f.station == "S")
+      
+      # fill in the primary 
+      n[1:(length(Final_data.P$n)+2),1,k] <- c(Final_data.P$n, 0,0)
+      vs[1:length(Final_data.P$n),1,k] <- Final_data.P$vs
+      bf[1:length(Final_data.P$n),1,k] <- Final_data.P$bf
+      
+      obs.year <- data.frame(obs = Final_data.P$obs) %>% 
+        left_join(obs.list, by = "obs")
+      
+      obs[1:length(Final_data.P$n),1,k] <- obs.year$ID
+      watch.length[1:(length(Final_data.P$n)+2),1,k] <- c(Final_data.P$watch.length, 0,0)
+      day[1:(length(Final_data.P$n)+2),1,k] <- c(floor(Final_data.P$begin), 1, 90)
+      periods.mat[k,1] <- nrow(Final_data.P)
+      
+      # fill in the secondary 
+      n[1:(length(Final_data.S$n)+2),2,k] <- c(Final_data.S$n, 0,0)
+      vs[1:length(Final_data.S$n),2,k] <- Final_data.S$vs
+      bf[1:length(Final_data.S$n),2,k] <- Final_data.S$bf
+      
+      obs.year <- data.frame(obs = Final_data.S$obs) %>% 
+        left_join(obs.list, by = "obs")
+      
+      obs[1:length(Final_data.S$n),2,k] <- obs.year$ID
+      watch.length[1:(length(Final_data.S$n)+2),2,k] <- c(Final_data.S$watch.length, 0,0)
+      day[1:(length(Final_data.S$n)+2),2,k] <- c(floor(Final_data.S$begin), 1, 90)
+      
+      periods.mat[k,2] <- nrow(Final_data.S)
+      
+    } else {
+      n[1:(length(Final_data$n)+2),1,k] <- c(Final_data$n, 0,0)
+      vs[1:length(Final_data$n),1,k] <- Final_data$vs
+      bf[1:length(Final_data$n),1,k] <- Final_data$bf
+      
+      obs.year <- data.frame(obs = Final_data$obs) %>% 
+        left_join(obs.list, by = "obs")
+      
+      obs[1:length(Final_data$n),1,k] <- obs.year$ID
+      watch.length[1:(length(Final_data$n)+2),1,k] <- c(Final_data$watch.length, 0,0)
+      day[1:(length(Final_data$n)+2),1,k] <- c(floor(Final_data$begin), 1, 90)
+      periods.mat[k,1] <- nrow(Final_data)
+      
+    }
+    
+    
+  }
+  
+  #Renumber observer IDs
+  uniq.obs <- apply(obs[,1,], FUN = unique, MARGIN = 2) %>% 
+    unlist() %>% 
+    unique()
+  
+  new.obs.df <- data.frame(ID = seq(1,length(uniq.obs)),
+                           obs = uniq.obs)
+  
+  # use "replace" to swap the original observer IDs with new IDs
+  # using the look up table (new.obs.df)
+  # c(new, x)[match(x, c(old, x))], where x is data
+  # https://stackoverflow.com/questions/16228160/multiple-replacement-in-r
+  obs.new <- array(data = new.obs.df %>% 
+                     filter(obs == 36) %>% 
+                     select(ID) %>% pull(),
+                   dim = dim(obs))
+  obs.new[,1,] <- apply(obs[,1,], 
+                    FUN = function(x) c(as.vector(new.obs.df$ID), x)[match(x, as.vector(new.obs.df$obs), x)], MARGIN = 2)
+  
+  obs.new[,2,] <- apply(obs[,2,], 
+                        FUN = function(x) c(as.vector(new.obs.df$ID), x)[match(x, as.vector(new.obs.df$obs), x)], MARGIN = 2)
+  
+  n.obs <- length(uniq.obs)
+  
+  
+  jags.data <- list(  n = n,
+                      n.station = n.stations,
+                      n.year = length(years),
+                      n.obs = n.obs,
+                      periods = periods.mat,
+                      n.days = max(day, na.rm = T),
+                      obs = obs.new,
+                      vs = vs,
+                      bf = bf,
+                      watch.prop = watch.length,
+                      day = day)
+  
+  out.list <- list(jags.data = jags.data,
+                   origina.obs = obs,
+                   obs = obs.list,
+                   min.dur = min.dur, 
+                   seasons = seasons, 
+                   years = years,
+                   start.years = start.years,
+                   data.dir = data.dir)
+  return(out.list)
+  
+}
+
 
 # Create data input for Jags from WinBUGS input.
 data2Jags_input <- function(min.dur, 
