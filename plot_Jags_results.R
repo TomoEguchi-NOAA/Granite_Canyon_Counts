@@ -14,6 +14,15 @@ WinBUGS.years <- c(2007, 2008, 2010, 2011, 2015, 2016,
 jags.only.jm.out <- readRDS(paste0("RData/JAGS_Richards_pois_bino_v5_min",
                                    min.dur, "_since2010_2024-12-05.rds"))
 
+jags.NoBUGS.jm.out <- readRDS(paste0("RData/JAGS_Richards_pois_bino_v5_min",
+                                     min.dur, "_NoBUGS_2024-12-06.rds"))
+
+jags.NoBUGS.all.years <- c(jags.NoBUGS.jm.out$jags.input$jags.input.Laake$all.start.year,
+                           jags.NoBUGS.jm.out$jags.input$jags.input.new$start.years)
+
+jags.NoBUGS.all.seasons <- paste0(jags.NoBUGS.all.years, "/",
+                                  jags.NoBUGS.all.years + 1)
+
 if (min.dur == 85){
   jags.run.date <- "2024-12-04"  # for min.dur == 85 and "no Laake"
   
@@ -54,13 +63,22 @@ Nhat. <- data.frame(Season = paste0(start.years, "/",
   arrange(start.year) %>%
   mutate(Method = "Richards")
 
+Nhat.NoBUGS <- data.frame(Season = jags.NoBUGS.all.seasons,
+                          Nhat = jags.NoBUGS.jm.out$jm$q50$Corrected.Est,
+                          LCL = jags.NoBUGS.jm.out$jm$q2.5$Corrected.Est,
+                          UCL = jags.NoBUGS.jm.out$jm$q97.5$Corrected.Est) %>%
+  right_join(all.years, by = "Season") %>%
+  arrange(start.year) %>%
+  mutate(Method = "Richards-NoBUGS")
+
+
 Nhat.jags.only <- data.frame(Season = jags.only.jm.out$jags.input$seasons,
                              Nhat = jags.only.jm.out$jm$q50$Corrected.Est,
                              LCL = jags.only.jm.out$jm$q2.5$Corrected.Est,
                              UCL = jags.only.jm.out$jm$q97.5$Corrected.Est) %>%
   right_join(all.years, by = "Season") %>%
   arrange(start.year) %>%
-  mutate(Method = "Richards-NoBUGS")
+  mutate(Method = "Richards-JagsOnly")
 
 #N.hats.day.jags.only <- 
 # This is for daily estimates
@@ -169,7 +187,8 @@ Reported.estimates %>%
 Laake.abundance.new %>%
   rbind(WinBUGS.abundance.df) %>%
   rbind(Nhat.) %>%
-  rbind(Nhat.jags.only) -> all.estimates
+  rbind(Nhat.jags.only) %>%
+  rbind(Nhat.NoBUGS) -> all.estimates
 
 p.Nhats <- ggplot(all.estimates) +
   geom_point(aes(x = start.year, y = Nhat,

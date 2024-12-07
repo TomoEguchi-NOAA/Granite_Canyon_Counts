@@ -707,9 +707,7 @@ AllData2JagsInput <- function(min.dur,
 # there are raw data files. 
 data2Jags_input_NoBUGS <- function(min.dur,
                                    years,
-                                   n.stations,
-                                   data.dir,
-                                   run.date){
+                                   data.dir){
   
   seasons <- sapply(years, FUN = function(x) paste0(x-1, "/", x))
   start.years <- years - 1
@@ -719,16 +717,32 @@ data2Jags_input_NoBUGS <- function(min.dur,
                    FUN = function(x) readRDS(paste0(data.dir, "/out_", x,
                                                     "_min", min.dur, "_Tomo_v2.rds")))
   
+  n.stations <- lapply(out.v2,
+                       FUN = function(x){
+                         dat <- x$Final_Data %>%
+                           mutate(f.station = as.factor(station))
+                         return(levels(dat$f.station) %>%
+                                  length() %>%
+                                  unlist())
+                       }) %>%
+    unlist()
+  
   begin. <- lapply(out.v2, FUN = function(x) x$Final_Data$begin)
   end. <- lapply(out.v2, FUN = function(x) x$Final_Data$end)
   
-  periods <- lapply(begin., FUN = function(x) length(x)) %>% unlist
+  periods <- lapply(out.v2, 
+                    FUN = function(x){
+                      x$Final_Data %>%
+                        filter(station == "P") %>%
+                        nrow() -> n.row
+                      return(n.row)
+                    }) %>% unlist()
   
   x <- length(periods)
   
-  out.file.name <- paste0("RData/JAGS_", years[1], "to", 
-                          years[length(years)], "_v2_min", 
-                          min.dur, "_", run.date, ".rds")
+  # out.file.name <- paste0("RData/JAGS_", years[1], "to", 
+  #                         years[length(years)], "_v2_min", 
+  #                         min.dur, "_", run.date, ".rds")
   
   Watch.Length <- list()
 
@@ -757,7 +771,10 @@ data2Jags_input_NoBUGS <- function(min.dur,
   # Obs==36 is no observer
   watch.length <- n <- day <- array(NA, dim = c(max(periods)+2, 
                                                 2, length(years)))
-  obs <- array(36, dim = dim(n))
+  obs <- array(obs.list %>%
+                 filter(obs == "No obs") %>%
+                 select(ID) %>%
+                 pull(), dim = dim(n))
   
   k <- 1
   for (k in 1:length(begin.)){
@@ -813,33 +830,40 @@ data2Jags_input_NoBUGS <- function(min.dur,
       
     }
     
-    
   }
   
-  #Renumber observer IDs
+  #Renumber observer IDs because some observers in the list never
+  #showed up in the data. The maximum ID number can be greater than
+  #the total number of observers, which returns error when running
+  #JAGS
   uniq.obs <- apply(obs[,1,], FUN = unique, MARGIN = 2) %>% 
     unlist() %>% 
-    unique()
+    unique() %>%
+    sort()
   
-  new.obs.df <- data.frame(ID = seq(1,length(uniq.obs)),
-                           obs = uniq.obs)
+  obs.list %>%
+    filter(ID %in% uniq.obs) %>%
+    arrange(ID) %>%
+    rownames_to_column(var = "ID.tmp") %>%
+    mutate(ID.new = as.numeric(ID.tmp)) %>%
+    select(-ID.tmp) -> new.obs.df
   
   # use "replace" to swap the original observer IDs with new IDs
   # using the look up table (new.obs.df)
   # c(new, x)[match(x, c(old, x))], where x is data
   # https://stackoverflow.com/questions/16228160/multiple-replacement-in-r
   obs.new <- array(data = new.obs.df %>% 
-                     filter(obs == 36) %>% 
-                     select(ID) %>% pull(),
+                     filter(obs == "No obs") %>% 
+                     select(ID.new) %>% pull(),
                    dim = dim(obs))
+  
   obs.new[,1,] <- apply(obs[,1,], 
-                    FUN = function(x) c(as.vector(new.obs.df$ID), x)[match(x, as.vector(new.obs.df$obs), x)], MARGIN = 2)
+                        FUN = function(x) c(as.vector(new.obs.df$ID.new), x)[match(x, as.vector(new.obs.df$ID), x)], MARGIN = 2)
   
   obs.new[,2,] <- apply(obs[,2,], 
-                        FUN = function(x) c(as.vector(new.obs.df$ID), x)[match(x, as.vector(new.obs.df$obs), x)], MARGIN = 2)
+                        FUN = function(x) c(as.vector(new.obs.df$ID.new), x)[match(x, as.vector(new.obs.df$ID), x)], MARGIN = 2)
   
   n.obs <- length(uniq.obs)
-  
   
   jags.data <- list(  n = n,
                       n.station = n.stations,
@@ -854,8 +878,8 @@ data2Jags_input_NoBUGS <- function(min.dur,
                       day = day)
   
   out.list <- list(jags.data = jags.data,
-                   origina.obs = obs,
-                   obs = obs.list,
+                   original.obs = obs,
+                   obs = new.obs.df,
                    min.dur = min.dur, 
                    seasons = seasons, 
                    years = years,
