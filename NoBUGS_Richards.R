@@ -11,7 +11,7 @@ library(bayesplot)
 
 source("Granite_Canyon_Counts_fcns.R")
 
-min.dur <- 30
+min.dur <- 85
 ver <- "v5"
 Run.date <- Sys.Date()
 data.dir <- "RData/V2.1_Nov2024"
@@ -76,11 +76,13 @@ jags.obs.Laake.new <- array(data = No.obs.ID,
                             dim = dim(jags.obs.Laake))
 
 jags.obs.Laake.new[,1,] <- apply(jags.obs.Laake[,1,], 
-                                 FUN = function(x) c(as.vector(obs.all.new$ID.all), x)[match(x, as.vector(obs.all.new$ID.Laake), x)], 
+                                 FUN = function(x) c(as.vector(obs.all.new$ID.all), 
+                                                     x)[match(x, as.vector(obs.all.new$ID.Laake), x)], 
                                  MARGIN = 2)
 
 jags.obs.Laake.new[,2,] <- apply(jags.obs.Laake[,2,], 
-                                 FUN = function(x) c(as.vector(obs.all.new$ID.all), x)[match(x, as.vector(obs.all.new$ID.Laake), x)], 
+                                 FUN = function(x) c(as.vector(obs.all.new$ID.all), 
+                                                     x)[match(x, as.vector(obs.all.new$ID.Laake), x)], 
                                  MARGIN = 2)
 
 jags.obs.new <- jags.input.new$jags.data$obs
@@ -89,11 +91,13 @@ jags.obs.new.new <- array(data = No.obs.ID,
                           dim = dim(jags.obs.new))
 
 jags.obs.new.new[,1,] <- apply(jags.obs.new[,1,], 
-                                 FUN = function(x) c(as.vector(obs.all.new$ID.all), x)[match(x, as.vector(obs.all.new$ID.new), x)], 
+                                 FUN = function(x) c(as.vector(obs.all.new$ID.all), 
+                                                     x)[match(x, as.vector(obs.all.new$ID.new), x)], 
                                  MARGIN = 2)
 
 jags.obs.new.new[,2,] <- apply(jags.obs.new[,2,], 
-                                 FUN = function(x) c(as.vector(obs.all.new$ID.all), x)[match(x, as.vector(obs.all.new$ID.new), x)], 
+                                 FUN = function(x) c(as.vector(obs.all.new$ID.all), 
+                                                     x)[match(x, as.vector(obs.all.new$ID.new), x)], 
                                  MARGIN = 2)
 
 # all data arrays need to be combined between Laake and new datasets
@@ -109,8 +113,8 @@ jags.obs.new.new.1 <- abind(jags.obs.new.new,
 
 # Combine the arrays.
 jags.obs.all <- abind(jags.obs.Laake.new, 
-                          jags.obs.new.new.1,
-                          along = 3)
+                      jags.obs.new.new.1,
+                      along = 3)
 
 # whale counts:
 jags.n.new <- abind(jags.input.new$jags.data$n,

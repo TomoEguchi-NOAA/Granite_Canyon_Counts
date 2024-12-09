@@ -4,6 +4,7 @@
 # 
 
 rm(list=ls())
+library(tidyverse)
 
 source("Granite_Canyon_Counts_fcns.R")
 .data <- "all" #"no Laake" #  or 

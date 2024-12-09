@@ -11,16 +11,15 @@
 # available. c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024)
 # n.stations is the number of watch stations per year. There were two years (2009/2010
 # and 2010/2011) when two independent stations were used. So for the first 10 years,
-# this should be n.stations =  = c(1, 1, 2, 2, rep(1, times = 6))
+# this should be n.stations =  = c(1, 1, 2, 2, rep(1, times = 6)) - this input is
+# now extracted from existing WinBUGS input (via data2WinBUGS_input)
 # data.dir refers to the output directory of Extract_Data_All_v2.Rmd
 # 
-dataSince2006_Jags_input <- function(min.dur, 
-                                     WinBUGS.out.file = "RData/WinBUGS_2007to2024_v2_min85.rds",
-                                     years,
-                                     n.stations,
-                                     data.dir){
-  #n.stations =  = c(1, 1, 2, 2, rep(1, times = 6))
-  
+WinBUGSinputSince2006toJagsInput <- function(min.dur, 
+                                             WinBUGS.out.file = "RData/WinBUGS_2007to2024_v2_min85.rds",
+                                             years,
+                                             data.dir){
+
   # e.g., 2007 refers to 2006/2007
   all.years <- c(2007, 2008, years)
   seasons <- sapply(all.years, 
@@ -30,23 +29,22 @@ dataSince2006_Jags_input <- function(min.dur,
   
   # v2 refers to v2 data extraction. 
   WinBUGS.out <- readRDS(WinBUGS.out.file)
-  #data.WinBUGS <- data.v2$BUGS.data
   
-  # New as of 2024-11-14
-  # Use data2WinBUGS_input_fcn.R
-  #source("data2WinBUGS_input_fcn.R")
+  # Create WinBUGS input from raw data files.
   WinBUGS.inputs <- data2WinBUGS_input(data.dir = data.dir,
                                        years = years,
                                        min.duration = min.dur)
   
   data.WinBUGS <- WinBUGS.inputs$data
-  # watch lengths are assumed equal between primary and secondary stations in
-  # WinBUGS code. But not in Jags. So, I duplicate the secondary watch effort
   
+  # Beaufor and visibility are assumed equal between primary and secondary stations in
+  # WinBUGS code. But not in Jags. So, I duplicate the secondary watch effort
   bf <- vs <- array(dim = c(max(data.WinBUGS$periods),
                             2, 
                             length(data.WinBUGS$periods)))
   
+  # watch lengths are assumed equal between primary and secondary stations in
+  # WinBUGS code. But not in Jags. So, I duplicate the secondary watch effort
   watch.prop <- day <- array(dim = c(dim(data.WinBUGS$Watch.Length)[1],
                                      2, 
                                      dim(data.WinBUGS$Watch.Length)[2]))
@@ -64,7 +62,7 @@ dataSince2006_Jags_input <- function(min.dur,
   watch.prop[,2,] <- data.WinBUGS$Watch.Length
   
   jags.data <- list(  n = data.WinBUGS$n,
-                      n.station = n.stations,
+                      n.station = data.WinBUGS$n.station,
                       n.year = length(seasons),
                       n.obs = data.WinBUGS$n.obs,
                       #Daily.N = daily.N,
@@ -90,13 +88,12 @@ dataSince2006_Jags_input <- function(min.dur,
 }
 
 
-# Converts Granite Canyon count data to WinBUGS inputs. All raw data files 
+# Converts Granite Canyon count data to WinBUGS inputs. All raw (i.e., edited) data files 
 # should be treated by Extract_Data_All_v2.Rmd. All output files should be in
 # one directory (data.dir), e.g., V2.1_Nov2024. 
 # years refer to years with raw data. I don't have raw data for 2006/2007 and 
 # 2007/2008 and use WinBUGS input. 
-data2WinBUGS_input <- function(data.dir, years, min.duration,
-                               run.date = Sys.Date()){
+data2WinBUGS_input <- function(data.dir, years, min.duration){
   
   library(abind)
   library(tidyverse)
@@ -112,7 +109,8 @@ data2WinBUGS_input <- function(data.dir, years, min.duration,
   # These are extracted data files (Extract_Data_All_v2.Rmd)
   out.v2 <- lapply(years, 
                    FUN = function(x) readRDS(paste0(data.dir, "/out_", x,
-                                                    "_min", min.duration, "_Tomo_v2.rds")))
+                                                    "_min", min.duration, 
+                                                    "_Tomo_v2.rds")))
   
   begin. <- lapply(out.v2, FUN = function(x) x$Final_Data$begin)
   end. <- lapply(out.v2, FUN = function(x) x$Final_Data$end)
@@ -128,9 +126,9 @@ data2WinBUGS_input <- function(data.dir, years, min.duration,
   
   x <- length(periods)
   
-  out.file.name <- paste0("RData/WinBUGS_", all.years[1], "to", 
-                          all.years[length(all.years)], "_v2_min", 
-                          min.duration, "_", run.date, ".rds")
+  # out.file.name <- paste0("RData/WinBUGS_", all.years[1], "to", 
+  #                         all.years[length(all.years)], "_v2_min", 
+  #                         min.duration, "_", run.date, ".rds")
   
   Watch.Length. <- list()
   
@@ -357,8 +355,7 @@ data2WinBUGS_input <- function(data.dir, years, min.duration,
   return(out.list <- list(data = BUGS.data,
                           inits = BUGS.inits,
                           all.years = all.years,
-                          seasons = seasons,
-                          out.file.name = out.file.name))  
+                          seasons = seasons))  
 }
 
 # Create Jags input for Laake's data.
@@ -600,7 +597,7 @@ AllData2JagsInput <- function(min.dur,
   Laake.start.years <- unique(PrimaryEffort$Start.year)
   
   # Convert WinBUGS input to Jags input
-  Jags.input.2006<- data2Jags_input(min.dur = min.dur,
+  Jags.input.2006<- WinBUGSdata2Jags_input(min.dur = min.dur,
                                     years = WinBUGS.years,
                                     WinBUGS.out.file,
                                     n.stations = WinBUGS.n.stations,
@@ -768,9 +765,9 @@ data2Jags_input_NoBUGS <- function(min.dur,
                                ID = seq(max(obs.list$ID) + 1, 
                                         max(obs.list$ID) + length(new.obs))))
   
-  # Obs==36 is no observer
   watch.length <- n <- day <- array(NA, dim = c(max(periods)+2, 
                                                 2, length(years)))
+  
   obs <- array(obs.list %>%
                  filter(obs == "No obs") %>%
                  select(ID) %>%
@@ -832,10 +829,10 @@ data2Jags_input_NoBUGS <- function(min.dur,
     
   }
   
-  #Renumber observer IDs because some observers in the list never
-  #showed up in the data. The maximum ID number can be greater than
-  #the total number of observers, which returns error when running
-  #JAGS
+  # Renumber observer IDs because some observers in the list never
+  # showed up in the data. The maximum ID number can be greater than
+  # the total number of observers, which returns error when running
+  # JAGS
   uniq.obs <- apply(obs[,1,], FUN = unique, MARGIN = 2) %>% 
     unlist() %>% 
     unique() %>%
@@ -858,17 +855,19 @@ data2Jags_input_NoBUGS <- function(min.dur,
                    dim = dim(obs))
   
   obs.new[,1,] <- apply(obs[,1,], 
-                        FUN = function(x) c(as.vector(new.obs.df$ID.new), x)[match(x, as.vector(new.obs.df$ID), x)], MARGIN = 2)
+                        FUN = function(x) c(as.vector(new.obs.df$ID.new), 
+                                            x)[match(x, as.vector(new.obs.df$ID), x)], 
+                        MARGIN = 2)
   
   obs.new[,2,] <- apply(obs[,2,], 
-                        FUN = function(x) c(as.vector(new.obs.df$ID.new), x)[match(x, as.vector(new.obs.df$ID), x)], MARGIN = 2)
-  
-  n.obs <- length(uniq.obs)
+                        FUN = function(x) c(as.vector(new.obs.df$ID.new), 
+                                            x)[match(x, as.vector(new.obs.df$ID), x)], 
+                        MARGIN = 2)
   
   jags.data <- list(  n = n,
                       n.station = n.stations,
                       n.year = length(years),
-                      n.obs = n.obs,
+                      n.obs = length(uniq.obs),
                       periods = periods.mat,
                       n.days = max(day, na.rm = T),
                       obs = obs.new,
@@ -891,12 +890,12 @@ data2Jags_input_NoBUGS <- function(min.dur,
 
 
 # Create data input for Jags from WinBUGS input.
-data2Jags_input <- function(min.dur, 
-                            WinBUGS.out.file,
-                            years,
-                            n.stations,
-                            data.dir){
-  #min.dur <- min.dur
+WinBUGSdata2Jags_input <- function(min.dur, 
+                                   WinBUGS.out.file,
+                                   years,
+                                   n.stations,
+                                   data.dir){
+  
   all.years <- c(2007, 2008, years)
   seasons <- sapply(all.years, FUN = function(x) paste0(x-1, "/", x))
   
