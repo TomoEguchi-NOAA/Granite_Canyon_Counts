@@ -33,9 +33,6 @@
 # It allows different numbers of sampling periods between primary
 # and secondary sampling stations. 2024-07-09
 
-# The variability in P is quite small. So, I changed it to be a constant from 
-# a gamma distribution among all years. 2024-08-07
-
 model{
 
 	# Define Richards function - this is the mean of "true" daily abundance
@@ -69,26 +66,17 @@ model{
 	}
 
 	# priors for Richards function parameters. 
-	for (y in 1:n.year){
-		#Max[y] ~ dgamma(Max.alpha, Max.beta)  
+	for (y in 1:n.year){		
 		Max[y] ~ dnorm(10000, 1/(4000^2))T(0,)
 		S1[y] ~ dgamma(S1.alpha, S1.beta)  
 		S2[y] ~ dgamma(S2.alpha, S2.beta)  
-		#K[y] ~ dgamma(K.alpha, K.beta)   
-		P[y] ~ dgamma(P.alpha, P.beta) 
-		N.beta[y] ~ dunif(0, 5)   # this has to be a pretty small number
+		P[y] ~ dgamma(P.alpha, P.beta) 		
 	}
 
-	#P ~ dgamma(P.alpha, P.beta) 
 	K ~ dgamma(K.alpha, K.beta) 
-	#K ~ dbeta(K.alpha, K.beta)
-	#K.alpha ~ dunif(0.0, 1.0)
-	#K.beta ~ dunif(0, 100)
 	
 	# Uniform distributions were adjusted after running to capture entire posterior 
 	# distributions. 
-	#Max.alpha ~ dunif(1, 30)
-	#Max.beta ~ dunif(0, 0.01)  
 	
 	S1.alpha ~ dunif(0.1, 50)
 	S1.beta ~ dunif(0.01, 5)

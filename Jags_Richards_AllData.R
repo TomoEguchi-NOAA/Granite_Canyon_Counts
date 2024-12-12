@@ -80,10 +80,6 @@ MCMC.params <- list(n.samples = 250000,
 
 if (!file.exists(out.file.name)){
   
-  out.file.name <- paste0("RData/JAGS_", model.name,"_min", min.dur,
-                          "_AllYears_",
-                          Run.date, ".rds")
-  
   Start_Time<-Sys.time()
   
   jm <- jagsUI::jags(jags.input$jags.data,

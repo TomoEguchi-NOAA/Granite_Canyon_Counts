@@ -49,11 +49,10 @@ out.file.name <- paste0("RData/JAGS_", model.name,
                         "_Since2006_",
                         Run.date, ".rds")
 
-jags.input<- dataSince2006_Jags_input(min.dur = min.dur, 
-                                      WinBUGS.out.file = "RData/WinBUGS_2007to2024_v2_min85.rds",
-                                      years = c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024),
-                                      n.stations = c(1, 1, 2, 2, rep(1, times = 6)),
-                                      data.dir = "RData/V2.1_Nov2024")
+jags.input<- WinBUGSinputSince2006toJagsInput(min.dur = min.dur, 
+                                              WinBUGS.out.file = "RData/WinBUGS_2007to2024_v2_min85_2021-11-23.rds",
+                                              years = c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024),
+                                              data.dir = "RData/V2.1_Nov2024")
 
 jags.params <- c("OBS.RF", "BF.Fixed",
                  "VS.Fixed",

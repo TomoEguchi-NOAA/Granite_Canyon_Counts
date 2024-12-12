@@ -8,15 +8,22 @@ library(tidyverse)
 
 source("Granite_Canyon_Counts_fcns.R")
 .data <- "all" #"no Laake" #  or 
-min.dur <- 30 #85 or 30 #
+min.dur <- 30 #30 #85 or 30 #
 WinBUGS.years <- c(2007, 2008, 2010, 2011, 2015, 2016, 
                    2020, 2022, 2023, 2024)
 
-jags.only.jm.out <- readRDS(paste0("RData/JAGS_Richards_pois_bino_v5_min",
-                                   min.dur, "_since2010_2024-12-05.rds"))
+jags.only.file <- list.files(path = "RData/", 
+                              pattern = paste0("JAGS_Richards_pois_bino_v5_min",
+                                               min.dur, "_Since2010_"))
 
-jags.NoBUGS.jm.out <- readRDS(paste0("RData/JAGS_Richards_pois_bino_v5_min",
-                                     min.dur, "_NoBUGS_2024-12-06.rds"))
+jags.only.jm.out <- readRDS(paste0("RData/", jags.only.file))
+
+jags.NoBUGS.file <- list.files(path = "RData/",
+                               pattern = paste0("JAGS_Richards_pois_bino_v5_min",
+                                                min.dur, "_NoBUGS_"))
+
+jags.NoBUGS.jm.out <- readRDS(paste0("RData/", jags.NoBUGS.file))
+
 
 jags.NoBUGS.all.years <- c(jags.NoBUGS.jm.out$jags.input$jags.input.Laake$all.start.year,
                            jags.NoBUGS.jm.out$jags.input$jags.input.new$start.years)
@@ -24,25 +31,23 @@ jags.NoBUGS.all.years <- c(jags.NoBUGS.jm.out$jags.input$jags.input.Laake$all.st
 jags.NoBUGS.all.seasons <- paste0(jags.NoBUGS.all.years, "/",
                                   jags.NoBUGS.all.years + 1)
 
-if (min.dur == 85){
-  jags.run.date <- "2024-12-04"  # for min.dur == 85 and "no Laake"
-  
-} else {
-  jags.run.date <- "2024-12-03"  # for min.dur == 30
-  
-}
-
-BUGS.run.date <- "2024-11-23"
 if (.data == "all"){
 
-  jm.out <- readRDS(paste0("RData/JAGS_Richards_pois_bino_v5_min", min.dur, "_AllYears_",
-                      jags.run.date, ".rds"))
+  jm.file <- list.files("RData/",
+                        pattern = paste0("JAGS_Richards_pois_bino_v5_min", 
+                                         min.dur, "_AllYears_"))
+  
+  jm.out <- readRDS(paste0("RData/", jm.file))
 } else {
-  jags.run.date <- "2024-12-04"
-  jm.out <- readRDS(paste0("RData/JAGS_Richards_pois_bino_v5_min", 
-                    min.dur, "_Since2006_",
-                    jags.run.date, ".rds"))
+  jm.file <- list.files("RData/",
+                        pattern =paste0("JAGS_Richards_pois_bino_v5_min", 
+                                        min.dur, "_Since2006_"))
+  
+  jm.out <- readRDS(paste0("RData/", jm.file))
 }
+
+### For 10 min run - 
+jags.NoBUGS.min10.Since2010 <- readRDS("RData/JAGS_Richards_pois_bino_v5_min10_Since2010_2024-12-09.rds")
 
 jags.input <- jm.out$jags.input
 
@@ -81,6 +86,14 @@ Nhat.jags.only <- data.frame(Season = jags.only.jm.out$jags.input$seasons,
   arrange(start.year) %>%
   mutate(Method = "Richards-JagsOnly")
 
+Nhat.NoBUGS.10min <- data.frame(Season = jags.NoBUGS.min10.Since2010$jags.input$seasons,
+                                Nhat = jags.NoBUGS.min10.Since2010$jm$q50$Corrected.Est,
+                                LCL = jags.NoBUGS.min10.Since2010$jm$q2.5$Corrected.Est,
+                                UCL = jags.NoBUGS.min10.Since2010$jm$q97.5$Corrected.Est) %>%
+  right_join(all.years, by = "Season") %>%
+  arrange(start.year) %>%
+  mutate(Method = "Richards-NoBUGS-10min")
+
 #N.hats.day.jags.only <- 
 # This is for daily estimates
 N.hats.day <- data.frame(Season = rep(paste0(start.years, "/", start.years+1), 
@@ -111,6 +124,7 @@ Reported.estimates <- read.csv(file = "Data/all_estimates_2024.csv") %>%
   arrange(start.year) %>%
   relocate(Method, .after = start.year)
 
+BUGS.run.date <- "2024-11-23"
 WinBUGS.out <- readRDS(file = paste0("RData/WinBUGS_", 
                                      min(WinBUGS.years), "to", 
                                      max(WinBUGS.years), "_v2_min", 
@@ -189,7 +203,8 @@ Laake.abundance.new %>%
   rbind(WinBUGS.abundance.df) %>%
   rbind(Nhat.) %>%
   rbind(Nhat.jags.only) %>%
-  rbind(Nhat.NoBUGS) -> all.estimates
+  rbind(Nhat.NoBUGS) %>%
+  rbind(Nhat.NoBUGS.10min) -> all.estimates
 
 p.Nhats <- ggplot(all.estimates) +
   geom_point(aes(x = start.year, y = Nhat,

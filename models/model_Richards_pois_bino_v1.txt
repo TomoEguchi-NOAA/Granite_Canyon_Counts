@@ -25,7 +25,7 @@
 #
 # For the prior for N, I use the gamma distribution. V3 used Poisson. 
 #
-# This version (v4) has year spcific S1 and S2 parameters with hyperparameters.
+# This version (v1) has year spcific K, P, S1 and S2 parameters with hyperparameters.
 #
 # Year specific K and P parameters ended up in poor convergence. They still have 
 # hyper distributions. 2024-08-08
@@ -42,8 +42,8 @@ model{
 		for (t in 1:n.days){
 			# year-specific K - results in conversion issues. 2022-11-09 
 			# This was fixed with hyperparameters. 2024
-			M1[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/(-S1[y])) * (P - t))) ^ (-1/exp(K))
-			M2[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/S2[y]) * (P - t))) ^ (-1/exp(K))
+			M1[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/(-S1[y])) * (P[y] - t))) ^ (-1/exp(K[y]))
+			M2[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K[y]))
 			
 			mean.N[t, y] <- (Max[y]) * (M1[t, y] * M2[t, y])
 						
@@ -67,19 +67,16 @@ model{
 
 	# priors for Richards function parameters. 
 	for (y in 1:n.year){
-		
 		Max[y] ~ dnorm(10000, 1/(4000^2))T(0,)
 		S1[y] ~ dgamma(S1.alpha, S1.beta)  
 		S2[y] ~ dgamma(S2.alpha, S2.beta)  
+		K[y] ~ dgamma(K.alpha, K.beta)   
+		P[y] ~ dgamma(P.alpha, P.beta) 
 		
 	}
-
-	P ~ dgamma(P.alpha, P.beta) 
-	K ~ dgamma(K.alpha, K.beta) 
 	
 	# Uniform distributions were adjusted after running to capture entire posterior 
-	# distributions. 
-	
+	# distributions. 	
 	S1.alpha ~ dunif(0.1, 50)
 	S1.beta ~ dunif(0.01, 5)
 	

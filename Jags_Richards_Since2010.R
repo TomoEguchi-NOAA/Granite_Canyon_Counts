@@ -34,7 +34,6 @@ source("Granite_Canyon_Counts_fcns.R")
 Run.date <- Sys.Date() #"2024-12-05" #
 
 # Minimum length of observation periods in minutes
-# In order to run a new minimum duration, WinBUGS needs to be run first.
 min.dur <- 10 #85 #30 #85 #
 
 ver <- "v5"
@@ -43,11 +42,11 @@ model.name <- paste0("Richards_pois_bino_", ver)
 jags.model <- paste0("models/model_", model.name, ".txt")
 
 out.file.name <- paste0("RData/JAGS_", model.name,"_min", min.dur,
-                        "_Since2010_",
+                        "_Since2010_NoBUGS_",
                         Run.date, ".rds")
 
 years <- c(2010, 2011, 2015, 2016, 
-                   2020, 2022, 2023, 2024)
+           2020, 2022, 2023, 2024)
 
 jags.input <- data2Jags_input_NoBUGS(min.dur = min.dur, 
                                      years = years,
