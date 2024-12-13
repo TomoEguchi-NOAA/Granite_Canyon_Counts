@@ -44,11 +44,14 @@ vers <- c("v5", "v4", "v3", "v1")
 
 k1 <- k2 <- 1
 for (k1 in 3:length(min.durs)){
-  if (min.durs[k1] < 85){
-    WinBUGS.outfile <- "RData/WinBUGS_2007to2024_v2_min30_2024-11-23.rds"
-  } else {
-    WinBUGS.outfile <- "RData/WinBUGS_2007to2024_v2_min85_2024-11-23.rds"
-  }
+  WinBUGS.outfile <- paste0("RData/", list.files(path = "RData", 
+                                pattern = paste0("WinBUGS_2007to2024_v2_min",
+                                                 min.durs[k1], "_")))
+  # if (min.durs[k1] < 85){
+  #   WinBUGS.outfile <- "RData/WinBUGS_2007to2024_v2_min30_2024-11-23.rds"
+  # } else {
+  #   WinBUGS.outfile <- "RData/WinBUGS_2007to2024_v2_min85_2024-11-23.rds"
+  # }
   
   for (k2 in 1:length(vers)){
     Jags_Richards_LaakeData_fcn(min.durs[k1], vers[k2], jags.params, MCMC.params)   

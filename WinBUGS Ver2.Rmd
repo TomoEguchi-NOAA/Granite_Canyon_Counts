@@ -32,15 +32,18 @@ source("Granite_Canyon_Counts_fcns.R")
 # file names in data.dir, e.g., min85, min30. 
 WinBUGS.input <- data2WinBUGS_input(data.dir = "RData/V2.1_Nov2024",
                                     years = c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024),
-                                    min.dur = 10,
-                                    run.date = Sys.Date())
+                                    min.dur = 10)
 
-out.file.name <- WinBUGS.input$out.file.name
+out.file.name <- paste0("RData/WinBUGS_", min(WinBUGS.input$all.years), "to",
+                        max(WinBUGS.input$all.years), "_v2_min", WinBUGS.input$min.dur,
+                        "_", Sys.Date(), ".rds")
 ```
 
 Set up WinBUGS and run if it hasn't been run..:
 
 ```{r}
+
+
 parameters <- c("lambda","OBS.RF","OBS.Switch",
                 "BF.Switch","BF.Fixed","VS.Switch",
                 "VS.Fixed","mean.prob", 
@@ -51,27 +54,27 @@ parameters <- c("lambda","OBS.RF","OBS.Switch",
 # Good to run with 10k/6k as a practice run to see if WinBUGS completes computation.
 # Then, increase iterations/burnin to 100k/60k. 
 
-MCMCparams <- list(n.iter = 100000,
-                   n.thin = 80,
-                   n.burnin = 60000,
+MCMCparams <- list(n.iter = 200, #100000,
+                   n.thin = 2, #80,
+                   n.burnin = 50, #60000,
                    n.chains = 5)
 
 if (!file.exists(out.file.name)){
-  
+  Run_Date <- Sys.Date()  
   #Run time: 
   Start_Time<-Sys.time()
   
   BUGS_out <- bugs(data = WinBUGS.input$data,
-                  inits = WinBUGS.input$inits,
-                  parameters = parameters,
-                  model.file="GW_Nmix_Orig.bugs",
-                  n.chains = MCMCparams$n.chains,
-                  n.iter = MCMCparams$n.iter, 
-                  n.burnin = MCMCparams$n.burnin, 
-                  n.thin = MCMCparams$n.thin,
-                  debug=F,
-                  bugs.directory = WinBUGS.dir,
-                  DIC = FALSE)
+                   inits = WinBUGS.input$inits,
+                   parameters = parameters,
+                   model.file="GW_Nmix_Orig.bugs",
+                   n.chains = MCMCparams$n.chains,
+                   n.iter = MCMCparams$n.iter, 
+                   n.burnin = MCMCparams$n.burnin, 
+                   n.thin = MCMCparams$n.thin,
+                   debug=T,
+                   bugs.directory = WinBUGS.dir,
+                   DIC = FALSE)
   
   # 2023-03-03 (problem solved but leave the comments below for future reference)
   # ERROR: NIL dereference (read). According to the user manual, this error may
@@ -95,6 +98,7 @@ if (!file.exists(out.file.name)){
   Ver2.results <-list(BUGS.input = WinBUGS.input,
                       BUGS.out = BUGS_out,
                       Run_Time = Run_Time,
+                      Run_Date = Run_Date,
                       Sys.info = Sys.info())
   
   saveRDS(Ver2.results, file = out.file.name)

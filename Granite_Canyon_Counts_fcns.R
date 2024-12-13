@@ -588,7 +588,7 @@ data2WinBUGS_input <- function(data.dir, years, min.dur){
         labelled::remove_attributes("dimnames")
       
       obs.k.1 <- abind(obs.k, 
-                     array(0, dim = c(dim(n)[1] - dim(n.k)[1],
+                     array(36, dim = c(dim(n)[1] - dim(n.k)[1],
                                       2, 1)),
                      along = 1)
       obs <- abind(obs, obs.k.1, along = 3)  %>%
@@ -604,14 +604,14 @@ data2WinBUGS_input <- function(data.dir, years, min.dur){
         labelled::remove_attributes("dimnames")
       
       u.1 <- abind(u, 
-                     array(0, dim = c(dim(n.k)[1] - dim(n)[1],
+                   array(0, dim = c(dim(n.k)[1] - dim(n)[1],
                                     2, 1)),
                    along = 1)
       u <- abind(u.1, u.k, along = 3)  %>%
         labelled::remove_attributes("dimnames")
       
       obs.1 <- abind(obs, 
-                   array(0, dim = c(dim(n.k)[1] - dim(n)[1],
+                   array(36, dim = c(dim(n.k)[1] - dim(n)[1],
                                     2, 1)),
                    along = 1)
       obs <- abind(obs.1, obs.k, along = 3)  %>%
@@ -765,7 +765,8 @@ data2WinBUGS_input <- function(data.dir, years, min.dur){
   return(out.list <- list(data = BUGS.data,
                           inits = BUGS.inits,
                           all.years = all.years,
-                          seasons = seasons))  
+                          seasons = seasons,
+                          min.dur = min.dur))  
 }
 
 # Create Jags input for Laake's data.
