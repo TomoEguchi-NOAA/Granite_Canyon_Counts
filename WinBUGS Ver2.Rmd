@@ -54,9 +54,9 @@ parameters <- c("lambda","OBS.RF","OBS.Switch",
 # Good to run with 10k/6k as a practice run to see if WinBUGS completes computation.
 # Then, increase iterations/burnin to 100k/60k. 
 
-MCMCparams <- list(n.iter = 200, #100000,
-                   n.thin = 2, #80,
-                   n.burnin = 50, #60000,
+MCMCparams <- list(n.iter = 100000, #200, #
+                   n.thin = 80, #2, #
+                   n.burnin = 60000, #50, #
                    n.chains = 5)
 
 if (!file.exists(out.file.name)){
@@ -72,7 +72,7 @@ if (!file.exists(out.file.name)){
                    n.iter = MCMCparams$n.iter, 
                    n.burnin = MCMCparams$n.burnin, 
                    n.thin = MCMCparams$n.thin,
-                   debug=T,
+                   debug=F,
                    bugs.directory = WinBUGS.dir,
                    DIC = FALSE)
   
@@ -94,6 +94,8 @@ if (!file.exists(out.file.name)){
   # During the 0800 shift, JSD/JWG changed to SJC/JDS on 0900, then the shift continued until 0930. The new
   # cutoff time (30 min) picked up the first (1 hr) and the second (30 min) as separate observation periods.
 
+  # 2024-12-13 Running with 10-min minimum watch duration. Undefined real results error. 
+  
   Run_Time <- Sys.time() - Start_Time
   Ver2.results <-list(BUGS.input = WinBUGS.input,
                       BUGS.out = BUGS_out,
