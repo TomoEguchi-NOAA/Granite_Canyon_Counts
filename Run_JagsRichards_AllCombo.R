@@ -27,10 +27,10 @@ MCMC.params <- list(n.samples = 250000,
                     n.burnin = 200000,
                     n.chains = 5)
 
-MCMC.params <- list(n.samples = 250,
-                    n.thin = 2,
-                    n.burnin = 200,
-                    n.chains = 5)
+# MCMC.params <- list(n.samples = 250,
+#                     n.thin = 2,
+#                     n.burnin = 200,
+#                     n.chains = 5)
 
 new.years <- c(2010, 2011, 2015, 2016, 
                2020, 2022, 2023, 2024)

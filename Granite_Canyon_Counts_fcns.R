@@ -161,12 +161,11 @@ Jags_Richards_AllData_fcn <- function(min.dur, ver, WinBUGS.out.file, WinBUGS.ye
   all.years <- c(2007, 2008, WinBUGS.years)
   
   # as of 2024-12-12, I haven't run min = 10 in WinBUGS. So, I use 30 min
-  
   jags.input <- AllData2JagsInput(min.dur = min.dur, 
                                   WinBUGS.years = WinBUGS.years, 
                                   WinBUGS.n.stations = WinBUGS.n.stations, 
                                   WinBUGS.out.file = WinBUGS.out.file,
-                                  data.dir = data.dir)
+                                  data.dir)
   
   Start_Time<-Sys.time()
   
@@ -1561,7 +1560,7 @@ WinBUGSdata2Jags_input <- function(min.dur,
   
   WinBUGS.inputs <- data2WinBUGS_input(data.dir = data.dir,
                                        years = years,
-                                       min.duration = min.dur)
+                                       min.dur = min.dur)
   
   data.WinBUGS <- WinBUGS.inputs$data
   # watch lengths are assumed equal between primary and secondary stations in
