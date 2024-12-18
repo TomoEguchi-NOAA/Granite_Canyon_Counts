@@ -35,7 +35,7 @@ WinBUGS.input <- data2WinBUGS_input(data.dir = "RData/V2.1_Nov2024",
                                     min.dur = 30) # 10, 30
 
 # Good to run with 10k/6k as a practice run to see if WinBUGS completes computation.
-# Then, increase iterations/burnin to 100k/60k. 
+# Then, increase iterations/burnin to 100k/60k. Sometimes... 
 
 MCMCparams <- list(n.iter = 100000,# 85000, #200, #
                    n.thin = 80, #50, #2, #80
