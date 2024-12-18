@@ -37,24 +37,35 @@ WinBUGS.input <- data2WinBUGS_input(data.dir = "RData/V2.1_Nov2024",
 # Good to run with 10k/6k as a practice run to see if WinBUGS completes computation.
 # Then, increase iterations/burnin to 100k/60k. Sometimes... 
 
-MCMCparams <- list(n.iter = 100000,# 85000, #200, #
-                   n.thin = 80, #50, #2, #80
-                   n.burnin = 60000, #50000, #50, #
+# MCMCparams <- list(n.iter = 100000,# 85000, #200, #
+#                    n.thin = 80, #50, #2, #80
+#                    n.burnin = 60000, #50000, #50, #
+#                    n.chains = 5)
+# 
+# MCMCparams <- list(n.iter = 85000, #200, #
+#                    n.thin = 50, #2, #80
+#                    n.burnin = 50000, #50, #
+#                    n.chains = 5)
+
+MCMCparams <- list(n.iter = 200, 
+                   n.thin = 2,
+                   n.burnin = 50,
                    n.chains = 5)
 
 n.samples <- ((MCMCparams$n.iter - MCMCparams$n.burnin)/MCMCparams$n.thin)*MCMCparams$n.chains
 
-Run_Date <- "2024-11-23" #Sys.Date()  
+#Run_Date <- "2024-11-23" #
+Run_Date <- Sys.Date()  
 options(scipen = 999)  # to avoid having 1e+05 for 100000
 out.file.name <- paste0("RData/WinBUGS_", min(WinBUGS.input$all.years), "to",
                         max(WinBUGS.input$all.years), "_v2_min", WinBUGS.input$min.dur,
                         "_", MCMCparams$n.iter, "_", Run_Date, ".rds")
+options(scipen = 0)
 ```
 
 Set up WinBUGS and run if it hasn't been run..:
 
 ```{r}
-
 
 parameters <- c("lambda","OBS.RF","OBS.Switch",
                 "BF.Switch","BF.Fixed","VS.Switch",
@@ -63,8 +74,6 @@ parameters <- c("lambda","OBS.RF","OBS.Switch",
                 "com","sp","Daily.Est","mean.beta",
                 "beta.sigma","beta","beta.sp","b.sp","sd.b.sp")
 
-
-
 if (!file.exists(out.file.name)){
  
   #Run time: 
@@ -72,13 +81,13 @@ if (!file.exists(out.file.name)){
   
   BUGS_out <- bugs(data = WinBUGS.input$data,
                    inits = WinBUGS.input$inits,
-                   parameters = parameters,
+                   parameters.to.save = parameters,
                    model.file="GW_Nmix_Orig.bugs",
                    n.chains = MCMCparams$n.chains,
                    n.iter = MCMCparams$n.iter, 
                    n.burnin = MCMCparams$n.burnin, 
                    n.thin = MCMCparams$n.thin,
-                   debug=F,
+                   debug = F,
                    bugs.directory = WinBUGS.dir,
                    DIC = FALSE)
   

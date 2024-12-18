@@ -559,7 +559,7 @@ data2WinBUGS_input <- function(data.dir, years, min.dur){
     labelled::remove_attributes("dimnames")
   
   n.stations <- vector(mode = "numeric", length = length(begin.primary))
-  k <- 1
+  k <- 5
   for (k in 1:length(begin.primary)){
     # need to pull out primary and secondary sightings if there were two stations
     Final_Data_k <- out.v2[[k]]$Final_Data %>% 
@@ -575,19 +575,23 @@ data2WinBUGS_input <- function(data.dir, years, min.dur){
     
     n.k <- u.k <- obs.k <- array(data = 0, dim = c(max(n.rows), 2, 1))
     obs.k <- array(data = 36, dim = c(max(n.rows), 2, 1))
+
+    Final_Data_k %>% 
+      filter(f_station == "P") %>% 
+      select(begin, end, dur, bf, vs, n, obs) %>%
+      left_join(obs.list, by = "obs") -> data_P
     
     if (n.stations[k] == 1){
-      n.k[,1,1] <- Final_Data_k$n
+      n.k[,1,1] <- data_P$n
       u.k[,1,1] <- 1
-      obs.k[,1,1] <- obs.year$ID
+      obs.k[,1,1] <- data_P$ID
+      
     } else if (n.stations[k] == 2){
-      Final_Data_k %>% 
-        filter(f_station == "P") %>% 
-        select(begin, end, dur, bf, vs, n, obs) -> data_P
-
+      
       Final_Data_k %>% 
         filter(f_station == "S") %>% 
-        select(begin, end, dur, bf, vs, n, obs) -> data_S
+        select(begin, end, dur, bf, vs, n, obs)  %>%
+        left_join(obs.list, by = "obs")-> data_S
       
       # Find where the secondary observations need to be placed
       # Index for the closest time between primary and secondary
@@ -616,8 +620,8 @@ data2WinBUGS_input <- function(data.dir, years, min.dur){
       u.k[1:n.rows[1], 1, 1] <- 1
       u.k[idx.S, 2, 1] <- 1
       
-      obs.k[1:n.rows[1], 1, 1] <- data_P$obs
-      obs.k[idx.S, 2, 1] <- data_S$obs
+      obs.k[1:n.rows[1], 1, 1] <- data_P$ID
+      obs.k[idx.S, 2, 1] <- data_S$ID
       
       
     }
