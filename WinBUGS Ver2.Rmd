@@ -9,7 +9,7 @@ For 2009/2010 and 2010/2011, there were two stations. The original bugs code use
 
 For now, I used the input list directly out of Durban/Stewart analysis for 2006/2007, 2007/2008, 2009/2010, and 2010/2011.
 
-Need to fix the secondary station data setup. 2024-03-04
+Need to fix the secondary station data setup. 2024-03-04 This has been fixed in November 2024.
 
 Set up libraries
 
@@ -32,11 +32,23 @@ source("Granite_Canyon_Counts_fcns.R")
 # file names in data.dir, e.g., min85, min30. 
 WinBUGS.input <- data2WinBUGS_input(data.dir = "RData/V2.1_Nov2024",
                                     years = c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024),
-                                    min.dur = 10)
+                                    min.dur = 30) # 10, 30
 
+# Good to run with 10k/6k as a practice run to see if WinBUGS completes computation.
+# Then, increase iterations/burnin to 100k/60k. 
+
+MCMCparams <- list(n.iter = 100000,# 85000, #200, #
+                   n.thin = 80, #50, #2, #80
+                   n.burnin = 60000, #50000, #50, #
+                   n.chains = 5)
+
+n.samples <- ((MCMCparams$n.iter - MCMCparams$n.burnin)/MCMCparams$n.thin)*MCMCparams$n.chains
+
+Run_Date <- "2024-11-23" #Sys.Date()  
+options(scipen = 999)  # to avoid having 1e+05 for 100000
 out.file.name <- paste0("RData/WinBUGS_", min(WinBUGS.input$all.years), "to",
                         max(WinBUGS.input$all.years), "_v2_min", WinBUGS.input$min.dur,
-                        "_", Sys.Date(), ".rds")
+                        "_", MCMCparams$n.iter, "_", Run_Date, ".rds")
 ```
 
 Set up WinBUGS and run if it hasn't been run..:
@@ -51,16 +63,10 @@ parameters <- c("lambda","OBS.RF","OBS.Switch",
                 "com","sp","Daily.Est","mean.beta",
                 "beta.sigma","beta","beta.sp","b.sp","sd.b.sp")
 
-# Good to run with 10k/6k as a practice run to see if WinBUGS completes computation.
-# Then, increase iterations/burnin to 100k/60k. 
 
-MCMCparams <- list(n.iter = 100000, #200, #
-                   n.thin = 80, #2, #
-                   n.burnin = 60000, #50, #
-                   n.chains = 5)
 
 if (!file.exists(out.file.name)){
-  Run_Date <- Sys.Date()  
+ 
   #Run time: 
   Start_Time<-Sys.time()
   
@@ -292,6 +298,11 @@ abundance.df <- data.frame(Season = WinBUGS.input$seasons,
                                              MARGIN = 2, 
                                              FUN = quantile, 0.975))
 
+
+write.csv(abundance.df,
+          file = paste0("Data/WinBUGS_abundance_", min(WinBUGS.input$all.years), "to",
+                        max(WinBUGS.input$all.years), "_v2_min", WinBUGS.input$min.dur,
+                        "_", MCMCparams$n.iter, "_", Run_Date, ".csv"))
 
 ggplot(data = abundance.df) + 
   geom_point(aes(x = Season, y = total.median)) + 

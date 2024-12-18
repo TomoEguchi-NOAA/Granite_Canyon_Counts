@@ -423,13 +423,15 @@ WinBUGSinputSince2006toJagsInput <- function(min.dur,
 # one directory (data.dir), e.g., V2.1_Nov2024. 
 # years refer to years with raw data. I don't have raw data for 2006/2007 and 
 # 2007/2008 and use WinBUGS input. 
-# FOUND ERROR IN OUTPUT DATA WHERE SECONDARY OBSERVATIONS ARE ALL ZEROS 2024-12-12
+# FOUND ERROR IN OUTPUT DATA WHERE SECONDARY OBSERVATIONS ARE ALL ZEROS 2024-12-12 -> This has been fixed.
+# WinBUGS code does not allow differing watch lengths between primary and 
+# secondary observations. So, time has to be assigned to secondary
 data2WinBUGS_input <- function(data.dir, years, min.dur){
   
   library(abind)
   library(tidyverse)
   
-  # this file contains all necessary inputs for 2006 - 2019:
+  # this file contains all necessary inputs for 2006 - 2019 from Josh Stewart
   data.0 <- readRDS("RData/2006-2019_GC_Formatted_Data.RDS")
   
   # e.g., 2007 refers to 2006/2007
@@ -443,17 +445,46 @@ data2WinBUGS_input <- function(data.dir, years, min.dur){
                                                     "_min", min.dur, 
                                                     "_Tomo_v2.rds")))
   
-  begin. <- lapply(out.v2, FUN = function(x) x$Final_Data$begin)
-  end. <- lapply(out.v2, FUN = function(x) x$Final_Data$end)
+  begin.primary <- lapply(out.v2, FUN = function(x){
+    begin <- x$Final_Data %>%
+      filter(station == "P") %>%
+      select(begin) %>%
+      pull()
+    return(begin)
+  })
+  
+  end.primary <- lapply(out.v2, FUN = function(x) {
+    end <- x$Final_Data %>%
+      filter(station == "P") %>%
+      select(end) %>%
+      pull()
+    return(end)
+  })
+  
+  begin.secondary <- lapply(out.v2, FUN = function(x){
+    begin <- x$Final_Data %>%
+      filter(station == "S") %>%
+      select(begin) %>%
+      pull()
+    return(begin)
+  })
+  
+  end.secondary <- lapply(out.v2, FUN = function(x) {
+    end <- x$Final_Data %>%
+      filter(station == "S") %>%
+      select(end) %>%
+      pull()
+    return(end)
+  })
   
   # Number of watch periods in each year's survey - before the 2019/2020 season
   # plus the new ones
   # This has been changed for 2024. I now have edited data for 2010 - 2024 seasons.
   # So, I can just use the first two (2006/2007 and 2007/2008). The two numbers for 
   # 2009/2010 and 2010/2011 don't match. In Durban's analysis, they were 164 and 178,
-  # respectively.  
-  periods <-c(136, 135,
-              lapply(begin., FUN = function(x) length(x)) %>% unlist)
+  # respectively.  136, 135
+  periods <-c(data.0$periods[1:2],
+              lapply(begin.primary, FUN = function(x) length(x)) %>% unlist)
   
   x <- length(periods)
   
@@ -463,8 +494,8 @@ data2WinBUGS_input <- function(data.dir, years, min.dur){
   
   Watch.Length. <- list()
   
-  for (k in 1:length(begin.)){
-    Watch.Length.[[k]] <- end.[[k]] - begin.[[k]]
+  for (k in 1:length(begin.primary)){
+    Watch.Length.[[k]] <- end.primary[[k]] - begin.primary[[k]]
   }
   
   # I don't have edited data for 2006/2007 and 2007/2008. So, they need to be
@@ -527,10 +558,10 @@ data2WinBUGS_input <- function(data.dir, years, min.dur){
                array(NA, dim = c(max(periods) - nrow(data.0$day), 2))) %>%
     labelled::remove_attributes("dimnames")
   
-  n.stations <- vector(mode = "numeric", length = length(begin.))
+  n.stations <- vector(mode = "numeric", length = length(begin.primary))
   k <- 1
-  for (k in 1:length(begin.)){
-    # need to pull out primary and secondary sightings if there were to stations
+  for (k in 1:length(begin.primary)){
+    # need to pull out primary and secondary sightings if there were two stations
     Final_Data_k <- out.v2[[k]]$Final_Data %>% 
       mutate(f_station = as.factor(station))
     
@@ -550,22 +581,43 @@ data2WinBUGS_input <- function(data.dir, years, min.dur){
       u.k[,1,1] <- 1
       obs.k[,1,1] <- obs.year$ID
     } else if (n.stations[k] == 2){
-      n.P <- Final_Data_k %>% 
-        filter(f_station == "P") %>%
-        select(n) %>% pull()
-      obs.P <- obs.year[Final_Data_k$f_station == "P", "ID"]
+      Final_Data_k %>% 
+        filter(f_station == "P") %>% 
+        select(begin, end, dur, bf, vs, n, obs) -> data_P
+
+      Final_Data_k %>% 
+        filter(f_station == "S") %>% 
+        select(begin, end, dur, bf, vs, n, obs) -> data_S
       
-      n.S <- Final_Data_k %>% 
-        filter(f_station == "S") %>%
-        select(n) %>% pull()
-      obs.S <- obs.year[Final_Data_k$f_station == "S", "ID"]
+      # Find where the secondary observations need to be placed
+      # Index for the closest time between primary and secondary
+      idx.S <- lapply(data_S$begin, FUN = function(x){
+        d.begin <- abs(data_P$begin - x) 
+        which(min(d.begin) == d.begin)
+        
+      }) %>% unlist()
       
-      n.k[1:n.rows[1], 1, 1] <- n.P
-      n.k[1:n.rows[2], 2, 1] <- n.S
+      # Closest differences between the primary and secondary
+      dif.S <- lapply(data_S$begin, FUN = function(x){
+        min(abs(data_P$begin - x) )
+  
+      }) %>% unlist()
+      
+      # if the difference is more than 30 minutes (0.02083 days), remove the 
+      # secondary observation because there is no matching primary observation
+      data_S <- data_S[dif.S < 0.02083,]
+      idx.S <- idx.S[dif.S < 0.02083]
+      
+      #obs.P <- obs.year[Final_Data_k$f_station == "P", "ID"]
+      
+      n.k[1:n.rows[1], 1, 1] <- data_P$n
+      n.k[idx.S, 2, 1] <- data_S$n
+      
       u.k[1:n.rows[1], 1, 1] <- 1
-      u.k[1:n.rows[2], 2, 1] <- 1
-      obs.k[1:n.rows[1], 1, 1] <- obs.P
-      obs.k[1:n.rows[2], 2, 1] <- obs.S
+      u.k[idx.S, 2, 1] <- 1
+      
+      obs.k[1:n.rows[1], 1, 1] <- data_P$obs
+      obs.k[idx.S, 2, 1] <- data_S$obs
       
       
     }
@@ -625,13 +677,13 @@ data2WinBUGS_input <- function(data.dir, years, min.dur){
       
     }
     
-    vs <- cbind(vs, c(Final_Data_k$vs, 
-                      rep(NA, times = max(periods - length(Final_Data_k$vs))))) %>%
+    vs <- cbind(vs, c(data_P$vs, 
+                      rep(NA, times = max(periods - length(data_P$vs))))) %>%
       labelled::remove_attributes("dimnames")
     
     
-    bf <- cbind(bf, c(Final_Data_k$bf,
-                      rep(NA, times = max(periods - length(Final_Data_k$bf))))) %>%
+    bf <- cbind(bf, c(data_P$bf,
+                      rep(NA, times = max(periods - length(data_P$bf))))) %>%
       labelled::remove_attributes("dimnames")
     
     Watch.Length <- cbind(Watch.Length,
@@ -641,8 +693,8 @@ data2WinBUGS_input <- function(data.dir, years, min.dur){
       labelled::remove_attributes("dimnames")
     
     day <- cbind(day, 
-                 c(floor(begin.[[k]]), 
-                   rep(NA, times = max(periods) - length(begin.[[k]])))) %>%
+                 c(floor(begin.primary[[k]]), 
+                   rep(NA, times = max(periods) - length(begin.primary[[k]])))) %>%
       labelled::remove_attributes("dimnames")
     
   }
