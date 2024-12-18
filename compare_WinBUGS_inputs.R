@@ -41,6 +41,11 @@ input.data.min85 <- data2WinBUGS_input(data.dir = "RData/V2.1_Nov2024",
                                        years = c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024),
                                        min.dur = 85)
 
+# fixed the function. Compare again:
+input.data.min10 <- data2WinBUGS_input(data.dir = "RData/V2.1_Nov2024",
+                                       years = c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024),
+                                       min.dur = 10)
+
 # This looks better. Total counts for the secondary stations were less than those
 # in the Feb dataset because I removed some secondary observations that did not 
 # have matching primary counts. This was because the WinBUGS code does not allow
@@ -78,9 +83,12 @@ extract.n <- function(BUGS.data, all.years){
     facet_wrap(~year)  
   
   return(list(data = n.long,
-              plot = p.daily))
+              plot = p.daily,
+              n.P = n.P,
+              n.S = n.S))
 }
 
 Feb.2024 <- extract.n(BUGS.data.Feb2024, all.years = years.Dec2024)
 Dec.2024 <- extract.n(BUGS.data.Dec2024, all.years = years.Dec2024)
-new.data <- extract.n(input.data.min85$data, all.years = years.Dec2024)
+new.min85 <- extract.n(input.data.min85$data, all.years = years.Dec2024)
+new.min10 <- extract.n(input.data.min10$data, all.years = years.Dec2024)
