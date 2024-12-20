@@ -32,7 +32,7 @@ source("Granite_Canyon_Counts_fcns.R")
 # file names in data.dir, e.g., min85, min30. 
 WinBUGS.input <- data2WinBUGS_input(data.dir = "RData/V2.1_Nov2024",
                                     years = c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024),
-                                    min.dur = 30) # one of 10, 30, 85 or any other that was used in Extract_Data_All_v2.Rmd
+                                    min.dur = 85) # one of 10, 30, 85 or any other that was used in Extract_Data_All_v2.Rmd
 
 # Good to run with 10k/6k as a practice run to see if WinBUGS completes computation.
 # Then, increase iterations/burnin to 100k/60k. Sometimes... 
@@ -42,16 +42,16 @@ WinBUGS.input <- data2WinBUGS_input(data.dir = "RData/V2.1_Nov2024",
 #                    n.burnin = 60000, #50000, #50, #
 #                    n.chains = 5)
 # 
-# MCMCparams <- list(n.iter = 85000, #200, #
-#                    n.thin = 50, #2, #80
-#                    n.burnin = 50000, #50, #
-#                    n.chains = 5)
-
-MCMCparams <- list(n.iter = 200, 
-                   n.thin = 2,
-                   n.burnin = 50,
+MCMCparams <- list(n.iter = 85000, #200, #
+                   n.thin = 50, #2, #80
+                   n.burnin = 50000, #50, #
                    n.chains = 5)
-
+# 
+# MCMCparams <- list(n.iter = 200, 
+#                    n.thin = 2,
+#                    n.burnin = 50,
+#                    n.chains = 5)
+# 
 n.samples <- ((MCMCparams$n.iter - MCMCparams$n.burnin)/MCMCparams$n.thin)*MCMCparams$n.chains
 
 #Run_Date <- "2024-11-23" #
