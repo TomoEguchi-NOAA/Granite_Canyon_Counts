@@ -46,7 +46,7 @@ k1 <- k2 <- 1
 for (k1 in 3:length(min.durs)){
   WinBUGS.outfile <- paste0("RData/", list.files(path = "RData", 
                                 pattern = paste0("WinBUGS_2007to2024_v2_min",
-                                                 min.durs[k1], "_")))
+                                                 min.durs[k1], "_85000_")))
   # if (min.durs[k1] < 85){
   #   WinBUGS.outfile <- "RData/WinBUGS_2007to2024_v2_min30_2024-11-23.rds"
   # } else {
@@ -54,23 +54,58 @@ for (k1 in 3:length(min.durs)){
   # }
   
   for (k2 in 1:length(vers)){
-    Jags_Richards_LaakeData_fcn(min.durs[k1], vers[k2], jags.params, MCMC.params)   
+    model.name <- paste0("Richards_pois_bino_", vers[k2])
+    min.dur <- min.durs[k1]
+
+    # Runs just Laake data with Richards function
+    out.file.name <- list.files(path = "RData/", 
+                                pattern = paste0("JAGS_", model.name,"_min", min.dur,
+                                                 "_NoBUGS_"))
+
+    if (length(out.file.name) == 0){
+      Jags_Richards_LaakeData_fcn(min.durs[k1], vers[k2], jags.params, MCMC.params)   
+    }
     
-    Jags_Richards_AllData_fcn(min.durs[k1], vers[k2], 
-                              new.years, WinBUGS.out.file = WinBUGS.outfile,
-                              WinBUGS.n.stations, 
-                              data.dir, jags.params, MCMC.params)
-    
-    Jags_Richards_NoLaakeData_fcn(min.durs[k1], vers[k2], 
-                                  WinBUGS.outfile, years = new.years, 
-                                  n.stations = WinBUGS.n.stations, 
-                                  data.dir, jags.params, MCMC.params)
-    
-    NoBUGS_Richards_fcn(min.durs[k1], vers[k2], years = new.years, 
-                        data.dir, jags.params, MCMC.params)
-    
-    Jags_Richards_Since2010_fcn(min.durs[k1], vers[k2], years = new.years, 
+    # Runs all data including Laake's and new data
+    out.file.name <- list.files(path = "RData/",
+                                pattern = paste0("JAGS_", model.name,"_min", min.dur,
+                                                 "_AllYears_"))
+    if(length(out.file.name) == 0){
+      Jags_Richards_AllData_fcn(min.durs[k1], vers[k2], 
+                                new.years, WinBUGS.out.file = WinBUGS.outfile,
+                                WinBUGS.n.stations, 
                                 data.dir, jags.params, MCMC.params)
+      
+    }
+    
+    # Runs just WinBUGS and new data without Laake's data
+    out.file.name <- list.files(path = "RData/", 
+                                pattern = paste0("JAGS_", model.name,
+                                                 "_min", min.dur,
+                                                 "_Since2006_",))
+    if (length(out.file.name) == 0){
+      Jags_Richards_NoLaakeData_fcn(min.durs[k1], vers[k2], 
+                                    WinBUGS.outfile, years = new.years, 
+                                    n.stations = WinBUGS.n.stations, 
+                                    data.dir, jags.params, MCMC.params)
+      
+    }
+    
+    # Runs over all data but not using WinBUGS input - all newly extracted
+    out.file.name <- list.files(path = "RData/", 
+                                pattern = paste0("JAGS_", model.name,"_min", min.dur,
+                                                 "_NoBUGS_"))
+    if (length(out.file.name) == 0){
+      NoBUGS_Richards_fcn(min.durs[k1], vers[k2], years = new.years, 
+                          data.dir, jags.params, MCMC.params)}
+    
+    # Runs data since 2010 without using WinBUGS input
+    out.file.name <- list.files(path = "RData/",
+                                paste0("JAGS_", model.name,"_min", min.dur,
+                                       "_Since2010_NoBUGS_"))
+    if(length(out.file.name) == 0){
+      Jags_Richards_Since2010_fcn(min.durs[k1], vers[k2], years = new.years, 
+                                  data.dir, jags.params, MCMC.params)}
   }
 
 }

@@ -194,8 +194,6 @@ Jags_Richards_AllData_fcn <- function(min.dur, ver, WinBUGS.out.file, WinBUGS.ye
   saveRDS(jm.out,
           file = out.file.name)
   
-  
-  
 }
 
 Jags_Richards_LaakeData_fcn <- function(min.dur, ver, jags.params, MCMC.params){
