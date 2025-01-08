@@ -37,13 +37,11 @@ new.years <- c(2010, 2011, 2015, 2016,
 
 WinBUGS.n.stations <- c(1, 1, 2, 2, rep(1, times = 6))
 
-
-
 min.durs <- c(10, 30, 85)
 vers <- c("v5", "v4", "v3", "v1")
 
 k1 <- k2 <- 1
-for (k1 in 3:length(min.durs)){
+for (k1 in 1:length(min.durs)){
   WinBUGS.outfile <- paste0("RData/", list.files(path = "RData", 
                                 pattern = paste0("WinBUGS_2007to2024_v2_min",
                                                  min.durs[k1], "_85000_")))
@@ -52,10 +50,10 @@ for (k1 in 3:length(min.durs)){
   # } else {
   #   WinBUGS.outfile <- "RData/WinBUGS_2007to2024_v2_min85_2024-11-23.rds"
   # }
+  min.dur <- min.durs[k1]
   
   for (k2 in 1:length(vers)){
     model.name <- paste0("Richards_pois_bino_", vers[k2])
-    min.dur <- min.durs[k1]
 
     # Runs just Laake data with Richards function
     out.file.name <- list.files(path = "RData/", 
@@ -72,7 +70,8 @@ for (k1 in 3:length(min.durs)){
                                                  "_AllYears_"))
     if(length(out.file.name) == 0){
       Jags_Richards_AllData_fcn(min.durs[k1], vers[k2], 
-                                new.years, WinBUGS.out.file = WinBUGS.outfile,
+                                new.years, 
+                                WinBUGS.out.file = WinBUGS.outfile,
                                 WinBUGS.n.stations, 
                                 data.dir, jags.params, MCMC.params)
       
@@ -82,11 +81,9 @@ for (k1 in 3:length(min.durs)){
     out.file.name <- list.files(path = "RData/", 
                                 pattern = paste0("JAGS_", model.name,
                                                  "_min", min.dur,
-                                                 "_Since2006_",))
+                                                 "_Since2006_"))
     if (length(out.file.name) == 0){
-      Jags_Richards_NoLaakeData_fcn(min.durs[k1], vers[k2], 
-                                    WinBUGS.outfile, years = new.years, 
-                                    n.stations = WinBUGS.n.stations, 
+      Jags_Richards_NoLaakeData_fcn(min.durs[k1], vers[k2], years = new.years,
                                     data.dir, jags.params, MCMC.params)
       
     }

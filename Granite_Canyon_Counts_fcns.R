@@ -1,6 +1,41 @@
 
 # define some functions
 
+# Runs Richards' function with Pois-Bino model on data since 2010 without
+# using the WinBUGS input list, i.e., creating input data from output of 
+# Extract_Data_All_v2.Rmd. Requires to provide the minimum watch duration,
+# a version of the model (see Jags models for details and differences - they are
+# different in which parameters of Richards' funcion are time specific),
+# years for which the model is fit, a directory name where data are stored,
+# parameters to be monitored, and MCMC parameters as a list. 
+# 
+# Results are saved in a subdirectory under the current working directory named "RData."
+# Example:
+# jags.params <- c("OBS.RF", "BF.Fixed",
+#                   "VS.Fixed",
+#                   "mean.prob", "mean.N", "Max",
+#                   "Corrected.Est", "Raw.Est", "N",
+#                   "K", "S1", "S2", "P",
+#                   "Max.alpha", "Max.beta",
+#                   "S1.alpha", "S2.alpha",
+#                   "S1.beta", "S2.beta",
+#                   "P.alpha", "P.beta",
+#                   "K.alpha", "K.beta",
+#                   "N.alpha",
+#                   "log.lkhd")
+# 
+# MCMC.params <- list(n.samples = 250000,
+#                     n.thin = 100,
+#                     n.burnin = 200000,
+#                     n.chains = 5)
+#                     
+# Jags_Richards_Since2010_fcn(min.dur = 30, 
+#                             ver = "v3", 
+#                             years = c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024), 
+#                             data.dir = "RData/V2.1_Nov2024", 
+#                             jags.params = jags.params, 
+#                             MCMC.params = MCMC.params)                    
+
 Jags_Richards_Since2010_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC.params){
   print("Starting Jags_Richards_Since2010_fcn")
   
@@ -49,6 +84,44 @@ Jags_Richards_Since2010_fcn <- function(min.dur, ver, years, data.dir, jags.para
 
 }
 
+# Runs a Richards' function with Pois-Binom model on datasets without using
+# WinBUGS input, i.e., creating input data from output of Extract_Data_All_v2.Rmd.
+# It also uses Laake's data.
+# 
+# Requires to provide the minimum watch duration, a version of the model (see 
+# Jags models for details and differences - they are
+# different in which parameters of Richards' funcion are time specific),
+# years for which the model is fit, a directory name where data are stored,
+# parameters to be monitored, and MCMC parameters as a list.
+# 
+# Results are saved in a subdirectory under the current working directory named "RData."
+# 
+# Example:
+# jags.params <- c("OBS.RF", "BF.Fixed",
+#                   "VS.Fixed",
+#                   "mean.prob", "mean.N", "Max",
+#                   "Corrected.Est", "Raw.Est", "N",
+#                   "K", "S1", "S2", "P",
+#                   "Max.alpha", "Max.beta",
+#                   "S1.alpha", "S2.alpha",
+#                   "S1.beta", "S2.beta",
+#                   "P.alpha", "P.beta",
+#                   "K.alpha", "K.beta",
+#                   "N.alpha",
+#                   "log.lkhd")
+# 
+# MCMC.params <- list(n.samples = 250000,
+#                     n.thin = 100,
+#                     n.burnin = 200000,
+#                     n.chains = 5)
+#                     
+# NoBUGS_Richards_fcn(min.dur = 30, 
+#                     ver = "v3", 
+#                     years = c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024), 
+#                     data.dir = "RData/V2.1_Nov2024", 
+#                     jags.params = jags.params, 
+#                     MCMC.params = MCMC.params)     
+#                     
 NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC.params){
   print("Starting NoBUGS_Richards_fcn")
   
@@ -98,7 +171,43 @@ NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC
   
 }
 
-Jags_Richards_NoLaakeData_fcn <- function(min.dur, ver, WinBUGS.outfile, years, n.stations, data.dir, jags.params, MCMC.params){
+
+# Runs a Richards' function with Pois-Binom model on datasets for data since 2006. 
+# It does not use an input list of WinBUGS from an output file from a WinBUGS run. Data
+# should be extracted using Extract_Data_All_v2.Rmd. 
+# Requires to provide the minimum watch duration, a version of the model (see 
+# Jags models for details and differences - they are
+# different in which parameters of Richards' funcion are time specific), 
+# a directory name where data are stored, parameters to be monitored, and MCMC parameters as a list.
+# 
+# Results are saved in a subdirectory under the current working directory named "RData."
+# 
+# Example:
+# jags.params <- c("OBS.RF", "BF.Fixed",
+#                   "VS.Fixed",
+#                   "mean.prob", "mean.N", "Max",
+#                   "Corrected.Est", "Raw.Est", "N",
+#                   "K", "S1", "S2", "P",
+#                   "Max.alpha", "Max.beta",
+#                   "S1.alpha", "S2.alpha",
+#                   "S1.beta", "S2.beta",
+#                   "P.alpha", "P.beta",
+#                   "K.alpha", "K.beta",
+#                   "N.alpha",
+#                   "log.lkhd")
+# 
+# MCMC.params <- list(n.samples = 250000,
+#                     n.thin = 100,
+#                     n.burnin = 200000,
+#                     n.chains = 5)
+#                     
+# Jags_Richards_NoLaakeData_fcn(min.dur = 85, 
+#                               ver = "v4", 
+#                               years = c(2007, 2008, 2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024), 
+#                               data.dir = "RData/V2.1_Nov2024", 
+#                               jags.params, MCMC.params)
+#                     
+Jags_Richards_NoLaakeData_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC.params){
   print("Starting Jags_Richards_NoLaakeData_fcn")
   
   Run.date <- Sys.Date()
@@ -145,6 +254,47 @@ Jags_Richards_NoLaakeData_fcn <- function(min.dur, ver, WinBUGS.outfile, years, 
 }
 
 
+# Runs a Richards' function with Pois-Binom model on datasets for data since 2006. 
+# It uses an input list of WinBUGS from an output file from a WinBUGS run. Data
+# for other years should be extracted using Extract_Data_All_v2.Rmd. 
+# Requires to provide the minimum watch duration, a version of the model (see 
+# Jags models for details and differences - they are
+# different in which parameters of Richards' funcion are time specific), the name
+# and location of WinBUGS output file (a string), 
+# years for which the model is fit, the number of station per year (a vector), 
+# a directory name where data are stored, parameters to be monitored, and MCMC parameters as a list.
+# 
+# Results are saved in a subdirectory under the current working directory named "RData."
+# 
+# Example:
+# jags.params <- c("OBS.RF", "BF.Fixed",
+#                   "VS.Fixed",
+#                   "mean.prob", "mean.N", "Max",
+#                   "Corrected.Est", "Raw.Est", "N",
+#                   "K", "S1", "S2", "P",
+#                   "Max.alpha", "Max.beta",
+#                   "S1.alpha", "S2.alpha",
+#                   "S1.beta", "S2.beta",
+#                   "P.alpha", "P.beta",
+#                   "K.alpha", "K.beta",
+#                   "N.alpha",
+#                   "log.lkhd")
+# 
+# MCMC.params <- list(n.samples = 250000,
+#                     n.thin = 100,
+#                     n.burnin = 200000,
+#                     n.chains = 5)
+#                     
+# Jags_Richards_AllData_fcn(min.dur = 85, 
+#                           ver = "v4", 
+#                           WinBUGS.outfile = "RData/WinBUGS_2007to2024_v2_min85_85000.rds", 
+#                           WinBUGS.years = c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024), 
+#                           WinBUGS.n.stations = c(1, 1, 2, 2, rep(1, times = 6)), 
+#                           data.dir = "RData/V2.1_Nov2024", 
+#                           jags.params, MCMC.params)
+#                           
+# "AllData" is not a good name for this because it only runs years that were
+# analyzed using WinBUGS.    
 Jags_Richards_AllData_fcn <- function(min.dur, ver, WinBUGS.out.file, WinBUGS.years, WinBUGS.n.stations, data.dir, jags.params, MCMC.params){
   print("Starting Jags_Richards_AllData_fcn")
   
@@ -160,7 +310,6 @@ Jags_Richards_AllData_fcn <- function(min.dur, ver, WinBUGS.out.file, WinBUGS.ye
   #                    2020, 2022, 2023, 2024)
   all.years <- c(2007, 2008, WinBUGS.years)
   
-  # as of 2024-12-12, I haven't run min = 10 in WinBUGS. So, I use 30 min
   jags.input <- AllData2JagsInput(min.dur = min.dur, 
                                   WinBUGS.years = WinBUGS.years, 
                                   WinBUGS.n.stations = WinBUGS.n.stations, 
@@ -196,6 +345,39 @@ Jags_Richards_AllData_fcn <- function(min.dur, ver, WinBUGS.out.file, WinBUGS.ye
   
 }
 
+
+# Runs a Richards' function with Pois-Binom model on datasets for data in Laake's 
+# analysis (ERAnalysis). 
+# Requires to provide the minimum watch duration, a version of the model (see 
+# Jags models for details and differences - they are
+# different in which parameters of Richards' funcion are time specific), 
+# 
+# Results are saved in a subdirectory under the current working directory named "RData."
+# 
+# Example:
+# jags.params <- c("OBS.RF", "BF.Fixed",
+#                   "VS.Fixed",
+#                   "mean.prob", "mean.N", "Max",
+#                   "Corrected.Est", "Raw.Est", "N",
+#                   "K", "S1", "S2", "P",
+#                   "Max.alpha", "Max.beta",
+#                   "S1.alpha", "S2.alpha",
+#                   "S1.beta", "S2.beta",
+#                   "P.alpha", "P.beta",
+#                   "K.alpha", "K.beta",
+#                   "N.alpha",
+#                   "log.lkhd")
+# 
+# MCMC.params <- list(n.samples = 250000,
+#                     n.thin = 100,
+#                     n.burnin = 200000,
+#                     n.chains = 5)
+#                     
+# Jags_Richards_LaakeData_fcn(min.dur = 85, 
+#                             ver = "v4", 
+#                             jags.params, MCMC.params)
+#                           
+#    
 Jags_Richards_LaakeData_fcn <- function(min.dur, ver, jags.params, MCMC.params){
   print("Starting Jags_Richards_LaakeData_fcn")
   
