@@ -1226,7 +1226,8 @@ LaakeData2JagsInput <- function(min.dur){
   out.list <- list(jags.data = jags.data,
                    all.start.year = all.year,
                    double.obs.year = double.obs.year,
-                   obs = Laake.obs)
+                   obs = Laake.obs,
+                   min.dur = min.dur)
   
   return(out.list)  
 }
