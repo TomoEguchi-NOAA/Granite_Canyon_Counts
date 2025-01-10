@@ -52,7 +52,7 @@ get.results <- function(file.name){
   if (stringr::str_detect(file.name, paste0("min", watch.dur, "_NoBUGS_"))){
     all.start.years <- c(out$jags.input$jags.input.Laake$all.start.year,
                          out$jags.input$jags.input.new$start.years)
-    data.set <- paste0("min", watch.dur, "_NoBUGS_")
+    data.set <- "_NoBUGS_"
     
   } else if (stringr::str_detect(file.name, "AllYears")){
     all.start.years <- out$jags.input$start.years  
@@ -87,9 +87,6 @@ get.results <- function(file.name){
   
 }
 
-# for (k in 1:length(out.file.name))
-#   .results <- get.results(out.file.name[[k]])
-
 all.results <- lapply(out.file.name, FUN = get.results)
 
 all.model.fit <- lapply(all.results, function(x) x$model.fit)
@@ -102,17 +99,23 @@ p.model.fit <- ggplot(all.model.fit.df) +
                  color = model,
                  shape = data.set))
 
+ggsave("figures/model_fit.png", p.model.fit, device = "png", dpi = 600)
+
 p.max.pareto <- ggplot(all.model.fit.df) +
   geom_point(aes(x = watch.dur, 
                  y = max.Pareto, 
                  color = model,
                  shape = data.set))
 
+ggsave("figures/max_pareto.png", p.max.pareto, device = "png", dpi = 600)
+
 p.Rhat <- ggplot(all.model.fit.df) +
   geom_point(aes(x = watch.dur, 
                  y = max.Rhats, 
                  color = model,
                  shape = data.set))
+
+ggsave("figures/max_Rhat.png", p.Rhat, device = "png", dpi = 600)
 
 all.Nhats <- lapply(all.results, function(x) x$Nhats)
 all.Nhats.df <- do.call(rbind, all.Nhats)
@@ -126,3 +129,5 @@ p.Nhats <- ggplot(all.Nhats.df) +
                     ymin = LCL, 
                     ymax = UCL, 
                     color = model))
+
+
