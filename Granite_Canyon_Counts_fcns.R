@@ -1,6 +1,103 @@
 
 # define some functions
 
+# retrieve BUGS results
+get.results.BUGS <- function(BUGS.file.name){
+  out <- readRDS(paste0("RData/", BUGS.file.name))
+  out$BUGS.out$summary %>%
+    as.data.frame() %>%
+    rownames_to_column(var = "parameter") %>%
+    filter(grepl("Corrected", parameter)) -> summary.Nhat
+  
+  file.name.parts <- strsplit(BUGS.file.name, "_") %>% unlist()
+  watch.dur <- strsplit(file.name.parts[4], "min") %>% unlist() %>% as.numeric()
+  
+  WinBUGS.Nhats.df <- data.frame(start.year = out$BUGS.input$all.years - 1,
+                                 Mean = summary.Nhat$mean,
+                                 SE = summary.Nhat$sd,
+                                 LCL = summary.Nhat$`2.5%`,
+                                 UCL = summary.Nhat$`97.5%`,
+                                 model = "BUGS",
+                                 min.watch = watch.dur[2],
+                                 Method = "Durban",
+                                 data.set = "2007to2024")
+  return(WinBUGS.Nhats.df) 
+  
+}
+
+# retrieve jags results.
+get.results.jags <- function(file.name){
+  
+  out <- readRDS(paste0("RData/", file.name))
+  max.Rhats <- lapply(out$jm$Rhat, max, na.rm = T)
+  
+  # To compute LOOIC, need to turn zeros into NAs when there were no second station:
+  jags.data <- out$jags.input$jags.data
+  data.array <- jags.data$n
+  data.array[,2,which(jags.data$n.station == 1)] <- NA
+  
+  LOOIC.n <- compute.LOOIC(loglik.array = out$jm$sims.list$log.lkhd,
+                           data.array = data.array,
+                           MCMC.params = out$MCMC.params)
+  
+  bad.Pareto <- length(which(LOOIC.n$loo.out$diagnostics$pareto_k>0.7))/length(LOOIC.n$loo.out$diagnostics$pareto_k)
+  max.Pareto <- max(LOOIC.n$loo.out$diagnostics$pareto_k)
+  
+  # model version
+  filename.parts <- unlist(strsplit(out$jags.model, "_"))
+  model.v <- filename.parts[length(filename.parts)] %>% strsplit(".txt") %>% unlist()
+  
+  # watch duration - I forgot to extract minimum watch duration for Laake data
+  # analysis... It has been fixed but rather than re-running the code, I extract
+  # this information from the file name
+  watch.dur <- out$jags.input$min.dur
+  if (is.null(watch.dur)){
+    file.name.parts <- unlist(strsplit(file.name, "min"))
+    watch.dur <- unlist(strsplit(file.name.parts[2], "_"))[1] %>% as.numeric()
+  }
+  
+  # Find out estimates - these are different among which datasets were used
+  if (stringr::str_detect(file.name, paste0("min", watch.dur, "_NoBUGS_"))){
+    all.start.years <- c(out$jags.input$jags.input.Laake$all.start.year,
+                         out$jags.input$jags.input.new$start.years)
+    data.set <- "_NoBUGS_"
+    
+  } else if (stringr::str_detect(file.name, "AllYears")){
+    all.start.years <- out$jags.input$start.years  
+    data.set <- "AllYears"
+  } else if (stringr::str_detect(file.name, "Since2006")){
+    all.start.years <- out$jags.input$start.years
+    data.set <- "Since2006"
+  } else if (stringr::str_detect(file.name, "LaakeData")){
+    all.start.years <- out$jags.input$all.start.year
+    data.set <- "LaakeData"
+  } else if (stringr::str_detect(file.name, "_Since2010_NoBUGS")){
+    all.start.years <- out$jags.input$start.years
+    data.set <- "Since2010_NoBUGS"
+  }
+  
+  model.fit <- data.frame(model = model.v,
+                          data.set = data.set,
+                          watch.dur = watch.dur,
+                          bad.Pareto = bad.Pareto,
+                          max.Pareto = max.Pareto,
+                          max.Rhats = max(unlist(max.Rhats), na.rm = T))
+  
+  Nhats.df <- data.frame(start.year = all.start.years,
+                         Mean = out$jm$mean$Corrected.Est,
+                         SE = out$jm$sd$Corrected.Est,
+                         LCL = out$jm$q2.5$Corrected.Est,
+                         UCL = out$jm$q97.5$Corrected.Est,
+                         model = model.v,
+                         min.watch = watch.dur,
+                         data.set = data.set)
+  
+  return(out.list <- list(model.fit = model.fit,
+                          Nhats = Nhats.df))
+  
+}
+
+
 # Runs Richards' function with Pois-Bino model on data since 2010 without
 # using the WinBUGS input list, i.e., creating input data from output of 
 # Extract_Data_All_v2.Rmd. Requires to provide the minimum watch duration,
