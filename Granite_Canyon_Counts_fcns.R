@@ -808,27 +808,19 @@ data2WinBUGS_input <- function(data.dir, years, min.dur){
               array(NA, dim = c(max(periods) - nrow(data.0$bf), 2)))%>%
     labelled::remove_attributes("dimnames")
   
-  # observers - recreated every year
-  all.obs <- lapply(out.v2, FUN = function(x){
-    tmp <- x$Complete_Data$obs %>% 
-      unique()
-  })
+    # A new observer list is created as new data are added. The new observer list
+  # is saved in the Data directory. The list from the previous year is updated
+  obs.list <- read.csv(file = paste0("Data/ObserverList", years[length(years)-1], ".csv"))
   
-  all.uniq.obs <- unlist(all.obs) %>% 
-    unique()
-  
-  obs.list <- data.frame(obs = c(all.uniq.obs, "No obs"),
-                         ID = seq(1, (length(all.uniq.obs))+1))
-  # need to convert observer initials into numbers for all years
-  # This needs to be redone... 
-  obs.list <- read.csv(file = "Data/ObserverList2023.csv")
-  
-  # obs.2024 <- unique(out.v2[[length(years)]]$Complete_Data$obs)
-  # new.obs <- obs.2024[!c(obs.2024 %in% obs.list$obs)]
-  # obs.list <- rbind(obs.list,
-  #                   data.frame(obs = new.obs,
-  #                              ID = seq(max(obs.list$ID) + 1, 
-  #                                       max(obs.list$ID) + length(new.obs))))
+  obs.new <- unique(out.v2[[length(years)]]$Complete_Data$obs)
+  new.obs <- obs.new[!c(obs.new %in% obs.list$obs)]
+  obs.list <- rbind(obs.list,
+                    data.frame(obs = new.obs,
+                               ID = seq(max(obs.list$ID) + 1,
+                                        max(obs.list$ID) + length(new.obs))))
+
+  write.csv(obs.list, file = paste0("Data/ObserverList", max(years), ".csv"),
+            row.names = FALSE)
   
   obs <- data.0$obs[,,1:2]
   

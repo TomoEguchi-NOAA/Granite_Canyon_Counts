@@ -15,6 +15,9 @@ data(Observer)
 # They coorespond to 2007, 2008, 2010, 2011, 2015, 2016, and 2020
 data.0 <- readRDS("RData/2006-2019_GC_Formatted_Data.RDS")
 obs.v0 <- data.0$obs[,1,]
+
+# There are 35 unique observers for 2007 and 2008 data. 36 was used for no observer
+# place holder. 
 obs.v0.ID_2007to2008 <- obs.v0[,1:2]
 
 obs.v0_2010to2020 <- cbind(obs.v0[,3:7], seq(1:nrow(obs.v0)))
