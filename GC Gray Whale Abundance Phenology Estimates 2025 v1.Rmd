@@ -92,7 +92,7 @@ seasons <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011",
              "2022/2023", "2023/2024", "2024/2025")
 
 # The most recent estimates (2023/2024) are here:
-N.hats.2025 <- read_csv(file = "Data/WinBUGS_abundance_2007to2025_v2_min85_100000_2025-02-25.csv",
+N.hats.new <- read_csv(file = "Data/WinBUGS_abundance_2007to2025_v2_min85_100000_2025-02-25.csv",
                         col_types = cols(row.ID = col_character(),
                                          Season = col_character(),
                                          total.mean = col_double(),
@@ -290,34 +290,34 @@ Laake.estimates %>%
   dplyr::select(Year, Season, Nhat, LCL, UCL) %>%
   mutate(Method = "Laake") %>%
   rbind(Durban.2015) %>%
-  rbind(Eguchi.2024) -> all.estimates.2024
+  rbind(Eguchi.2024) -> all.estimates.old
 
 Laake.estimates %>%
   dplyr::select(Year, Season, Nhat, LCL, UCL) %>%
   mutate(Method = "Laake") %>%
-  rbind(N.hats.2025 %>% 
+  rbind(N.hats.new %>% 
           dplyr::select(Year, Season, total.median, total.LCL, total.UCL) %>%
           transmute(Year = Year,
                     Season = Season,
                     Nhat = total.median,
                     LCL = total.LCL,
                     UCL = total.UCL,
-                    Method = "Durban")) -> all.estimates.2025
+                    Method = "Durban")) -> all.estimates.new
 
-all.estimates.2025$Nhat.2024 <- c(all.estimates.2024$Nhat, NA)
+all.estimates.new$Nhat.2024 <- c(all.estimates.old$Nhat, NA)
 
 
 #write.csv(all.estimates, file = "Data/all_estimates_2023.csv")
 # Create all years without skipping unobserved years:
-all.years %>% mutate(Year0 = Year - 1,
-                     Season = paste(Year0, Year, sep = "/")) %>%
-  left_join(all.estimates.2023) -> all.years.2023.df
+# all.years %>% mutate(Year0 = Year - 1,
+#                      Season = paste(Year0, Year, sep = "/")) %>%
+#   left_join(all.estimates.old) -> all.years.2023.df
 
 all.years %>% mutate(Year0 = Year - 1,
                      Season = paste(Year0, Year, sep = "/")) %>%
-  left_join(all.estimates.2024) -> all.years.2024.df
+  left_join(all.estimates.old) -> all.years.new.df
 
-p.Nhat.2025 <- ggplot(data = all.years.2025.df) + 
+p.Nhat.new <- ggplot(data = all.years.new.df) + 
   geom_point(aes(x = Season, y = Nhat, color = Method)) + 
   geom_errorbar(aes(x = Season, ymin = LCL, ymax = UCL, color = Method),
                 size = 1) +
@@ -337,15 +337,15 @@ if (save.fig)
 
 
 # Find daily data:
-data.2025 <- readRDS(file = "RData/V2.1_Feb2025/out_2025_min85_Tomo_v2.rds")
+data.new <- readRDS(file = "RData/V2.1_Feb2025/out_2025_min85_Tomo_v2.rds")
 
-data.2025$Complete_Data %>% 
+data.new$Complete_Data %>% 
   group_by(BeginDay) %>%
   summarize(Date = as.Date("2024-11-30") + BeginDay[1],
             n.day = sum(n),
             n.group = sum(npods)) -> daily.counts
 
-data.2025$Data_Out %>% 
+data.new$Data_Out %>% 
   group_by(BeginDay) %>%
   summarize(Date = as.Date("2024-11-30") + BeginDay[1],
             n.day = sum(n),
@@ -353,19 +353,19 @@ data.2025$Data_Out %>%
 
 # Get the output from WinBUGS run. I use the version 2 output results
 # because V1 had some errors for the past years.  
-WinBUGS.results <- readRDS(paste0("RData/WinBUGS_2007to2025_v2_min85_100000_2025-02-23.rds"))
-Nhat.2025 <- WinBUGS.results$BUGS_out$mean$Corrected.Est[x] 
-SD.Nhat.2025 <- WinBUGS.results$BUGS_out$sd$Corrected.Est[x] 
-CV.Nhat.2025 <- SD.Nhat.2025/Nhat.2025
+WinBUGS.results <- readRDS(paste0("RData/WinBUGS_2007to2025_v2_min85_100000_2025-02-25.rds"))
+Nhat.new <- WinBUGS.results$BUGS.out$mean$Corrected.Est[x] 
+SD.Nhat.new <- WinBUGS.results$BUGS.out$sd$Corrected.Est[x] 
+CV.Nhat.new <- SD.Nhat.new/Nhat.new
 
 # All data:
 # Extract estimated counts
-Daily.Est <- WinBUGS.results$BUGS_out$sims.list$Daily.Est
-sp <- WinBUGS.results$BUGS_out$sims.list$sp
-com <- WinBUGS.results$BUGS_out$sims.list$com
-Corrected.Est <- WinBUGS.results$BUGS_out$sims.list$Corrected.Est
+Daily.Est <- WinBUGS.results$BUGS.out$sims.list$Daily.Est
+sp <- WinBUGS.results$BUGS.out$sims.list$sp
+com <- WinBUGS.results$BUGS.out$sims.list$com
+Corrected.Est <- WinBUGS.results$BUGS.out$sims.list$Corrected.Est
 
-n <- WinBUGS.results$BUGS.data$n
+n <- WinBUGS.results$BUGS.input$data$n
 
 stats.list <- vector(mode = "list",
                      length = dim(Daily.Est)[3])
@@ -404,16 +404,16 @@ for (k in 1:dim(Daily.Est)[3]){
 
 all.stats <- do.call("rbind", stats.list) %>% group_by(Season)
 
-estimate.new <- all.estimates.2025 %>% filter(Year == YEAR)
-estimate.last.year <- all.estimates.2025 %>% filter(Year == (YEAR-1))
+estimate.new <- all.estimates.new %>% filter(Year == YEAR)
+estimate.last.year <- all.estimates.new %>% filter(Year == (YEAR-1))
 
 
 # find daily effort: there are 90 days, where 1st and 90th are zeros.
 # This was already done above. whale.groups.daily.df - compare them with 
 # the code here. 
 daily.effort <- daily.n <- daily.N <- matrix(nrow = 88, ncol = x)
-Watch.Length <- WinBUGS.results$BUGS.data$Watch.Length
-day.mat <- WinBUGS.results$BUGS.data$day
+Watch.Length <- WinBUGS.results$BUGS.input$data$Watch.Length
+day.mat <- WinBUGS.results$BUGS.input$data$day
 ns <- rbind(n[,1,], matrix(NA, nrow = 2, ncol = x))
 
 for (y in 1:x){
@@ -468,7 +468,7 @@ if (save.fig)
 
 ### Abundance estimates {.unnumbered}
 
-From `r format(as.Date("2023-11-30") + data.2024$Data_Out[1, "BeginDay"], "%d %B %Y")` to `r format(as.Date("2023-11-30") + data.2024$Data_Out[nrow(data.2024$Data_Out), "BeginDay"], "%d %B %Y")`, `r length(unique(data.2024$Data_Out$obs))` trained observers completed `r signif(sum(data.2024$Data_Out$dur) * 24, 4)` hours of survey effort over `r length(unique(data.2024$Data_Out$BeginDay))` survey days. A total of `r sum(data.2024$Data_Out$npods)` groups of `r sum(data.2024$Data_Out$n)` gray whales were counted, with the highest daily count of `r max(daily.counts$n.day)` whales on `r daily.counts %>% filter(n.day == max(n.day)) %>% dplyr::select("Date") %>% as.data.frame() %>% format("%d %B %Y")` (Figure \@ref(fig:Figure-daily-fit)). Due to the inclement weather and other constraints (e.g., poor visibility due to fog and rain), some observation periods were \< 85 min in duration and were excluded from analysis. Consequently, `r signif(sum(data.2024$Complete_Data$dur) * 24, 4)` hours of survey effort was retained for further analyses. Estimated total abundance of gray whales during the 2023/2024 southbound migration was `r estimate.new$Nhat %>% format.big.number()` (95% Credible Interval: `r estimate.new$LCL %>% format.big.number()` - `r estimate.new$UCL %>% format.big.number()`, CV = `r signif(CV.Nhat.2024, 3)`, 20-percentile = `r quantile(WinBUGS.results$BUGS_out$sims.list$Corrected.Est[,x], 0.2) %>% format.big.number()`). This estimate includes the multiplicative correction factor for nighttime passage (mean = 1.0875, SD = 0.03625, Perryman et al. 1999). This estimate represents a `r abs(signif((estimate.new$Nhat - estimate.last.year$Nhat)/estimate.last.year$Nhat, 3)) * 100`% increase from the previous estimate for the 2022/2023 season (`r estimate.last.year$Nhat %>% format.big.number()`; Table \@ref(tab:Table-Nhats-v1)). After an observed continuous decline from the 2014/2015 season, this was a welcome result. (Figure \@ref(fig:Figure-nhats-v1)). The observed increase, however, cannot be explained by biological reasons alone for gray whales. Sampling and modeling errors likely contributed to under and over estimations of annual abundance.
+From `r format(as.Date("2023-11-30") + data.2024$Data_Out[1, "BeginDay"], "%d %B %Y")` to `r format(as.Date("2023-11-30") + data.2024$Data_Out[nrow(data.2024$Data_Out), "BeginDay"], "%d %B %Y")`, `r length(unique(data.2024$Data_Out$obs))` trained observers completed `r signif(sum(data.2024$Data_Out$dur) * 24, 4)` hours of survey effort over `r length(unique(data.2024$Data_Out$BeginDay))` survey days. A total of `r sum(data.2024$Data_Out$npods)` groups of `r sum(data.2024$Data_Out$n)` gray whales were counted, with the highest daily count of `r max(daily.counts$n.day)` whales on `r daily.counts %>% filter(n.day == max(n.day)) %>% dplyr::select("Date") %>% as.data.frame() %>% format("%d %B %Y")` (Figure \@ref(fig:Figure-daily-fit)). Due to the inclement weather and other constraints (e.g., poor visibility due to fog and rain), some observation periods were \< 85 min in duration and were excluded from analysis. Consequently, `r signif(sum(data.2024$Complete_Data$dur) * 24, 4)` hours of survey effort was retained for further analyses. Estimated total abundance of gray whales during the 2023/2024 southbound migration was `r estimate.new$Nhat %>% format.big.number()` (95% Credible Interval: `r estimate.new$LCL %>% format.big.number()` - `r estimate.new$UCL %>% format.big.number()`, CV = `r signif(CV.Nhat.2024, 3)`, 20-percentile = `r quantile(WinBUGS.results$BUGS.out$sims.list$Corrected.Est[,x], 0.2) %>% format.big.number()`). This estimate includes the multiplicative correction factor for nighttime passage (mean = 1.0875, SD = 0.03625, Perryman et al. 1999). This estimate represents a `r abs(signif((estimate.new$Nhat - estimate.last.year$Nhat)/estimate.last.year$Nhat, 3)) * 100`% increase from the previous estimate for the 2022/2023 season (`r estimate.last.year$Nhat %>% format.big.number()`; Table \@ref(tab:Table-Nhats-v1)). After an observed continuous decline from the 2014/2015 season, this was a welcome result. (Figure \@ref(fig:Figure-nhats-v1)). The observed increase, however, cannot be explained by biological reasons alone for gray whales. Sampling and modeling errors likely contributed to under and over estimations of annual abundance.
 
 Using the long time series of estimated abundance of ENP gray whales from Granite Canyon, CA, a recent integrated population modeling analysis indicated that fluctuations in the gray whale abundance was likely associated with availability of benthic prey in the Arctic region ([@stewart_boom-bust_2023]). The time series suggests that observed fluctuations are common. The observed declines in abundance might represent short-term events that had not resulted in any detectable longer-term impacts on the population. That is, despite occasional declines in abundance since the time-series of data began in 1967, the population has recovered (Figure \@ref(fig:Figure-nhats-v1). Given the rapid changes in ocean environment, especially in the Arctic region where gray whales forage, continuous monitoring is essential to determine the degree of fluctuations in the future. NOAA/NMFS plan to closely monitor the population with regular surveys to estimate abundance, calf production and body condition of gray whales. The results of these research efforts will continue to provide the best scientific information available regarding the status of the population.
 
@@ -645,7 +645,7 @@ We thank our visual observer team for their diligence and meticulous data record
 ## Tables and figures {.unnumbered}
 
 ```{r Table-Nhats-v1, echo=FALSE, warning=FALSE}
-flextable(all.estimates.2024 %>% dplyr::select(-Year)) %>% 
+flextable(all.estimates.new %>% dplyr::select(-Year)) %>% 
   set_caption(paste0("Estimated abundance (Nhat) and 95% lower (LCL) and upper (UCL) confidence limits of gray whales from the visual surveys off Granite Canyon, CA. Estimates prior to the 2006/2007 season are from Laake et al. (2012), where confidence limits were computed using the lognormal distribution. For the 2006/2007 through 2023/2024 seasons, the method of Durban et al. (2016) was used. Nhat.2023 refers to the estimated abundance (Nhat) reported in Eguchi et al. 2023a."))  %>%
   colformat_double(j = c("LCL", "UCL"), digits = 1) %>%
   set_table_properties(width = 0.5, layout = "autofit")
