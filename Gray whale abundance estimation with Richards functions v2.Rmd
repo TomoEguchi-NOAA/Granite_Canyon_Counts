@@ -154,9 +154,9 @@ Because of the way spline is fit to data points, it is impossible to use just sp
 
 In order to overcome these difficulties with the previous approach, I use a more flexible function that can accommodate the general shape (increase, peak then decrease) and asymmetrical around the peak. The function is often called Richards' function [@richards1959] and it has been used, for example, to model changes in the number of nesting turtles [@girondotModelingApproachesQuantify2007]. The model is defined as follows.
 
-$$M_1 = (1 + (2 e^K - 1) * e^{(P-d)/(S_1)}) ^ {(-1/e^K)}$$
+$$M_1 = (1 + (2 e^K - 1) * e^{(P-d)/S_1}) ^ {(-1/e^K)}$$
 
-$$M_2 = (1 + (2 e^K - 1) * e^{(P-d)/(S_2)}) ^ {(-1/e^K)}$$
+$$M_2 = (1 + (2 e^K - 1) * e^{(P-d)/S_2}) ^ {(-1/e^K)}$$
 
 $$N = N_{min} + (N_{max} - N_{min}) * (M_1 * M_2),$$
 
@@ -386,11 +386,11 @@ $$ logit(p_{i_t, s, y}) = \beta_0 + I_{B} * \beta_{B} * B_{i_t, y} + I_{V} * \be
 
 This is identical to how the sighting probability was modeled in Durban et al. (2015).
 
-The number of gray whales that migrated through the sampling area during the $t$-th day of the season was modeled as a random Poisson variable with the mean $\bar{N}_{t, y}$ [@raftery1988].
+The number of gray whales that migrated through the sampling area during the $t$-th day of the season was modeled as a Poisson variable with the mean $\bar{N}_{t, y}$ [@raftery1988].
 
 $$ N_{t, y} \sim POI(\bar{N}_{t,y}) $$
 
-where $\bar{N}_{t,y}$ is the expected number of whales that migrate through the sampling area on the $t$-th day of the season $y$ and modeled with Richards functions above.
+where $\bar{N}_{t,y}$ is the expected number of whales that migrate through the sampling area on the $t$-th day of the season $y$ and modeled with the Richards function above.
 
 The total number of gray whales for season $y$ is the sum of all $N_{t, y}$ and corrected for nighttime passage:
 
@@ -776,7 +776,7 @@ LOOIC.sim.n <- compute.LOOIC(loglik.array = jm.sim.out$jm$sims.list$log.lkhd,
 
 #### Goodness of fit {.unnumbered}
 
-Despite the difference in data generating (Gamma distribution for the first year) and fitted functions (Richards' function for both years), a majority of Pareto k statistics [@vehtariPracticalBayesianModel2017] were less than 0.7 (`r which(LOOIC.sim.n$loo.out$diagnostics$pareto_k < 0.7) %>% length()` out of `r length(LOOIC.sim.n$loo.out$diagnostics$pareto_k)`), with the maximum value of `r signif(max(LOOIC.sim.n$loo.out$diagnostics$pareto_k), 3)`.
+Despite the difference in data generating (Gamma distribution for the first year) and fitted functions (Richards function for both years), a majority of Pareto k statistics [@vehtariPracticalBayesianModel2017] were less than 0.7 (`r which(LOOIC.sim.n$loo.out$diagnostics$pareto_k < 0.7) %>% length()` out of `r length(LOOIC.sim.n$loo.out$diagnostics$pareto_k)`), with the maximum value of `r signif(max(LOOIC.sim.n$loo.out$diagnostics$pareto_k), 3)`.
 
 #### Estimated parameters from simulated data {.unnumbered}
 
