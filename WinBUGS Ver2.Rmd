@@ -3,11 +3,11 @@ title: "R Notebook"
 output: html_notebook
 ---
 
-This notebook describes abundance estimation of gray whales using Durban's WinBUGS code and Ver2.0 data extraction method. Ver1.0 was developed by John Durban and updated by Josh Stewart. I created Ver2.0, which corrected some errors in Ver1.0. In this notebook, the new data from the 2021/2022, 2022/2023, and 2023/2024 seasons were added to the previous data and run with WinBUGS. 
+This notebook describes abundance estimation of gray whales using Durban's WinBUGS code and Ver2.0 data extraction method. Ver1.0 was developed by John Durban and updated by Josh Stewart. I created Ver2.0, which corrected some errors in Ver1.0. In this notebook, the new data from the 2021/2022, 2022/2023, 2023/2024, and 2024/2025 seasons were added to the previous data and run with WinBUGS. 
 
-For 2009/2010 and 2010/2011, there were two stations. The original bugs code uses the same watch lengths for two stations. Actual watch periods, however, were different. So, that needs to be addressed. I will use the results from previous analysis (Durban or Stewart) in the analysis for the 2023/2024 season. 
+For 2009/2010 and 2010/2011, there were two stations. The original bugs code uses the same watch lengths for two stations. Actual watch periods, however, were different. So, that needs to be addressed. I will use the input for the previous analysis (Durban or Stewart) in the analysis for the 2023/2024 season. This has been fixed for 2009/2010 and 2010/2011 by re-extracting data from the raw data files in Extract_Data_All_v2.Rmd. For the 2006/2007 and 2007/2008 seasons, however, no raw data files were available. So, the same original input data for WinBUGS were used for all minimum shift durations. 
 
-For now, I used the input list directly out of Durban/Stewart analysis for 2006/2007, 2007/2008, 2009/2010, and 2010/2011.
+For now, I used the input list directly out of Durban/Stewart analysis for 2006/2007 and 2007/2008. Input lists for all other years are built from scratch in the data2WinBUGS_input function (found in Granite_Canyon_Counts_fcns.R). 
 
 Need to fix the secondary station data setup. 2024-03-04 This has been fixed in November 2024.
 
@@ -39,13 +39,15 @@ WinBUGS.input <- data2WinBUGS_input(data.dir = "RData/V2.1_Feb2025",
 #                                     min.dur = 30)
 
 # Good to run with 10k/6k as a practice run to see if WinBUGS completes computation.
-# Then, increase iterations/burnin to 100k/60k. Sometimes... 
+# Then, increase iterations/burnin to 100k/60k. Sometimes... 100k returns unknown errors.
+# 85k seems to have no problems. 
 
 MCMCparams <- list(n.iter = 85000, #200, #
                    n.thin = 50, #2, #80
                    n.burnin = 50000, #50, #
                    n.chains = 5)
 # 
+# This set runs quickly. Good to use this set to see if data and model are correct.
 # MCMCparams <- list(n.iter = 200,
 #                    n.thin = 2,
 #                    n.burnin = 50,
@@ -53,7 +55,6 @@ MCMCparams <- list(n.iter = 85000, #200, #
 # 
 n.samples <- ((MCMCparams$n.iter - MCMCparams$n.burnin)/MCMCparams$n.thin)*MCMCparams$n.chains
 
-#Run_Date <- "2024-11-23" #
 Run_Date <- Sys.Date()  
 options(scipen = 999)  # to avoid having 1e+05 for 100000
 out.file.name <- paste0("RData/WinBUGS_", min(WinBUGS.input$all.years), "to",
@@ -62,7 +63,7 @@ out.file.name <- paste0("RData/WinBUGS_", min(WinBUGS.input$all.years), "to",
 options(scipen = 0)
 ```
 
-Set up WinBUGS and run if it hasn't been run..:
+Set up WinBUGS and run if it hasn't been run today.:
 
 ```{r}
 
@@ -113,6 +114,7 @@ if (!file.exists(out.file.name)){
   Run_Time <- Sys.time() - Start_Time
   Ver2.results <-list(BUGS.input = WinBUGS.input,
                       BUGS.out = BUGS_out,
+                      MCMCparams = MCMCparams,
                       Run_Time = Run_Time,
                       Run_Date = Run_Date,
                       Sys.info = Sys.info())
