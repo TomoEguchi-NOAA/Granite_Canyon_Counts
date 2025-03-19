@@ -187,7 +187,7 @@ Jags_Richards_Since2010_fcn <- function(min.dur, ver, years, data.dir, jags.para
 # 
 # Requires to provide the minimum watch duration, a version of the model (see 
 # Jags models for details and differences - they are
-# different in which parameters of Richards' funcion are time specific),
+# different in which parameters of Richards' function are time specific),
 # years for which the model is fit, a directory name where data are stored,
 # parameters to be monitored, and MCMC parameters as a list.
 # 
@@ -260,11 +260,13 @@ NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC
                  MCMC.params = MCMC.params,
                  Run_Time = Run_Time,
                  Run_Date = Run.date,
+                 out.file.name = out.file.name,
                  Sys.env = Sys.getenv())
   
   saveRDS(jm.out,
           file = out.file.name)
   
+  return(jm.out)
   
 }
 
@@ -905,7 +907,7 @@ data2WinBUGS_input <- function(data.dir, years, min.dur){
       
     }
 
-    # if the new saeson has less rows than previous maximum
+    # if the new season has less rows than previous maximum
     if (nrow(n.k) < nrow(n)) {
       n.k.1 <- abind(n.k, 
                      array(0, dim = c(dim(n)[1] - dim(n.k)[1],
@@ -1637,7 +1639,7 @@ data2Jags_input_NoBUGS <- function(min.dur,
 
 # Create jags data input for all years without uring WinBUGS input
 AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir){
-  
+  library(abind)
   # this converts Laake's data into jags input
   jags.input.Laake <- LaakeData2JagsInput(min.dur)
   
