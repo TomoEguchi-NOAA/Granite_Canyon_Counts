@@ -19,7 +19,7 @@ library(bayesplot)
 source("Granite_Canyon_Counts_fcns.R")
 #source("LaakeData2Jags.R")
 
-Run.date <- "2025-03-19" #Sys.Date()
+Run.date <- Sys.Date() #"2025-03-19" #
 
 MCMC.params <- list(n.samples = 250000,
                     n.thin = 100,
@@ -49,11 +49,12 @@ min.dur <- 85
 # The following function uses "new" data since 2010 as well as those from Laake's 
 # analysis to compute abundance since the 1967/1968 season. 
 jm.out <- NoBUGS_Richards_fcn(min.dur = min.dur, 
-                                ver = ver, 
-                                years = c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025), 
-                                data.dir = "RData/V2.1_Feb2025", 
-                                jags.params = jags.params, 
-                                MCMC.params = MCMC.params)
+                              ver = ver, 
+                              years = c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025), 
+                              data.dir = "RData/V2.1_Feb2025", 
+                              jags.params = jags.params, 
+                              MCMC.params = MCMC.params,
+                              Run.date = Run.date)
   
 #jm.out <- readRDS(out.file.name)
 
@@ -145,7 +146,7 @@ Reported.estimates <- read.csv(file = "Data/all_estimates_2024.csv") %>%
   
 
 WinBugs.out <- readRDS(file = "RData/WinBUGS_2007to2025_v2_min85_100000_2025-02-25.rds")
-Corrected.Est <- WinBugs.out$BUGS_out$sims.list$Corrected.Est
+Corrected.Est <- WinBugs.out$BUGS.out$sims.list$Corrected.Est
 
 # We don't have raw data for 2006/2007 and 2007/2008 seasons
 seasons <- c("2006/2007", "2007/2008", jm.out$jags.input$jags.input.new$seasons)
@@ -171,7 +172,7 @@ Durban.abundance.df <- data.frame(Season = seasons,
   mutate(Method = "Durban")
 
 # Create a dataframe for daily estimates:
-daily.estim <- WinBugs.out$BUGS_out$sims.list$Daily.Est
+daily.estim <- WinBugs.out$BUGS.out$sims.list$Daily.Est
 
 # get stats:
 mean.mat <- LCL.mat <- UCL.mat <- matrix(data = NA, 
