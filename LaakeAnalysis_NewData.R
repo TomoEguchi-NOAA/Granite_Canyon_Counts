@@ -11,7 +11,7 @@ library(lubridate)
 source("Granite_Canyon_Counts_fcns.R")
 
 save.file <- F
-years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024)
+years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025)
 YEAR <- max(years)
 # For Laake's approach, I need primary effort, primary sightings, secondary effort,
 # secondary sightings, distance, podsize, and associated visibility and Beaufort 
@@ -32,7 +32,9 @@ Laake_SecondaryEffort <- read.csv(file = "Data/Laake_SecondaryEffort.csv") %>%
 data("Observer")   # from ERAnalysis package.
 #Observer$Set = "old"
 
-new.observers <- read.csv(file = "Data/ObserverList2023.csv") %>%
+# Change this file to the most recent. This file is created when WinBUGS or Jags
+# was run. 
+new.observers <- read.csv(file = paste0("Data/ObserverList", years[length(years)], ".csv")) %>%
   transmute(ID = ID,
             Initials = obs)
 
