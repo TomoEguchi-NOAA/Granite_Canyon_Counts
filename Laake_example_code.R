@@ -13,7 +13,8 @@
 # 
 # 
 rm(list=ls())
-library(ERAnalysis)  
+#library(ERAnalysis)  
+source("Laake_functions.R")
 
 #Run example code from the help file
 #

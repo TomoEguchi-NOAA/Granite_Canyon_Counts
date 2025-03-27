@@ -19,7 +19,7 @@ library(bayesplot)
 source("Granite_Canyon_Counts_fcns.R")
 #source("LaakeData2Jags.R")
 
-Run.date <- Sys.Date() #"2025-03-19" #
+Run.date <- "2025-03-26" #Sys.Date() #"2025-03-19" #
 
 MCMC.params <- list(n.samples = 250000,
                     n.thin = 100,

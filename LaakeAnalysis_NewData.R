@@ -1,14 +1,17 @@
 #LaakeAnalysis_NewData
 # Applies Laake's analysis on data since 2015
 
+# This is not working as of 2025-03-27. It used to work... 
+
 rm(list = ls())
 
-library(ERAnalysis)
+#library(ERAnalysis)
 library(tidyverse)
 library(ggplot2)
 library(lubridate)
 
 source("Granite_Canyon_Counts_fcns.R")
+source("Laake_functions.R")
 
 save.file <- F
 years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025)
@@ -686,6 +689,10 @@ for (year in all.years){
 # for the first 15 surveys prior to 1987. Note with hessian=TRUE, the analysis can
 # take about 30-60 minutes to complete. (TE: Takes about 6 minutes now. But added
 # the if-else. 2023-08-31)
+
+# 2025-03-27: naive.abundance.models works in the following
+# But, naive.abundance.models.new doesn't... sightings and effort need to be 
+# re-constructed. 
 if (!file.exists(paste0("RData/Laake_abundance_estimates_", YEAR, ".rds"))){
   
   #  pdf("Migration.pdf")
