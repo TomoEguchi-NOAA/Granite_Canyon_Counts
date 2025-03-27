@@ -20,7 +20,7 @@ library(tidyverse)
 library(lubridate)
 source("Granite_Canyon_Counts_fcns.R")
 
-save.output <- F #TRUE
+save.output <- T #TRUE
 # https://statisticsglobe.com/dplyr-message-summarise-has-grouped-output-r
 options(dplyr.summarise.inform = FALSE)
 
@@ -33,7 +33,7 @@ if (!dir.exists(out.dir)) dir.create(out.dir)
 # They are the end year of the season, which is the season name. For example, the 
 # 2020/2021 season is called the 2021 season.
 
-YEAR <- 2024 #10 #Enter the year of the data files
+YEAR <- 2025 #10 #Enter the year of the data files
 
 # For 2009/2010 (maybe in the previous years too but I don't have any of those files),
 # Time is entered in decimal hours, not hh:mm:ss. So, that needs to be accommodated in
@@ -521,20 +521,15 @@ out.obj <- list(Data_Out = Data_Out,
 # saveRDS(out.obj, file = paste0("RData/V2.1_Nov2023/out_", YEAR, "_Tomo_v2.rds"))
 
 if (save.output){
-  #saveRDS(out.obj, file = paste0("RData/V2.1_Nov2023/out_", 
-  #YEAR, "_min", min_dur, "_Tomo_v2.rds"))
-  # saveRDS(out.obj, file = paste0("RData/V2.1_Feb2024/out_", 
-  #YEAR, "_min", min_dur, "_Tomo_v2.rds"))
-  
-  saveRDS(out.obj, file = paste0(out.dir, "/out_", 
-                                 YEAR, "_min", min_dur, 
+  saveRDS(out.obj, file = paste0(out.dir, "/out_",
+                                 YEAR, "_min", min_dur,
                                  "_Tomo_v2.rds"))
   
   # Saving csv files for Laake analysis
-  # write.csv(Data4Laake_all,
-  #           file = paste0("Data/all_sightings_", YEAR, "_Tomo_v2.csv"))
-  # write.csv(Effort4Laake_all,
-  #           file = paste0("Data/all_effort_", YEAR, "_Tomo_v2.csv"))
+  write.csv(Data4Laake_all,
+            file = paste0("Data/all_sightings_", YEAR, "_Tomo_v2.csv"))
+  write.csv(Effort4Laake_all,
+            file = paste0("Data/all_effort_", YEAR, "_Tomo_v2.csv"))
   
 }
 
