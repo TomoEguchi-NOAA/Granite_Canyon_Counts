@@ -618,7 +618,8 @@ period.estimate=apply(whales.counted/sampled.fraction,1,sum,na.rm=TRUE)
 # error in podsize. Each fitted migration gam is plotted with the observed values and
 # saved in the file NaiveMigration.pdf.
 #pdf("NaiveMigration.pdf")
-naive.abundance.models=vector("list",23)
+#naive.abundance.models=vector("list",23)
+naive.abundance.models=vector("list",length(all.years))
 i=0
 for (year in all.years){
   i=i+1
