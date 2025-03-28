@@ -37,6 +37,9 @@ data("Observer")   # from ERAnalysis package.
 
 # Change this file to the most recent. This file is created when WinBUGS or Jags
 # was run. 
+
+START HERE... 
+# Observer list needs to be fixed... 2025-03-28
 new.observers <- read.csv(file = paste0("Data/ObserverList", years[length(years)], ".csv")) %>%
   transmute(ID = ID,
             Initials = obs)
@@ -107,21 +110,21 @@ all.observers <- rbind(all.observers, data.frame(ID = c("21", "21"),
 
 
 #years <- 2015
-# sightings and efort
+# sightings and effort
 sightings.list.primary <- effort.list.primary  <- list()
 sightings.list.secondary <- effort.list.secondary  <- list()
 k <- 1
 for (k in 1:length(years)){
   # These raw data files contain repeated observations of all groups.
-  # 
-   
+  # They are created from Extract_Data_All_v2.Rmd 
   tmp.sightings <- read.csv(paste0("Data/all_sightings_", 
                                    years[k], "_Tomo_v2.csv")) 
   
   tmp.sightings %>%
     mutate(Date1 = as.Date(Date, format = "%m/%d/%Y")) %>%
     #group_by(group) %>%
-    transmute(Date = Date1,
+    transmute(key = key,
+              Date = Date1,
               Time = Time_PST, 
               day = day(Date),
               month = month(Date),
@@ -131,20 +134,25 @@ for (k in 1:length(years)){
                               (paste0((years[k] - 1), 
                                              "-11-30 00:00:00"))) %>%
                 as.numeric(),
-              Group_ID = Group_ID,
               distance = Distance,
               podsize = nwhales,
               vis = vis,
               beaufort = beaufort,
-              Start.year = years[k]-1,
-              Observer = toupper(observer),
-              key = key,
+              wind.direction = NA,
               pphr = pphr,
-              date.shift = date.shift,
+              Start.year = years[k]-1,
+              original.watch = NA,
+              only = TRUE,
+              hours = floor(time - min(time)),
+              Sex = NA,
+              Observer = toupper(observer),
+              seq = seq(1, nrow(tmp.sightings)),
+              Group_ID = Group_ID,
               station = station) %>%
     arrange(Date, Group_ID) %>%
     filter(vis < 5, beaufort < 5) %>%
-    na.omit() -> sightings.all
+    select(-c(Group_ID, Time)) -> sightings.all
+    #na.omit() -> sightings.all
 
   sightings.all %>% 
     filter(station == "P") -> sightings.list.primary[[k]]
@@ -169,7 +177,7 @@ for (k in 1:length(years)){
               Observer = toupper(observer),
               time = time,
               watch = shift,
-              date.shift = date.shift,
+              #date.shift = date.shift,
               Use = T,
               Date = as.Date(Date, format = "%m/%d/%Y"),
               station = station) %>%
@@ -184,38 +192,42 @@ for (k in 1:length(years)){
 }
 
 # sightings
-sightings.primary <- do.call("rbind", sightings.list.primary) %>%
-  na.omit()
+sightings.primary <- do.call("rbind", sightings.list.primary) 
 
 sightings.primary %>% 
   left_join(all.observers, by = "Observer") %>%
   select(-c(Observer, Initials)) %>%
-  rename(Observer = ID) -> sightings.primary
+  rename(Observer = ID) %>%
+  relocate(Observer, .after = Sex) %>%
+  select(-station) -> sightings.primary
 
-sightings.secondary <- do.call("rbind", sightings.list.secondary) %>%
-  na.omit()
+sightings.secondary <- do.call("rbind", sightings.list.secondary) 
 
 sightings.secondary %>% 
   left_join(all.observers, by = "Observer") %>%
   select(-c(Observer, Initials)) %>%
-  rename(Observer = ID) -> sightings.secondary
+  rename(Observer = ID) %>%
+  relocate(Observer, .after = Sex) %>%
+  select(-station) -> sightings.secondary
 
 # Effort
-effort.primary <- do.call("rbind", effort.list.primary)  %>%
-  na.omit()
+effort.primary <- do.call("rbind", effort.list.primary)  
 
 effort.primary %>% 
   left_join(all.observers, by = "Observer") %>%
   select(-c(Observer, Initials)) %>%
-  rename(Observer = ID) -> effort.primary
+  rename(Observer = ID) %>% 
+  select(-station) %>%
+  relocate(Observer, .after = beaufort) -> effort.primary
 
-effort.secondary <- do.call("rbind", effort.list.secondary)  %>%
-  na.omit()
+effort.secondary <- do.call("rbind", effort.list.secondary)  
 
 effort.secondary %>% 
   left_join(all.observers, by = "Observer") %>%
   select(-c(Observer, Initials)) %>%
-  rename(Observer = ID) -> effort.secondary
+  rename(Observer = ID) %>%
+  select(-station) %>%
+  relocate(Observer, .after = beaufort) -> effort.secondary
 
 # gsS: nmax x nmax pod size calibration matrix; each row is a true pod size 
 # from 1 to nmax and the value for each column is the probability that a pod of 
@@ -577,7 +589,9 @@ PrimaryEffort=PrimaryEffort[!(PrimaryEffort$Observer=="MAS"&PrimaryEffort$Start.
 all.years=unique(PrimaryEffort$Start.year)
 recent.years=all.years[all.years>=1987]
 early.years=all.years[all.years<1987]
-final.time=sapply(tapply(floor(PrimaryEffort$time),PrimaryEffort$Start.year,max),function(x) ifelse(x>90,100,90))
+final.time = sapply(tapply(floor(PrimaryEffort$time),
+                           PrimaryEffort$Start.year,max),
+                    function(x) ifelse(x>90,100,90))
 lower.time=rep(0,length(final.time))
 fn=1.0817
 se.fn=0.0338
@@ -622,13 +636,21 @@ period.estimate=apply(whales.counted/sampled.fraction,1,sum,na.rm=TRUE)
 # saved in the file NaiveMigration.pdf.
 #pdf("NaiveMigration.pdf")
 #naive.abundance.models=vector("list",23)
-naive.abundance.models=vector("list",length(all.years))
+
+# 2025-03-28: Some observers are NAs in 2014 and 2024 data... this is not right... 
+all.sightings <- rbind(Sightings, sightings.primary) 
+all.effort <- rbind(Effort, effort.primary)
+
+final.time <- c(final.time, rep(90, times = length(effort.list.primary)))
+lower.time <- c(lower.time, rep(0, times = length(effort.list.primary)))
+
+naive.abundance.models=vector("list",length(c(all.years, (years))))
 i=0
-for (year in all.years){
+for (year in c(all.years, (years-1))){
   i=i+1
-  primary=Sightings[Sightings$Start.year==year,]
+  primary=all.sightings[all.sightings$Start.year==year,]
   primary$Start.year=factor(primary$Start.year)
-  ern=subset(Effort,
+  ern=subset(all.effort,
              subset=as.character(Start.year)==year,
              select=c("Start.year","key","begin","end","effort","time","vis","beaufort"))
   
@@ -644,6 +666,8 @@ for (year in all.years){
                                                  dformula=NULL)
 }
 #dev.off()
+#
+#
 # Nhat.naive=sapply(naive.abundance.models,function(x) x$Total)
 # 
 # # Define set of models to be evaluated for detection
@@ -693,6 +717,16 @@ for (year in all.years){
 # 2025-03-27: naive.abundance.models works in the following
 # But, naive.abundance.models.new doesn't... sightings and effort need to be 
 # re-constructed. 
+# 
+
+abundance.estimates.1967to2024 <- compute.series(models, 
+                                                 naive.abundance.models,
+                                                 sightings=all.sightings,
+                                                 effort=all.effort,
+                                                 recent.years = c(1987,1992,1993,1995,1997,2000,2001,2006, (years-1)),
+                                                 hessian=F)
+
+
 if (!file.exists(paste0("RData/Laake_abundance_estimates_", YEAR, ".rds"))){
   
   #  pdf("Migration.pdf")
