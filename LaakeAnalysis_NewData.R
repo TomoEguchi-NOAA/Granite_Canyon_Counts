@@ -35,33 +35,49 @@ Laake_SecondaryEffort <- read.csv(file = "Data/Laake_SecondaryEffort.csv") %>%
 data("Observer")   # from ERAnalysis package.
 #Observer$Set = "old"
 
+# There are multiple initials per person in some cases. ID numbers should be the
+# same for these initials
+uniq.Observer <- data.frame(Name = unique(Observer$Name),
+                            ID.new = seq(1:length(unique(Observer$Name))))
+
+Observer %>%
+  left_join(uniq.Observer, by = "Name") %>%
+  select(-ID) %>%
+  rename(ID = ID.new) -> Observer.1
+
+# Because there are no parameters that are shared over multiple years, observer
+# IDs don't need to be consistent over years. 
+
 # Change this file to the most recent. This file is created when WinBUGS or Jags
 # was run. 
-
-START HERE... 
 # Observer list needs to be fixed... 2025-03-28
 new.observers <- read.csv(file = paste0("Data/ObserverList", years[length(years)], ".csv")) %>%
   transmute(ID = ID,
             Initials = obs)
 
-Observer %>%
-  left_join(new.observers, by = "Initials") %>%
+# Find Observers in Laake's observer list who are also in the new observer list
+Observer.1 %>%
+  left_join(new.observers, by = "Initials") %>% #
   filter(!is.na(ID.y)) %>%
   transmute(ID = ID.y,
             Initials = Initials) -> tmp
 
+# Remove those (tmp) from the new observer list
 new.observers %>%
   anti_join(tmp, by = "ID") -> tmp.2
 
-tmp.2$new.ID = 68:((68+nrow(tmp.2))-1)
+START HERE - ID NUMBERS ARE TOO BIG FOR THE NEW IDS. 2025-03-31
+
+# Create new ID numbers for the new observer list. The total number of observers
+# in the Laake's observer list is the max number of ID
+tmp.2$new.ID = (max(Observer.1$ID) + 1):(((max(Observer.1$ID) + 1) + nrow(tmp.2))-1)
 
 tmp.2 %>%
   select(new.ID, Initials) %>%
-  mutate(ID = new.ID,
-         Initials = Initials) %>%
-  select(-new.ID) -> tmp.3
+  transmute(ID = new.ID,
+            Initials = Initials) -> tmp.3
 
-all.observers <- rbind(Observer %>% select(ID, Initials), tmp.3) %>%
+all.observers <- rbind(Observer.1 %>% select(ID, Initials), tmp.3) %>%
   mutate(Observer = Initials) %>%
   na.omit() %>%
   filter(ID != "21") %>%  # ID - 21 is ARV/AVS, which is not useful
