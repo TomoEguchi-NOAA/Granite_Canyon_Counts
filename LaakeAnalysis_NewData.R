@@ -35,59 +35,6 @@ Laake_SecondaryEffort <- read.csv(file = "Data/Laake_SecondaryEffort.csv") %>%
 data("Observer")   # from ERAnalysis package.
 #Observer$Set = "old"
 
-# There are multiple initials per person in some cases. ID numbers should be the
-# same for these initials
-uniq.Observer <- data.frame(Name = unique(Observer$Name),
-                            ID.new = seq(1:length(unique(Observer$Name))))
-
-Observer %>%
-  left_join(uniq.Observer, by = "Name") %>%
-  select(-ID) %>%
-  rename(ID = ID.new) -> Observer.1
-
-# Because there are no parameters that are shared over multiple years, observer
-# IDs don't need to be consistent over years. 
-
-# Change this file to the most recent. This file is created when WinBUGS or Jags
-# was run. 
-# Observer list needs to be fixed... 2025-03-28
-new.observers <- read.csv(file = paste0("Data/ObserverList", years[length(years)], ".csv")) %>%
-  transmute(ID = ID,
-            Initials = obs)
-
-# Find Observers in Laake's observer list who are also in the new observer list
-Observer.1 %>%
-  left_join(new.observers, by = "Initials") %>% #
-  filter(!is.na(ID.y)) %>%
-  transmute(ID = ID.y,
-            Initials = Initials) -> tmp
-
-# Remove those (tmp) from the new observer list
-new.observers %>%
-  anti_join(tmp, by = "ID") -> tmp.2
-
-START HERE - ID NUMBERS ARE TOO BIG FOR THE NEW IDS. 2025-03-31
-
-# Create new ID numbers for the new observer list. The total number of observers
-# in the Laake's observer list is the max number of ID
-tmp.2$new.ID = (max(Observer.1$ID) + 1):(((max(Observer.1$ID) + 1) + nrow(tmp.2))-1)
-
-tmp.2 %>%
-  select(new.ID, Initials) %>%
-  transmute(ID = new.ID,
-            Initials = Initials) -> tmp.3
-
-all.observers <- rbind(Observer.1 %>% select(ID, Initials), tmp.3) %>%
-  mutate(Observer = Initials) %>%
-  na.omit() %>%
-  filter(ID != "21") %>%  # ID - 21 is ARV/AVS, which is not useful
-  droplevels()
-
-# add those initials back in
-all.observers <- rbind(all.observers, data.frame(ID = c("21", "21"), 
-                                                 Initials = c("ARV", "AVS"), 
-                                                 Observer = c("ARV", "AVS")))
-
 # Necessary information (all sightings) was extracted from raw data files using
 # Extract_Data_All_v2.Rmd (version of 2023-10-19)
 # For these years, there were no secondary observers. I don't have raw data for
@@ -139,7 +86,7 @@ for (k in 1:length(years)){
   tmp.sightings %>%
     mutate(Date1 = as.Date(Date, format = "%m/%d/%Y")) %>%
     #group_by(group) %>%
-    transmute(key = key,
+    transmute(key = as.factor(key),
               Date = Date1,
               Time = Time_PST, 
               day = day(Date),
@@ -180,9 +127,9 @@ for (k in 1:length(years)){
                                 years[k], "_Tomo_v2.csv")) 
   
   tmp.effort %>%
-    transmute(watch.key = watch.key,
+    transmute(watch.key = as.factor(watch.key),
               Start.year = years[k] - 1,
-              key = key,
+              key = as.factor(key),
               begin = begin,
               end = end,
               npods = npods,
@@ -210,10 +157,77 @@ for (k in 1:length(years)){
 # sightings
 sightings.primary <- do.call("rbind", sightings.list.primary) 
 
+# create observer list independent of what was done for WinBUGS or JAGS
+
+# Find Observers in Laake's observer list who are also in the new observer list
+# There are multiple initials per person in some cases. ID numbers should be the
+# same for these initials
+Observer %>%
+  filter(is.na(Observer)) %>%
+  droplevels() %>%
+  mutate(Identifier = Initials) %>%
+  select(ID, Identifier, Name) -> Observer.NA
+
+Observer %>%
+  filter(is.na(Initials)) %>%
+  droplevels() %>%
+  mutate(Identifier = as.factor(Observer)) %>%
+  select(ID, Identifier, Name) -> Observer.Initial.NA
+
+Observer.1 <- rbind(Observer.NA, Observer.Initial.NA)
+
+uniq.Observer.1 <- data.frame(Name = unique(Observer.1$Name),
+                              ID.new = seq(1:length(unique(Observer.1$Name))))
+
+Observer.1 %>%
+  left_join(uniq.Observer.1, by = "Name") %>%
+  select(-c(ID, Name)) %>%
+  rename(ID = ID.new) -> Observer.2
+
+Observers.new <- unique(sightings.primary$Observer)
+new.observers <- data.frame(Identifier = Observers.new,
+                            ID = seq((max(Observer.2$ID)+1), 
+                                     (max(Observer.2$ID) + length(Observers.new))))
+
+Observer.2 %>%
+  left_join(new.observers, by = "Identifier") %>% #
+  filter(!is.na(ID.y)) %>%
+  transmute(ID = ID.y,
+            Identifier = Identifier) -> tmp
+
+# Remove those (tmp) from the new observer list
+new.observers %>%
+  anti_join(tmp, by = "ID") -> tmp.2
+# 
+# # Create new ID numbers for the new observer list. The total number of observers
+# # in the Laake's observer list is the max number of ID
+# tmp.2$new.ID = (max(Observer.1$ID) + 1):(((max(Observer.1$ID) + 1) + nrow(tmp.2))-1)
+# 
+# tmp.2 %>%
+#   select(new.ID, Initials) %>%
+#   transmute(ID = new.ID,
+#             Initials = Initials) -> tmp.3
+
+tmp.4 <- rbind(Observer.2, tmp.2) %>%
+  mutate(Observer = Identifier) %>%
+  select(-Identifier) %>%
+  na.omit() 
+
+ARV.ID <- tmp.4[tmp.4$Observer == "ARV/AVS", "ID"]
+tmp.4 %>%
+  filter(Observer != "ARV/AVS") %>%  
+  droplevels() -> tmp.5
+
+# add those initials back in
+all.observers <- rbind(tmp.5, 
+                       data.frame(ID = c(ARV.ID, ARV.ID), 
+                                  Observer = c("ARV", "AVS")))
+
 sightings.primary %>% 
   left_join(all.observers, by = "Observer") %>%
-  select(-c(Observer, Initials)) %>%
-  rename(Observer = ID) %>%
+  select(-ID) %>%
+  #rename(Observer = ID) %>%
+  mutate(Observer = as.factor(Observer)) %>%
   relocate(Observer, .after = Sex) %>%
   select(-station) -> sightings.primary
 
@@ -221,8 +235,9 @@ sightings.secondary <- do.call("rbind", sightings.list.secondary)
 
 sightings.secondary %>% 
   left_join(all.observers, by = "Observer") %>%
-  select(-c(Observer, Initials)) %>%
-  rename(Observer = ID) %>%
+  select(-ID) %>%
+  #rename(Observer = ID) %>%
+  mutate(Observer = as.factor(Observer)) %>%
   relocate(Observer, .after = Sex) %>%
   select(-station) -> sightings.secondary
 
@@ -231,8 +246,9 @@ effort.primary <- do.call("rbind", effort.list.primary)
 
 effort.primary %>% 
   left_join(all.observers, by = "Observer") %>%
-  select(-c(Observer, Initials)) %>%
-  rename(Observer = ID) %>% 
+  select(-ID) %>%
+  #rename(Observer = ID) %>% 
+  mutate(Observer = as.factor(Observer)) %>%
   select(-station) %>%
   relocate(Observer, .after = beaufort) -> effort.primary
 
@@ -240,8 +256,9 @@ effort.secondary <- do.call("rbind", effort.list.secondary)
 
 effort.secondary %>% 
   left_join(all.observers, by = "Observer") %>%
-  select(-c(Observer, Initials)) %>%
-  rename(Observer = ID) %>%
+  select(-ID) %>%
+  #rename(Observer = ID) %>%
+  mutate(Observer = as.factor(Observer)) %>%
   select(-station) %>%
   relocate(Observer, .after = beaufort) -> effort.secondary
 
@@ -339,8 +356,11 @@ for (k in 1:length(years)){
 # # Define set of models to be evaluated for detection
 models=c("podsize+Dist+Observer",
          "podsize+Dist+Observer+beaufort",
-         "podsize+Dist+Observer+vis",
-         "podsize+Dist+Observer+Vis")
+         "podsize+Dist+Observer+vis")
+
+# models=c("podsize+Dist+Observer",
+#          "podsize+Dist+Observer+vis")
+
 # 
 # # Needs functions in the following scripts
 # source("~/R/ERAnalysis/R/MatchingLinking.r")
@@ -653,8 +673,10 @@ period.estimate=apply(whales.counted/sampled.fraction,1,sum,na.rm=TRUE)
 #pdf("NaiveMigration.pdf")
 #naive.abundance.models=vector("list",23)
 
-# 2025-03-28: Some observers are NAs in 2014 and 2024 data... this is not right... 
-all.sightings <- rbind(Sightings, sightings.primary) 
+# Run naive abundance estimates for Laake's data and new data.
+
+all.sightings <- rbind(Sightings,  sightings.primary )
+
 all.effort <- rbind(Effort, effort.primary)
 
 final.time <- c(final.time, rep(90, times = length(effort.list.primary)))
@@ -729,36 +751,79 @@ for (year in c(all.years, (years-1))){
 # for the first 15 surveys prior to 1987. Note with hessian=TRUE, the analysis can
 # take about 30-60 minutes to complete. (TE: Takes about 6 minutes now. But added
 # the if-else. 2023-08-31)
-
-# 2025-03-27: naive.abundance.models works in the following
-# But, naive.abundance.models.new doesn't... sightings and effort need to be 
-# re-constructed. 
 # 
 
-abundance.estimates.1967to2024 <- compute.series(models, 
-                                                 naive.abundance.models,
-                                                 sightings=all.sightings,
-                                                 effort=all.effort,
-                                                 recent.years = c(1987,1992,1993,1995,1997,2000,2001,2006, (years-1)),
-                                                 hessian=F)
+# naive.abundance.models.Laake=vector("list",length(all.years))
+# i=0
+# for (year in all.years){
+#   i=i+1
+#   primary=Sightings[Sightings$Start.year==year,]
+#   primary$Start.year=factor(primary$Start.year)
+#   ern=subset(Effort,
+#              subset=as.character(Start.year)==year,
+#              select=c("Start.year","key","begin","end","effort","time","vis","beaufort"))
+#   
+#   ern$Start.year=factor(ern$Start.year)
+#   naive.abundance.models.Laake[[i]]=estimate.abundance(spar=NULL,
+#                                                        dpar=NULL,
+#                                                        gsS=gsS,
+#                                                        effort=ern, 
+#                                                        sightings=primary, 
+#                                                        final.time=final.time[i],
+#                                                        lower.time=lower.time[i],
+#                                                        gformula=~s(time),
+#                                                        dformula=NULL)
+# }
+# 
+# saveRDS(naive.abundance.models.Laake,
+#         file = "RData/naive_abundance_Laake.rds")
 
+naive.abundance.models.Laake <- readRDS(file = "RData/naive_abundance_Laake.rds")
 
-if (!file.exists(paste0("RData/Laake_abundance_estimates_", YEAR, ".rds"))){
-  
-  #  pdf("Migration.pdf")
-  abundance.estimates=compute.series(models, 
-                                     naive.abundance.models,
-                                     sightings=Sightings,
-                                     effort=Effort,
-                                     hessian=TRUE)
-  #  dev.off()
-  saveRDS(abundance.estimates,
-          file = paste0("RData/Laake_abundance_estimates_", YEAR, ".rds"))  
-} else {
-  abundance.estimates <- readRDS(paste0("RData/Laake_abundance_estimates_", YEAR, ".rds"))
-}
+##### From Laake_example_code.R
 
-ratio <- abundance.estimates$ratio
+#Next compute the series of abundance estimates for the most recent 8 years by
+# fitting and selecting the best detection model but not applying the pod size correction.
+# From those 8 estimates and the naive estimates, compute an average ratio and 
+# apply it to generate the estimates for the first 15 surveys prior to 1987.
+# Sightings$corrected.podsize=Sightings$podsize
+# abundance.estimates.nops.correction=compute.series(models, 
+#                                                    naive.abundance.models.Laake,
+#                                                    sightings=Sightings,
+#                                                    effort=Effort,
+#                                                    TruePS=FALSE)
+# saveRDS(abundance.estimates.nops.correction,
+#         file = "RData/Nhats_nops_correction.rds")
+# 
+# Sightings$corrected.podsize=NULL
+# abundance.estimates.1967to2006 = compute.series(models,
+#                                                 naive.abundance.models.Laake,
+#                                                 sightings=Sightings,
+#                                                 effort=Effort,
+#                                                 hessian=TRUE)
+
+# saveRDS(abundance.estimates.1967to2006,
+#         file = "RData/Nhats_1967to2006.rds")
+
+abundance.estimates.1967to2006 <- readRDS(file = "RData/Nhats_1967to2006.rds")
+##### End of Laake_example_code.R 
+
+# THIS WILL NOT WORK... BECAUSE WE NEED THE MATCH DATAFRAME WHICH LINKS PRIMARY 
+# AND SECONDARY SIGHTINGS. THERE IS NO SUCH DATA FOR NEW DATA... 
+
+#### Debugging the next line:
+
+# The ratio between "naive" and non-naive Nhats when there were no two stations
+# was ~1.57 (1.567350 to be exact).
+# lapply(naive.abundance.models.Laake, FUN = function(x) x$Total) %>% unlist -> naive.Nhat
+# abundance.estimates.1967to2006$Nhat/naive.Nhat
+# So, I'm going to use the ratio for the new estimates from 2010 to 2024.
+
+naive.Nhat.2010to2024 <- lapply(naive.abundance.models.new, 
+                                FUN = function(x) x$Total) %>% unlist
+Nhat.2010to2024 <- naive.Nhat.2010to2024 * 1.567
+
+ratio <- abundance.estimates.1967to2006$ratio
 ratio.SE <- 0.03  # from Laake et al 2012, Table 8
 
 # Compute series of estimates for before 1987 without nighttime correction factor (eqn 24)  
@@ -795,10 +860,10 @@ W.hat.2 <- setNames(c(24883, 14571, 18585, 19362, 19539, 15133, 14822, 17682),
                     c("1987", "1992", "1993", "1995", "1997", "2000", "2001", "2006"))
 
 #W.hat <- c(W.hat.1, W.hat.2)
-N.hat.2 <- abundance.estimates$summary.df$Nhat
+N.hat.2 <- abundance.estimates.1967to2006$summary.df$Nhat
 SE.Nhat.2 <- abundance.vc$se[(length(N.hat.1)+1):length(abundance.vc$se)]
 
-# The same approach for year < 1987 will be used for years 2009 - 2022
+# The same approach for year < 1987 will be used for years 2009 - most recent
 # Although the values didn't match exactly, they were quite close. So, 
 # I'm not going to worry too much about it.
 W.tilde.3 <- c(sapply(naive.abundance.models.new, function(x) x$Total))
@@ -827,22 +892,25 @@ conf.int=function(abundance, CV, alpha=0.05, digits=2, prt=FALSE){
   data.frame(SL,SU)
 }
 
-all.estimates <- data.frame(Year = c(all.years, lapply(naive.abundance.models.new,
-                                                       function(x) names(x$Total)) %>% 
-                                       unlist() %>% as.numeric), 
+all.estimates <- data.frame(Start.Year = c(all.years, 
+                                           lapply(naive.abundance.models.new,
+                                                  function(x) names(x$Total)) %>% 
+                                             unlist() %>% as.numeric), 
                             Nhat = c(N.hat.1, N.hat.2, N.hat.3),
                             SE = c(SE.Nhat.1, SE.Nhat.2, SE.Nhat.3)) %>%
   mutate(CV = SE/Nhat,
-         Season = paste0(Year, "/", (Year + 1)))
+         Season = paste0(Start.Year, "/", (Start.Year + 1)))
 
 CI <- conf.int(all.estimates$Nhat, all.estimates$CV)
 
 all.estimates$CL.low <- CI$SL
 all.estimates$CL.high <- CI$SU
 
-all.years <- data.frame(Year = seq(min(all.estimates$Year), max(all.estimates$Year)))
+seq.years <- data.frame(Start.Year = seq(min(all.estimates$Start.Year), 
+                                         max(all.estimates$Start.Year)))
 
-all.years %>% left_join(all.estimates, by = "Year") -> all.estimates
+seq.years %>% left_join(all.estimates, by = "Start.Year") %>%
+  relocate(Season, .after = Start.Year) -> all.estimates
 
 if (!file.exists(paste0("Data/all_estimates_Laake_",
                         max(years), ".csv")))
@@ -851,8 +919,8 @@ if (!file.exists(paste0("Data/all_estimates_Laake_",
             quote = FALSE, row.names = FALSE)
 
 ggplot(all.estimates) +
-  geom_point(aes(x = Year, y = Nhat)) +
-  geom_errorbar(aes(x = Year, ymin = CL.low, ymax = CL.high))
+  geom_point(aes(x = Start.Year, y = Nhat)) +
+  geom_errorbar(aes(x = Start.Year, ymin = CL.low, ymax = CL.high))
 
 # Debugging purposes  #######################################
 # models <- models 
