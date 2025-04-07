@@ -1,7 +1,17 @@
 #LaakeAnalysis_NewData
 # Applies Laake's analysis on data since 2015
 
-# This is not working as of 2025-03-27. It used to work... 
+# This script is used to run the method of Laake et al. 2012. Their approach 
+# requires matched sightings between two stations (primary and secondary). Such
+# information is lacking in the data from the 2009/2010 season to the most recent
+# data (2024/2025). So, I used the ratio between "naive" and "corrected" estiamtes
+# for earlier results (up to 2006/2007) to adjust for new estimates. 
+# 
+# Because I cannot build the ERAnalysis package in newer R versions, I created
+# a script that contains all functions that were used in Laake's analysis (Laake_functions.R).
+# Raw data from recent years (i.e., 2009/2010 to current) need to be extracted
+# using Extract_Data_All_v2.Rmd. Output of this script can be saved into a CVS
+# file by making save.file <- TRUE in the beginning of this script. 
 
 rm(list = ls())
 
@@ -14,6 +24,7 @@ source("Granite_Canyon_Counts_fcns.R")
 source("Laake_functions.R")
 
 save.file <- F
+# These are the second year of each season.
 years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025)
 YEAR <- max(years)
 # For Laake's approach, I need primary effort, primary sightings, secondary effort,
@@ -68,15 +79,17 @@ data("Observer")   # from ERAnalysis package.
 # 1979+ calculated value using 3.24 nm whale speed
 # 
 
-# Only 2010 and 2011 had two observation stations, which are needed for applying
-# Laake's method beyond naive estimates
+# Only 2010 and 2011 had two observation stations in the recent years, which are 
+# needed for applying Laake's method beyond naive estimates. Even for those years,
+# there is no information about which pod was sighted by one or both stations.
+# So, the method cannot be applied directly to all data. 
 
-
-#years <- 2015
 # sightings and effort
 sightings.list.primary <- effort.list.primary  <- list()
 sightings.list.secondary <- effort.list.secondary  <- list()
-k <- 1
+
+# Bring in processed data and create dataframes that match the format of Laake's
+# input data
 for (k in 1:length(years)){
   # These raw data files contain repeated observations of all groups.
   # They are created from Extract_Data_All_v2.Rmd 
@@ -107,7 +120,7 @@ for (k in 1:length(years)){
               original.watch = NA,
               only = TRUE,
               hours = floor(time - min(time)),
-              Sex = NA,
+              Sex = NA,   # observer's gender
               Observer = toupper(observer),
               seq = seq(1, nrow(tmp.sightings)),
               Group_ID = Group_ID,
@@ -154,10 +167,8 @@ for (k in 1:length(years)){
     filter(station == "S") -> effort.list.secondary[[k]]
 }
 
-# sightings
+# sightings for all years combined
 sightings.primary <- do.call("rbind", sightings.list.primary) 
-
-# create observer list independent of what was done for WinBUGS or JAGS
 
 # Find Observers in Laake's observer list who are also in the new observer list
 # There are multiple initials per person in some cases. ID numbers should be the
@@ -184,11 +195,13 @@ Observer.1 %>%
   select(-c(ID, Name)) %>%
   rename(ID = ID.new) -> Observer.2
 
+# Find observers from more recent data (2009/2010 to present)
 Observers.new <- unique(sightings.primary$Observer)
 new.observers <- data.frame(Identifier = Observers.new,
                             ID = seq((max(Observer.2$ID)+1), 
                                      (max(Observer.2$ID) + length(Observers.new))))
 
+# Combine "old" and "new" observer lists
 Observer.2 %>%
   left_join(new.observers, by = "Identifier") %>% #
   filter(!is.na(ID.y)) %>%
@@ -198,31 +211,28 @@ Observer.2 %>%
 # Remove those (tmp) from the new observer list
 new.observers %>%
   anti_join(tmp, by = "ID") -> tmp.2
-# 
-# # Create new ID numbers for the new observer list. The total number of observers
-# # in the Laake's observer list is the max number of ID
-# tmp.2$new.ID = (max(Observer.1$ID) + 1):(((max(Observer.1$ID) + 1) + nrow(tmp.2))-1)
-# 
-# tmp.2 %>%
-#   select(new.ID, Initials) %>%
-#   transmute(ID = new.ID,
-#             Initials = Initials) -> tmp.3
 
 tmp.4 <- rbind(Observer.2, tmp.2) %>%
   mutate(Observer = Identifier) %>%
   select(-Identifier) %>%
   na.omit() 
 
+# Fix one observer because "ARV/AVS" is not usable 
 ARV.ID <- tmp.4[tmp.4$Observer == "ARV/AVS", "ID"]
 tmp.4 %>%
   filter(Observer != "ARV/AVS") %>%  
   droplevels() -> tmp.5
 
-# add those initials back in
+# add those initials back in with the same ID
 all.observers <- rbind(tmp.5, 
                        data.frame(ID = c(ARV.ID, ARV.ID), 
                                   Observer = c("ARV", "AVS")))
 
+# Write the new list to a file
+write.csv(all.observers,
+          file = paste0("Data/all_observers_", max(years), ".csv"))
+
+# Rearrange sightings dataframe columns
 sightings.primary %>% 
   left_join(all.observers, by = "Observer") %>%
   select(-ID) %>%
@@ -265,7 +275,6 @@ effort.secondary %>%
 # gsS: nmax x nmax pod size calibration matrix; each row is a true pod size 
 # from 1 to nmax and the value for each column is the probability that a pod of 
 # a true size S is recorded as a size s (1..nmax columns)
-# 
 naive.abundance.models.new <- list()
 for (k in 1:length(years)){
   sightings.primary %>%
@@ -291,82 +300,13 @@ for (k in 1:length(years)){
 # 
 # In Laake's analysis, they computed the multiplication factor for naive-to-true conversion from 
 # years with two stations. Then the average of those conversion factors was used for years without
-# two stations. Here, I compute those factors for the 2009/2010 and 2010/2011 seasons, which were
-# not part of Laake's analysis. This didn't work out so well... 
-# 
-# 
-# sightings.primary %>%
-#   transmute(X = (max(Laake_PrimarySightings$X) + 1) : (max(Laake_PrimarySightings$X) + 1 + nrow(sightings.primary) - 1),
-#             Date = Date, day = day, month = month,
-#             year = year,
-#             watch = watch,
-#             t241 = t241, 
-#             distance = distance,
-#             podsize = podsize,
-#             vis = vis,
-#             beaufort = beaufort,
-#             wind.direction = NA,
-#             key = key,
-#             pphr = pphr,
-#             Start.year = Start.year,
-#             original.watch = watch,
-#             only = TRUE,
-#             hours = NA,
-#             Sex = NA,
-#             Observer = Observer) -> sightings.Laake.format
-# 
-# sightings.all <- rbind(Laake_PrimarySightings, sightings.Laake.format)
-# 
-# effort.primary %>%
-#   mutate(X = (max(Laake_PrimaryEffort$X) + 1) : (max(Laake_PrimaryEffort$X) + 1 + nrow(effort.primary) - 1)) %>%
-#   select(-c(station, date.shift)) %>%
-#   relocate(Observer, .after = beaufort) %>%
-#   relocate(X, .before = watch.key) -> effort.Laake.format
-#   
-# effort.all <- rbind(Laake_PrimaryEffort, effort.Laake.format)
-# 
-# final.time = sapply(tapply(floor(effort.all$time), 
-#                            effort.all$Start.year, max), 
-#                     function(x) ifelse(x>90,100,90))
-# lower.time = rep(0,length(final.time))
-#  
-# all.years <- unique(sightings.all$Start.year)
-# naive.abundance.models=vector("list", length(all.years))
-# i <- 0
-# for (year in all.years){
-#   i <- i+1
-#   primary <- sightings.all[sightings.all$Start.year==year,]
-#   primary$Start.year=factor(primary$Start.year)
-#   ern=subset(effort.all,
-#              subset=as.character(Start.year)==year,
-#              select=c("Start.year","key","begin","end","effort","time","vis","beaufort"))
-# 
-#   ern$Start.year=factor(ern$Start.year)
-#   naive.abundance.models[[i]]=estimate.abundance(spar=NULL,
-#                                                  dpar=NULL,
-#                                                  gsS=gsS,
-#                                                  effort=ern,
-#                                                  sightings=primary,
-#                                                  final.time=final.time[i],
-#                                                  lower.time=lower.time[i],
-#                                                  gformula=~s(time),
-#                                                  dformula=NULL)
-# }
+# two stations. 
 # 
 # # Define set of models to be evaluated for detection
 models=c("podsize+Dist+Observer",
          "podsize+Dist+Observer+beaufort",
          "podsize+Dist+Observer+vis")
 
-# models=c("podsize+Dist+Observer",
-#          "podsize+Dist+Observer+vis")
-
-# 
-# # Needs functions in the following scripts
-# source("~/R/ERAnalysis/R/MatchingLinking.r")
-# source("compute.series.new.r")
-# source("~/R/ERAnalysis/R/io.glm.R")
-# 
 # # compute.series (or compute.series.new) can take a Match dataframe, which
 # # contains information about sighting and non-sighting of each whale pod by
 # # primary and secondary observers. The match dataframe from Laake's analysis
@@ -753,6 +693,10 @@ for (year in c(all.years, (years-1))){
 # the if-else. 2023-08-31)
 # 
 
+# Because these require some time to run, I saved the output in an rds file. To
+# run the code, uncomment the following block:
+
+####################### Block starts here:
 # naive.abundance.models.Laake=vector("list",length(all.years))
 # i=0
 # for (year in all.years){
@@ -777,9 +721,14 @@ for (year in c(all.years, (years-1))){
 # 
 # saveRDS(naive.abundance.models.Laake,
 #         file = "RData/naive_abundance_Laake.rds")
+####################### Block ends here
 
 naive.abundance.models.Laake <- readRDS(file = "RData/naive_abundance_Laake.rds")
 
+# To modify naive estimates to better estimates, I also ran the code and saved
+# the results in an rds file. To run the code, uncomment the following block:
+
+####################### Block starts here:
 ##### From Laake_example_code.R
 
 #Next compute the series of abundance estimates for the most recent 8 years by
@@ -805,19 +754,15 @@ naive.abundance.models.Laake <- readRDS(file = "RData/naive_abundance_Laake.rds"
 # saveRDS(abundance.estimates.1967to2006,
 #         file = "RData/Nhats_1967to2006.rds")
 
+####################### Block ends here
+
 abundance.estimates.1967to2006 <- readRDS(file = "RData/Nhats_1967to2006.rds")
 ##### End of Laake_example_code.R 
-
-# THIS WILL NOT WORK... BECAUSE WE NEED THE MATCH DATAFRAME WHICH LINKS PRIMARY 
-# AND SECONDARY SIGHTINGS. THERE IS NO SUCH DATA FOR NEW DATA... 
-
-#### Debugging the next line:
 
 # The ratio between "naive" and non-naive Nhats when there were no two stations
 # was ~1.57 (1.567350 to be exact).
 # lapply(naive.abundance.models.Laake, FUN = function(x) x$Total) %>% unlist -> naive.Nhat
 # abundance.estimates.1967to2006$Nhat/naive.Nhat
-# So, I'm going to use the ratio for the new estimates from 2010 to 2024.
 
 naive.Nhat.2010to2024 <- lapply(naive.abundance.models.new, 
                                 FUN = function(x) x$Total) %>% unlist
@@ -851,7 +796,7 @@ N.hat.1 <- W.hat.1 * fn
 # CV.Nhat.1 <- SE.Nhat.1/N.hat.1
 
 
-# SE values are a little different from what I calcualted above (SE.Nhat.1) but not much
+# SE values are a little different from what I calculated above (SE.Nhat.1) but not by much
 SE.Nhat.1 <- abundance.vc$se[1:length(N.hat.1)]
 
 # var(W.hat) for year > 1985 eqn. 25
