@@ -1517,6 +1517,10 @@ data2Jags_input_NoBUGS <- function(min.dur,
   # need to convert observer initials into numbers for all years
   # This needs to be redone... 
   
+  THIS NEEDS TO BE REDONE TO INCLUDE OBSERVERS FROM LAAKE ANALYSIS. USE THE 
+  SAME CODE FROM LAKEANALYSIS_NEWDATA.R TO BRING IN ALL OBSERVERS. 2025-04-04 
+  START HERE.
+  
   # A new observer list is created as new data are added. The new observer list
   # is saved in the Data directory. The list from the previous year is updated
   obs.list <- read.csv(file = paste0("Data/ObserverList", years[length(years)-1], ".csv"))
