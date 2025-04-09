@@ -904,6 +904,11 @@ data2WinBUGS_input <- function(data.dir, years, min.dur){
   
   # A new observer list is created as new data are added. The new observer list
   # is saved in the Data directory. The list from the previous year is updated
+  # Use the create.observer.list function instead. 
+
+  # Until I get raw data files for 2006/2007 and 2007/2008, I can't use the new
+  # function create.obserer.list...   
+
   obs.list <- read.csv(file = paste0("Data/ObserverList", years[length(years)-1], ".csv"))
   
   obs.new <- unique(out.v2[[length(years)]]$Complete_Data$obs)
@@ -1714,23 +1719,21 @@ data2Jags_input_NoBUGS <- function(min.dur,
     unique() %>%
     sort()
   
-  uniq.obs.df <- data.frame(old.ID = uniq.obs, 
+  uniq.obs.df <- data.frame(ID = uniq.obs, 
                             new.ID = seq(1, length(uniq.obs)))
   
-  START HERE BY MATCHING OLD.ID AND BRING IN NEW.ID TO MAKE NEW.OBS.DF 2025-04-08
   all.observers %>%
     filter(ID %in% uniq.obs) %>%
-    arrange(ID) -> tmp #%>%
-    rownames_to_column(var = "ID.tmp") %>%
-    mutate(ID.new = as.numeric(ID.tmp)) %>%
-    select(-c(ID.tmp, data)) -> new.obs.df
+    arrange(ID) %>% #-> tmp #
+    left_join(uniq.obs.df, by = "ID") %>% #-> tmp
+    select(-c(data)) %>%
+    transmute(ID = ID, obs = obs, ID.new = new.ID) -> new.obs.df
   
+  no.obs.ID.2 <- max(new.obs.df$ID) + 1
   new.obs.df <- rbind(new.obs.df, 
-                      data.frame(ID = no.obs.ID, 
+                      data.frame(ID = NA,
                                  obs = "No obs", 
-                                 ID.new = 1 + max(new.obs.df$ID.new)))
-  
-  no.obs.ID.2 <- max(new.obs.df$ID.new) + 1
+                                 ID.new = no.obs.ID.2))
   
   # use "replace" to swap the original observer IDs with new IDs
   # using the look up table (new.obs.df)
