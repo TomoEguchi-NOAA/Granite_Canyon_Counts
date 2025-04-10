@@ -7,81 +7,83 @@ create.observer.list <- function(sightings.primary){
   years <- 1 + unique(sightings.primary$Start.year)
   Observer <- read.csv(file = "Data/Observer_Laake.csv")
   
-  if (!file.exists(paste0("Data/all_observers_", max(years), ".csv"))){
-    # Find Observers in Laake's observer list who are also in the new observer list
-    # There are multiple initials per person in some cases. ID numbers should be the
-    # same for these initials
-    Observer %>%
-      filter(is.na(Observer)) %>%
-      droplevels() %>%
-      mutate(Identifier = Initials) %>%
-      select(ID, Identifier, Name) -> Observer.NA
-    
-    Observer %>%
-      filter(is.na(Initials)) %>%
-      droplevels() %>%
-      mutate(Identifier = as.factor(Observer)) %>%
-      select(ID, Identifier, Name) -> Observer.Initial.NA
-    
-    Observer.1 <- rbind(Observer.NA, Observer.Initial.NA)
-    
-    uniq.Observer.1 <- data.frame(Name = unique(Observer.1$Name),
-                                  ID.new = seq(1:length(unique(Observer.1$Name))))
-    
-    Observer.1 %>%
-      left_join(uniq.Observer.1, by = "Name") %>%
-      select(-c(ID, Name)) %>%
-      rename(ID = ID.new) %>%
-      mutate(data = "pre2009") -> Observer.2
-    
-    # Find observers from more recent data (2009/2010 to present)
-    Observers.new <- unique(sightings.primary$Observer)
-    new.observers <- data.frame(Identifier = Observers.new,
-                                ID = seq((max(Observer.2$ID)+1), 
-                                         (max(Observer.2$ID) + length(Observers.new))),
-                                data = "new.data")
-    
-    # Combine "old" and "new" observer lists
-    # Find observers who showed up in both datasets.
-    # Keep the original observer ID. 
-    Observer.2 %>%
-      left_join(new.observers, by = "Identifier") %>% #-> tmp #
-      filter(!is.na(ID.y)) %>% #-> tmp
-      transmute(ID = ID.x,
-                Identifier = Identifier,
-                data = data.x) -> tmp
-    
-    # Remove those (tmp) from the new observer list
-    new.observers %>%
-      anti_join(tmp, by = "Identifier") -> tmp.2
-    
-    tmp.4 <- rbind(Observer.2, tmp.2) %>%
-      mutate(Observer = Identifier) %>%
-      select(-Identifier) %>%
-      na.omit() 
-    
-    # Fix one observer because "ARV/AVS" is not usable 
-    ARV.ID <- tmp.4[tmp.4$Observer == "ARV/AVS", "ID"]
-    tmp.4 %>%
-      filter(Observer != "ARV/AVS") %>%  
-      droplevels()  -> tmp.5
-    
-    # add those initials back in with the same ID
-    all.observers <- rbind(tmp.5, 
-                           data.frame(ID = c(ARV.ID, ARV.ID), 
-                                      Observer = c("ARV", "AVS"),
-                                      data = "pre2009")) %>%
-      rename(obs = Observer) %>%
-      arrange(by = ID)
-    
-    # Write the new list to a file
-    write.csv(all.observers,
-              file = paste0("Data/all_observers_", max(years), ".csv"),
-              row.names = FALSE)
-  } else {
-    all.observers <- read.csv(paste0("Data/all_observers_", max(years), ".csv"))
-  }
+  # Find Observers in Laake's observer list who are also in the new observer list
+  # There are multiple initials per person in some cases. ID numbers should be the
+  # same for these initials
+  Observer %>%
+    filter(is.na(Observer) & !is.na(Initials)) %>% #-> tmp
+    droplevels() %>%
+    mutate(Identifier = Initials) %>%
+    select(ID, Identifier, Name) -> Observer.NA
   
+  Observer %>%
+    filter(is.na(Initials) & !is.na(Observer)) %>% #-> tmp #
+    droplevels() %>%
+    mutate(Identifier = as.factor(Observer)) %>%
+    select(ID, Identifier, Name) -> Observer.Initial.NA
+  
+  Observer %>%
+    filter(!is.na(Observer) & !is.na(Initials)) %>%
+    droplevels() %>%
+    mutate(Identifier = as.factor(Observer)) %>%
+    select(ID, Identifier, Name) -> Observer.not.NA
+  
+  Observer.1 <- rbind(Observer.not.NA, Observer.NA, Observer.Initial.NA) 
+  
+  uniq.Observer.1 <- data.frame(Name = unique(Observer.1$Name),
+                                ID.new = seq(1:length(unique(Observer.1$Name))))
+  
+  uniq.Observer.1  %>%
+    left_join(Observer.1, by = "Name") %>% #-> tmp # 
+    rename(ID.old = ID) %>%
+    select(-Name) %>%
+    rename(ID = ID.new) %>%
+    mutate(data = "pre2009") -> Observer.2
+  
+  # Find observers from more recent data (2009/2010 to present)
+  Observers.new <- unique(sightings.primary$Observer)
+  new.observers <- data.frame(ID.old = seq(1, length(Observers.new)),
+                              Identifier = Observers.new,
+                              ID = seq((max(Observer.2$ID)+1), 
+                                       (max(Observer.2$ID) + length(Observers.new))),
+                              data = "new.data")
+  
+  # Combine "old" and "new" observer lists
+  # Find observers who showed up in both datasets.
+  # Keep the original observer ID. 
+  Observer.2 %>%
+    left_join(new.observers, by = "Identifier") %>% #-> tmp #
+    filter(!is.na(ID.y)) %>% #-> tmp#
+    transmute(ID = ID.x,
+              ID.new = ID.y,
+              Identifier = Identifier,
+              data = data.x) -> tmp
+  
+  # Remove those (tmp) from the new observer list
+  new.observers %>%
+    anti_join(tmp, by = "Identifier") -> tmp.2
+  
+  tmp.4 <- rbind(Observer.2, tmp.2) %>%
+    mutate(Observer = Identifier) %>%
+    select(-Identifier) %>%
+    na.omit() 
+  
+  # Fix one observer because "ARV/AVS" is not usable 
+  ARV.ID <- tmp.4[tmp.4$Observer == "ARV/AVS", "ID"]
+  ARV.ID.old <- tmp.4[tmp.4$Observer == "ARV/AVS", "ID.old"]
+  tmp.4 %>%
+    filter(Observer != "ARV/AVS") %>%  
+    droplevels()  -> tmp.5
+  
+  # add those initials back in with the same ID
+  all.observers <- rbind(tmp.5, 
+                         data.frame(ID.old = c(ARV.ID.old, ARV.ID.old),
+                                    ID = c(ARV.ID, ARV.ID), 
+                                    Observer = c("ARV", "AVS"),
+                                    data = "pre2009")) %>%
+    rename(obs = Observer) %>%
+    arrange(by = ID)
+    
   return(all.observers)
 }
 
@@ -816,6 +818,8 @@ data2WinBUGS_input <- function(data.dir, years, min.dur){
                                                     "_min", min.dur, 
                                                     "_Tomo_v2.rds")))
   
+  all.Final_Data <- lapply(out.v2, FUN = function(x) x$Final_Data) 
+  
   begin.primary <- lapply(out.v2, FUN = function(x){
     begin <- x$Final_Data %>%
       filter(station == "P") %>%
@@ -1199,7 +1203,8 @@ data2WinBUGS_input <- function(data.dir, years, min.dur){
                           inits = BUGS.inits,
                           all.years = all.years,
                           seasons = seasons,
-                          min.dur = min.dur))  
+                          min.dur = min.dur,
+                          Final_Data = all.Final_Data))  
 }
 
 # Create Jags input for Laake's data.
@@ -1789,10 +1794,24 @@ AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir){
                                            years = years,
                                            data.dir = data.dir)
   
-  obs.all.new <- create.observer.list(jags.input.new$primary.sightings %>%
-                                        select(Start.year, Observer))
-  No.obs.ID <- 1 + max(obs.all.new$ID)  
-
+  obs.all <- create.observer.list(jags.input.new$primary.sightings %>%
+                                    select(Start.year, Observer))
+  
+  obs.all %>% 
+    filter(data == "pre2009") -> obs.all.Laake
+  
+  obs.all %>% 
+    filter(data == "new.data") -> obs.all.new
+  
+  # jags.input.Laake$obs %>%
+  #   left_join(obs.all, by = "obs") -> obs.Laake
+  # 
+  # jags.input.new$obs %>%
+  #   transmute(obs = obs,
+  #             obs.ID = ID.new) %>%
+  #   left_join(obs.all, by = "obs") -> obs.new
+  
+  No.obs.ID <- 1 + max(obs.all$ID)  
   # Replace observer IDs in each dataset with new IDs (obs.all.new$ID.all)
   jags.obs.Laake <- jags.input.Laake$jags.data$obs
   
@@ -1805,27 +1824,27 @@ AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir){
   # https://stackoverflow.com/questions/16228160/multiple-replacement-in-r
  
   # Need to have IDs in Laake data and IDs in new data
-  Laake.obs <- jags.input.Laake$obs %>%
-    transmute(obs = obs,
-              ID = obs.ID,
-              data = "Laake")
-  
-  new.obs <- jags.input.new$obs %>%
-    select(-ID.new) %>%
-    mutate(data = "new")
-  
+  # Laake.obs <- jags.input.Laake$obs %>%
+  #   transmute(obs = obs,
+  #             ID = obs.ID,
+  #             data = "Laake")
+  # 
+  # new.obs <- jags.input.new$obs %>%
+  #   select(-ID.new) %>%
+  #   mutate(data = "new")
+  # 
   # Laake observer list first
   jags.obs.Laake.new <- array(data = No.obs.ID,
                               dim = dim(jags.obs.Laake))
   
   jags.obs.Laake.new[,1,] <- apply(jags.obs.Laake[,1,], 
-                                   FUN = function(x) c(as.vector(obs.all.new$ID), 
-                                                       x)[match(x, as.vector(Laake.obs$ID), x)], 
+                                   FUN = function(x) c(as.vector(obs.all.Laake$ID), 
+                                                       x)[match(x, as.vector(obs.all.Laake$ID.old), x)], 
                                    MARGIN = 2)
   
   jags.obs.Laake.new[,2,] <- apply(jags.obs.Laake[,2,], 
-                                   FUN = function(x) c(as.vector(obs.all.new$ID.all), 
-                                                       x)[match(x, as.vector(obs.all.new$ID.Laake), x)], 
+                                   FUN = function(x) c(as.vector(obs.all.new$ID), 
+                                                       x)[match(x, as.vector(obs.all.Laake$ID.old), x)], 
                                    MARGIN = 2)
   
   # new observers next
@@ -1835,13 +1854,13 @@ AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir){
                             dim = dim(jags.obs.new))
   
   jags.obs.new.new[,1,] <- apply(jags.obs.new[,1,], 
-                                 FUN = function(x) c(as.vector(obs.all.new$ID.all), 
-                                                     x)[match(x, as.vector(obs.all.new$ID.new), x)], 
+                                 FUN = function(x) c(as.vector(obs.all.new$ID), 
+                                                     x)[match(x, as.vector(obs.all.new$ID.old), x)], 
                                  MARGIN = 2)
   
   jags.obs.new.new[,2,] <- apply(jags.obs.new[,2,], 
-                                 FUN = function(x) c(as.vector(obs.all.new$ID.all), 
-                                                     x)[match(x, as.vector(obs.all.new$ID.new), x)], 
+                                 FUN = function(x) c(as.vector(obs.all.new$ID), 
+                                                     x)[match(x, as.vector(obs.all.new$ID.old), x)], 
                                  MARGIN = 2)
   
   # all data arrays need to be combined between Laake and new datasets
@@ -1993,7 +2012,7 @@ AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir){
                       n.station = c(jags.input.Laake$jags.data$n.station,
                                     jags.input.new$jags.data$n.station),
                       n.year = dim(jags.bf.all)[3],
-                      n.obs = nrow(obs.all.new),
+                      n.obs = nrow(obs.all),
                       periods = rbind(as.matrix(jags.input.Laake$jags.data$periods), 
                                       jags.input.new$jags.data$periods),
                       n.days = max(jags.input.Laake$jags.data$n.days,
@@ -2006,7 +2025,8 @@ AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir){
   
   return(list(jags.data = jags.data,
               jags.input.Laake = jags.input.Laake,
-              jags.input.new = jags.input.new))
+              jags.input.new = jags.input.new,
+              all.observers = obs.all))
   
 }
 
