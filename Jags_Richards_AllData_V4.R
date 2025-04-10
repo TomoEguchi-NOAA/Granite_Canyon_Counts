@@ -19,11 +19,16 @@ library(bayesplot)
 source("Granite_Canyon_Counts_fcns.R")
 #source("LaakeData2Jags.R")
 
-Run.date <- "2025-03-26" #Sys.Date() #"2025-03-19" #
+Run.date <- Sys.Date() #"2025-03-26" #"2025-03-19" #
 
 MCMC.params <- list(n.samples = 250000,
                     n.thin = 100,
                     n.burnin = 200000,
+                    n.chains = 5)
+
+MCMC.params <- list(n.samples = 2500,
+                    n.thin = 10,
+                    n.burnin = 200,
                     n.chains = 5)
 
 jags.params <- c("OBS.RF", "BF.Fixed",
@@ -203,7 +208,7 @@ p.daily.Durban <- ggplot(N.hats.day.Durban %>% group_by(Season)) +
 
 # Include non-survey years - no estimates for 2007/2008 because I don't have
 # raw data for that year. Only the WinBUGS inputs. 
-Laake.abundance.new <- read.csv(file = "Data/all_estimates_Laake_2024.csv") %>%
+Laake.abundance.new <- read.csv(file = "Data/all_estimates_Laake_2025.csv") %>%
   mutate(LCL = CL.low,
          UCL = CL.high) %>%
   select(c(Season, Nhat, LCL, UCL)) %>%
