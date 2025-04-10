@@ -32,7 +32,7 @@ if (!dir.exists(out.dir)) dir.create(out.dir)
 # They are the end year of the season, which is the season name. For example, the 
 # 2020/2021 season is called the 2021 season.
 
-YEAR <- 2015 #10 #Enter the year of the data files
+YEAR <- 2020 #10 #Enter the year of the data files
 
 # For 2009/2010 (maybe in the previous years too but I don't have any of those files),
 # Time is entered in decimal hours, not hh:mm:ss. So, that needs to be accommodated in
