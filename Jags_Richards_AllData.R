@@ -11,9 +11,9 @@
 # d is the number of days from the beginning of nesting season
 # S1 < 0 and S2 > 0 define the "fatness" of the function
 # K > 0 defines the "flatness" at the peak of the function
-# P defines where the peak is relatvie to the range of d min(d) < P < max(d)
-# min is "the basal level of nesting outside the nesting season"
-# max > min
+# P defines where the peak is relative to the range of d; min(d) < P < max(d)
+# min is "the basal level of the number of whales outside the migration season"
+# max > min. min == 0.
 
 # Model version - depending on which parameters are constant/year-specific
 # v3: Max, P, S1, S2, and K are time specific
@@ -92,30 +92,37 @@ max.Rhat <- lapply(jm.out$jm$Rhat, FUN = max, na.rm = T) %>%
   unlist()
 max.Rhat.big <- max.Rhat[which(max.Rhat > 1.1)]
 
-bayesplot::mcmc_dens(jm.out$jm$samples, c("S1.alpha", "S1.beta",
-                                          "S2.alpha", "S2.beta",
-                                          "P.alpha", "P.beta",
-                                          "K.alpha", "K.beta"))
+mcmc_dens(jm.out$jm$samples, c("S1.alpha", "S1.beta",
+                               "S2.alpha", "S2.beta",
+                               "P.alpha", "P.beta",
+                               "K.alpha", "K.beta"))
 # P.alpha and P.beta seem to be not behaving well - the right tails are not 
 # captured. 
-bayesplot::mcmc_trace(jm.out$jm$samples, c("S1.alpha", "S1.beta",
-                                           "S2.alpha", "S2.beta",
-                                           "P.alpha", "P.beta",
-                                           "K.alpha", "K.beta"))
+mcmc_trace(jm.out$jm$samples, c("S1.alpha", "S1.beta",
+                                "S2.alpha", "S2.beta",
+                                "P.alpha", "P.beta",
+                                "K.alpha", "K.beta"))
 
-bayesplot::mcmc_dens(jm.out$jm$samples, c("BF.Fixed", "VS.Fixed"))
+mcmc_dens(jm.out$jm$samples, c("BF.Fixed", "VS.Fixed"))
 
 # v4 has one P and one K.
 par.idx <- c(1:nrow(jm.out$jm$mean$S1))
 
-mcmc_trace(jm.out$jm$samples, c("P", "K"))
-mcmc_dens(jm.out$jm$samples, c("P", "K"))
+if (ver == "v4"){
+  mcmc_trace(jm.out$jm$samples, c("P", "K"))
+  mcmc_dens(jm.out$jm$samples, c("P", "K"))
+} else if (ver == "v3"){
+  mcmc_trace(jm.out$jm$samples, paste0("P[", par.idx, "]"))
+  mcmc_trace(jm.out$jm$samples, paste0("K[", par.idx, "]"))
+  
+} else {
+  mcmc_trace(jm.out$jm$samples, paste0("P[", par.idx, "]"))
+  mcmc_trace(jm.out$jm$samples, "K")
+}
 
-# mcmc_trace(jm.out$jm$samples, paste0("P[", par.idx, "]"))
-# mcmc_trace(jm.out$jm$samples, paste0("K[", par.idx, "]"))
-bayesplot::mcmc_trace(jm.out$jm$samples, paste0("S1[", par.idx, "]"))
-bayesplot::mcmc_trace(jm.out$jm$samples, paste0("S2[", par.idx, "]"))
-bayesplot::mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
+mcmc_trace(jm.out$jm$samples, paste0("S1[", par.idx, "]"))
+mcmc_trace(jm.out$jm$samples, paste0("S2[", par.idx, "]"))
+mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
 
 
 # plot.trace.dens function is in Granite_Canyon_Counts_fcns.R
@@ -151,7 +158,7 @@ Nhat. <- data.frame(Season = paste0(all.start.year, "/", all.start.year+1),
                     UCL = jm.out$jm$q97.5$Corrected.Est) %>%
   right_join(all.years, by = "Season") %>%
   arrange(year) %>%
-  mutate(Method = "Richards")
+  mutate(Method = "Eguchi")
 
 # This is for daily estimates
 N.hats.day <- data.frame(Season = rep(paste0(all.start.year, "/", all.start.year+1), 
