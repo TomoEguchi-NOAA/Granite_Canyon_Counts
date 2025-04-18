@@ -19,17 +19,17 @@ library(bayesplot)
 source("Granite_Canyon_Counts_fcns.R")
 #source("LaakeData2Jags.R")
 
-Run.date <- Sys.Date() #"2025-03-26" #"2025-03-19" #
+Run.date <- Sys.Date() #"2025-04-10" #"2025-03-26" #
 
 MCMC.params <- list(n.samples = 250000,
                     n.thin = 100,
                     n.burnin = 200000,
                     n.chains = 5)
 
-MCMC.params <- list(n.samples = 2500,
-                    n.thin = 10,
-                    n.burnin = 200,
-                    n.chains = 5)
+# MCMC.params <- list(n.samples = 2500,
+#                     n.thin = 10,
+#                     n.burnin = 200,
+#                     n.chains = 5)
 
 jags.params <- c("OBS.RF", "BF.Fixed",
                   "VS.Fixed",
@@ -45,7 +45,7 @@ jags.params <- c("OBS.RF", "BF.Fixed",
                   "log.lkhd")
 
 ver <- "v4"
-min.dur <- 85
+min.dur <- 60
 # model.name <- paste0("Richards_pois_bino_", ver) 
 # out.file.name <- paste0("RData/JAGS_", model.name,"_min", min.dur,
 #                         "_NoBUGS_",
@@ -149,8 +149,11 @@ Reported.estimates <- read.csv(file = "Data/all_estimates_2024.csv") %>%
   arrange(year) %>%
   relocate(Method, .after = year)
   
+WinBugs.run.date <- "2025-04-11"
+WinBugs.out <- readRDS(file = paste0("RData/WinBUGS_2007to2025_v2_min", min.dur, 
+                                     "_100000_",
+                                     WinBugs.run.date, ".rds"))
 
-WinBugs.out <- readRDS(file = "RData/WinBUGS_2007to2025_v2_min85_100000_2025-02-25.rds")
 Corrected.Est <- WinBugs.out$BUGS.out$sims.list$Corrected.Est
 
 # We don't have raw data for 2006/2007 and 2007/2008 seasons
