@@ -30,7 +30,9 @@ library(bayesplot)
 
 source("Granite_Canyon_Counts_fcns.R")
 
-Run.date <- Sys.Date()
+# 2025-04-17 for v4/60
+# 2025-04-18 for v3/60 and v5/60
+Run.date <- Sys.Date() #"2025-04-17" #
 
 # Minimum length of observation periods in minutes
 # In order to run a new minimum duration, WinBUGS needs to be run first.
@@ -43,9 +45,15 @@ ver <- "v3"
 # for the 2021/2022 season
 years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025)
 
-MCMC.params <- list(n.samples = 250000,
-                    n.thin = 100,
-                    n.burnin = 200000,
+# MCMC.params <- list(n.samples = 250000,
+#                     n.thin = 100,
+#                     n.burnin = 200000,
+#                     n.chains = 5)
+
+# v3 does not converge well with the above MCMC setting so increasing samples
+MCMC.params <- list(n.samples = 500000,
+                    n.thin = 200,
+                    n.burnin = 400000,
                     n.chains = 5)
 
 # MCMC.params <- list(n.samples = 2500,
@@ -148,8 +156,8 @@ all.start.year <- c(jm.out$jags.input$jags.input.Laake$all.start.year,
                     jm.out$jags.input$jags.input.new$start.years)
 
 # Create a dataframe with all years, including unsampled years.
-all.years <- data.frame(year = seq(min(all.start.year), max(all.start.year))) %>%
-  mutate(Season = paste0(year, "/", year + 1))
+all.years <- data.frame(start.year = seq(min(all.start.year), max(all.start.year))) %>%
+  mutate(Season = paste0(start.year, "/", start.year + 1))
 
 # Look at the annual abundance estimates:
 Nhat. <- data.frame(Season = paste0(all.start.year, "/", all.start.year+1),
@@ -157,7 +165,7 @@ Nhat. <- data.frame(Season = paste0(all.start.year, "/", all.start.year+1),
                     LCL = jm.out$jm$q2.5$Corrected.Est,
                     UCL = jm.out$jm$q97.5$Corrected.Est) %>%
   right_join(all.years, by = "Season") %>%
-  arrange(year) %>%
+  arrange(start.year) %>%
   mutate(Method = "Eguchi")
 
 # This is for daily estimates
@@ -185,8 +193,8 @@ Reported.estimates <- read.csv(file = "Data/all_estimates_2024.csv") %>%
             UCL = UCL,
             Method = paste0(Method, "-Reported")) %>%
   right_join(all.years, by = "Season") %>%
-  arrange(year) %>%
-  relocate(Method, .after = year)
+  arrange(start.year) %>%
+  relocate(Method, .after = start.year)
 
 WinBugs.run.date <- "2025-04-11"
 WinBugs.out <- readRDS(file = paste0("RData/WinBUGS_2007to2025_v2_min", min.dur, 
@@ -215,7 +223,7 @@ Durban.abundance.df <- data.frame(Season = seasons,
                                               MARGIN = 2, 
                                               FUN = quantile, 0.975)) %>%
   right_join(all.years, by = "Season") %>%
-  arrange(year) %>%
+  arrange(start.year) %>%
   mutate(Method = "Durban")
 
 # Create a dataframe for daily estimates:
@@ -255,7 +263,7 @@ Laake.abundance.new <- read.csv(file = "Data/all_estimates_Laake_2025.csv") %>%
          UCL = CL.high) %>%
   select(c(Season, Nhat, LCL, UCL)) %>%
   right_join(all.years, by = "Season") %>%
-  arrange(year) %>%
+  arrange(start.year) %>%
   mutate(Method = "Laake")
 
 #Laake.output <- read_rds(file = "RData/Laake_abundance_estimates_2024.rds")
@@ -273,12 +281,12 @@ Laake.abundance.new %>%
 #  rbind(Reported.estimates %>% na.omit()) -> all.estimates
 
 p.Nhats <- ggplot(all.estimates) +
-  geom_point(aes(x = year, y = Nhat,
+  geom_point(aes(x = start.year, y = Nhat,
                  color = Method),
              alpha = 0.5) +
-  geom_errorbar(aes(x = year, ymin = LCL, ymax = UCL,
+  geom_errorbar(aes(x = start.year, ymin = LCL, ymax = UCL,
                     color = Method)) +
-  ylim(0, 45000)
+  ylim(5000, 35000)
 
 
 
