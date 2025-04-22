@@ -30,9 +30,11 @@ library(bayesplot)
 
 source("Granite_Canyon_Counts_fcns.R")
 
-# 2025-04-17 for v4/60
-# 2025-04-18 for v3/60 and v5/60
-Run.date <- Sys.Date() #"2025-04-17" #
+# "2025-04-21" for v3/60 
+# "2025-04-17" for v4/60
+# "2025-04-18" for v5/60
+
+Run.date <- "2025-04-21" #Sys.Date() #"2025-04-17" #
 
 # Minimum length of observation periods in minutes
 # In order to run a new minimum duration, WinBUGS needs to be run first.
@@ -51,9 +53,9 @@ years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025)
 #                     n.chains = 5)
 
 # v3 does not converge well with the above MCMC setting so increasing samples
-MCMC.params <- list(n.samples = 500000,
-                    n.thin = 200,
-                    n.burnin = 400000,
+MCMC.params <- list(n.samples = 750000,
+                    n.thin = 500,
+                    n.burnin = 500000,
                     n.chains = 5)
 
 # MCMC.params <- list(n.samples = 2500,
@@ -181,6 +183,7 @@ p.daily.Richards <- ggplot(N.hats.day %>% group_by(Season)) +
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
               fill = "blue", alpha = 0.5) +
   geom_path(aes(x = Day, y = Mean)) + 
+  geom_point(aes(x = Day, y))
   facet_wrap(~ Season)
 
 # These are not the best estimates because they were not updated as more data
@@ -288,5 +291,41 @@ p.Nhats <- ggplot(all.estimates) +
                     color = Method)) +
   ylim(5000, 35000)
 
+# ggsave(plot = p.Nhats,
+#        filename = paste0("figures/Nhats_", ver, "_", min.dur, "min.png"),
+#        device = "png",
+#        dpi = 600)
+
+Nhat. %>% 
+  select(Season, start.year, Nhat, LCL, UCL) %>%
+  rename(Nhat.Eguchi = Nhat,
+         LCL.Eguchi = LCL,
+         UCL.Eguchi = UCL) %>%
+  cbind(Laake.abundance.new %>%
+          select(Nhat, LCL, UCL) %>%
+          rename(Nhat.Laake = Nhat,
+                 LCL.Laake = LCL,
+                 UCL.Laake = UCL)) %>%
+  cbind(Durban.abundance.df %>%
+          select(Nhat, LCL, UCL) %>%
+          rename(Nhat.Durban = Nhat,
+                 LCL.Durban = LCL,
+                 UCL.Durban = UCL)) %>%
+  mutate(d.Laake.Eguchi = Nhat.Laake - Nhat.Eguchi,
+         d.Durban.Eguchi = Nhat.Durban - Nhat.Eguchi) -> Nhat.all.wide
+
+# Check convergence
+high.Rhat <- function(x){
+  return(data.frame(idx = which(x > 1.1),
+                    start.year = all.start.year[which(x > 1.1)],
+                    Rhat = x[which(x > 1.1)]))
+}
+
+high.Rhat.Max <- high.Rhat(jm.out$jm$Rhat$Max)
+
+high.Rhat.K <- high.Rhat(jm.out$jm$Rhat$K)
+high.Rhat.S1 <- high.Rhat(jm.out$jm$Rhat$S1)
+high.Rhat.S2 <- high.Rhat(jm.out$jm$Rhat$S2)
+high.Rhat.P <- high.Rhat(jm.out$jm$Rhat$P)
 
 
