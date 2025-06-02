@@ -1784,6 +1784,15 @@ data2Jags_input_NoBUGS <- function(min.dur,
 }
 
 # Create jags data input for all years without uring WinBUGS input
+# AllData2JagsInput_NoBUGS(min.dur, years, data.dir)
+# min.dur = the minimum duration of a shift to be included; 30, 60, 85, etc.
+#           data need to be extracted using the value and results saved in a 
+#           directory (data.dir)
+# years = the years over which the analysis is conducted. Specify it in a vector.
+#         For example, c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025)
+#         Note that these years are "ending" years. For example, 2015 means the 
+#         2014/2015 season. 
+#         
 AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir){
   library(abind)
   # this converts Laake's data into jags input
