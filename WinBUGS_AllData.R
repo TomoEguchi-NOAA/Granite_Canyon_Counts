@@ -67,9 +67,10 @@ periods <- colSums(!is.na(day.mat))
 
 # Create the u array by replacing the non-observer ID (n.obs + 1) with 0s
 # and observers with 1s
-u <- input.list$jags.data$obs
+u <- labelled::remove_attributes(input.list$jags.data$obs, "dimnames")
 u[u > max(input.list$jags.data$n.obs)] <- 0
 u[u != 0] <- 1
+u <- u[1:max(periods),,]
 
 #The 'data' has to be the inverse of the inits, 
 # with NAs for all of the estimated Ns, and 0s for the days 1 and 90
@@ -82,25 +83,34 @@ for(i in 1:length(periods)){
   day.mat[(periods[i]+1):(periods[i]+2),i] <- c(1, 90)
 }
 
-Watch.Length <- input.list$jags.data$watch.prop[,1,]
+# In my code, watch.prop is the proportion of total watch periods in a day (540
+# minutes) that was actually observed. In Durban's code, Watch.Length is the length
+# of each shift in days. 
+Watch.Length <- (input.list$jags.data$watch.prop[,1,] * 540)/(60*24)
 Watch.Length[Watch.Length < 0.0001] <- 1  # day 1 and 90 are considered full coverage
 
-n <- input.list$jags.data$n
+# need to add 1s where days are 1 and 90:
+Watch.Length[day.mat == 1] <- 1
+Watch.Length[day.mat == 90] <- 1
+
+n <- labelled::remove_attributes(input.list$jags.data$n, "dimnames")
 n[is.na(n)] <- 0
+n <- n[1:max(periods), ,]
+
+obs <- labelled::remove_attributes(input.list$jags.data$obs, "dimnames")
+obs <- obs[1:max(periods),,]
 
 BUGS.data <- list(n = n,
                   n.com = n,
                   n.sp = n,
                   n.station = max(input.list$jags.data$n.station),
                   n.year = input.list$jags.data$n.year,
-                  n.obs = input.list$jags.data$n.obs,
+                  n.obs = input.list$jags.data$n.obs + 1, # +1 for no-observer ID
                   periods = periods,
-                  obs = input.list$jags.data$obs,
-                  #Watch.Length = 0.0625,
+                  obs = obs,
                   u = u,
                   vs = input.list$jags.data$vs[,1,],
                   bf = input.list$jags.data$bf[,1,],
-                  #day=day,
                   day = day.mat,
                   N = N,
                   N.com = N,
@@ -109,14 +119,22 @@ BUGS.data <- list(n = n,
                            -0.58,-0.34,-0.10,0.10,
                            0.34,0.57,0.78,1.02,1.26,1.46),
                   n.knots = 14,
-                  #begin=begin,
-                  #end=end,
-                  Watch.Length = input.list$jags.data$watch.prop) 
+                  Watch.Length = Watch.Length) 
 
-START HERE 2025-06-02
 # Check data array dimensions
 t.max <- BUGS.data$n.year
+# periods.max <- BUGS.data$periods + 2
+# dim.day <- dim(BUGS.data$day)
+# dim.Watch.Length <- dim(BUGS.data$Watch.Length)
+# dim.n <- dim(BUGS.data$n)
+# dim.N <- dim(BUGS.data$N)
+# for (k in 1:t.max) print(BUGS.data$Watch.Length[periods.max[k]-1, k])
 
+n.obs <- BUGS.data$n.obs
+dim.obs <- dim(BUGS.data$obs)
+periods <- BUGS.data$periods
+for (k in 1:t.max) print(BUGS.data$obs[1:periods[k], 1, k])
+for (k in 1:t.max) print(BUGS.data$obs[1:periods[k], 2, k])
 
 # Create an initial values function:
 N_inits1 <- BUGS.data$n[, 1,] * 2 + 2
@@ -132,6 +150,7 @@ for (k in 1:dim(BUGS.data$n)[3]){
   N_inits[(BUGS.data$periods[k]+1):nrow(N_inits), k] <- NA  
 }
 
+x <- BUGS.data$n.year
 BUGS.inits <- function() list(mean.prob = 0.5,
                               BF.Fixed = 0,
                               VS.Fixed = 0,
@@ -158,10 +177,9 @@ BUGS.inits <- function() list(mean.prob = 0.5,
                               N = N_inits,
                               N.com = N_inits,
                               N.sp = N_inits,
-                              #z = matrix(1,nrow=90,ncol=6),
-                              beta.sp = array(data=0, dim=c(2,BUGS.data$n.year)),
-                              sd.b.sp = rep(1, times = BUGS.data$n.year), #c(1,1,1,1,1,1),
-                              z = matrix(1, nrow=90, ncol= BUGS.data$n.year))
+                              beta.sp = array(data=0, dim=c(2,x)),
+                              sd.b.sp = rep(1, times = x), #c(1,1,1,1,1,1),
+                              z = matrix(1, nrow=90, ncol= x))
 
 
 MCMC.params <- list(n.iter = 85000, #200, #
@@ -170,10 +188,10 @@ MCMC.params <- list(n.iter = 85000, #200, #
                    n.chains = 5)
 # 
 # This set runs quickly. Good to use this set to see if data and model are correct.
-MCMC.params <- list(n.iter = 200,
-                   n.thin = 2,
-                   n.burnin = 50,
-                   n.chains = 5)
+# MCMC.params <- list(n.iter = 200,
+#                    n.thin = 2,
+#                    n.burnin = 50,
+#                    n.chains = 5)
 
 n.samples <- ((MCMC.params$n.iter - MCMC.params$n.burnin)/MCMC.params$n.thin)*MCMC.params$n.chains
 
@@ -203,12 +221,21 @@ if (!file.exists(out.file.name)){
                    n.iter = MCMC.params$n.iter, 
                    n.burnin = MCMC.params$n.burnin, 
                    n.thin = MCMC.params$n.thin,
-                   debug = T,
+                   debug = F,
                    bugs.directory = WinBUGS.dir,
                    DIC = FALSE)
   
-  # node dimension does not match 2025-06-02
+  # node dimension does not match 2025-06-02 - solved Watch.Length had an extra dimension.
+  # in the WinBUGS approach, primary and secondary stations are assumed to have the 
+  # same watch length, even though they are not the same sometimes... 
   # 
+  # array index is greater than array upper bound for OBS.RF.sp 2025-06-03 - solved
+  # in the JAGS approach, I don't use "no-observer" ID. So, n.obs in the WinBUGS
+  # approach needs n.obs to be 1 more than n.obs from the JAGS input
+  # 
+  # made use of undefined node Watch.Length 2025-06-03 - solved. Watch.Length
+  # for Laake's data did not have 1 in day 1 and day 90. Once they were entered,
+  # it runs fine. 
   Run_Time <- Sys.time() - Start_Time
   Ver2.results <-list(BUGS.input = WinBUGS.input,
                       BUGS.out = BUGS_out,
@@ -221,292 +248,144 @@ if (!file.exists(out.file.name)){
   
 }
 
-# WinBUGS.input <- data2WinBUGS_input(data.dir = "RData/V2.1_Feb2025",
-#                                     years = years,
-#                                     min.dur = 30) 
 
-# Need to convert Laake's data into WinBUGS input.
+# Extract estimated counts
+Daily.Est <- Ver2.results$BUGS.out$sims.list$Daily.Est
+sp <- Ver2.results$BUGS.out$sims.list$sp
+com <- Ver2.results$BUGS.out$sims.list$com
+Corrected.Est <- Ver2.results$BUGS.out$sims.list$Corrected.Est
 
+# Each one of them is (# samples) x (90 days) x (# years)
+# To plot them using ggplot's facet, I need to convert
+# these into 2D dataframes of statistics (upper and lower 
+# CIs, median, etc.)
+# Daily.Est.list <- sp.list <- com.list <- vector(mode = "list", 
+#                                                 length = dim(Daily.Est)[3])
+# 
+# Daily.Est.UCIs <- Daily.Est.LCIs <- vector(mode = "list",
+#                                            length = dim(Daily.Est)[3])
 
-# MCMC.params <- list(n.samples = 250000,
-#                     n.thin = 100,
-#                     n.burnin = 200000,
-#                     n.chains = 5)
+stats.list <- vector(mode = "list",
+                     length = dim(Daily.Est)[3])
 
-# v3 does not converge well with the above MCMC setting so increasing samples
-MCMC.params <- list(n.samples = 750000,
-                    n.thin = 500,
-                    n.burnin = 500000,
-                    n.chains = 5)
-
-# MCMC.params <- list(n.samples = 2500,
-#                     n.thin = 10,
-#                     n.burnin = 200,
-#                     n.chains = 5)
-
-jags.params <- c("OBS.RF", "BF.Fixed",
-                 "VS.Fixed",
-                 "mean.prob", "mean.N", "Max",
-                 "Corrected.Est", "Raw.Est", "N",
-                 "K", "S1", "S2", "P",
-                 "Max.alpha", "Max.beta",
-                 "S1.alpha", "S2.alpha",
-                 "S1.beta", "S2.beta",
-                 "P.alpha", "P.beta",
-                 "K.alpha", "K.beta",
-                 "N.alpha",
-                 "log.lkhd")
-
-###############################
-# The following function uses "new" data since 2010 as well as those from Laake's 
-# analysis to compute abundance since the 1967/1968 season. 
-jm.out <- NoBUGS_Richards_fcn(min.dur = min.dur, 
-                              ver = ver, 
-                              years = years, 
-                              data.dir = "RData/V2.1_Feb2025", 
-                              jags.params = jags.params, 
-                              MCMC.params = MCMC.params,
-                              Run.date = Run.date)
-
-# need to turn zeros into NAs when there were no second station:
-data.array <- jm.out$jags.input$jags.data$n
-data.array[,2,which(jm.out$jags.input$jags.data$n.station == 1)] <- NA
-
-LOOIC.n <- compute.LOOIC(loglik.array = jm.out$jm$sims.list$log.lkhd,
-                         data.array = data.array,
-                         MCMC.params = jm.out$MCMC.params)
-
-# There are some (< 0.5%) bad ones. I should look at which ones are not fitting well.
-
-# Look at Rhat statistics
-max.Rhat <- lapply(jm.out$jm$Rhat, FUN = max, na.rm = T) %>%
-  unlist()
-max.Rhat.big <- max.Rhat[which(max.Rhat > 1.1)]
-
-mcmc_dens(jm.out$jm$samples, c("S1.alpha", "S1.beta",
-                               "S2.alpha", "S2.beta",
-                               "P.alpha", "P.beta",
-                               "K.alpha", "K.beta"))
-# P.alpha and P.beta seem to be not behaving well - the right tails are not 
-# captured. 
-mcmc_trace(jm.out$jm$samples, c("S1.alpha", "S1.beta",
-                                "S2.alpha", "S2.beta",
-                                "P.alpha", "P.beta",
-                                "K.alpha", "K.beta"))
-
-mcmc_dens(jm.out$jm$samples, c("BF.Fixed", "VS.Fixed"))
-
-# v4 has one P and one K.
-par.idx <- c(1:nrow(jm.out$jm$mean$S1))
-
-if (ver == "v4"){
-  mcmc_trace(jm.out$jm$samples, c("P", "K"))
-  mcmc_dens(jm.out$jm$samples, c("P", "K"))
-} else if (ver == "v3"){
-  mcmc_trace(jm.out$jm$samples, paste0("P[", par.idx, "]"))
-  mcmc_trace(jm.out$jm$samples, paste0("K[", par.idx, "]"))
+for (k in 1:dim(Daily.Est)[3]){
+  # Daily.Est.list[[k]] <- Daily.Est[,,k]
+  # Daily.Est.UCIs[[k]] <- apply(Daily.Est[,,k],2,quantile,0.975)
+  # Daily.Est.LCIs[[k]] <- apply(Daily.Est[,,k],2,quantile,0.275)
+  # 
+  # sp.list[[k]] <- sp[,,k]
+  # com.list[[k]] <- com[,,k]
   
-} else {
-  mcmc_trace(jm.out$jm$samples, paste0("P[", par.idx, "]"))
-  mcmc_trace(jm.out$jm$samples, "K")
+  stats.list[[k]] <- data.frame(Daily.Est.median = apply(Daily.Est[,,k], 2,
+                                                         median),
+                                Daily.Est.LCL = apply(Daily.Est[,,k], 2,
+                                                      quantile,0.275),
+                                Daily.Est.UCL = apply(Daily.Est[,,k], 2,
+                                                      quantile,0.975),
+                                sp.median = apply(exp(sp[,,k]), 2,
+                                                  median),
+                                sp.LCL = apply(exp(sp[,,k]), 2,
+                                               quantile,0.025),
+                                sp.UCL = apply(exp(sp[,,k]), 2,
+                                               quantile,0.975),
+                                com.median = apply(exp(com[,,k]), 2,
+                                                   median),
+                                com.LCL = apply(exp(com[,,k]), 2,
+                                                quantile,0.025),
+                                com.UCL = apply(exp(com[,,k]), 2,
+                                                quantile,0.975),
+                                #total.median = apply(exp(sp[,,k]), 1, sum),
+                                days = 1:dim(Daily.Est)[2],
+                                year = WinBUGS.input$seasons[k])
 }
 
-mcmc_trace(jm.out$jm$samples, paste0("S1[", par.idx, "]"))
-mcmc_trace(jm.out$jm$samples, paste0("S2[", par.idx, "]"))
-mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
+all.stats <- do.call("rbind", stats.list) %>% group_by(year)
 
 
-# plot.trace.dens function is in Granite_Canyon_Counts_fcns.R
-# ps.K <- plot.trace.dens(param = "K", 
-#                         jags.out = "jm.out$jm")
-# 
-# ps.P <- plot.trace.dens(param = "P", 
-#                         jags.out = "jm.out$jm")
-# 
-# 
-# ps.S1 <- plot.trace.dens(param = "S1", 
-#                          jags.out = "jm.out$jm")
-# 
-# ps.S2 <- plot.trace.dens(param = "S2", 
-#                          jags.out = "jm.out$jm")
-# 
-# ps.Max <- plot.trace.dens(param = "Max", 
-#                           jags.out = "jm.out$jm")
-
-# These three year-specific parameters seemed to behave fine.
-
-all.start.year <- c(jm.out$jags.input$jags.input.Laake$all.start.year,
-                    jm.out$jags.input$jags.input.new$start.years)
-
-# Create a dataframe with all years, including unsampled years.
-all.years <- data.frame(start.year = seq(min(all.start.year), max(all.start.year))) %>%
-  mutate(Season = paste0(start.year, "/", start.year + 1))
-
-# Look at the annual abundance estimates:
-Nhat. <- data.frame(Season = paste0(all.start.year, "/", all.start.year+1),
-                    Nhat = jm.out$jm$q50$Corrected.Est,
-                    LCL = jm.out$jm$q2.5$Corrected.Est,
-                    UCL = jm.out$jm$q97.5$Corrected.Est) %>%
-  right_join(all.years, by = "Season") %>%
-  arrange(start.year) %>%
-  mutate(Method = "Eguchi")
-
-# This is for daily estimates
-N.hats.day <- data.frame(Season = rep(paste0(all.start.year, "/", all.start.year+1), 
-                                      each = nrow(jm.out$jm$mean$N)), #rep(Nhat.$Season, each = nrow(jm.out$jm$mean$N)),
-                         Day = rep(1:nrow(jm.out$jm$mean$N), times = length(all.start.year)),
-                         Mean = as.vector(jm.out$jm$mean$N),
-                         LCL = as.vector(jm.out$jm$q2.5$N),
-                         UCL = as.vector(jm.out$jm$q97.5$N)) 
-
-# Daily estimates plots
-p.daily.Richards <- ggplot(N.hats.day %>% group_by(Season)) + 
-  geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
-              fill = "blue", alpha = 0.5) +
-  geom_path(aes(x = Day, y = Mean)) + 
-  geom_point(aes(x = Day, y))
-  facet_wrap(~ Season)
-
-# These are not the best estimates because they were not updated as more data
-# were collected. I should use the output from the most recent WinBUGS run for 
-# the last x years.
-Reported.estimates <- read.csv(file = "Data/all_estimates_2024.csv") %>%
-  transmute(Season = Season,
-            Nhat = Nhat,
-            LCL = LCL,
-            UCL = UCL,
-            Method = paste0(Method, "-Reported")) %>%
-  right_join(all.years, by = "Season") %>%
-  arrange(start.year) %>%
-  relocate(Method, .after = start.year)
-
-WinBugs.run.date <- "2025-04-11"
-WinBugs.out <- readRDS(file = paste0("RData/WinBUGS_2007to2025_v2_min", min.dur, 
-                                     "_100000_",
-                                     WinBugs.run.date, ".rds"))
-
-Corrected.Est <- WinBugs.out$BUGS.out$sims.list$Corrected.Est
-
-# We don't have raw data for 2006/2007 and 2007/2008 seasons
-seasons <- c("2006/2007", "2007/2008", jm.out$jags.input$jags.input.new$seasons)
-
-Durban.abundance.df <- data.frame(Season = seasons,
-                                  Nhat = apply(Corrected.Est,
-                                               FUN = mean,
-                                               MARGIN = 2),
-                                  # CV = apply(Corrected.Est,
-                                  #            FUN = function(x) 100*sqrt(var(x))/mean(x),
-                                  #            MARGIN = 2),
-                                  # median = apply(Corrected.Est, 
-                                  #                FUN = median, 
-                                  #                MARGIN = 2),
-                                  LCL = apply(Corrected.Est, 
-                                              MARGIN = 2, 
-                                              FUN = quantile, 0.025),
-                                  UCL = apply(Corrected.Est, 
-                                              MARGIN = 2, 
-                                              FUN = quantile, 0.975)) %>%
-  right_join(all.years, by = "Season") %>%
-  arrange(start.year) %>%
-  mutate(Method = "Durban")
-
-# Create a dataframe for daily estimates:
-daily.estim <- WinBugs.out$BUGS.out$sims.list$Daily.Est
-
-# get stats:
-mean.mat <- LCL.mat <- UCL.mat <- matrix(data = NA, 
-                                         nrow = dim(daily.estim)[2], 
-                                         ncol = dim(daily.estim)[3])
-
-for (k1 in 1:dim(daily.estim)[2]){
-  for (k2 in 1:dim(daily.estim)[3]){
-    mean.mat[k1, k2] <- mean(daily.estim[,k1,k2])
-    LCL.mat[k1, k2] <- quantile(daily.estim[,k1,k2], 0.025)
-    UCL.mat[k1, k2] <- quantile(daily.estim[,k1,k2], 0.975)
-  }
+obs.day <- WinBUGS.input$data$day
+n.obs.primary <- WinBUGS.input$data$n.com[,1,]
+Nhats <- list()
+k <- 1
+for (k in 1:ncol(obs.day)){
+  tmp.day <-  WinBUGS.input$data$day[,k] %>% 
+    na.omit() 
+  tmp.n <- n.obs.primary[1:(length(tmp.day)-2),k]
+  tmp.watch <- WinBUGS.input$data$Watch.Length[1:(length(tmp.day)-2),k] %>% na.omit()
+  Nhats[[k]] <- data.frame(day = tmp.day[tmp.day > 1 & tmp.day < 90],
+                           n = tmp.n,
+                           watch = tmp.watch) %>%
+    group_by(day) %>%
+    summarize(day = first(day),
+              n = sum(n),
+              watch = sum(watch),
+              Nhat = n/watch,
+              year = WinBUGS.input$seasons[k])
   
 }
 
-N.hats.day.Durban <- data.frame(Season = rep(seasons, each = dim(daily.estim)[2]),
-                                Day = rep(1:dim(daily.estim)[2], length(seasons)),
-                                Mean = as.vector(mean.mat),
-                                LCL = as.vector(LCL.mat),
-                                UCL = as.vector(UCL.mat))
+Nhats.df <- do.call("rbind", Nhats) %>% group_by(year)
 
-# Daily estimates plots
-p.daily.Durban <- ggplot(N.hats.day.Durban %>% group_by(Season)) + 
-  geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
-              fill = "blue", alpha = 0.5) +
-  geom_path(aes(x = Day, y = Mean)) + 
-  facet_wrap(~ Season)
+ggplot(data = all.stats) + 
+  geom_line(aes(x = days, y = sp.median),
+            color = "darkorange") + 
+  geom_ribbon(aes(x = days, 
+                  ymin = sp.LCL, 
+                  ymax = sp.UCL),
+              fill = "orange", 
+              alpha = 0.5) +
+  geom_line(aes(x = days, y = com.median),
+            color = "darkred") +
+  geom_ribbon(aes(x = days, 
+                  ymin = com.LCL, 
+                  ymax = com.UCL),
+              fill = "red", 
+              alpha = 0.5) +
+  geom_point(aes(x = days, y = Daily.Est.median),
+             shape = 16, fill = "blue", alpha = 0.3) +
+  geom_point(data = Nhats.df,
+             aes(x = day, y = Nhat),
+             shape = 4, color = "darkgreen", alpha = 0.5) +
+  facet_wrap(vars(year)) +
+  xlab("Days since December 1") + 
+  ylab("Whales per day")
 
-# Include non-survey years - no estimates for 2007/2008 because I don't have
-# raw data for that year. Only the WinBUGS inputs. 
-Laake.abundance.new <- read.csv(file = "Data/all_estimates_Laake_2025.csv") %>%
-  mutate(LCL = CL.low,
-         UCL = CL.high) %>%
-  select(c(Season, Nhat, LCL, UCL)) %>%
-  right_join(all.years, by = "Season") %>%
-  arrange(start.year) %>%
-  mutate(Method = "Laake")
 
-#Laake.output <- read_rds(file = "RData/Laake_abundance_estimates_2024.rds")
+#Com vs Sp
+ggplot(data = all.stats) +
+  geom_line(aes(x = days, y = sp.median)) +
+  geom_ribbon(aes(x = days, 
+                  ymin = sp.LCL, 
+                  ymax = sp.UCL),
+              fill = "orange", alpha = 0.5) + 
+  facet_wrap(vars(year))+
+  xlab("Days since December 1") + 
+  ylab("Whales per day (spline)")
 
-# In reported estimates, there are two 2006/2007.
-Reported.estimates %>%
-  na.omit() %>%
-  select(Season) %>% 
-  unique() -> sampled.seasons 
 
-Laake.abundance.new %>%
-  rbind(Durban.abundance.df) %>%
-  rbind(Nhat.) -> all.estimates
-#  rbind(spline.Nhat) 
-#  rbind(Reported.estimates %>% na.omit()) -> all.estimates
+abundance.df <- data.frame(Season = WinBUGS.input$seasons,
+                           total.mean = apply(Corrected.Est,
+                                              FUN = mean,
+                                              MARGIN = 2),
+                           total.CV = apply(Corrected.Est,
+                                            FUN = function(x) 100*sqrt(var(x))/mean(x),
+                                            MARGIN = 2),
+                           total.median = apply(Corrected.Est, 
+                                                FUN = median, 
+                                                MARGIN = 2),
+                           total.LCL = apply(Corrected.Est, 
+                                             MARGIN = 2, 
+                                             FUN = quantile, 0.025),
+                           total.UCL = apply(Corrected.Est, 
+                                             MARGIN = 2, 
+                                             FUN = quantile, 0.975))
 
-p.Nhats <- ggplot(all.estimates) +
-  geom_point(aes(x = start.year, y = Nhat,
-                 color = Method),
-             alpha = 0.5) +
-  geom_errorbar(aes(x = start.year, ymin = LCL, ymax = UCL,
-                    color = Method)) +
-  ylim(5000, 35000)
 
-# ggsave(plot = p.Nhats,
-#        filename = paste0("figures/Nhats_", ver, "_", min.dur, "min.png"),
-#        device = "png",
-#        dpi = 600)
+# write.csv(abundance.df,
+#           file = paste0("Data/WinBUGS_abundance_", min(WinBUGS.input$all.years), "to",
+#                         max(WinBUGS.input$all.years), "_v2_min", WinBUGS.input$min.dur,
+#                         "_", MCMCparams$n.iter, "_", Run_Date, ".csv"))
 
-Nhat. %>% 
-  select(Season, start.year, Nhat, LCL, UCL) %>%
-  rename(Nhat.Eguchi = Nhat,
-         LCL.Eguchi = LCL,
-         UCL.Eguchi = UCL) %>%
-  cbind(Laake.abundance.new %>%
-          select(Nhat, LCL, UCL) %>%
-          rename(Nhat.Laake = Nhat,
-                 LCL.Laake = LCL,
-                 UCL.Laake = UCL)) %>%
-  cbind(Durban.abundance.df %>%
-          select(Nhat, LCL, UCL) %>%
-          rename(Nhat.Durban = Nhat,
-                 LCL.Durban = LCL,
-                 UCL.Durban = UCL)) %>%
-  mutate(d.Laake.Eguchi = Nhat.Laake - Nhat.Eguchi,
-         d.Durban.Eguchi = Nhat.Durban - Nhat.Eguchi) -> Nhat.all.wide
-
-# Check convergence
-high.Rhat <- function(x){
-  return(data.frame(idx = which(x > 1.1),
-                    start.year = all.start.year[which(x > 1.1)],
-                    Rhat = x[which(x > 1.1)]))
-}
-
-high.Rhat.Max <- high.Rhat(jm.out$jm$Rhat$Max)
-
-high.Rhat.K <- high.Rhat(jm.out$jm$Rhat$K)
-high.Rhat.S1 <- high.Rhat(jm.out$jm$Rhat$S1)
-high.Rhat.S2 <- high.Rhat(jm.out$jm$Rhat$S2)
-high.Rhat.P <- high.Rhat(jm.out$jm$Rhat$P)
-
+ggplot(data = abundance.df) + 
+  geom_point(aes(x = Season, y = total.median)) + 
+  geom_errorbar(aes(x = Season, ymin = total.LCL, ymax = total.UCL))
 

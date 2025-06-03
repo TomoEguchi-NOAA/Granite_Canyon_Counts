@@ -42,17 +42,17 @@ WinBUGS.input <- data2WinBUGS_input(data.dir = "RData/V2.1_Feb2025",
 # Then, increase iterations/burnin to 100k/60k. Sometimes... 100k returns unknown errors.
 # 85k seems to have no problems. 
 
-MCMCparams <- list(n.iter = 85000, #200, #
-                   n.thin = 50, #2, #80
-                   n.burnin = 50000, #50, #
-                   n.chains = 5)
-# 
-# This set runs quickly. Good to use this set to see if data and model are correct.
-# MCMCparams <- list(n.iter = 200,
-#                    n.thin = 2,
-#                    n.burnin = 50,
+# MCMCparams <- list(n.iter = 85000, #200, #
+#                    n.thin = 50, #2, #80
+#                    n.burnin = 50000, #50, #
 #                    n.chains = 5)
 # 
+# This set runs quickly. Good to use this set to see if data and model are correct.
+MCMCparams <- list(n.iter = 200,
+                   n.thin = 2,
+                   n.burnin = 50,
+                   n.chains = 5)
+
 n.samples <- ((MCMCparams$n.iter - MCMCparams$n.burnin)/MCMCparams$n.thin)*MCMCparams$n.chains
 
 Run_Date <- Sys.Date()  
