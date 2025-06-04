@@ -1,5 +1,7 @@
 # JAGS model for estimating gray whale abundance off Granite Canyon
 
+# This seems to be identical to v3 2025-06-04
+
 # known cyclical nature of gray whale counts is modeled by the function
 # provided in Girondot et al. (2007): Modeling approaches to quantify
 # leatherback nesting trends in French Guiana and Suriname. Chelonian

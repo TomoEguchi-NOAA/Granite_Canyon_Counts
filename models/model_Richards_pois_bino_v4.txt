@@ -23,9 +23,9 @@
 # Observed counts are assumed to be binomial distribution from this function and
 # sighting probability, which is a function of visibility, Beaufort, and observer.
 #
-# For the prior for N, I use the gamma distribution. V3 used Poisson. 
-#
 # This version (v4) has year spcific S1 and S2 parameters with hyperparameters.
+# Seems to have higher estimates than Durban's method. Results for earlier years
+# are not precise and very different from Laake's method in many years.
 #
 # Year specific K and P parameters ended up in poor convergence. They still have 
 # hyper distributions. 2024-08-08
@@ -36,7 +36,7 @@
 model{
 
 	# Define Richards function - this is the mean of "true" daily abundance
-	# The realization is a gamma deviate. 
+	# The realization is a Poisson deviate. 
 	for (y in 1:n.year){
 				
 		for (t in 1:n.days){
@@ -132,9 +132,7 @@ model{
 	# the probability is almost 1.0. 
 	#mean.prob ~ dbeta(0.95, 0.05)  # This doesn't work well because the mean gets very small.
 	mean.prob ~ dunif(0.9, 1.0)     # This works.
-    
-	### Specification of terms within observation probability linear model
-  
+      
 	## Observer random effect
 	for(o in 1:n.obs){
 		OBS.RF[o] ~ dnorm(0,tau.Obs)
@@ -143,11 +141,9 @@ model{
 	sigma.Obs ~ dgamma(1, 0.1)
 	tau.Obs <- pow(sigma.Obs,-2)
      
-	## Beaufort and visibility
-	#Below is the single fixed effect multiplied by BF rating in the updated obs prob equation:
+	## Beaufort and visibility	
 	BF.Fixed ~ dnorm(0,0.01)
   
-	#Below is the single fixed effect multiplied by VS rating in the updated obs prob equation:
 	VS.Fixed ~ dnorm(0,0.01)
   
 	### Summaries, Abundance Estimates, and Other Derived Quantities 

@@ -76,8 +76,6 @@ model{
 
 	# Uniform distributions were adjusted after running to capture entire posterior 
 	# distributions. 
-	#Max.alpha ~ dunif(1, 20)
-	#Max.beta ~ dunif(0, 0.02)  
 	
 	S1.alpha ~ dunif(0.1, 50)
 	S1.beta ~ dunif(0.01, 5)
@@ -113,13 +111,10 @@ model{
 			}#d
 		}#s
 	}#y
-  
-	# A wide prior for mean.prob
+  	
 	# when not using logit for mean.prob, use something like dunif(-2,2)  
 	mean.prob ~ dunif(0.9, 1.0) #dbeta(1,1) 
-    
-	### Specification of terms within observation probability linear model
-  
+     
 	## Observer random effect
 	for(o in 1:n.obs){
 		OBS.RF[o] ~ dnorm(0,tau.Obs)
@@ -128,11 +123,9 @@ model{
 	sigma.Obs ~ dgamma(1, 0.1)
 	tau.Obs <- pow(sigma.Obs,-2)
      
-	## Beaufort 
-	#Below is the single fixed effect multiplied by BF rating in the updated obs prob equation:
+	## Beaufort and visibility	
 	BF.Fixed ~ dnorm(0,0.01)
   
-	#Below is the single fixed effect multiplied by VS rating in the updated obs prob equation:
 	VS.Fixed ~ dnorm(0,0.01)
   
 	### Summaries, Abundance Estimates, and Other Derived Quantities 
@@ -159,4 +152,8 @@ model{
   # the median date of migration is Jan 15 (1 + 0.175 * 0.5 = 1.0875). This may have to
   # be fixed to adjust for the changing median migration date. SE of 0.03625 was not found
   # in the paper... 0.116*(14/24) = 0.0677	
+  
+  # There was a typographic error in Perryman et al. Laake et al. (2012) stated that "... a
+  # standard error of f x 15/24 x 0.116 after correcting the typographic errors in Perryman
+  # et al. (1999).
 }

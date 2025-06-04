@@ -304,7 +304,8 @@ Jags_Richards_Since2010_fcn <- function(min.dur, ver, years, data.dir, jags.para
 #                     years = c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024), 
 #                     data.dir = "RData/V2.1_Nov2024", 
 #                     jags.params = jags.params, 
-#                     MCMC.params = MCMC.params)     
+#                     MCMC.params = MCMC.params,
+#                     max.day = 100)     
 #                     
 NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC.params, max.day, Run.date = Sys.Date()){
   print("Starting NoBUGS_Richards_fcn")
@@ -313,9 +314,10 @@ NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC
   model.name <- paste0("Richards_pois_bino_", ver) 
   jags.model <- paste0("models/model_", model.name, ".txt")
   
-  out.file.name <- paste0("RData/JAGS_", model.name,"_min", min.dur,
-                          "_NoBUGS_",
-                          Run.date, ".rds")
+  out.file.name <- paste0("RData/JAGS_", model.name, 
+                          "_1968to", max(years), 
+                          "_min", min.dur,
+                          "_NoBUGS.rds")
   
   if (!file.exists(out.file.name)){
     jags.input.list <- AllData2JagsInput_NoBUGS(min.dur, years = years, data.dir, max.day)                        
@@ -1310,8 +1312,8 @@ LaakeData2JagsInput <- function(min.dur, max.day = 100){
            obs = Observer) %>%
     select(Start.year, nwhales, effort, vis, beaufort, obs, dt) %>%
     group_by(Start.year) %>%
-    mutate(effort.min = effort * 24 * 60,
-           watch.prop = effort) -> Effort.by.period
+    mutate(effort.min = effort * 24 * 60,  # effort in minutes
+           watch.prop = effort/540) -> Effort.by.period
   
   # observers - rather than using entries of Observer.rda, I pull out all observers
   # from the effort objects (primary and secondary) and re-number them. 
@@ -1331,7 +1333,7 @@ LaakeData2JagsInput <- function(min.dur, max.day = 100){
             obs = Observer,
             vs = vis,
             bf = beaufort,
-            watch.prop = effort) -> Laake.primary.counts
+            watch.prop = effort/540) -> Laake.primary.counts
   
   Laake_SecondaryEffort %>% 
     group_by(Start.year) %>%
@@ -1343,7 +1345,7 @@ LaakeData2JagsInput <- function(min.dur, max.day = 100){
             obs = Observer,
             vs = vis,
             bf = beaufort,
-            watch.prop = effort) -> Laake.secondary.counts
+            watch.prop = effort/540) -> Laake.secondary.counts
   
   # Laake.primary.counts %>% 
   #   group_by(Date) %>%
@@ -1612,7 +1614,8 @@ data2Jags_input_NoBUGS <- function(min.dur,
   # out.file.name <- paste0("RData/JAGS_", years[1], "to", 
   #                         years[length(years)], "_v2_min", 
   #                         min.dur, "_", run.date, ".rds")
-  
+
+  # watch length in fractional days  
   Watch.Length <- list()
 
   for (k in 1:length(begin.)){
@@ -1628,33 +1631,8 @@ data2Jags_input_NoBUGS <- function(min.dur,
   # observers
   all.observers <- create.observer.list(primary.sightings.df %>%
                                           select(Start.year, Observer))
+  
   no.obs.ID <- max(all.observers$ID) + 1
-  
-  # # A new observer list is created as new data are added. The new observer list
-  # # is saved in the Data directory. The list from the previous year is updated
-  #obs.list <- read.csv(file = paste0("Data/ObserverList", years[length(years)-1], ".csv"))
-  # 
-  # obs.new <- unique(out.v2[[length(years)]]$Complete_Data$obs)
-  # new.obs <- obs.new[!c(obs.new %in% obs.list$obs)]
-  # obs.list <- rbind(obs.list,
-  #                   data.frame(obs = new.obs,
-  #                              ID = seq(max(obs.list$ID) + 1,
-  #                                       max(obs.list$ID) + length(new.obs))))
-  # 
-  # # If WinBUGS was run already this file exists.   
-  # if (!file.exists(paste0("Data/ObserverList", max(years), ".csv")))  
-  #   write.csv(obs.list, 
-  #             file = paste0("Data/ObserverList", max(years), ".csv"),
-  #             row.names = FALSE)
-  
-  # obs.list <- read.csv(file = "Data/ObserverList2023.csv")
-  # 
-  # obs.2024 <- unique(out.v2[[length(years)]]$Complete_Data$obs)
-  # new.obs <- obs.2024[!c(obs.2024 %in% obs.list$obs)]
-  # obs.list <- rbind(obs.list,
-  #                   data.frame(obs = new.obs,
-  #                              ID = seq(max(obs.list$ID) + 1, 
-  #                                       max(obs.list$ID) + length(new.obs))))
   
   watch.length <- n <- day <- array(NA, dim = c(max(periods)+2, 
                                                 2, length(years)))
@@ -1768,7 +1746,8 @@ data2Jags_input_NoBUGS <- function(min.dur,
                       obs = obs.new,
                       vs = vs,
                       bf = bf,
-                      watch.prop = watch.length,
+                      watch.length = watch.length,
+                      watch.prop = (watch.length * 24 * 60)/540,
                       day = day)
   
   out.list <- list(jags.data = jags.data,
@@ -2023,6 +2002,10 @@ AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir, max.day = 90){
                          along = 3)
   }
 
+  # Create partially observed N.
+  N <- matrix(nrow = max.day, ncol = dim(jags.n.all)[2])
+  N[1,] <- 0
+  N[max.day,] <- 0
   jags.data <- list(  n = labelled::remove_attributes(jags.n.all, "dimnames"),
                       n.station = c(jags.input.Laake$jags.data$n.station,
                                     jags.input.new$jags.data$n.station),
@@ -2036,7 +2019,8 @@ AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir, max.day = 90){
                       vs = labelled::remove_attributes(jags.vs.all, "dimnames"),
                       bf = labelled::remove_attributes(jags.bf.all, "dimnames"),
                       watch.prop = labelled::remove_attributes(jags.watch.prop.all, "dimnames"),
-                      day = labelled::remove_attributes(jags.day.all, "dimnames"))
+                      day = labelled::remove_attributes(jags.day.all, "dimnames"),
+                      N = N)
   
   return(list(jags.data = jags.data,
               jags.input.Laake = jags.input.Laake,
