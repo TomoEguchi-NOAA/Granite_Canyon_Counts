@@ -15,7 +15,7 @@
 # min is "the basal level of the number of whales outside the migration season"
 # max > min. min == 0.
 
-# Model version - depending on which parameters are constant/year-specific
+# Model versions - depending on which parameters are constant/year-specific
 # v3: Max, P, S1, S2, and K are time specific
 # v4: Max, S1, and S2 are time specific. K and P are constant.
 # v5: Max, P, S1 and S2 are time specific. K is constant.
@@ -30,33 +30,30 @@ library(bayesplot)
 
 source("Granite_Canyon_Counts_fcns.R")
 
-# "2025-04-21" for v3/60 
-# "2025-04-17" for v4/60
-# "2025-04-18" for v5/60
+WinBUGS.Run.Date <- "2025-04-11"
 
 Run.date <- Sys.Date() #"2025-04-21" #"2025-04-17" #
 
 # Minimum length of observation periods in minutes
-# In order to run a new minimum duration, WinBUGS needs to be run first.
 min.dur <- 60 #10 #85 #
 
-ver <- "v3"
+ver <- "v5" # "v4" # "v3"
 
-# These are the ending year of each season - different from the standard, which
-# uses the beginning year. So, for example, 2022 in the following vector indicates
-# for the 2021/2022 season
+# These are the ending year of each season - for example, 2022 in the following vector indicates
+# for the 2021/2022 season. These data were extracted using Extract_Data_All_v2.Rmd
+# Data prior to the 2009/2010 season are in Laake's ERAnalayis package. 
 years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025)
 
-# MCMC.params <- list(n.samples = 250000,
-#                     n.thin = 100,
-#                     n.burnin = 200000,
-#                     n.chains = 5)
+MCMC.params <- list(n.samples = 250000,
+                    n.thin = 100,
+                    n.burnin = 200000,
+                    n.chains = 5)
 
 # v3 does not converge well with the above MCMC setting so increasing samples
-MCMC.params <- list(n.samples = 750000,
-                    n.thin = 500,
-                    n.burnin = 500000,
-                    n.chains = 5)
+# MCMC.params <- list(n.samples = 750000,
+#                     n.thin = 500,
+#                     n.burnin = 500000,
+#                     n.chains = 5)
 
 # MCMC.params <- list(n.samples = 2500,
 #                     n.thin = 10,
@@ -78,7 +75,9 @@ jags.params <- c("OBS.RF", "BF.Fixed",
 
 ###############################
 # The following function uses "new" data since 2010 as well as those from Laake's 
-# analysis to compute abundance since the 1967/1968 season. 
+# analysis to compute abundance since the 1967/1968 season. There were two seasons
+# where the survey continued beyond the 90th day. So, max.day needs to be increased
+# from 90. I used 100. 
 jm.out <- NoBUGS_Richards_fcn(min.dur = min.dur, 
                               ver = ver, 
                               years = years, 
@@ -136,25 +135,6 @@ mcmc_trace(jm.out$jm$samples, paste0("S2[", par.idx, "]"))
 mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
 
 
-# plot.trace.dens function is in Granite_Canyon_Counts_fcns.R
-# ps.K <- plot.trace.dens(param = "K", 
-#                         jags.out = "jm.out$jm")
-# 
-# ps.P <- plot.trace.dens(param = "P", 
-#                         jags.out = "jm.out$jm")
-# 
-# 
-# ps.S1 <- plot.trace.dens(param = "S1", 
-#                          jags.out = "jm.out$jm")
-# 
-# ps.S2 <- plot.trace.dens(param = "S2", 
-#                          jags.out = "jm.out$jm")
-# 
-# ps.Max <- plot.trace.dens(param = "Max", 
-#                           jags.out = "jm.out$jm")
-
-# These three year-specific parameters seemed to behave fine.
-
 all.start.year <- c(jm.out$jags.input$jags.input.Laake$all.start.year,
                     jm.out$jags.input$jags.input.new$start.years)
 
@@ -184,7 +164,7 @@ p.daily.Richards <- ggplot(N.hats.day %>% group_by(Season)) +
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
               fill = "blue", alpha = 0.5) +
   geom_path(aes(x = Day, y = Mean)) + 
-  geom_point(aes(x = Day, y = Mean)) +
+  #geom_point(aes(x = Day, y = Mean)) +
   facet_wrap(~ Season)
 
 # These are not the best estimates because they were not updated as more data
@@ -200,10 +180,10 @@ Reported.estimates <- read.csv(file = "Data/all_estimates_2024.csv") %>%
   arrange(start.year) %>%
   relocate(Method, .after = start.year)
 
-WinBugs.run.date <- "2025-04-11"
+#WinBugs.run.date <- "2025-04-11"
 WinBugs.out <- readRDS(file = paste0("RData/WinBUGS_2007to2025_v2_min", min.dur, 
                                      "_100000_",
-                                     WinBugs.run.date, ".rds"))
+                                     WinBUGS.Run.Date, ".rds"))
 
 Corrected.Est <- WinBugs.out$BUGS.out$sims.list$Corrected.Est
 
