@@ -59,15 +59,16 @@ input.list <- AllData2JagsInput_NoBUGS(min.dur, years = years, data.dir)
 
 # For this analysis, I have to change "days" array because 90 was not the maximum
 # in the old (Laake's) datasets. I truncate data to maximum of day 90. 
+# In Durban's approach, the day matrix is 2D
 day.mat <- input.list$jags.data$day[,1,]
 day.mat[day.mat > 89] <- NA   # Remove all 90 and above
-day.mat[day.mat < 2] <- NA    # Remove all 1s
+day.mat[day.mat < 2] <- NA    # Remove all 1s - this will be reentered later
 
 periods <- colSums(!is.na(day.mat))
 
 # Create the u array by replacing the non-observer ID (n.obs + 1) with 0s
 # and observers with 1s
-u <- labelled::remove_attributes(input.list$jags.data$obs, "dimnames")
+u <- input.list$jags.data$obs
 u[u > max(input.list$jags.data$n.obs)] <- 0
 u[u != 0] <- 1
 u <- u[1:max(periods),,]
@@ -93,11 +94,11 @@ Watch.Length[Watch.Length < 0.0001] <- 1  # day 1 and 90 are considered full cov
 Watch.Length[day.mat == 1] <- 1
 Watch.Length[day.mat == 90] <- 1
 
-n <- labelled::remove_attributes(input.list$jags.data$n, "dimnames")
+n <- input.list$jags.data$n
 n[is.na(n)] <- 0
 n <- n[1:max(periods), ,]
 
-obs <- labelled::remove_attributes(input.list$jags.data$obs, "dimnames")
+obs <- input.list$jags.data$obs
 obs <- obs[1:max(periods),,]
 
 BUGS.data <- list(n = n,
