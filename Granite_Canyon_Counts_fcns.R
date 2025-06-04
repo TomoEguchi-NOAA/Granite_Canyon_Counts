@@ -306,7 +306,7 @@ Jags_Richards_Since2010_fcn <- function(min.dur, ver, years, data.dir, jags.para
 #                     jags.params = jags.params, 
 #                     MCMC.params = MCMC.params)     
 #                     
-NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC.params, Run.date = Sys.Date()){
+NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC.params, max.day, Run.date = Sys.Date()){
   print("Starting NoBUGS_Richards_fcn")
   
   #Run.date <- Sys.Date()
@@ -318,7 +318,7 @@ NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC
                           Run.date, ".rds")
   
   if (!file.exists(out.file.name)){
-    jags.input.list <- AllData2JagsInput_NoBUGS(min.dur, years = years, data.dir)                        
+    jags.input.list <- AllData2JagsInput_NoBUGS(min.dur, years = years, data.dir, max.day)                        
     
     jags.input <- list(jags.data = jags.input.list$jags.data,
                        min.dur = min.dur, 
@@ -1209,7 +1209,7 @@ data2WinBUGS_input <- function(data.dir, years, min.dur){
 
 # Create Jags input for Laake's data.
 # min.dur is the minimum effort duration in minutes to be included in the analysis
-LaakeData2JagsInput <- function(min.dur){
+LaakeData2JagsInput <- function(min.dur, max.day = 100){
   
   library(tidyverse)
   
@@ -1378,10 +1378,11 @@ LaakeData2JagsInput <- function(min.dur){
               periods.1 = periods.x,
               periods.2 = periods.y) -> Laake.periods
   
-  day <- bf <- vs <- watch.prop <- obs.input <- n.Laake <- array(dim = c(max(Laake.primary.periods$periods),
+  bf <- vs <- watch.prop <- obs.input <- n.Laake <- array(dim = c(max(Laake.primary.periods$periods),
                                                                          2, length(all.year)))
-  
-  y <- 3
+  day <- array(dim = c(max(Laake.primary.periods$periods) + 2,
+                       2, length(all.year)))
+  y <- 1
   y2 <- 1
   for (y in 1:length(all.year)){
     temp.data <- Laake.primary.counts %>%
@@ -1394,7 +1395,7 @@ LaakeData2JagsInput <- function(min.dur){
     watch.prop[1:Laake.primary.periods$periods[y], 1, y] <- temp.data$watch.prop
     bf[1:Laake.primary.periods$periods[y], 1, y] <- temp.data$bf #scale(temp.data$bf)
     vs[1:Laake.primary.periods$periods[y], 1, y] <- temp.data$vs #scale(temp.data$vs)
-    day[1:Laake.primary.periods$periods[y], 1, y] <- as.numeric(temp.data$Day)
+    day[1:(Laake.primary.periods$periods[y]+2), 1, y] <- c(as.numeric(temp.data$Day), 1, max.day)
     
     # fill in the secondary observations
     if (isTRUE(all.year[y] %in% double.obs.year)){
@@ -1407,7 +1408,7 @@ LaakeData2JagsInput <- function(min.dur){
       watch.prop[1:Laake.secondary.periods$periods[y2], 2, y] <- temp.data$watch.prop
       bf[1:Laake.secondary.periods$periods[y2], 2, y] <- temp.data$bf #scale(temp.data$bf)
       vs[1:Laake.secondary.periods$periods[y2], 2, y] <- temp.data$vs #scale(temp.data$vs)
-      day[1:Laake.secondary.periods$periods[y2], 2, y] <- as.numeric(temp.data$Day)
+      day[1:(Laake.secondary.periods$periods[y2]+2), 2, y] <- c(as.numeric(temp.data$Day), 1, max.day)
       
       y2 <- y2 + 1
       
@@ -1561,7 +1562,8 @@ AllData2JagsInput <- function(min.dur,
 # there are raw data files. 
 data2Jags_input_NoBUGS <- function(min.dur,
                                    years,
-                                   data.dir){
+                                   data.dir,
+                                   max.day = 90){
   
   seasons <- sapply(years, FUN = function(x) paste0(x-1, "/", x))
   start.years <- years - 1
@@ -1681,7 +1683,7 @@ data2Jags_input_NoBUGS <- function(min.dur,
       
       obs[1:length(Final_data.P$n),1,k] <- obs.year$ID
       watch.length[1:(length(Final_data.P$n)+2),1,k] <- c(Final_data.P$watch.length, 0,0)
-      day[1:(length(Final_data.P$n)+2),1,k] <- c(floor(Final_data.P$begin), 1, 90)
+      day[1:(length(Final_data.P$n)+2),1,k] <- c(floor(Final_data.P$begin), 1, max.day)
       periods.mat[k,1] <- nrow(Final_data.P)
       
       # fill in the secondary 
@@ -1694,7 +1696,7 @@ data2Jags_input_NoBUGS <- function(min.dur,
       
       obs[1:length(Final_data.S$n),2,k] <- obs.year$ID
       watch.length[1:(length(Final_data.S$n)+2),2,k] <- c(Final_data.S$watch.length, 0,0)
-      day[1:(length(Final_data.S$n)+2),2,k] <- c(floor(Final_data.S$begin), 1, 90)
+      day[1:(length(Final_data.S$n)+2),2,k] <- c(floor(Final_data.S$begin), 1, max.day)
       
       periods.mat[k,2] <- nrow(Final_data.S)
       
@@ -1708,7 +1710,7 @@ data2Jags_input_NoBUGS <- function(min.dur,
       
       obs[1:length(Final_data$n),1,k] <- obs.year$ID
       watch.length[1:(length(Final_data$n)+2),1,k] <- c(Final_data$watch.length, 0,0)
-      day[1:(length(Final_data$n)+2),1,k] <- c(floor(Final_data$begin), 1, 90)
+      day[1:(length(Final_data$n)+2),1,k] <- c(floor(Final_data$begin), 1, max.day)
       periods.mat[k,1] <- nrow(Final_data)
       
     }
@@ -1793,15 +1795,17 @@ data2Jags_input_NoBUGS <- function(min.dur,
 #         Note that these years are "ending" years. For example, 2015 means the 
 #         2014/2015 season. 
 #         
-AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir){
+AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir, max.day = 90){
   library(abind)
   # this converts Laake's data into jags input
-  jags.input.Laake <- LaakeData2JagsInput(min.dur)
+  jags.input.Laake <- LaakeData2JagsInput(min.dur,
+                                          max.day = max.day)
   
   # This pulls out data from 2010 onward and create jags input
   jags.input.new <- data2Jags_input_NoBUGS(min.dur = min.dur, 
                                            years = years,
-                                           data.dir = data.dir)
+                                           data.dir = data.dir,
+                                           max.day = max.day)
   
   obs.all <- create.observer.list(jags.input.new$primary.sightings %>%
                                     select(Start.year, Observer))
@@ -1857,6 +1861,8 @@ AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir){
                                    MARGIN = 2)
   
   # new observers next
+  # jags input has no-observer ID for day 1 and max.day
+  # Laake data doesn't have no-observer ID 
   jags.obs.new <- jags.input.new$jags.data$obs
   
   jags.obs.new.new <- array(data = No.obs.ID,
@@ -1914,7 +1920,7 @@ AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir){
     # day
     jags.day.new <- abind(jags.input.new$jags.data$day,
                           array(data = NA, 
-                                dim = c(n.row.dif, 2, 
+                                dim = c((n.row.dif-2), 2, 
                                         dim(jags.obs.new.new)[3])),
                           along = 1)
     
@@ -1959,7 +1965,7 @@ AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir){
     # day
     jags.day.Laake <- abind(jags.input.Laake$jags.data$day,
                           array(data = NA, 
-                                dim = c(n.row.dif, 2, 
+                                dim = c((n.row.dif-2), 2, 
                                         dim(jags.obs.Laake.new)[3])),
                           along = 1)
     
@@ -2017,20 +2023,20 @@ AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir){
                          along = 3)
   }
 
-  jags.data <- list(  n = jags.n.all,
+  jags.data <- list(  n = labelled::remove_attributes(jags.n.all, "dimnames"),
                       n.station = c(jags.input.Laake$jags.data$n.station,
                                     jags.input.new$jags.data$n.station),
                       n.year = dim(jags.bf.all)[3],
                       n.obs = nrow(obs.all),
-                      periods = rbind(as.matrix(jags.input.Laake$jags.data$periods), 
-                                      jags.input.new$jags.data$periods),
+                      periods = labelled::remove_attributes(rbind(as.matrix(jags.input.Laake$jags.data$periods), 
+                                      jags.input.new$jags.data$periods), "dimnames"),
                       n.days = max(jags.input.Laake$jags.data$n.days,
                                    jags.input.new$jags.data$n.days),
-                      obs = jags.obs.all,
-                      vs = jags.vs.all,
-                      bf = jags.bf.all,
-                      watch.prop = jags.watch.prop.all,
-                      day = jags.day.all)
+                      obs = labelled::remove_attributes(jags.obs.all, "dimnames"),
+                      vs = labelled::remove_attributes(jags.vs.all, "dimnames"),
+                      bf = labelled::remove_attributes(jags.bf.all, "dimnames"),
+                      watch.prop = labelled::remove_attributes(jags.watch.prop.all, "dimnames"),
+                      day = labelled::remove_attributes(jags.day.all, "dimnames"))
   
   return(list(jags.data = jags.data,
               jags.input.Laake = jags.input.Laake,

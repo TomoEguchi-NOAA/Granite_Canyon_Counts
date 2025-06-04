@@ -34,7 +34,7 @@ source("Granite_Canyon_Counts_fcns.R")
 # "2025-04-17" for v4/60
 # "2025-04-18" for v5/60
 
-Run.date <- "2025-04-21" #Sys.Date() #"2025-04-17" #
+Run.date <- Sys.Date() #"2025-04-21" #"2025-04-17" #
 
 # Minimum length of observation periods in minutes
 # In order to run a new minimum duration, WinBUGS needs to be run first.
@@ -85,7 +85,8 @@ jm.out <- NoBUGS_Richards_fcn(min.dur = min.dur,
                               data.dir = "RData/V2.1_Feb2025", 
                               jags.params = jags.params, 
                               MCMC.params = MCMC.params,
-                              Run.date = Run.date)
+                              Run.date = Run.date,
+                              max.day = 100)
 
 # need to turn zeros into NAs when there were no second station:
 data.array <- jm.out$jags.input$jags.data$n
@@ -183,7 +184,7 @@ p.daily.Richards <- ggplot(N.hats.day %>% group_by(Season)) +
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
               fill = "blue", alpha = 0.5) +
   geom_path(aes(x = Day, y = Mean)) + 
-  geom_point(aes(x = Day, y))
+  geom_point(aes(x = Day, y = Mean)) +
   facet_wrap(~ Season)
 
 # These are not the best estimates because they were not updated as more data
