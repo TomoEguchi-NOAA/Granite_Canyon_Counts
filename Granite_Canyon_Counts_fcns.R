@@ -1853,7 +1853,7 @@ AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir, max.day = 90){
                                            data.dir = data.dir,
                                            max.day = max.day)
   
-  obs.all <- create.observer.list(jags.input.new$primary.sightings %>%
+  obs.all <- create.observer.list(jags.input.new$sightings %>%
                                     select(Start.year, Observer))
   
   obs.all %>% 
