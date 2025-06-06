@@ -37,32 +37,35 @@ Run.date <- Sys.Date() #"2025-04-21" #"2025-04-17" #
 # Minimum length of observation periods in minutes
 min.dur <- 60 #10 #85 #
 
-ver <- "v5" # "v4" # "v3"
+ver <- "v3" #  "v3" #"v5" # "v4" # 
 
 # These are the ending year of each season - for example, 2022 in the following vector indicates
 # for the 2021/2022 season. These data were extracted using Extract_Data_All_v2.Rmd
 # Data prior to the 2009/2010 season are in Laake's ERAnalayis package. 
 years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025)
+data.dir = "RData/V2.1_Feb2025"
+max.day = 100
 
-MCMC.params <- list(n.samples = 250000,
-                    n.thin = 100,
-                    n.burnin = 200000,
-                    n.chains = 5)
-
-# v3 does not converge well with the above MCMC setting so increasing samples
+# MCMC.params <- list(n.samples = 250000,
+#                     n.thin = 100,
+#                     n.burnin = 200000,
+#                     n.chains = 5)
+# 
+# # v3 does not converge well with the above MCMC setting so increasing samples
 # MCMC.params <- list(n.samples = 750000,
 #                     n.thin = 500,
 #                     n.burnin = 500000,
 #                     n.chains = 5)
 
-# MCMC.params <- list(n.samples = 2500,
-#                     n.thin = 10,
-#                     n.burnin = 200,
-#                     n.chains = 5)
+MCMC.params <- list(n.samples = 25000,
+                    n.thin = 10,
+                    n.burnin = 5000,
+                    n.chains = 5)
 
 jags.params <- c("OBS.RF", "BF.Fixed",
                  "VS.Fixed",
                  "mean.prob", "mean.N", "Max",
+                 "prob",
                  "Corrected.Est", "Raw.Est", "N",
                  "K", "S1", "S2", "P",
                  "Max.alpha", "Max.beta",
@@ -70,8 +73,56 @@ jags.params <- c("OBS.RF", "BF.Fixed",
                  "S1.beta", "S2.beta",
                  "P.alpha", "P.beta",
                  "K.alpha", "K.beta",
-                 "N.alpha",
+                 "N.alpha", "N.sampled",
                  "log.lkhd")
+
+### Testing model using just new data  ###
+model.name <- paste0("Richards_pois_bino_", ver) 
+jags.model <- paste0("models/model_", model.name, ".txt")
+
+jags.data.list <- data2Jags_input_NoBUGS(min.dur = 60,
+                                         years = years,
+                                         data.dir = "RData/V2.1_Feb2025",
+                                         max.day = 100)
+
+jags.data <- jags.data.list$jags.data
+#jags.data["N"] <- NULL
+#jags.data$n.year <- 5
+
+jm <- jagsUI::jags(jags.data,
+                   inits = NULL,
+                   parameters.to.save= jags.params,
+                   model.file = jags.model,
+                   n.chains = MCMC.params$n.chains,
+                   n.burnin = MCMC.params$n.burnin,
+                   n.thin = MCMC.params$n.thin,
+                   n.iter = MCMC.params$n.samples,
+                   DIC = T,
+                   parallel=T)
+
+jm.out <- list(jm = jm,
+               jags.input = jags.data.list,
+               #start.year = all.start.year,
+               jags.params = jags.params,
+               jags.model = jags.model,
+               MCMC.params = MCMC.params,
+               Sys.env = Sys.getenv())
+
+
+# jags.data$n[1:10, 1, 1]
+# [1] 1 7 0 2 1 3 3 2 2 0
+# > jags.data$watch.prop[1:6, 1, 1]
+# [1] 0.1675911 0.1680544 0.1651222 0.1657411 0.1666656 0.1665111
+# > sum(jags.data$watch.prop[1:6, 1, 1])
+# [1] 0.9996856
+# > sum(jm$mean$N[1:6, 1, 1])
+# [1] 260.0753
+# > sum(jags.data$watch.prop[1:6, 1, 1]) * 271
+# [1] 270.9148
+# > jags.data$watch.prop[1:6, 1, 1] * sum(jm$mean$N[1:6, 1, 1])
+# jm$mean$prob[1:6, 1, 1]
+###  End of testing model using just new data  ###
+
 
 ###############################
 # The following function uses "new" data since 2010 as well as those from Laake's 
@@ -89,11 +140,12 @@ jm.out <- NoBUGS_Richards_fcn(min.dur = min.dur,
 
 # need to turn zeros into NAs when there were no second station:
 data.array <- jm.out$jags.input$jags.data$n
+data.array[,2,which(jags.data.list$jags.data$n.station == 1)] <- NA
 data.array[,2,which(jm.out$jags.input$jags.data$n.station == 1)] <- NA
 
 LOOIC.n <- compute.LOOIC(loglik.array = jm.out$jm$sims.list$log.lkhd,
                          data.array = data.array,
-                         MCMC.params = jm.out$MCMC.params)
+                         MCMC.params = MCMC.params)
 
 # There are some (< 0.5%) bad ones. I should look at which ones are not fitting well.
 

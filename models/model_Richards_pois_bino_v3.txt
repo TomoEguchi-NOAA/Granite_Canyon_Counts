@@ -27,10 +27,13 @@
 # Bayes approach. Biometrika 75:223-228), I use a Poisson distribution as the prior
 # for N. 
 
-# This v3 version has year spcific K, S1, S2, and P parameters with hyperparameters.
+# This v3 version has year spcific Max, K, S1, S2, and P parameters with hyperparameters.
  
-# It allows different numbers of sampling periods between primary
-# and secondary sampling stations. 2024-07-09
+# 2024-07-09: It allows different numbers of sampling periods between primary
+# and secondary sampling stations. 
+
+# 2025-06-04: Made N[] to be partially observed. N[1,t] = N[max.day,t] = 0 for all t.
+# This is the same set up as Durban's approach. 
 
 model{
 
@@ -40,30 +43,40 @@ model{
 				
 		for (t in 1:n.days){
 			# year-specific K - results in conversion issues. 2022-11-09 
-			# This was fixed with hyperparameters. 2024
+			# This was fixed by adding hyperparameters. 2024
 			M1[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/(-S1[y])) * (P[y] - t))) ^ (-1/exp(K[y]))
 			M2[t, y] <- (1 + (2 * exp(K[y]) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K[y]))
 			
-			mean.N[t, y] <- (Max[y]) * (M1[t, y] * M2[t, y])
+			mean.N[t, y] <- (Max[y]) * (M1[t, y] * M2[t, y]) 
 			
-			N[t, y] ~ dpois(mean.N[t,y])
+			# True N is station independent and partially observed
+			# N = 0 when t = 1 or t = max.day
+			#N[t, y] ~ dpois(mean.N[t,y])
 			
 		}
 	}  
 
 	# observations are from the realized abundance: N-mixture part with 
-	# binomial sampling, where the probability is modeled below
+	# binomial sampling
+	
 	for (y in 1:n.year){
 		for (s in 1:n.station[y]){
 			for (d in 1:periods[y,s]){
 				# observation per period d
+				N[d, s, y] ~ dpois(mean.N[day[d,s,y], y] * watch.prop[d,s,y])
+				n[d, s, y] ~ dbin(prob[d, s, y], N[d, s, y])
+				log.lkhd[d,s,y] <- logdensity.bin(n[d,s,y], prob[d,s,y], N[d,s,y])
 				
-				n[d, s, y] ~ dbin(obs.prob[d, s, y], N[day[d,s,y], y])
-				log.lkhd[d,s,y] <- logdensity.bin(n[d,s,y], obs.prob[d,s,y], N[day[d,s,y], y])
+				logit(prob[d,s,y]) <- logit(mean.prob) + 
+								(BF.Fixed * bf[d,s,y]) + 
+								(VS.Fixed * vs[d,s,y]) +
+								(OBS.RF[obs[d,s,y]])	
+
 			}
 		}
 	}
-
+	
+	
 	# priors for Richards function parameters. 
 	for (y in 1:n.year){
 		Max[y] ~ dnorm(10000, 1/(4000^2))T(0,)
@@ -74,7 +87,7 @@ model{
 
 	}
 
-	# Uniform distributions were adjusted after running to capture entire posterior 
+	# Uniform distributions were adjusted to capture entire posterior 
 	# distributions. 
 	
 	S1.alpha ~ dunif(0.1, 50)
@@ -91,31 +104,12 @@ model{
 	K.beta ~ dunif(0, 5000)
 	K.unif ~ dunif(0, 500)
 	K.alpha <- K.beta + K.unif
-	
-	### Observation probability - include the watch period durations (in proportions)
-	# I removed all "switches," which were 0/1 to exclude/include each variable. They
-	# are all in. If something is not needed, the coefficient would include zero.
-	for(y in 1:n.year){
-		for(s in 1:n.station[y]){
-			for(d in 1:periods[y,s]){
-
-				logit(prob[d,s,y]) <- logit(mean.prob) + 
-								(BF.Fixed * bf[d,s,y]) + 
-								(VS.Fixed * vs[d,s,y]) +
-								(OBS.RF[obs[d,s,y]])						
-									
-				# watch.prop is the proportion of the total watch periods in a day (540 minutes) that
-				# was actually observed. 
-				obs.prob[d,s,y] <- watch.prop[d,s,y] * prob[d,s,y]
-                
-			}#d
-		}#s
-	}#y
-  	
+		
+	# It doesn't make sense to make it [0,1]...
 	# when not using logit for mean.prob, use something like dunif(-2,2)  
-	mean.prob ~ dunif(0.9, 1.0) #dbeta(1,1) 
+	mean.prob ~ dunif(0.1, 1.0) #dbeta(1,1) 
      
-	## Observer random effect
+	## Observer random effects
 	for(o in 1:n.obs){
 		OBS.RF[o] ~ dnorm(0,tau.Obs)
 	}#o
@@ -124,14 +118,13 @@ model{
 	tau.Obs <- pow(sigma.Obs,-2)
      
 	## Beaufort and visibility	
-	BF.Fixed ~ dnorm(0,0.01)
-  
+	BF.Fixed ~ dnorm(0,0.01)  
 	VS.Fixed ~ dnorm(0,0.01)
   
 	### Summaries, Abundance Estimates, and Other Derived Quantities 
 	for(t in 1:n.year){
 	
-		raw.unrounded[t] <- sum(N[1:n.days,t])
+		raw.unrounded[t] <- sum(mean.N[1:n.days,t])
 		Raw.Est[t] <- round(raw.unrounded[t])
 	
 		# multiply raw estimates by correction factor for nighttime passage rates (below)
