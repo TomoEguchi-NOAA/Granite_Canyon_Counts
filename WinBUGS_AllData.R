@@ -19,6 +19,7 @@ Run.date <- Sys.Date() #"2025-04-17" #
 # Minimum length of observation periods in minutes
 # In order to run a new minimum duration
 min.dur <- 60 #10 #85 #
+max.day <- 90
 
 # These are the ending year of each season - different from the standard, which
 # uses the beginning year. So, for example, 2022 in the following vector indicates
@@ -26,7 +27,7 @@ min.dur <- 60 #10 #85 #
 # min.dur is one of 10, 30, 85 or any other that was used in Extract_Data_All_v2.Rmd
 years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025)
 data.dir = "RData/V2.1_Feb2025"
-input.list <- AllData2JagsInput_NoBUGS(min.dur, years = years, data.dir)  
+input.list <- AllData2JagsInput_NoBUGS(min.dur, years = years, data.dir, max.day = max.day)  
 
 # Convert jags input to WinBUGS input. Necessary variables are:
 # n = n[1:max(periods[1:x]),,1:x],
@@ -238,11 +239,12 @@ if (!file.exists(out.file.name)){
   # for Laake's data did not have 1 in day 1 and day 90. Once they were entered,
   # it runs fine. 
   Run_Time <- Sys.time() - Start_Time
-  Ver2.results <-list(BUGS.input = WinBUGS.input,
+  Ver2.results <-list(BUGS.input = input.list,
+                      BUGS.data = BUGS.data,
                       BUGS.out = BUGS_out,
-                      MCMCparams = MCMCparams,
+                      MCMCparams = MCMC.params,
                       Run_Time = Run_Time,
-                      Run_Date = Run_Date,
+                      Run_Date = Run.date,
                       Sys.info = Sys.info())
   
   saveRDS(Ver2.results, file = out.file.name)
@@ -265,6 +267,9 @@ Corrected.Est <- Ver2.results$BUGS.out$sims.list$Corrected.Est
 # 
 # Daily.Est.UCIs <- Daily.Est.LCIs <- vector(mode = "list",
 #                                            length = dim(Daily.Est)[3])
+
+all.seasons <- c(input.list$jags.input.Laake$seasons,
+                 input.list$jags.input.new$seasons)
 
 stats.list <- vector(mode = "list",
                      length = dim(Daily.Est)[3])
@@ -297,21 +302,20 @@ for (k in 1:dim(Daily.Est)[3]){
                                                 quantile,0.975),
                                 #total.median = apply(exp(sp[,,k]), 1, sum),
                                 days = 1:dim(Daily.Est)[2],
-                                year = WinBUGS.input$seasons[k])
+                                year = all.seasons[k])
 }
 
 all.stats <- do.call("rbind", stats.list) %>% group_by(year)
 
-
-obs.day <- WinBUGS.input$data$day
-n.obs.primary <- WinBUGS.input$data$n.com[,1,]
+obs.day <- BUGS.data$day
+n.obs.primary <- BUGS.data$n.com[,1,]
 Nhats <- list()
 k <- 1
 for (k in 1:ncol(obs.day)){
-  tmp.day <-  WinBUGS.input$data$day[,k] %>% 
+  tmp.day <-  BUGS.data$day[,k] %>% 
     na.omit() 
   tmp.n <- n.obs.primary[1:(length(tmp.day)-2),k]
-  tmp.watch <- WinBUGS.input$data$Watch.Length[1:(length(tmp.day)-2),k] %>% na.omit()
+  tmp.watch <- BUGS.data$Watch.Length[1:(length(tmp.day)-2),k] %>% na.omit()
   Nhats[[k]] <- data.frame(day = tmp.day[tmp.day > 1 & tmp.day < 90],
                            n = tmp.n,
                            watch = tmp.watch) %>%
@@ -320,7 +324,7 @@ for (k in 1:ncol(obs.day)){
               n = sum(n),
               watch = sum(watch),
               Nhat = n/watch,
-              year = WinBUGS.input$seasons[k])
+              year = all.seasons[k])
   
 }
 
@@ -363,7 +367,7 @@ ggplot(data = all.stats) +
   ylab("Whales per day (spline)")
 
 
-abundance.df <- data.frame(Season = WinBUGS.input$seasons,
+abundance.df <- data.frame(Season = all.seasons,
                            total.mean = apply(Corrected.Est,
                                               FUN = mean,
                                               MARGIN = 2),

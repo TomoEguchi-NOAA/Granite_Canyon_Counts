@@ -20,20 +20,25 @@
 #
 # I set min = 0. 
 #
+# N is the number of whales passing through the study area during the 9-hr sampling period.
+# 
 # Observed counts are assumed to be binomial distribution from this function and
 # sighting probability, which is a function of visibility, Beaufort, and observer.
 #
 # Following Raftery (1988, Infererence for the binomial N parameter: A hierarchical 
 # Bayes approach. Biometrika 75:223-228), I use a Poisson distribution as the prior
 # for N. 
-
+#
 # This v3 version has year spcific Max, K, S1, S2, and P parameters with hyperparameters.
- 
+# 
 # 2024-07-09: It allows different numbers of sampling periods between primary
 # and secondary sampling stations. 
-
+#
 # 2025-06-04: Made N[] to be partially observed. N[1,t] = N[max.day,t] = 0 for all t.
-# This is the same set up as Durban's approach. 
+# This is the same set up as Durban's approach. This results in an error when compiling.
+# "Current value is inconsistent with data" on the final year and last sampling day of data 
+# for N. This error does not occur when obs.prob is computed from the mean. When prob is
+# directly used in dbin(), the error returns.  
 
 model{
 
@@ -51,7 +56,7 @@ model{
 			
 			# True N is station independent and partially observed
 			# N = 0 when t = 1 or t = max.day
-			#N[t, y] ~ dpois(mean.N[t,y])
+			N[t, y] ~ dpois(mean.N[t,y])
 			
 		}
 	}  
@@ -62,24 +67,44 @@ model{
 	for (y in 1:n.year){
 		for (s in 1:n.station[y]){
 			for (d in 1:periods[y,s]){
-				# observation per period d
-				N[d, s, y] ~ dpois(mean.N[day[d,s,y], y] * watch.prop[d,s,y])
-				n[d, s, y] ~ dbin(prob[d, s, y], N[d, s, y])
-				log.lkhd[d,s,y] <- logdensity.bin(n[d,s,y], prob[d,s,y], N[d,s,y])
+				# observation per period d								
+				n[d, s, y] ~ dbin(obs.prob[d, s, y], N[day[d,s,y], y])
+				log.lkhd[d,s,y] <- logdensity.bin(n[d,s,y], obs.prob[d,s,y], N[day[d,s,y], y])
 				
-				logit(prob[d,s,y]) <- logit(mean.prob) + 
+				# watch.prop is the proportion of the total watch periods in a day (540 minutes) that
+				# was actually observed. watch.length is the duration of watch periods in the unit
+				# of days. The probability of sighting prob is discounted by the reciprocal of
+				# watch.prop. 1/(1 + (1 - watch.prop)) 
+				obs.prob[d,s,y] <- (1/(2 - watch.prop[d,s,y])) * prob[d,s,y]
+				
+				# mean is station-year specific
+				logit(prob[d,s,y]) <- mean.prob[s,y] +
 								(BF.Fixed * bf[d,s,y]) + 
-								(VS.Fixed * vs[d,s,y]) +
-								(OBS.RF[obs[d,s,y]])	
+								(VS.Fixed * vs[d,s,y]) + #e[d,s,y]
+								(OBS.RF[obs[d,s,y]]) + e[d,s,y]	
 
 			}
 		}
 	}
 	
+	#e ~ dnorm(0, 0.01)
+	# priors on mean.prob and the extra randomness on probability of sighting. 
+	for (y in 1:n.year){
+	
+		#mean.prob[y] ~ dunif(-5, 5)
+		for (s in 1:n.station[y]){
+			mean.prob[s,y] ~ dunif(-5, 5)
+		
+			for (d in 1:periods[y,s]){			
+				e[d,s,y] ~ dnorm(0, 0.01)
+			}
+		}
+		
+	}
 	
 	# priors for Richards function parameters. 
 	for (y in 1:n.year){
-		Max[y] ~ dnorm(10000, 1/(4000^2))T(0,)
+		Max[y] ~ dnorm(2000, 1/(800^2))T(0,)
 		S1[y] ~ dgamma(S1.alpha, S1.beta)  
 		S2[y] ~ dgamma(S2.alpha, S2.beta)  
 		K[y] ~ dgamma(K.alpha, K.beta)   
@@ -88,7 +113,7 @@ model{
 	}
 
 	# Uniform distributions were adjusted to capture entire posterior 
-	# distributions. 
+	# distributions the hyper-parameters. 
 	
 	S1.alpha ~ dunif(0.1, 50)
 	S1.beta ~ dunif(0.01, 5)
@@ -104,10 +129,12 @@ model{
 	K.beta ~ dunif(0, 5000)
 	K.unif ~ dunif(0, 500)
 	K.alpha <- K.beta + K.unif
-		
+	
+	# one mean.prob for the entire time series may not make sense. So, I changed this
+	# above - year-station specific. 
 	# It doesn't make sense to make it [0,1]...
 	# when not using logit for mean.prob, use something like dunif(-2,2)  
-	mean.prob ~ dunif(0.1, 1.0) #dbeta(1,1) 
+	#mean.prob ~ dunif(-5, 5) #dbeta(5, 5) #dbeta(1,1) 
      
 	## Observer random effects
 	for(o in 1:n.obs){
@@ -118,15 +145,16 @@ model{
 	tau.Obs <- pow(sigma.Obs,-2)
      
 	## Beaufort and visibility	
-	BF.Fixed ~ dnorm(0,0.01)  
-	VS.Fixed ~ dnorm(0,0.01)
+	BF.Fixed ~ dnorm(0,0.01) 
+	VS.Fixed ~ dnorm(0,0.01) 
   
 	### Summaries, Abundance Estimates, and Other Derived Quantities 
 	for(t in 1:n.year){
-	
-		raw.unrounded[t] <- sum(mean.N[1:n.days,t])
-		Raw.Est[t] <- round(raw.unrounded[t])
-	
+		#N is Poisson deviates so they should be integers
+		#raw.unrounded[t] <- sum(N[1:n.days,t])
+		#Raw.Est[t] <- round(raw.unrounded[t])
+		
+		Raw.Est[t] <- sum(N[1:n.days, t])
 		# multiply raw estimates by correction factor for nighttime passage rates (below)
 		Corrected.Est[t] <- Raw.Est[t] * corr.factor 
 	}#t

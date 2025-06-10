@@ -57,56 +57,60 @@ max.day = 100
 #                     n.burnin = 500000,
 #                     n.chains = 5)
 
-MCMC.params <- list(n.samples = 25000,
-                    n.thin = 10,
-                    n.burnin = 5000,
+# MCMC.params <- list(n.samples = 25000,
+#                     n.thin = 10,
+#                     n.burnin = 5000,
+#                     n.chains = 5)
+
+MCMC.params <- list(n.samples = 100000,
+                    n.thin = 50,
+                    n.burnin = 50000,
                     n.chains = 5)
 
-jags.params <- c("OBS.RF", "BF.Fixed",
-                 "VS.Fixed",
-                 "mean.prob", "mean.N", "Max",
-                 "prob",
-                 "Corrected.Est", "Raw.Est", "N",
-                 "K", "S1", "S2", "P",
+jags.params <- c("VS.Fixed", "BF.Fixed", 
+                 "Max", "K", "S1", "S2", "P",
+                 "mean.prob", "prob",  
+                 "mean.N", "Corrected.Est", "N",
+                 "OBS.RF", "e",
                  "Max.alpha", "Max.beta",
                  "S1.alpha", "S2.alpha",
                  "S1.beta", "S2.beta",
                  "P.alpha", "P.beta",
                  "K.alpha", "K.beta",
-                 "N.alpha", "N.sampled",
+                 #"N.alpha", "N.obs",
                  "log.lkhd")
 
 ### Testing model using just new data  ###
-model.name <- paste0("Richards_pois_bino_", ver) 
-jags.model <- paste0("models/model_", model.name, ".txt")
-
-jags.data.list <- data2Jags_input_NoBUGS(min.dur = 60,
-                                         years = years,
-                                         data.dir = "RData/V2.1_Feb2025",
-                                         max.day = 100)
-
-jags.data <- jags.data.list$jags.data
-#jags.data["N"] <- NULL
-#jags.data$n.year <- 5
-
-jm <- jagsUI::jags(jags.data,
-                   inits = NULL,
-                   parameters.to.save= jags.params,
-                   model.file = jags.model,
-                   n.chains = MCMC.params$n.chains,
-                   n.burnin = MCMC.params$n.burnin,
-                   n.thin = MCMC.params$n.thin,
-                   n.iter = MCMC.params$n.samples,
-                   DIC = T,
-                   parallel=T)
-
-jm.out <- list(jm = jm,
-               jags.input = jags.data.list,
-               #start.year = all.start.year,
-               jags.params = jags.params,
-               jags.model = jags.model,
-               MCMC.params = MCMC.params,
-               Sys.env = Sys.getenv())
+# model.name <- paste0("Richards_pois_bino_", ver) 
+# jags.model <- paste0("models/model_", model.name, ".txt")
+# 
+# jags.data.list <- data2Jags_input_NoBUGS(min.dur = 60,
+#                                          years = years,
+#                                          data.dir = "RData/V2.1_Feb2025",
+#                                          max.day = 100)
+# 
+# jags.data <- jags.data.list$jags.data
+# #jags.data["N"] <- NULL
+# #jags.data$n.year <- 5
+# 
+# jm <- jagsUI::jags(jags.data,
+#                    inits = NULL,
+#                    parameters.to.save= jags.params,
+#                    model.file = jags.model,
+#                    n.chains = MCMC.params$n.chains,
+#                    n.burnin = MCMC.params$n.burnin,
+#                    n.thin = MCMC.params$n.thin,
+#                    n.iter = MCMC.params$n.samples,
+#                    DIC = T,
+#                    parallel=T)
+# 
+# jm.out <- list(jm = jm,
+#                jags.input = jags.data.list,
+#                #start.year = all.start.year,
+#                jags.params = jags.params,
+#                jags.model = jags.model,
+#                MCMC.params = MCMC.params,
+#                Sys.env = Sys.getenv())
 
 
 # jags.data$n[1:10, 1, 1]
@@ -140,7 +144,7 @@ jm.out <- NoBUGS_Richards_fcn(min.dur = min.dur,
 
 # need to turn zeros into NAs when there were no second station:
 data.array <- jm.out$jags.input$jags.data$n
-data.array[,2,which(jags.data.list$jags.data$n.station == 1)] <- NA
+data.array[,2,which(jm.out$jags.input$jags.data$n.station == 1)] <- NA
 data.array[,2,which(jm.out$jags.input$jags.data$n.station == 1)] <- NA
 
 LOOIC.n <- compute.LOOIC(loglik.array = jm.out$jm$sims.list$log.lkhd,
@@ -322,7 +326,7 @@ p.Nhats <- ggplot(all.estimates) +
              alpha = 0.5) +
   geom_errorbar(aes(x = start.year, ymin = LCL, ymax = UCL,
                     color = Method)) +
-  ylim(5000, 35000)
+  ylim(2000, 40000)
 
 # ggsave(plot = p.Nhats,
 #        filename = paste0("figures/Nhats_", ver, "_", min.dur, "min.png"),

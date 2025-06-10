@@ -58,18 +58,43 @@ model{
 		for (s in 1:n.station[y]){
 			for (d in 1:periods[y,s]){
 				# observation per period d
+				n[d, s, y] ~ dbin(obs.prob[d, s, y], N[day[d,s,y], y])
+				log.lkhd[d,s,y] <- logdensity.bin(n[d,s,y], obs.prob[d,s,y], N[day[d,s,y], y])
 				
-				n[d, s, y] ~ dbin(obs.prob[d, s, y], round(N[day[d,s,y], y]))
-				log.lkhd[d,s,y] <- logdensity.bin(n[d,s,y], obs.prob[d,s,y], round(N[day[d,s,y], y]))
+				# watch.prop is the proportion of the total watch periods in a day (540 minutes) that
+				# was actually observed. watch.length is the duration of watch periods in the unit
+				# of days. The probability of sighting prob is discounted by the reciprocal of
+				# watch.prop. 1/(1 + (1 - watch.prop)) 
+				obs.prob[d,s,y] <- (1/(2 - watch.prop[d,s,y])) * prob[d,s,y]
 				
+				# mean is station-year specific
+				logit(prob[d,s,y]) <- mean.prob[s,y] +
+								(BF.Fixed * bf[d,s,y]) + 
+								(VS.Fixed * vs[d,s,y]) + #e[d,s,y]
+								(OBS.RF[obs[d,s,y]]) + e[d,s,y]	
+												
 			}
 		}
 	}
 
+	# priors on mean.prob and the extra randomness on probability of sighting. 
+	for (y in 1:n.year){
+	
+		#mean.prob[y] ~ dunif(-5, 5)
+		for (s in 1:n.station[y]){
+			mean.prob[s,y] ~ dunif(-5, 5)
+		
+			for (d in 1:periods[y,s]){			
+				e[d,s,y] ~ dnorm(0, 0.01)
+			}
+		}
+		
+	}
+	
 	# priors for Richards function parameters. 
 	for (y in 1:n.year){
 		
-		Max[y] ~ dnorm(10000, 1/(4000^2))T(0,)
+		Max[y] ~ dnorm(2000, 1/(800^2))T(0,)
 		S1[y] ~ dgamma(S1.alpha, S1.beta)  
 		S2[y] ~ dgamma(S2.alpha, S2.beta)  
 		
@@ -95,49 +120,7 @@ model{
 	K.beta ~ dunif(0, 5000)
 	K.unif ~ dunif(0, 500)
 	K.alpha <- K.beta + K.unif
-	
-	### Observation probability - include the watch period durations (in proportions)
-	# I removed all "switches," which were 0/1 to exclude/include each variable. They
-	# are all in. If something is not needed, the coefficient would include zero.
-	for(y in 1:n.year){
-		for(s in 1:n.station[y]){
-			for(d in 1:periods[y,s]){
-			
-				# Another way to model the detection probability... 
-				prob[d,s,y] <- ilogit(mean.prob + 
-								(BF.Fixed * bf[d,s,y]) + 
-								(VS.Fixed * vs[d,s,y]) +
-								(OBS.RF[obs[d,s,y]]))
-								
-				#logit(prob[d,s,y]) <- logit(mean.prob) + 
-				#				(BF.Fixed * bf[d,s,y]) + 
-				#				(VS.Fixed * vs[d,s,y]) 
-								#(OBS.RF[obs[d,s,y]])						
-									
-				# watch.prop is the proportion of the total watch periods in a day (540 minutes) that
-				# was actually observed. watch.length is the duration of watch periods in the unit
-				# of days. The probability of sighting prob is discounted by the reciprocal of
-				# watch.prop. 1/(1 + (1 - watch.prop)) 
-				obs.prob[d,s,y] <- (1/(2 - watch.prop[d,s,y])) * prob[d,s,y]
-				#obs.prob[d,s,y] <- watch.length[d,s,y] * prob[d,s,y]
-                
-			}#d
-		}#s
-	}#y
-  
-	# Detection probability should be highest when Beaufort is zero and visibility
-	# is zero. The observer effect should be <= 1.0, where the best observer can do only
-	# the "mean"
-	# 
-	# when not using logit for mean.prob, use something like dunif(-2,2)  
-	#mean.prob ~ dbeta(1,1) 
-	mean.prob ~ dunif(-2, 2)
-	
-	# I'm going to make a bold assumption that when bf and vs are 0
-	# the probability is almost 1.0. 
-	#mean.prob ~ dbeta(0.95, 0.05)  # This doesn't work well because the mean gets very small.
-	#mean.prob ~ dunif(0.9, 1.0)     # This works.
-      
+		      
 	## Observer random effect
 	for(o in 1:n.obs){
 		OBS.RF[o] ~ dnorm(0,tau.Obs)
@@ -148,15 +131,14 @@ model{
      
 	## Beaufort and visibility	
 	BF.Fixed ~ dnorm(0,0.01)
-  
 	VS.Fixed ~ dnorm(0,0.01)
   
 	### Summaries, Abundance Estimates, and Other Derived Quantities 
 	for(t in 1:n.year){
 	
-		raw.unrounded[t] <- sum(N[1:n.days,t])
-		Raw.Est[t] <- round(raw.unrounded[t])
-	
+		#raw.unrounded[t] <- sum(N[1:n.days,t])
+		#Raw.Est[t] <- round(raw.unrounded[t])
+		Raw.Est[t] <- sum(N[1:n.days, t])
 		# multiply raw estimates by correction factor for nighttime passage rates (below)
 		Corrected.Est[t] <- Raw.Est[t] * corr.factor 
 	}#t
@@ -166,8 +148,7 @@ model{
 	mean.corr <- 1.0875
 	sd.corr <- 0.03625
 	tau.corr <- pow(sd.corr,-2)
-  		
-	 
+  			 
   # In the paper, Perryman et al. stated that "... the multiplicative correction 
   # factor for the entire visual survey based on a 15-h nocturnal (i.e., non-survey)
   # period would be 1 + 0.175f (SE = 0.116 * (14/24)), where f is the fraction of total

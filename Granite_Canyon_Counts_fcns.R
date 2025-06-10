@@ -321,7 +321,7 @@ NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC
   
   if (!file.exists(out.file.name)){
     jags.input.list <- AllData2JagsInput_NoBUGS(min.dur, years = years, data.dir, max.day)                        
-    
+    #jags.input.list$jags.data["N"] <- NULL
     jags.input <- list(jags.data = jags.input.list$jags.data,
                        min.dur = min.dur, 
                        jags.input.Laake = jags.input.list$jags.input.Laake,
@@ -1447,7 +1447,8 @@ LaakeData2JagsInput <- function(min.dur, max.day = 100){
                    obs = Laake.obs,
                    min.dur = min.dur,
                    primary.counts = Laake.primary.counts,
-                   secondary.counts = Laake.secondary.counts)
+                   secondary.counts = Laake.secondary.counts,
+                   seasons = paste0(all.year, "/", all.year + 1))
   
   return(out.list)  
 }
@@ -1705,7 +1706,7 @@ data2Jags_input_NoBUGS <- function(min.dur,
       
       obs[1:n.row.P,1,k] <- c(obs.year.P$ID, no.obs.ID, no.obs.ID)
       # 0.375 is 9 hrs and watch.prop = 1.0
-      watch.length[1:n.row.P,1,k] <- c(Final_data.P$watch.length, 0.375, 0.375)
+      watch.length[1:n.row.P,1,k] <- c(Final_data.P$watch.length, 0.0, 0.0)
       day[1:n.row.P,1,k] <- c(floor(Final_data.P$begin), 1, max.day)
       periods.mat[k,1] <- nrow(Final_data.P) + 2
       
@@ -1719,7 +1720,7 @@ data2Jags_input_NoBUGS <- function(min.dur,
         left_join(all.observers, by = "obs")
       
       obs[1:n.row.S,2,k] <- c(obs.year.S$ID, no.obs.ID, no.obs.ID)
-      watch.length[1:n.row.S,2,k] <- c(Final_data.S$watch.length, 0.375, 0.375)
+      watch.length[1:n.row.S,2,k] <- c(Final_data.S$watch.length, 0.0, 0.0)
       day[1:n.row.S,2,k] <- c(floor(Final_data.S$begin), 1, max.day)
       
       periods.mat[k,2] <- nrow(Final_data.S) + 2
@@ -1734,7 +1735,7 @@ data2Jags_input_NoBUGS <- function(min.dur,
         left_join(all.observers, by = "obs")
       
       obs[1:n.row,1,k] <- c(obs.year$ID, no.obs.ID, no.obs.ID)
-      watch.length[1:n.row,1,k] <- c(Final_data$watch.length, 0.375, 0.375)
+      watch.length[1:n.row,1,k] <- c(Final_data$watch.length, 0.0, 0.0)
       day[1:n.row,1,k] <- c(floor(Final_data$begin), 1, max.day)
       periods.mat[k,1] <- nrow(Final_data) + 2
       
@@ -1793,15 +1794,15 @@ data2Jags_input_NoBUGS <- function(min.dur,
                         MARGIN = 2)
   
   # N is a partially observed (by assumption)
-  N <- array(dim = dim(day))
-  N[day == 1] <- 0
-  N[day == max.day] <- 0
-  
+  # N <- array(dim = dim(day))
+  # N[day == 1] <- 0
+  # N[day == max.day] <- 0
+  # 
   # Or a 2D
-  # N <- matrix(data = NA, nrow = max.day, ncol = dim(n)[3])
-  # N[1,] <- 0
-  # N[max.day,] <- 0
- 
+  N <- matrix(data = NA, nrow = max.day, ncol = dim(n)[3])
+  N[1,] <- 0
+  N[max.day,] <- 0
+
   jags.data <- list(  n = n,
                       n.station = n.stations,
                       n.year = length(years),
@@ -1809,8 +1810,10 @@ data2Jags_input_NoBUGS <- function(min.dur,
                       periods = periods.mat,
                       n.days = max(day, na.rm = T),
                       obs = obs.new,
-                      vs = vs,
-                      bf = bf,
+                      vs = apply(vs, MARGIN = c(2,3), 
+                                 FUN = scale, scale = FALSE),
+                      bf = apply(bf, MARGIN = c(2,3), 
+                                 FUN = scale, scale = FALSE),
                       watch.length = watch.length,
                       watch.prop = (watch.length * 24)/9,
                       day = day,
@@ -2189,29 +2192,70 @@ WinBUGSdata2Jags_input <- function(min.dur,
   return(out.list)
 }
 
+# Create trace plots without using bayesplot. Sometimes bayesplot complains about
+# Error in out[, i, ] <- x[[i]] : 
+#number of items to replace is not a multiple of replacement length
+# If selecting variable names with brackets, use two backslash escape:
+# e.g., to plot all variables with S[, plot.trace.dens("S\\[", jm)
+
+plot.trace.dens <- function(var.name, jm){
+  par.names <- unlist(dimnames(jm$samples[[1]])[2])
+  col.idx <- grep(var.name, par.names)
+  samples.list <- list()
+  
+  samples <- lapply(jm$samples, FUN = function(x) x[, col.idx])
+  if (length(col.idx) > 1){
+    for (k in 1:length(col.idx)){
+      samples.list[[k]] <- unlist(lapply(samples, FUN = function(x) x[,k]))
+    }
+    samples.df <- data.frame(seq = rep(1:length(samples.list[[1]]), 
+                                       times = length(col.idx)),
+                             sample = unlist(samples.list),
+                             par.name = rep(par.names[col.idx], 
+                                            each = length(samples.list[[1]])))
+  } else {
+    samples.vec <- unlist(samples)
+    samples.df <- data.frame(seq = rep(1:length(samples.vec)),
+                             sample = samples.vec,
+                             par.name = par.names[col.idx])
+        
+  }
+
+  p.trace <- ggplot(samples.df) +
+    geom_path(aes(x = seq, y = sample)) +
+    facet_wrap(~ par.name)
+  
+  p.dens <- ggplot(samples.df) +
+    geom_density(aes(x = sample)) +
+    facet_wrap(~ par.name)
+  
+  return(list(df = samples.df,
+              p.trace = p.trace,
+              p.dens = p.dens))
+}
 
 # Create trace and density plots for MCMC samples from jagsUI
-plot.trace.dens <- function(param, jags.out){
-  if (!is.character(jags.out)) stop("jags.out input has to be a character string")
-  
-  n.param <- ncol(eval(parse(text = paste0(jags.out, "$sims.list$", param))))
-  samples <- eval(parse(text = paste0(jags.out, "$samples")))
-  
-  if (!is.null(n.param)){
-    
-    par.idx <- c(1:n.param)
-    p.trace <- bayesplot::mcmc_trace(samples, paste0(param, "[", par.idx, "]"))
-    p.dens <- bayesplot::mcmc_dens(samples, paste0(param, "[", par.idx, "]"))
-    
-  } else {
-    p.trace <- bayesplot::mcmc_trace(samples, param)
-    p.dens <- bayesplot::mcmc_dens(samples, param)
-    
-  }
-  
-  return(list(trace = p.trace,
-              dens = p.dens))
-}
+# plot.trace.dens <- function(param, jags.out){
+#   if (!is.character(jags.out)) stop("jags.out input has to be a character string")
+#   
+#   n.param <- ncol(eval(parse(text = paste0(jags.out, "$sims.list$", param))))
+#   samples <- eval(parse(text = paste0(jags.out, "$samples")))
+#   
+#   if (!is.null(n.param)){
+#     
+#     par.idx <- c(1:n.param)
+#     p.trace <- bayesplot::mcmc_trace(samples, paste0(param, "[", par.idx, "]"))
+#     p.dens <- bayesplot::mcmc_dens(samples, paste0(param, "[", par.idx, "]"))
+#     
+#   } else {
+#     p.trace <- bayesplot::mcmc_trace(samples, param)
+#     p.dens <- bayesplot::mcmc_dens(samples, param)
+#     
+#   }
+#   
+#   return(list(trace = p.trace,
+#               dens = p.dens))
+# }
 
 
 shift.definition <- function(date, time){
