@@ -1,0 +1,101 @@
+# N-mixture model a la ChatGPT
+
+
+model {
+	# Priors for abundance (smooth function)
+	for (y in 1:n.year){
+		alpha[y] ~ dnorm(0, 0.001)
+		
+		for (k in 1:nbasis) {
+			beta[k, y] ~ dnorm(0, 0.001)
+		}
+	}
+ 
+	# Priors for detection covariates
+	BF.Fixed ~ dnorm(0, 0.001)
+	VS.Fixed ~ dnorm(0, 0.001)
+	
+	# Observer random effects
+	for (k in 1:n.obs) {
+		eps[k] ~ dnorm(0, tau_obs)  # random effect
+	}
+	tau_obs <- pow(sigma_obs, -2)
+	sigma_obs ~ dunif(0, 10)
+
+	# Fix boundary abundances
+	#for (y in 1:n.year){
+	#	N[1, y] <- 0
+	#	N[n.days, y] <- 0
+	#	lambda[1, y] <- 1e-6
+	#	lambda[n.days, y] <- 1e-6
+	#}
+
+	for (y in 1:n.year){
+		for (i in 1:n.days) {
+			log(lambda[i,y]) <- alpha[y] + inprod(B[i, ], beta[,y])
+			N[i,y] ~ dpois(lambda[i, y])
+		}
+	}
+
+	for (y in 1:n.year){
+		for (s in 1:n.station[y]){
+			for (d in 1:(periods[y,s]-2)){
+				# Detection model with covariates and observer random effect
+				logit(p[d,s,y]) <- (BF.Fixed * bf[d,s,y]) + 
+								(VS.Fixed * vs[d,s,y]) + eps[obs[d, s, y]]
+				
+				N.obs[d,s,y] <- round(N[day[d,s,y], y] * watch.prop[d,s,y])
+				n[d, s, y] ~ dbin(p[d, s, y], round(N.obs[d, s, y]))
+				log.lkhd[d,s,y] <- logdensity.bin(n[d,s,y], p[d,s,y], round(N.obs[d,s,y]))
+			}
+		}
+	}
+
+	#mean.prob ~ dunif(-5, 5)
+	
+	# Fixed-zero observations
+	#for (y in 1:n.year){
+	#	for (s in 1:n.station[y]){
+	#		
+	#		n[(periods[y,s] - 1), s, y] ~ dbin(0,0)
+	#
+	#	n[(periods[y,s]), s, y] ~ dbin(0,0)
+	#	}
+	#}
+  
+  	### Summaries, Abundance Estimates, and Other Derived Quantities 
+	for(t in 1:n.year){		
+		Raw.Est[t] <- sum(N[1:n.days, t])
+		# multiply raw estimates by correction factor for nighttime passage rates (below)
+		Corrected.Est[t] <- Raw.Est[t] * corr.factor 
+	}#t
+  
+	# Correction factor for nighttime passage rates (Perryman et al. 1999 Marine Mammal Science):
+	corr.factor ~ dnorm(mean.corr, tau.corr)
+	mean.corr <- 1.0875
+	sd.corr <- 0.03625
+	tau.corr <- pow(sd.corr,-2)
+  			
+}
+
+
+
+
+#library(splines)
+
+# Example covariate
+#x <- site_covariate_vector  # Length nsite
+
+# Create B-spline basis (you can customize df or knots)
+#B <- bs(x, df = 5, intercept = TRUE)  # Basis matrix
+
+# Data list for JAGS
+#jags_data <- list(
+#  y = observed_counts_matrix,
+#  nsite = nrow(observed_counts_matrix),
+#  nvisit = ncol(observed_counts_matrix),
+#  B = B,
+#  nbasis = ncol(B)
+#)
+
+
