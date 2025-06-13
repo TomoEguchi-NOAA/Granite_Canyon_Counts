@@ -322,15 +322,46 @@ NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC
   if (!file.exists(out.file.name)){
     jags.input.list <- AllData2JagsInput_NoBUGS(min.dur, years = years, data.dir, max.day)                        
     #jags.input.list$jags.data["N"] <- NULL
-    jags.input <- list(jags.data = jags.input.list$jags.data,
+    # Modify jags data to rearrange days and provide zeros for t = 1 and t = max.day
+    jags.data <- jags.input.list$jags.data
+    jags.data$periods <- jags.data$periods - 2
+    
+    jags.data$day[jags.data$day == 1] <- NA
+    jags.data$day[jags.data$day == max.day] <- NA
+    
+    jags.data$n[jags.data$day == 1] <- NA
+    jags.data$n[jags.data$day == max.day] <- NA
+    
+    for (k in 1:jags.data$n.year){
+      jags.data$day[(jags.data$periods[k, 1]+1), 1, k] <- 100
+      jags.data$n[(jags.data$periods[k, 1]+1), 1, k] <- 0
+      if (jags.data$n.station[k] == 2){
+        jags.data$day[(jags.data$periods[k, 2]+1), 2, k] <- 100
+        jags.data$n[(jags.data$periods[k, 2]+1), 2, k] <- 0
+      }
+      
+    }
+    
+    jags.data$day <- abind::abind(array(data = 1, dim = c(1, 2, jags.data$n.year)),
+                                  jags.data$day, along = 1)
+    
+    jags.data$n <- abind::abind(array(data = 0, dim = c(1, 2, jags.data$n.year)),
+                                jags.data$n, along = 1)
+    
+    jags.data$scaled.day <- jags.data$day-(max.day/2)
+    jags.data["N"] <- NULL
+    ###  ###  ###
+      
+    jags.input <- list(jags.data = jags.data,
                        min.dur = min.dur, 
                        jags.input.Laake = jags.input.list$jags.input.Laake,
                        jags.input.new = jags.input.list$jags.input.new,
+                       jags.original.data = jags.input.list$jags.data,
                        data.dir = data.dir)
     
     Start_Time<-Sys.time()
     
-    jm <- jagsUI::jags(jags.input.list$jags.data,
+    jm <- jagsUI::jags(jags.data,
                        inits = NULL,
                        parameters.to.save= jags.params,
                        model.file = jags.model,
@@ -1806,7 +1837,7 @@ data2Jags_input_NoBUGS <- function(min.dur,
   jags.data <- list(  n = n,
                       n.station = n.stations,
                       n.year = length(years),
-                      n.obs = length(uniq.obs),
+                      n.obs = length(uniq.obs) - 1,
                       periods = periods.mat,
                       n.days = max(day, na.rm = T),
                       obs = obs.new,
@@ -2102,7 +2133,7 @@ AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir, max.day = 90){
                       n.station = c(jags.input.Laake$jags.data$n.station,
                                     jags.input.new$jags.data$n.station),
                       n.year = dim(jags.bf.all)[3],
-                      n.obs = nrow(obs.all),
+                      n.obs = nrow(obs.all) - 1,
                       periods = labelled::remove_attributes(rbind(as.matrix(jags.input.Laake$jags.data$periods), 
                                       jags.input.new$jags.data$periods), "dimnames"),
                       n.days = max(jags.input.Laake$jags.data$n.days,
@@ -2122,7 +2153,7 @@ AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir, max.day = 90){
 }
 
 # Create data input for Jags from WinBUGS input.
-WinBUGSdata2Jags_input <- function(min.dur, 
+WinBUGSinput <- function(min.dur, 
                                    WinBUGS.out.file,
                                    years,
                                    n.stations,

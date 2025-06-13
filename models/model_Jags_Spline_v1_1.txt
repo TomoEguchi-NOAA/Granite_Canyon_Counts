@@ -11,12 +11,13 @@ model {
   for (y in 1:nyears) {
     for (t in 1:ntime) {
       # Abundance pattern shared across years
-      log(lambda[y,t]) <- inprod(B[t,], beta[])
+      log(lambda[y,t]) <- inprod(B[y,t,], beta[])
       N[y,t] ~ dpois(lambda[y,t])
 
       for (j in 1:nrep) {
-        logit(p[y,t,j]) <- (BF.Fixed * bf[d,y]) + 
-								(VS.Fixed * vs[d,y]) + 
+        logit(p[y,t,j]) <- (alpha0 * bf[d,y]) + 
+			
+			(alpha1 * vs[d,y]) + 
 								(OBS.RF[obs[d,y]]) 
 								
         ycount[y,t,j] ~ dbin(p[y,t,j], N[y,day[d,y]])
