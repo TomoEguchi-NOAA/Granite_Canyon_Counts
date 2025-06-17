@@ -278,6 +278,12 @@ Jags_Richards_Since2010_fcn <- function(min.dur, ver, years, data.dir, jags.para
 # years for which the model is fit, a directory name where data are stored,
 # parameters to be monitored, and MCMC parameters as a list.
 # 
+# max.day = the maximum number of days to be included. It is counted from 1 December.
+#           Default is 100 because there were some observations beyond day 90 in old 
+#           (Laake's) dataset
+# obs.n.min = the number of observation records per observer to be included. Observers with
+#             less than obs.n.min records are pooled as "others" for calculating the 
+#             random effects of observers. Default is 10.
 # Results are saved in a subdirectory under the current working directory named "RData."
 # 
 # Example:
@@ -305,13 +311,14 @@ Jags_Richards_Since2010_fcn <- function(min.dur, ver, years, data.dir, jags.para
 #                     data.dir = "RData/V2.1_Nov2024", 
 #                     jags.params = jags.params, 
 #                     MCMC.params = MCMC.params,
-#                     max.day = 100)     
+#                     max.day = 100,
+#                     obs.n.min = 10)     
 #                     
-NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC.params, max.day, Run.date = Sys.Date()){
+NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC.params, max.day = 100, obs.n.min = 10, Run.date = Sys.Date()){
   print("Starting NoBUGS_Richards_fcn")
   
   #Run.date <- Sys.Date()
-  model.name <- paste0("Richards_pois_bino_", ver) 
+  model.name <- paste0("Richards_Nmixture_", ver) 
   jags.model <- paste0("models/model_", model.name, ".txt")
   
   out.file.name <- paste0("RData/JAGS_", model.name, 
@@ -324,6 +331,7 @@ NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC
     #jags.input.list$jags.data["N"] <- NULL
     # Modify jags data to rearrange days and provide zeros for t = 1 and t = max.day
     jags.data <- jags.input.list$jags.data
+    
     jags.data$periods <- jags.data$periods - 2
     
     jags.data$day[jags.data$day == 1] <- NA
@@ -333,31 +341,65 @@ NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC
     jags.data$n[jags.data$day == max.day] <- NA
     
     for (k in 1:jags.data$n.year){
-      jags.data$day[(jags.data$periods[k, 1]+1), 1, k] <- 100
+      jags.data$day[(jags.data$periods[k, 1]+1), 1, k] <- max.day
       jags.data$n[(jags.data$periods[k, 1]+1), 1, k] <- 0
       if (jags.data$n.station[k] == 2){
-        jags.data$day[(jags.data$periods[k, 2]+1), 2, k] <- 100
+        jags.data$day[(jags.data$periods[k, 2]+1), 2, k] <- max.day
         jags.data$n[(jags.data$periods[k, 2]+1), 2, k] <- 0
       }
       
     }
     
-    jags.data$day <- abind::abind(array(data = 1, dim = c(1, 2, jags.data$n.year)),
+    jags.data$day <- abind::abind(array(data = 1, 
+                                        dim = c(1, 2, jags.data$n.year)),
                                   jags.data$day, along = 1)
     
-    jags.data$n <- abind::abind(array(data = 0, dim = c(1, 2, jags.data$n.year)),
+    jags.data$n <- abind::abind(array(data = 0, 
+                                      dim = c(1, 2, jags.data$n.year)),
                                 jags.data$n, along = 1)
     
-    jags.data$scaled.day <- jags.data$day-(max.day/2)
+    
+    obs.vec <- as.vector(jags.data$obs) 
+    data.frame(obs = obs.vec) %>%
+      mutate(obs.f = as.factor(obs)) %>%
+      group_by(obs.f) %>%
+      summarize(n = n(),
+                obs = first(obs)) -> obs.summary
+    
+    obs.too.few <- obs.summary %>% filter(n < obs.n.min)  
+    
+    obs.to.keep <- obs.summary %>% filter(n >= obs.n.min) 
+    obs.to.keep$new.ID <- seq(1, dim(obs.to.keep)[1])
+    obs.others <- max(obs.to.keep$new.ID)
+    
+    obs <- jags.data$obs
+    new.no.obs <- obs.others + 1
+    old.no.obs <- max(obs.to.keep$obs)
+    for (k in 1:nrow(obs.too.few)){
+      obs[obs == obs.too.few$obs[k]] <- NA
+    }
+    
+    for (k in 1:(nrow(obs.to.keep)-1)){
+      obs[obs == obs.to.keep$obs[k]]  <- obs.to.keep$new.ID[k] 
+    }
+    
+    obs[is.na(obs)] <- obs.others
+    obs[obs == old.no.obs] <- new.no.obs
+    
+    jags.data$obs <- obs
+    jags.data$n.obs <- max(obs) - 1
+    
+    #jags.data$scaled.day <- jags.data$day-(max.day/2)
     jags.data["N"] <- NULL
     ###  ###  ###
-      
+    
     jags.input <- list(jags.data = jags.data,
                        min.dur = min.dur, 
                        jags.input.Laake = jags.input.list$jags.input.Laake,
                        jags.input.new = jags.input.list$jags.input.new,
                        jags.original.data = jags.input.list$jags.data,
-                       data.dir = data.dir)
+                       data.dir = data.dir,
+                       obs.summary = obs.summary)
     
     Start_Time<-Sys.time()
     
@@ -2148,7 +2190,8 @@ AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir, max.day = 90){
   return(list(jags.data = jags.data,
               jags.input.Laake = jags.input.Laake,
               jags.input.new = jags.input.new,
-              all.observers = obs.all))
+              all.observers = obs.all,
+              min.dur = min.dur))
   
 }
 
@@ -2229,32 +2272,39 @@ WinBUGSinput <- function(min.dur,
 # If selecting variable names with brackets, use two backslash escape:
 # e.g., to plot all variables with S[, plot.trace.dens("S\\[", jm)
 
-plot.trace.dens <- function(var.name, jm){
+plot.trace.dens <- function(jm, var.name){
   par.names <- unlist(dimnames(jm$samples[[1]])[2])
   col.idx <- grep(var.name, par.names)
   samples.list <- list()
   
+  n.samples <- nrow(jm$samples[[1]])
+  n.chains <- length(jm$samples)
   samples <- lapply(jm$samples, FUN = function(x) x[, col.idx])
   if (length(col.idx) > 1){
     for (k in 1:length(col.idx)){
       samples.list[[k]] <- unlist(lapply(samples, FUN = function(x) x[,k]))
     }
-    samples.df <- data.frame(seq = rep(1:length(samples.list[[1]]), 
-                                       times = length(col.idx)),
+    samples.df <- data.frame(seq = rep(1:n.samples, 
+                                       times = n.chains),
                              sample = unlist(samples.list),
                              par.name = rep(par.names[col.idx], 
-                                            each = length(samples.list[[1]])))
+                                            each = length(samples.list[[1]])),
+                             chain = rep(1:n.chains, 
+                                         each = n.samples))
   } else {
     samples.vec <- unlist(samples)
-    samples.df <- data.frame(seq = rep(1:length(samples.vec)),
+    samples.df <- data.frame(seq = rep(1:n.samples),
                              sample = samples.vec,
-                             par.name = par.names[col.idx])
+                             par.name = par.names[col.idx],
+                             chain = rep(1:n.chains, 
+                                         times = n.samples))
         
   }
 
   p.trace <- ggplot(samples.df) +
-    geom_path(aes(x = seq, y = sample)) +
-    facet_wrap(~ par.name)
+    geom_line(aes(x = seq, y = sample, color = chain)) +
+    facet_wrap(~ par.name) +
+    theme(legend.position = "none")
   
   p.dens <- ggplot(samples.df) +
     geom_density(aes(x = sample)) +

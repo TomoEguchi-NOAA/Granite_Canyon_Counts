@@ -1,7 +1,26 @@
 # JAGS model for estimating gray whale abundance off Granite Canyon
 
-# known cyclical nature of gray whale counts is modeled by the split-Gaussian
-# function (a piecewise exponential model). I got this idea from ChatGPT.
+# known cyclical nature of gray whale counts is modeled by the function
+# provided in Girondot et al. (2007): Modeling approaches to quantify
+# leatherback nesting trends in French Guiana and Suriname. Chelonian
+# Conservation and Biology 6(1): 37-46.
+#
+# The function has the following form:
+# 
+# M1 <- (1 + (2 * exp(K) - 1) * exp((1/S1) * (P - d))) ^ (-1/exp(K))
+# M2 <- (1 + (2 * exp(K) - 1) * exp((1/S2) * (P - d))) ^ (-1/exp(K))
+# N <- min + (max - min) * (M1 * M2)
+#
+# d is the number of days from the beginning of nesting season
+# S1 < 0 and S2 > 0 define the "fatness" of the function
+# K > 0 defines the "flatness" at the peak of the function
+# P defines where the peak is relatvie to the range of d min(d) < P < max(d)
+# min is "the basal level of nesting outside the nesting season"
+# max > min
+#
+# I set min = 0. 
+#
+# N is the number of whales passing through the study area during the 9-hr sampling period.
 # 
 # Observed counts are assumed to be binomial distribution from this function and
 # sighting probability, which is a function of visibility, Beaufort, and observer.
@@ -10,8 +29,9 @@
 # Bayes approach. Biometrika 75:223-228), I use a Poisson distribution as the prior
 # for N. 
 #
-# This v3 version has year spcific Max, K, S1, S2, and P parameters with hyperparameters.
-# 
+# This version (v5) has year spcific P, S1 and S2 parameters with hyperparameters.
+# K is shared among years.
+#
 # 2024-07-09: It allows different numbers of sampling periods between primary
 # and secondary sampling stations. 
 #
@@ -23,41 +43,30 @@
 
 model{
 
-	# --- State model: true abundance ---
+	# Define Richards function - this is the mean of "true" daily abundance
+	# The realization is a Poisson deviate. 
 	for (y in 1:n.year){
 				
 		for (t in 2:(n.days-1)){
+			# year-specific K - results in conversion issues. 2022-11-09 
+			# This was fixed by adding hyperparameters. 2024
+			M1[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/(-S1[y])) * (P[y] - t))) ^ (-1/exp(K))
+			M2[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K))
 			
-			# calculate log-lambda
-			log_lambda[t, y] <- beta0 - pow(x_day[t, y] - mu, 2) / (2 * pow(step(mu - x_day[t, y]) * sigma1 + (1 - step(mu - x_day[t, y])) * sigma2, 2))
-
-			lambda[t, y] <- exp(log_lambda[t, y])
-
-			N[t, y] ~ dpois(lambda[t, y]) #T(min.N[t,y],)	
+			mean.N[t, y] <- (Max[y]) * (M1[t, y] * M2[t, y]) 
+			
+			# True N is station independent and partially observed
+			# N = 0 when t = 1 or t = max.day
+			N[t, y] ~ dpois(mean.N[t,y])
 			
 		}
-		
-		N[1,y] <- 0
-		N[n.days, y] <- 0
 	}  
- 
-	beta0 ~ dnorm(0, 1.0)          # Peak log abundance
-	mu ~ dunif(0, 1)               # Day of peak (scaled)
-	sigma1 ~ dunif(0.05, 2)        # Spread before peak
-	sigma2 ~ dunif(0.05, 2)        # Spread after peak
-  
+
 	# Set N= 0 when t = 1 or t = max.day
-	#for (y in 1:n.year){
-	#	N[1, y] <- 0
-	#	N[n.days, y] <- 0
-	#	
-	#	lambda[1,y] <- 0.0001
-	#	log_lambda[1,y] <- -9.2
-	#	
-	#	lambda[n.days,y] <- 0.0001
-	#	log_lambda[n.days,y] <- -9.2
-	#	
-	#}
+	for (y in 1:n.year){
+		N[1, y] <- 0
+		N[n.days, y] <- 0
+	}
 	
 	# observations are from the realized abundance: N-mixture part with 
 	# binomial sampling
@@ -74,25 +83,16 @@ model{
 		for (s in 1:n.station[y]){
 			for (d in 2:(periods[y,s]+1)){
 				# observation per period d								
+				n[d, s, y] ~ dbin(obs.prob[d,s,y], N[day[d,s,y], y])
+				log.lkhd[(d-1),s,y] <- logdensity.bin(n[d,s,y], obs.prob[d, s, y], N[day[d,s,y], y])
 				
-				# Observable N is N * watch.prop
-				n[d, s, y] ~ dbin(prob[(d-1), s, y] * watch.prop[(d-1), s, y], N[day[d,s,y], y])
-				log.lkhd[(d-1),s,y] <- logdensity.bin(n[d,s,y], prob[(d-1),s,y] * watch.prop[(d-1), s, y], N[day[d,s,y], y])
-								
-				#n[d, s, y] ~ dbin(obs.prob[(d-1), s, y], N[day[d,s,y], y])
-				#log.lkhd[(d-1),s,y] <- logdensity.bin(n[d,s,y], obs.prob[(d-1),s,y], N[day[d,s,y], y])
-				
-				# watch.prop is the proportion of the total watch periods in a day (540 minutes) that
-				# was actually observed. watch.length is the duration of watch periods in the unit
-				# of days. The probability of sighting prob is discounted by the reciprocal of
-				# watch.prop. 1/(1 + (1 - watch.prop)) 
-				#obs.prob[(d-1),s,y] <- (1/(2 - watch.prop[(d-1),s,y])) * prob[(d-1),s,y]
-				
-				# mean is station-year specific
+				# probability is discounted by the proportion of each watch period
+				obs.prob[d, s, y] <- prob[(d-1), s, y] * watch.prop[(d-1), s, y]
+				# probability is mean + covariate effects
 				logit(prob[(d-1),s,y]) <- mean.prob +
 								(BF.Fixed * bf[(d-1),s,y]) +
 								(VS.Fixed * vs[(d-1),s,y]) +
-								(OBS.RF[obs[(d-1),s,y]]) 	
+								(OBS.RF[obs[(d-1),s,y]]) 
 								#(BF.Fixed * bf[(d-1),s,y]) + 
 								#(VS.Fixed * vs[(d-1),s,y])
 								#(OBS.RF[obs[(d-1),s,y]]) 	
@@ -102,22 +102,44 @@ model{
 	}
 	
 	#beta.1 ~ dnorm(0, 0.001)
-	# priors on mean.prob. I put the lower bound of p to be 0.5. 
-	#for (y in 1:n.year){
 	
-		#mean.prob[y] ~ dunif(-5, 5)
-	#	for (s in 1:n.station[y]){
-	#		mean.prob[s,y] ~ dnorm(0, 0.001)T(0,)
-	#	}
-		
-	#}
+	# one mean.prob for the entire time series may not make sense.  
+	# Year-specific mean.prob (intercept) doesn't work so well probably because some years
+	# don't have enough data points. It becomes so small and the estimated abundance
+	# becomes large. 
 	
-	# one mean.prob for the entire time series may not make sense. So, I changed this
-	# above - year-station specific. 
 	# It doesn't make sense to make it [0,1]...
-	# when not using logit for mean.prob, use something like dunif(-2,2)  
-	mean.prob ~ dnorm(0, 0.001)T(0,) #dunif(-5, 5) #dbeta(5, 5) #dbeta(1,1) 
-     
+	mean.prob ~ dunif(-1.5, 3) 
+	
+	# priors for Richards function parameters. 
+	for (y in 1:n.year){
+		Max[y] ~ dnorm(2000, 1/(800^2))T(0,)
+		S1[y] ~ dgamma(S1.alpha, S1.beta)  
+		S2[y] ~ dgamma(S2.alpha, S2.beta)  
+		P[y] ~ dgamma(P.alpha, P.beta) 	
+	}
+
+	# Uniform distributions were adjusted to capture entire posterior 
+	# distributions of the hyper-parameters. 
+	
+	S1.alpha ~ dunif(0.1, 50)
+	S1.beta ~ dunif(0.01, 5)
+	
+	S2.alpha ~ dunif(0.1, 50)
+	S2.beta ~ dunif(0.01, 10)
+	
+	P.alpha ~ dunif(1, 10000)
+	P.beta ~ dunif(0.01, 250)
+	
+	P ~ dgamma(P.alpha, P.beta) 
+	K ~ dgamma(K.alpha, K.beta) 
+	
+	# K.beta <= K.alpha seems to work better with the gamma distribution for K
+	# So, I add a random number to K.beta to create K.alpha
+	K.beta ~ dunif(0, 5000)
+	K.unif ~ dunif(0, 500)
+	K.alpha <- K.beta + K.unif
+	     
 	## Observer random effects
 	for(o in 1:n.obs){
 		OBS.RF[o] ~ dnorm(0,tau.Obs)
@@ -127,8 +149,8 @@ model{
 	tau.Obs <- pow(sigma.Obs,-2)
      
 	## Beaufort and visibility	
-	BF.Fixed ~ dnorm(0,0.01) 
-	VS.Fixed ~ dnorm(0,0.01) 
+	BF.Fixed ~ dnorm(0,0.001) 
+	VS.Fixed ~ dnorm(0,0.001) 
   
 	### Summaries, Abundance Estimates, and Other Derived Quantities 
 	for(t in 1:n.year){

@@ -82,26 +82,15 @@ model{
 		for (s in 1:n.station[y]){
 			for (d in 2:(periods[y,s]+1)){
 				# observation per period d								
-				
-				# Observable N is N * watch.prop
-				obs.N[(d-1),s,y] <- N[day[d,s,y], y] * watch.prop[(d-1), s, y]
-				n[d, s, y] ~ dbin(prob[(d-1), s, y], round(obs.N[(d-1),s,y]))
-				log.lkhd[(d-1),s,y] <- logdensity.bin(n[d,s,y], prob[(d-1),s,y], round(obs.N[(d-1),s,y]))
+				n[d, s, y] ~ dbin(obs.prob[d,s,y], N[day[d,s,y], y])
+				log.lkhd[(d-1),s,y] <- logdensity.bin(n[d,s,y], obs.prob[d, s, y], N[day[d,s,y], y])
 								
-				#n[d, s, y] ~ dbin(obs.prob[(d-1), s, y], N[day[d,s,y], y])
-				#log.lkhd[(d-1),s,y] <- logdensity.bin(n[d,s,y], obs.prob[(d-1),s,y], N[day[d,s,y], y])
-				
-				# watch.prop is the proportion of the total watch periods in a day (540 minutes) that
-				# was actually observed. watch.length is the duration of watch periods in the unit
-				# of days. The probability of sighting prob is discounted by the reciprocal of
-				# watch.prop. 1/(1 + (1 - watch.prop)) 
-				#obs.prob[(d-1),s,y] <- (1/(2 - watch.prop[(d-1),s,y])) * prob[(d-1),s,y]
-				
+				obs.prob[d, s, y] <- prob[(d-1), s, y] * watch.prop[(d-1), s, y]
 				# mean is station-year specific
-				logit(prob[(d-1),s,y]) <- mean.prob[s,y] +
+				logit(prob[(d-1),s,y]) <- mean.prob +
 								(BF.Fixed * bf[(d-1),s,y]) +
 								(VS.Fixed * vs[(d-1),s,y]) +
-								(OBS.RF[obs[(d-1),s,y]]) 	
+								(OBS.RF[obs[(d-1),s,y]]) 
 								#(BF.Fixed * bf[(d-1),s,y]) + 
 								#(VS.Fixed * vs[(d-1),s,y])
 								#(OBS.RF[obs[(d-1),s,y]]) 	
@@ -111,19 +100,20 @@ model{
 	}
 	
 	#beta.1 ~ dnorm(0, 0.001)
-	# priors on mean.prob. I put the lower bound of p to be 0.5. 
-	for (y in 1:n.year){
 	
-		#mean.prob[y] ~ dunif(-5, 5)
-		for (s in 1:n.station[y]){
-			mean.prob[s,y] ~ dnorm(0, 0.001)T(0,)
-		
-			#for (d in 1:periods[y,s]){			
-			#	e[d,s,y] ~ dnorm(0, 0.01)
-			#}
-		}
-		
-	}
+	# one mean.prob for the entire time series may not make sense.  
+	# Year-specific mean.prob (intercept) doesn't work so well probably because some years
+	# don't have enough data points. It becomes so small and the estimated abundance
+	# becomes large. 
+	
+	# It doesn't make sense to make it [0,1]...
+	mean.prob ~ dunif(-1.5, 3) 
+	#for (y in 1:n.year){	
+		#mean.prob[y] ~ dunif(-1.5, 3) #dnorm(0, 0.01)T(-0.5,)
+		#for (s in 1:n.station[y]){
+		#	mean.prob[s,y] ~ dnorm(0, 0.001)T(0,)		
+		#}
+	#}
 	
 	# priors for Richards function parameters. 
 	for (y in 1:n.year){
@@ -152,13 +142,7 @@ model{
 	K.beta ~ dunif(0, 5000)
 	K.unif ~ dunif(0, 500)
 	K.alpha <- K.beta + K.unif
-	
-	# one mean.prob for the entire time series may not make sense. So, I changed this
-	# above - year-station specific. 
-	# It doesn't make sense to make it [0,1]...
-	# when not using logit for mean.prob, use something like dunif(-2,2)  
-	#mean.prob ~ dunif(-5, 5) #dbeta(5, 5) #dbeta(1,1) 
-     
+	     
 	## Observer random effects
 	for(o in 1:n.obs){
 		OBS.RF[o] ~ dnorm(0,tau.Obs)

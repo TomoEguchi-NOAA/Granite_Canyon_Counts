@@ -31,13 +31,14 @@ library(bayesplot)
 source("Granite_Canyon_Counts_fcns.R")
 
 WinBUGS.Run.Date <- "2025-04-11"
+WinBUGS.Run.Date <- "2025-06-06"
 
 Run.date <- Sys.Date() #"2025-04-21" #"2025-04-17" #
 
 # Minimum length of observation periods in minutes
 min.dur <- 60 #10 #85 #
 
-ver <- "v3" #  "v3" #"v5" # "v4" # 
+ver <- "v4" #  "v3" #"v5" # "v4" # 
 
 # These are the ending year of each season - for example, 2022 in the following vector indicates
 # for the 2021/2022 season. These data were extracted using Extract_Data_All_v2.Rmd
@@ -46,10 +47,10 @@ years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025)
 data.dir = "RData/V2.1_Feb2025"
 max.day = 100
 
-# MCMC.params <- list(n.samples = 250000,
-#                     n.thin = 100,
-#                     n.burnin = 200000,
-#                     n.chains = 5)
+MCMC.params <- list(n.samples = 250000,
+                    n.thin = 100,
+                    n.burnin = 200000,
+                    n.chains = 5)
 # 
 # # v3 does not converge well with the above MCMC setting so increasing samples
 # MCMC.params <- list(n.samples = 750000,
@@ -57,134 +58,141 @@ max.day = 100
 #                     n.burnin = 500000,
 #                     n.chains = 5)
 
-MCMC.params <- list(n.samples = 25000,
-                    n.thin = 10,
-                    n.burnin = 5000,
-                    n.chains = 5)
-
+# MCMC.params <- list(n.samples = 25000,
+#                     n.thin = 10,
+#                     n.burnin = 5000,
+#                     n.chains = 5)
+# 
 # MCMC.params <- list(n.samples = 10000,
 #                     n.thin = 10,
 #                     n.burnin = 500,
 #                     n.chains = 5)
 
-# jags.params <- c("VS.Fixed", "BF.Fixed", 
-#                  "Max", "K", "S1", "S2", "P",
-#                  "mean.prob", "prob",  
-#                  "mean.N", "Corrected.Est", "N", "obs.N",
-#                  "OBS.RF", "sigma.Obs",
-#                  "Max.alpha", "Max.beta",
-#                  "S1.alpha", "S2.alpha",
-#                  "S1.beta", "S2.beta",
-#                  "P.alpha", "P.beta",
-#                  "K.alpha", "K.beta",
-#                  "beta.1",
-#                  #"N.alpha", "N.obs",
-#                  "log.lkhd")
-
 jags.params <- c("VS.Fixed", "BF.Fixed",
-                 "mean.prob", "prob",
-                 "beta0", "mu", "sigma1", "sigma2",
-                 "OBS.RF", "log.lkhd")
+                 "Max", "K", "S1", "S2", "P",
+                 "mean.prob", "prob", "obs.prob",
+                 "mean.N", "Corrected.Est", "N", "obs.N",
+                 "OBS.RF", "sigma.Obs",
+                 "Max.alpha", "Max.beta",
+                 "S1.alpha", "S2.alpha",
+                 "S1.beta", "S2.beta",
+                 "P.alpha", "P.beta",
+                 "K.alpha", "K.beta",
+                 #"beta.1",
+                 #"N.alpha", "N.obs",
+                 "log.lkhd")
 
+# jags.params <- c("VS.Fixed", "BF.Fixed",
+#                  "mean.prob", "prob", 
+#                  "Corrected.Est", "Obs.N", "N",
+#                  "beta0", "mu", "sigma1", "sigma2",
+#                  "OBS.RF", "log.lkhd")
+
+###############################
 ### Testing model using just new data  ###
-#model.name <- paste0("Richards_pois_bino_", ver)
-#jags.model <- paste0("models/model_", model.name, ".txt")
-jags.model <- "models/model_Split_Gaussian_N_Mixture_v3.txt"
+# model.name <- paste0("Richards_pois_bino_", ver)
+# jags.model <- paste0("models/model_", model.name, ".txt")
+#jags.model <- "models/model_Split_Gaussian_N_Mixture_v3.txt"
 
-jags.data.list <- data2Jags_input_NoBUGS(min.dur = 60,
-                                         years = years,
-                                         data.dir = "RData/V2.1_Feb2025",
-                                         max.day = 100)
+# jags.data.list <- data2Jags_input_NoBUGS(min.dur = 60,
+#                                          years = years,
+#                                          data.dir = "RData/V2.1_Feb2025",
+#                                          max.day = 100)
 
 # Remove day = 1 and day = 100, rearrange, put 1 on top, 100 at the bottom 
-jags.data <- jags.data.list$jags.data
-jags.data$periods <- jags.data$periods - 2
+# jags.data <- jags.data.list$jags.data
+# jags.data$periods <- jags.data$periods - 2
+# #
+# jags.data$day[jags.data$day == 1] <- NA
+# jags.data$day[jags.data$day == max.day] <- NA
+# 
+# jags.data$n[jags.data$day == 1] <- NA
+# jags.data$n[jags.data$day == max.day] <- NA
+# 
+# for (k in 1:jags.data$n.year){
+#   jags.data$day[(jags.data$periods[k, 1]+1), 1, k] <- 100
+#   jags.data$n[(jags.data$periods[k, 1]+1), 1, k] <- 0
+#   if (jags.data$n.station[k] == 2){
+#     jags.data$day[(jags.data$periods[k, 2]+1), 2, k] <- 100
+#     jags.data$n[(jags.data$periods[k, 2]+1), 2, k] <- 0
+#   }
+# 
+# }
 
-jags.data$day[jags.data$day == 1] <- NA
-jags.data$day[jags.data$day == max.day] <- NA
-
-jags.data$n[jags.data$day == 1] <- NA
-jags.data$n[jags.data$day == max.day] <- NA
-
-for (k in 1:jags.data$n.year){
-  jags.data$day[(jags.data$periods[k, 1]+1), 1, k] <- 100
-  jags.data$n[(jags.data$periods[k, 1]+1), 1, k] <- 0
-  if (jags.data$n.station[k] == 2){
-    jags.data$day[(jags.data$periods[k, 2]+1), 2, k] <- 100
-    jags.data$n[(jags.data$periods[k, 2]+1), 2, k] <- 0
-  }
-
-}
-
-jags.data$day <- abind::abind(array(data = 1, dim = c(1, 2, jags.data$n.year)),
-                              jags.data$day, along = 1)
-
-jags.data$n <- abind::abind(array(data = 0, dim = c(1, 2, jags.data$n.year)),
-                              jags.data$n, along = 1)
-
-jags.data$scaled.day <- jags.data$day-(max.day/2)
-jags.data$x_day <- matrix(data = NA, nrow = max.day, ncol = dim(jags.data$n)[3])
-for (k in 1:dim(jags.data$n)[3])
-  jags.data$x_day[,k] <- seq(1, max.day)
+# jags.data$day <- abind::abind(array(data = 1,
+#                                     dim = c(1, 2, jags.data$n.year)),
+#                               jags.data$day, along = 1)
+# 
+# jags.data$n <- abind::abind(array(data = 0,
+#                                   dim = c(1, 2, jags.data$n.year)),
+#                               jags.data$n, along = 1)
+# 
+# jags.data$scaled.day <- jags.data$day-(max.day/2)
+# jags.data$x_day <- matrix(data = NA, nrow = max.day, ncol = dim(jags.data$n)[3])
+# for (k in 1:dim(jags.data$n)[3])
+#   jags.data$x_day[,k] <- (seq(1, max.day))/max.day
 
 # pool observers with < 20 observation periods
-obs.vec <- as.vector(jags.data$obs) 
-data.frame(obs = obs.vec) %>%
-  mutate(obs.f = as.factor(obs)) %>%
-  group_by(obs.f) %>%
-  summarize(n = n(),
-            obs = first(obs)) -> obs.summary
+# obs.vec <- as.vector(jags.data$obs)
+# data.frame(obs = obs.vec) %>%
+#   mutate(obs.f = as.factor(obs)) %>%
+#   group_by(obs.f) %>%
+#   summarize(n = n(),
+#             obs = first(obs)) -> obs.summary
+# 
+# obs.n.min <- 10
+# obs.too.few <- obs.summary %>% filter(n < obs.n.min)
+# 
+# obs.to.keep <- obs.summary %>% filter(n >= obs.n.min)
+# obs.to.keep$new.ID <- seq(1, dim(obs.to.keep)[1])
+# obs.others <- max(obs.to.keep$new.ID)
+# obs <- jags.data$obs
+# new.no.obs <- obs.others + 1
+# old.no.obs <- max(obs.to.keep$obs)
+# for (k in 1:nrow(obs.too.few)){
+#   obs[obs == obs.too.few$obs[k]] <- NA
+# }
+# 
+# for (k in 1:(nrow(obs.to.keep)-1)){
+#   obs[obs == obs.to.keep$obs[k]]  <- obs.to.keep$new.ID[k]
+# }
+# 
+# obs[is.na(obs)] <- obs.others
+# obs[obs == old.no.obs] <- new.no.obs
+# 
+# jags.data$obs <- obs
+# jags.data$n.obs <- max(obs) - 1
 
-obs.too.few <- obs.summary %>% filter(n < 20)  
+# min.N <- matrix(nrow = max.day, ncol = dim(jags.data$n)[3])
+# 
+# k <- 1
+# d <- 44
+# for (k in 1:dim(jags.data$n)[3]){
+#   for (d in 1:max.day){
+#     n.sum.1 <- sum(jags.data$n[jags.data$day[,1,k] == d,1,k], na.rm = T)    
+#     if (jags.data$n.station[k] == 2){
+#       n.sum.2 <- sum(jags.data$n[jags.data$day[,2,k] == d, 2, k], na.rm = T)
+#     }
+#     
+#     min.N[d,k] <- max(n.sum.1, n.sum.2)
+#   }
+# }
+# 
+# jags.data$min.N <- min.N
 
-obs.to.keep <- obs.summary %>% filter(n >= 20) 
-obs.to.keep$new.ID <- seq(1, dim(obs.to.keep)[1])
-obs.others <- max(obs.to.keep$new.ID)
-obs <- jags.data$obs
-new.no.obs <- obs.others + 1
-old.no.obs <- max(obs.to.keep$obs)
-for (k in 1:nrow(obs.too.few)){
-  obs[obs == obs.too.few$obs[k]] <- NA
-}
-
-for (k in 1:(nrow(obs.to.keep)-1)){
-  obs[obs == obs.to.keep$obs[k]]  <- obs.to.keep$new.ID[k] 
-}
-
-obs[is.na(obs)] <- obs.others
-obs[obs == old.no.obs] <- new.no.obs
-
-jags.data$obs <- obs
-jags.data$n.obs <- max(obs) - 1
-
-min.N <- matrix(nrow = max.day, ncol = dim(jags.data$n)[3])
-
-for (k in 1:dim(jags.data$n)[3]){
-  for (d in 1:max.day){
-    n.sum.1 <- sum(jags.data$n[jags.data$day[,1,k] == d,1,k], na.rm = T)    
-    if (jags.data$n.station[k] == 2){
-      n.sum.2 <- sum(jags.data$n[jags.data$day[,2,k] == d, 2, k], na.rm = T)
-    }
-    
-    min.N[d,k] <- max(n.sum.1, n.sum.2)
-  }
-}
-
-jags.data$min.N <- min.N + 1
-
-jags.data["N"] <- NULL
+#jags.data["N"] <- NULL
 #jags.data$n.year <- 5
 
-jm <- jagsUI::jags(jags.data,
-                   inits = NULL,
-                   parameters.to.save= jags.params,
-                   model.file = jags.model,
-                   n.chains = MCMC.params$n.chains,
-                   n.burnin = MCMC.params$n.burnin,
-                   n.thin = MCMC.params$n.thin,
-                   n.iter = MCMC.params$n.samples,
-                   DIC = T,
-                   parallel=T)
+# jm <- jagsUI::jags(jags.data,
+#                    inits = NULL,
+#                    parameters.to.save= jags.params,
+#                    model.file = jags.model,
+#                    n.chains = MCMC.params$n.chains,
+#                    n.burnin = MCMC.params$n.burnin,
+#                    n.thin = MCMC.params$n.thin,
+#                    n.iter = MCMC.params$n.samples,
+#                    DIC = T,
+#                    parallel=T)
 # 
 # jm.out <- list(jm = jm,
 #                jags.input = jags.data.list,
@@ -195,22 +203,8 @@ jm <- jagsUI::jags(jags.data,
 #                Sys.env = Sys.getenv())
 
 
-# jags.data$n[1:10, 1, 1]
-# [1] 1 7 0 2 1 3 3 2 2 0
-# > jags.data$watch.prop[1:6, 1, 1]
-# [1] 0.1675911 0.1680544 0.1651222 0.1657411 0.1666656 0.1665111
-# > sum(jags.data$watch.prop[1:6, 1, 1])
-# [1] 0.9996856
-# > sum(jm$mean$N[1:6, 1, 1])
-# [1] 260.0753
-# > sum(jags.data$watch.prop[1:6, 1, 1]) * 271
-# [1] 270.9148
-# > jags.data$watch.prop[1:6, 1, 1] * sum(jm$mean$N[1:6, 1, 1])
-# jm$mean$prob[1:6, 1, 1]
-###  End of testing model using just new data  ###
-
-
 ###############################
+
 # The following function uses "new" data since 2010 as well as those from Laake's 
 # analysis to compute abundance since the 1967/1968 season. There were two seasons
 # where the survey continued beyond the 90th day. So, max.day needs to be increased
@@ -319,8 +313,12 @@ Reported.estimates <- read.csv(file = "Data/all_estimates_2024.csv") %>%
   relocate(Method, .after = start.year)
 
 #WinBugs.run.date <- "2025-04-11"
-WinBugs.out <- readRDS(file = paste0("RData/WinBUGS_2007to2025_v2_min", min.dur, 
-                                     "_100000_",
+# WinBugs.out <- readRDS(file = paste0("RData/WinBUGS_2007to2025_v2_min", min.dur, 
+#                                      "_100000_",
+#                                      WinBUGS.Run.Date, ".rds"))
+
+WinBugs.out <- readRDS(file = paste0("RData/WinBUGS_1968to2025_v2_min", min.dur, 
+                                     "_85000_",
                                      WinBUGS.Run.Date, ".rds"))
 
 Corrected.Est <- WinBugs.out$BUGS.out$sims.list$Corrected.Est
