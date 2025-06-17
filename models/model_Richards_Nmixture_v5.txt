@@ -11,11 +11,11 @@
 # M2 <- (1 + (2 * exp(K) - 1) * exp((1/S2) * (P - d))) ^ (-1/exp(K))
 # N <- min + (max - min) * (M1 * M2)
 #
-# d is the number of days from the beginning of nesting season
+# d is the number of days from the beginning of migration season
 # S1 < 0 and S2 > 0 define the "fatness" of the function
 # K > 0 defines the "flatness" at the peak of the function
 # P defines where the peak is relatvie to the range of d min(d) < P < max(d)
-# min is "the basal level of nesting outside the nesting season"
+# min is "the basal level of the number of whales outside the migration season"
 # max > min
 #
 # I set min = 0. 
@@ -131,7 +131,6 @@ model{
 	P.alpha ~ dunif(1, 10000)
 	P.beta ~ dunif(0.01, 250)
 	
-	P ~ dgamma(P.alpha, P.beta) 
 	K ~ dgamma(K.alpha, K.beta) 
 	
 	# K.beta <= K.alpha seems to work better with the gamma distribution for K
