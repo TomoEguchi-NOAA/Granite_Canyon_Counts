@@ -171,71 +171,74 @@ for (k in 1:length(years)){
 # sightings for all years combined
 sightings.primary <- do.call("rbind", sightings.list.primary) 
 
-if (!file.exists(paste0("Data/all_observers_", max(years), ".csv"))){
-  # Find Observers in Laake's observer list who are also in the new observer list
-  # There are multiple initials per person in some cases. ID numbers should be the
-  # same for these initials
-  Observer %>%
-    filter(is.na(Observer)) %>%
-    droplevels() %>%
-    mutate(Identifier = Initials) %>%
-    select(ID, Identifier, Name) -> Observer.NA
+# if (!file.exists(paste0("Data/all_observers_", max(years), ".csv"))){
+  # # Find Observers in Laake's observer list who are also in the new observer list
+  # # There are multiple initials per person in some cases. ID numbers should be the
+  # # same for these initials
+  # Observer %>%
+    # filter(is.na(Observer)) %>%
+    # droplevels() %>%
+    # mutate(Identifier = Initials) %>%
+    # select(ID, Identifier, Name) -> Observer.NA
   
-  Observer %>%
-    filter(is.na(Initials)) %>%
-    droplevels() %>%
-    mutate(Identifier = as.factor(Observer)) %>%
-    select(ID, Identifier, Name) -> Observer.Initial.NA
+  # Observer %>%
+    # filter(is.na(Initials)) %>%
+    # droplevels() %>%
+    # mutate(Identifier = as.factor(Observer)) %>%
+    # select(ID, Identifier, Name) -> Observer.Initial.NA
   
-  Observer.1 <- rbind(Observer.NA, Observer.Initial.NA)
+  # Observer.1 <- rbind(Observer.NA, Observer.Initial.NA)
   
-  uniq.Observer.1 <- data.frame(Name = unique(Observer.1$Name),
-                                ID.new = seq(1:length(unique(Observer.1$Name))))
+  # uniq.Observer.1 <- data.frame(Name = unique(Observer.1$Name),
+                                # ID.new = seq(1:length(unique(Observer.1$Name))))
   
-  Observer.1 %>%
-    left_join(uniq.Observer.1, by = "Name") %>%
-    select(-c(ID, Name)) %>%
-    rename(ID = ID.new) -> Observer.2
+  # Observer.1 %>%
+    # left_join(uniq.Observer.1, by = "Name") %>%
+    # select(-c(ID, Name)) %>%
+    # rename(ID = ID.new) -> Observer.2
   
-  # Find observers from more recent data (2009/2010 to present)
-  Observers.new <- unique(sightings.primary$Observer)
-  new.observers <- data.frame(Identifier = Observers.new,
-                              ID = seq((max(Observer.2$ID)+1), 
-                                       (max(Observer.2$ID) + length(Observers.new))))
+  # # Find observers from more recent data (2009/2010 to present)
+  # Observers.new <- unique(sightings.primary$Observer)
+  # new.observers <- data.frame(Identifier = Observers.new,
+                              # ID = seq((max(Observer.2$ID)+1), 
+                                       # (max(Observer.2$ID) + length(Observers.new))))
   
-  # Combine "old" and "new" observer lists
-  Observer.2 %>%
-    left_join(new.observers, by = "Identifier") %>% #
-    filter(!is.na(ID.y)) %>%
-    transmute(ID = ID.y,
-              Identifier = Identifier) -> tmp
+  # # Combine "old" and "new" observer lists
+  # Observer.2 %>%
+    # left_join(new.observers, by = "Identifier") %>% #
+    # filter(!is.na(ID.y)) %>%
+    # transmute(ID = ID.y,
+              # Identifier = Identifier) -> tmp
   
-  # Remove those (tmp) from the new observer list
-  new.observers %>%
-    anti_join(tmp, by = "ID") -> tmp.2
+  # # Remove those (tmp) from the new observer list
+  # new.observers %>%
+    # anti_join(tmp, by = "ID") -> tmp.2
   
-  tmp.4 <- rbind(Observer.2, tmp.2) %>%
-    mutate(Observer = Identifier) %>%
-    select(-Identifier) %>%
-    na.omit() 
+  # tmp.4 <- rbind(Observer.2, tmp.2) %>%
+    # mutate(Observer = Identifier) %>%
+    # select(-Identifier) %>%
+    # na.omit() 
   
-  # Fix one observer because "ARV/AVS" is not usable 
-  ARV.ID <- tmp.4[tmp.4$Observer == "ARV/AVS", "ID"]
-  tmp.4 %>%
-    filter(Observer != "ARV/AVS") %>%  
-    droplevels() -> tmp.5
+  # # Fix one observer because "ARV/AVS" is not usable 
+  # ARV.ID <- tmp.4[tmp.4$Observer == "ARV/AVS", "ID"]
+  # tmp.4 %>%
+    # filter(Observer != "ARV/AVS") %>%  
+    # droplevels() -> tmp.5
   
-  # add those initials back in with the same ID
-  all.observers <- rbind(tmp.5, 
-                         data.frame(ID = c(ARV.ID, ARV.ID), 
-                                    Observer = c("ARV", "AVS")))
+  # # add those initials back in with the same ID
+  # all.observers <- rbind(tmp.5, 
+                         # data.frame(ID = c(ARV.ID, ARV.ID), 
+                                    # Observer = c("ARV", "AVS")))
   
-  # Write the new list to a file
-  write.csv(all.observers,
-            file = paste0("Data/all_observers_", max(years), ".csv"))
-} else {
-  all.observers <- read.csv(paste0("Data/all_observers_", max(years), ".csv"))
-}
+  # # Write the new list to a file
+  # write.csv(all.observers,
+            # file = paste0("Data/all_observers_", max(years), ".csv"))
+# } else {
+  # all.observers <- read.csv(paste0("Data/all_observers_", max(years), ".csv"))
+# }
+
+# 2025-06-18 Changed the previous block to a function call. 
+all.observers <- create.observer.list(sightings.primary)
 
 # Rearrange sightings dataframe columns
 sightings.primary %>% 

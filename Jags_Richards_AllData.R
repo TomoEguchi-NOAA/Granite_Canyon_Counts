@@ -31,14 +31,14 @@ library(bayesplot)
 source("Granite_Canyon_Counts_fcns.R")
 
 WinBUGS.Run.Date <- "2025-04-11"
-WinBUGS.Run.Date <- "2025-06-06"
+#WinBUGS.Run.Date <- "2025-06-06"
 
 Run.date <- Sys.Date() #"2025-04-21" #"2025-04-17" #
 
 # Minimum length of observation periods in minutes
 min.dur <- 60 #10 #85 #
 
-ver <- "v5" #  "v3" #"v5" # "v4" # 
+ver <- "v3" #  "v3" #"v5" # "v4" # 
 
 # These are the ending year of each season - for example, 2022 in the following vector indicates
 # for the 2021/2022 season. These data were extracted using Extract_Data_All_v2.Rmd
@@ -47,16 +47,16 @@ years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025)
 data.dir = "RData/V2.1_Feb2025"
 max.day = 100
 
-MCMC.params <- list(n.samples = 250000,
-                    n.thin = 100,
-                    n.burnin = 200000,
-                    n.chains = 5)
+# MCMC.params <- list(n.samples = 250000,
+#                     n.thin = 100,
+#                     n.burnin = 200000,
+#                     n.chains = 5)
 # 
 # # v3 does not converge well with the above MCMC setting so increasing samples
-# MCMC.params <- list(n.samples = 750000,
-#                     n.thin = 500,
-#                     n.burnin = 500000,
-#                     n.chains = 5)
+MCMC.params <- list(n.samples = 750000,
+                    n.thin = 500,
+                    n.burnin = 500000,
+                    n.chains = 5)
 
 # MCMC.params <- list(n.samples = 25000,
 #                     n.thin = 10,
@@ -281,7 +281,7 @@ Nhat. <- data.frame(Season = paste0(all.start.year, "/", all.start.year+1),
                     UCL = jm.out$jm$q97.5$Corrected.Est) %>%
   right_join(all.years, by = "Season") %>%
   arrange(start.year) %>%
-  mutate(Method = "Eguchi")
+  mutate(Method = paste0("Eguchi ", ver))
 
 # This is for daily estimates
 N.hats.day <- data.frame(Season = rep(paste0(all.start.year, "/", all.start.year+1), 
@@ -302,7 +302,8 @@ p.daily.Richards <- ggplot(N.hats.day %>% group_by(Season)) +
 # These are not the best estimates because they were not updated as more data
 # were collected. I should use the output from the most recent WinBUGS run for 
 # the last x years.
-Reported.estimates <- read.csv(file = "Data/all_estimates_2024.csv") %>%
+#Reported.estimates <- read.csv(file = "Data/all_estimates_2024.csv") %>%
+Reported.estimates <- read.csv(file = "Data/Nhats_2025.csv") %>%  
   transmute(Season = Season,
             Nhat = Nhat,
             LCL = LCL,
@@ -313,20 +314,21 @@ Reported.estimates <- read.csv(file = "Data/all_estimates_2024.csv") %>%
   relocate(Method, .after = start.year)
 
 #WinBugs.run.date <- "2025-04-11"
-# WinBugs.out <- readRDS(file = paste0("RData/WinBUGS_2007to2025_v2_min", min.dur, 
-#                                      "_100000_",
-#                                      WinBUGS.Run.Date, ".rds"))
-
-WinBugs.out <- readRDS(file = paste0("RData/WinBUGS_1968to2025_v2_min", min.dur, 
-                                     "_85000_",
+WinBugs.out <- readRDS(file = paste0("RData/WinBUGS_2007to2025_v2_min", min.dur,
+                                     "_100000_",
                                      WinBUGS.Run.Date, ".rds"))
+
+# WinBugs.out <- readRDS(file = paste0("RData/WinBUGS_1968to2025_v2_min", min.dur, 
+#                                      "_85000_",
+#                                      WinBUGS.Run.Date, ".rds"))
 
 Corrected.Est <- WinBugs.out$BUGS.out$sims.list$Corrected.Est
 
 # We don't have raw data for 2006/2007 and 2007/2008 seasons
 seasons <- c("2006/2007", "2007/2008", jm.out$jags.input$jags.input.new$seasons)
 
-Durban.abundance.df <- data.frame(Season = seasons,
+all.season <- paste0(all.start.year, "/", all.start.year+1)
+Durban.abundance.df <- data.frame(Season = WinBugs.out$BUGS.input$seasons,
                                   Nhat = apply(Corrected.Est,
                                                FUN = mean,
                                                MARGIN = 2),
@@ -363,8 +365,10 @@ for (k1 in 1:dim(daily.estim)[2]){
   
 }
 
-N.hats.day.Durban <- data.frame(Season = rep(seasons, each = dim(daily.estim)[2]),
-                                Day = rep(1:dim(daily.estim)[2], length(seasons)),
+N.hats.day.Durban <- data.frame(Season = rep(WinBugs.out$BUGS.input$seasons, 
+                                             each = dim(daily.estim)[2]),
+                                Day = rep(1:dim(daily.estim)[2], 
+                                          length(WinBugs.out$BUGS.input$seasons)),
                                 Mean = as.vector(mean.mat),
                                 LCL = as.vector(LCL.mat),
                                 UCL = as.vector(UCL.mat))
@@ -406,7 +410,8 @@ p.Nhats <- ggplot(all.estimates) +
              alpha = 0.5) +
   geom_errorbar(aes(x = start.year, ymin = LCL, ymax = UCL,
                     color = Method)) +
-  ylim(2000, 40000)
+  ylim(2000, 40000) +
+  theme(legend.position = "top")
 
 # ggsave(plot = p.Nhats,
 #        filename = paste0("figures/Nhats_", ver, "_", min.dur, "min.png"),
