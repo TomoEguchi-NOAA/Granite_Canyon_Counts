@@ -47,16 +47,16 @@ years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025)
 data.dir = "RData/V2.1_Feb2025"
 max.day = 100
 
-# MCMC.params <- list(n.samples = 250000,
-#                     n.thin = 100,
-#                     n.burnin = 200000,
-#                     n.chains = 5)
+MCMC.params <- list(n.samples = 250000,
+                    n.thin = 100,
+                    n.burnin = 200000,
+                    n.chains = 5)
 # 
 # # v3 does not converge well with the above MCMC setting so increasing samples
-MCMC.params <- list(n.samples = 750000,
-                    n.thin = 500,
-                    n.burnin = 500000,
-                    n.chains = 5)
+# MCMC.params <- list(n.samples = 750000,
+#                     n.thin = 500,
+#                     n.burnin = 500000,
+#                     n.chains = 5)
 
 # MCMC.params <- list(n.samples = 25000,
 #                     n.thin = 10,
@@ -451,8 +451,25 @@ high.Rhat.S2 <- high.Rhat(jm.out$jm$Rhat$S2)
 high.Rhat.P <- high.Rhat(jm.out$jm$Rhat$P)
 
 # Simple comparison between observed counts per hour vs. estimated abundance
-
-obsd.effort.primary <- jm.out$jags.input$jags.data$watch.prop[,1,]
-obsd.n.primary <- jm.out$jags.input$jags.data$n[,1,] 
-
-obsd.day.primary <- jm.out$jags.input$jags.data$day[,1,]
+# obsd.periods.primary <- jm.out$jags.input$jags.data$periods[,1]
+# obsd.effort.primary <- jm.out$jags.input$jags.data$watch.prop[,1,]
+# obsd.n.primary <- jm.out$jags.input$jags.data$n[,1,] 
+# obsd.day.primary <- jm.out$jags.input$jags.data$day[,1,]
+# 
+# obsd.n.prop <- obsd.n.primary[2:(max(obsd.periods.primary)-1),] * obsd.effort.primary
+# obsd.n.prop.sum <- data.frame(Season = all.season,
+#                               n.sum = colSums(obsd.n.prop, na.rm = T))
+# 
+# Nhat.all.wide %>% 
+#   left_join(obsd.n.prop.sum, by = "Season") -> Nhat.all.wide 
+# 
+# ggplot(Nhat.all.wide) +
+#   geom_point(aes(y = Nhat.Laake, x = n.sum), color = "blue") +
+#   geom_point(aes(y = Nhat.Eguchi, x = n.sum), color = "red")
+# 
+# Nhat.all.wide %>%
+#   filter(n.sum < 1000) -> Nhat.all.wide.1000
+# 
+# ggplot(Nhat.all.wide.1000) +
+#   geom_point(aes(y = Nhat.Laake, x = n.sum), color = "blue") +
+#   geom_point(aes(y = Nhat.Eguchi, x = n.sum), color = "red")

@@ -332,32 +332,32 @@ NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC
     # Modify jags data to rearrange days and provide zeros for t = 1 and t = max.day
     jags.data <- jags.input.list$jags.data
     
-    jags.data$periods <- jags.data$periods - 2
-    
-    jags.data$day[jags.data$day == 1] <- NA
-    jags.data$day[jags.data$day == max.day] <- NA
-    
-    jags.data$n[jags.data$day == 1] <- NA
-    jags.data$n[jags.data$day == max.day] <- NA
-    
-    for (k in 1:jags.data$n.year){
-      jags.data$day[(jags.data$periods[k, 1]+1), 1, k] <- max.day
-      jags.data$n[(jags.data$periods[k, 1]+1), 1, k] <- 0
-      if (jags.data$n.station[k] == 2){
-        jags.data$day[(jags.data$periods[k, 2]+1), 2, k] <- max.day
-        jags.data$n[(jags.data$periods[k, 2]+1), 2, k] <- 0
-      }
-      
-    }
-    
-    jags.data$day <- abind::abind(array(data = 1, 
-                                        dim = c(1, 2, jags.data$n.year)),
-                                  jags.data$day, along = 1)
-    
-    jags.data$n <- abind::abind(array(data = 0, 
-                                      dim = c(1, 2, jags.data$n.year)),
-                                jags.data$n, along = 1)
-    
+    # jags.data$periods <- jags.data$periods - 2
+    # 
+    # jags.data$day[jags.data$day == 1] <- NA
+    # jags.data$day[jags.data$day == max.day] <- NA
+    # 
+    # jags.data$n[jags.data$day == 1] <- NA
+    # jags.data$n[jags.data$day == max.day] <- NA
+    # 
+    # for (k in 1:jags.data$n.year){
+    #   jags.data$day[(jags.data$periods[k, 1]+1), 1, k] <- max.day
+    #   jags.data$n[(jags.data$periods[k, 1]+1), 1, k] <- 0
+    #   if (jags.data$n.station[k] == 2){
+    #     jags.data$day[(jags.data$periods[k, 2]+1), 2, k] <- max.day
+    #     jags.data$n[(jags.data$periods[k, 2]+1), 2, k] <- 0
+    #   }
+    #   
+    # }
+    # 
+    # jags.data$day <- abind::abind(array(data = 1, 
+    #                                     dim = c(1, 2, jags.data$n.year)),
+    #                               jags.data$day, along = 1)
+    # 
+    # jags.data$n <- abind::abind(array(data = 0, 
+    #                                   dim = c(1, 2, jags.data$n.year)),
+    #                             jags.data$n, along = 1)
+    # 
     
     obs.vec <- as.vector(jags.data$obs) 
     data.frame(obs = obs.vec) %>%
