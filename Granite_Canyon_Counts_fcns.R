@@ -1456,9 +1456,9 @@ LaakeData2JagsInput <- function(min.dur, max.day = 100){
               periods.1 = periods.x,
               periods.2 = periods.y) -> Laake.periods
   
-  bf <- vs <- watch.prop <-  watch.length <- obs.input <- n.Laake <- array(dim = c(max(Laake.primary.periods$periods),
+  bf <- vs <- watch.prop <-  watch.length <- obs.input <- array(dim = c(max(Laake.primary.periods$periods),
                                                                          2, length(all.year)))
-  day <- array(dim = c(max(Laake.primary.periods$periods) + 2,
+  n.Laake <- day <- array(dim = c(max(Laake.primary.periods$periods) + 2,
                        2, length(all.year)))
   y <- 1
   y2 <- 1
@@ -1468,13 +1468,13 @@ LaakeData2JagsInput <- function(min.dur, max.day = 100){
       arrange(Day) %>%
       left_join(Laake.obs, by = "obs")
     
-    n.Laake[1:Laake.primary.periods$periods[y], 1, y] <- temp.data$n
+    n.Laake[1:(Laake.primary.periods$periods[y]+2), 1, y] <- c(0, temp.data$n, 0)
     obs.input[1:Laake.primary.periods$periods[y], 1, y] <- temp.data$obs.ID
     watch.prop[1:Laake.primary.periods$periods[y], 1, y] <- temp.data$watch.prop
     watch.length[1:Laake.primary.periods$periods[y], 1, y] <- temp.data$watch.length
     bf[1:Laake.primary.periods$periods[y], 1, y] <- temp.data$bf #scale(temp.data$bf)
     vs[1:Laake.primary.periods$periods[y], 1, y] <- temp.data$vs #scale(temp.data$vs)
-    day[1:(Laake.primary.periods$periods[y]+2), 1, y] <- c(as.numeric(temp.data$Day), 1, max.day)
+    day[1:(Laake.primary.periods$periods[y]+2), 1, y] <- c(1, as.numeric(temp.data$Day), max.day)
     
     # fill in the secondary observations
     if (isTRUE(all.year[y] %in% double.obs.year)){
@@ -1482,13 +1482,13 @@ LaakeData2JagsInput <- function(min.dur, max.day = 100){
         filter(Start.year == all.year[y])%>%
         left_join(Laake.obs, by = "obs")
       
-      n.Laake[1:Laake.secondary.periods$periods[y2], 2, y] <- temp.data$n
+      n.Laake[1:(Laake.secondary.periods$periods[y2]+2), 2, y] <- c(0,temp.data$n,0)
       obs.input[1:Laake.secondary.periods$periods[y2], 2, y] <- temp.data$obs.ID
       watch.prop[1:Laake.secondary.periods$periods[y2], 2, y] <- temp.data$watch.prop
       watch.length[1:Laake.secondary.periods$periods[y2], 2, y] <- temp.data$watch.length
       bf[1:Laake.secondary.periods$periods[y2], 2, y] <- temp.data$bf #scale(temp.data$bf)
       vs[1:Laake.secondary.periods$periods[y2], 2, y] <- temp.data$vs #scale(temp.data$vs)
-      day[1:(Laake.secondary.periods$periods[y2]+2), 2, y] <- c(as.numeric(temp.data$Day), 1, max.day)
+      day[1:(Laake.secondary.periods$periods[y2]+2), 2, y] <- c(1, as.numeric(temp.data$Day), max.day)
       
       y2 <- y2 + 1
       
@@ -1737,13 +1737,13 @@ data2Jags_input_NoBUGS <- function(min.dur,
     Watch.Length[[k]] <- end.[[k]] - begin.[[k]]
   }
   
-  watch.length <- day <- array(NA, 
-                               dim = c(max(periods)+2, 
-                                       2, length(years)))
+  day <- array(NA, 
+               dim = c(max(periods)+2, 
+                       2, length(years)))
   
-  vs <- bf <- array(data = NA, 
-                    dim = c(max(periods) + 2, 
-                            2, length(years)))
+  watch.length <- vs <- bf <- array(data = NA, 
+                                    dim = c(max(periods), 
+                                            2, length(years)))
   
   periods.mat <- array(data = NA,
                        dim = c(length(periods), 2))
@@ -1770,46 +1770,46 @@ data2Jags_input_NoBUGS <- function(min.dur,
       
       # fill in the primary 
       n.row.P <- (length(Final_data.P$n) + 2)
-      n[1:n.row.P, 1, k] <- c(Final_data.P$n, 0, 0)
-      vs[1:n.row.P, 1, k] <- c(Final_data.P$vs, 1, 1)
-      bf[1:n.row.P, 1, k] <- c(Final_data.P$bf, 1, 1)
+      n[1:n.row.P, 1, k] <- c(0, Final_data.P$n, 0)
+      vs[1:(n.row.P-2), 1, k] <- c(Final_data.P$vs)
+      bf[1:(n.row.P-2), 1, k] <- c(Final_data.P$bf)
       
       obs.year.P <- data.frame(obs = Final_data.P$obs) %>% 
         left_join(all.observers, by = "obs")
       
       obs[1:n.row.P,1,k] <- c(obs.year.P$ID, no.obs.ID, no.obs.ID)
       # 0.375 is 9 hrs and watch.prop = 1.0
-      watch.length[1:n.row.P,1,k] <- c(Final_data.P$watch.length, 0.0, 0.0)
-      day[1:n.row.P,1,k] <- c(floor(Final_data.P$begin), 1, max.day)
+      watch.length[1:(n.row.P-2),1,k] <- c(Final_data.P$watch.length)
+      day[1:n.row.P,1,k] <- c(1, floor(Final_data.P$begin), max.day)
       periods.mat[k,1] <- nrow(Final_data.P) + 2
       
       # fill in the secondary 
       n.row.S <- length(Final_data.S$n) + 2
-      n[1:n.row.S,2,k] <- c(Final_data.S$n, 0, 0)
-      vs[1:n.row.S,2,k] <- c(Final_data.S$vs, 1, 1)
-      bf[1:n.row.S,2,k] <- c(Final_data.S$bf, 1, 1)
+      n[1:n.row.S,2,k] <- c(0, Final_data.S$n, 0)
+      vs[1:(n.row.S-2),2,k] <- c(Final_data.S$vs)
+      bf[1:(n.row.S-2),2,k] <- c(Final_data.S$bf)
       
       obs.year.S <- data.frame(obs = Final_data.S$obs) %>% 
         left_join(all.observers, by = "obs")
       
       obs[1:n.row.S,2,k] <- c(obs.year.S$ID, no.obs.ID, no.obs.ID)
-      watch.length[1:n.row.S,2,k] <- c(Final_data.S$watch.length, 0.0, 0.0)
-      day[1:n.row.S,2,k] <- c(floor(Final_data.S$begin), 1, max.day)
+      watch.length[1:(n.row.S-2),2,k] <- c(Final_data.S$watch.length)
+      day[1:n.row.S,2,k] <- c(1, floor(Final_data.S$begin), max.day)
       
       periods.mat[k,2] <- nrow(Final_data.S) + 2
       
     } else {
       n.row <- length(Final_data$n) + 2
-      n[1:n.row,1,k] <- c(Final_data$n, 0, 0)
-      vs[1:n.row,1,k] <- c(Final_data$vs, 1, 1)
-      bf[1:n.row,1,k] <- c(Final_data$bf, 1, 1)
+      n[1:n.row,1,k] <- c(0, Final_data$n, 0)
+      vs[1:(n.row-2),1,k] <- c(Final_data$vs)
+      bf[1:(n.row-2),1,k] <- c(Final_data$bf)
       
       obs.year <- data.frame(obs = Final_data$obs) %>% 
         left_join(all.observers, by = "obs")
       
       obs[1:n.row,1,k] <- c(obs.year$ID, no.obs.ID, no.obs.ID)
-      watch.length[1:n.row,1,k] <- c(Final_data$watch.length, 0.0, 0.0)
-      day[1:n.row,1,k] <- c(floor(Final_data$begin), 1, max.day)
+      watch.length[1:(n.row-2),1,k] <- c(Final_data$watch.length)
+      day[1:n.row,1,k] <- c(1, floor(Final_data$begin), max.day)
       periods.mat[k,1] <- nrow(Final_data) + 2
       
     }
@@ -2017,38 +2017,7 @@ AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir, max.day = 90){
                           jags.obs.new.new.1,
                           along = 3)
     
-    # whale counts:
-    jags.n.new <- abind(jags.input.new$jags.data$n,
-                        array(data = NA, 
-                              dim = c(n.row.dif, 2, 
-                                      dim(jags.obs.new.new)[3])),
-                        along = 1)
     
-    jags.n.all <- abind(jags.input.Laake$jags.data$n,
-                        jags.n.new,
-                        along = 3)
-    
-    # Watch proportion
-    jags.watch.prop.new <- abind(jags.input.new$jags.data$watch.prop,
-                                 array(data = NA, 
-                                       dim = c(n.row.dif, 2, 
-                                               dim(jags.obs.new.new)[3])),
-                                 along = 1)
-    
-    jags.watch.prop.all <- abind(jags.input.Laake$jags.data$watch.prop,
-                                 jags.watch.prop.new,
-                                 along = 3)
-    
-    # Watch length
-    jags.watch.length.new <- abind(jags.input.new$jags.data$watch.length,
-                                 array(data = NA, 
-                                       dim = c(n.row.dif, 2, 
-                                               dim(jags.obs.new.new)[3])),
-                                 along = 1)
-    
-    jags.watch.length.all <- abind(jags.input.Laake$jags.data$watch.length,
-                                   jags.watch.length.new,
-                                   along = 3)
 
     # day
     jags.day.new <- abind(jags.input.new$jags.data$day,
@@ -2073,38 +2042,6 @@ AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir, max.day = 90){
                           jags.obs.new.new,
                           along = 3)
     
-    # whale counts:
-    jags.n.Laake <- abind(jags.input.Laake$jags.data$n,
-                        array(data = NA, 
-                              dim = c(n.row.dif, 2, 
-                                      dim(jags.obs.Laake.new)[3])),
-                        along = 1)
-    
-    jags.n.all <- abind(jags.n.Laake,
-                        jags.input.new$jags.data$n,
-                        along = 3)
-    
-    # Watch proportion
-    jags.watch.prop.Laake <- abind(jags.input.Laake$jags.data$watch.prop,
-                                 array(data = NA, 
-                                       dim = c(n.row.dif, 2, 
-                                               dim(jags.obs.Laake.new)[3])),
-                                 along = 1)
-    
-    jags.watch.prop.all <- abind(jags.watch.prop.Laake,
-                                 jags.input.new$jags.data$watch.prop,
-                                 along = 3)
-    
-    # Watch length
-    jags.watch.length.Laake <- abind(jags.input.Laake$jags.data$watch.length,
-                                     array(data = NA, 
-                                           dim = c(n.row.dif, 2, 
-                                                   dim(jags.obs.Laake.new)[3])),
-                                     along = 1)
-    
-    jags.watch.length.all <- abind(jags.watch.length.Laake,
-                                   jags.input.new$jags.data$watch.length,
-                                   along = 3)
     
     # day
     jags.day.Laake <- abind(jags.input.Laake$jags.data$day,
@@ -2118,7 +2055,40 @@ AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir, max.day = 90){
                           along = 3) 
   }
   
-  # visibility
+  # whale counts:
+  n.row.dif <- dim(jags.input.Laake$jags.data$n)[1] - dim(jags.input.new$jags.data$n)[1]
+  
+  if (n.row.dif > 0){
+
+    # whale counts:
+    jags.n.new <- abind(jags.input.new$jags.data$n,
+                        array(data = NA, 
+                              dim = c(n.row.dif, 2, 
+                                      dim(jags.input.new$jags.data$n)[3])),
+                        along = 1)
+    
+    jags.n.all <- abind(jags.input.Laake$jags.data$n,
+                        jags.n.new,
+                        along = 3)
+    
+  } else {
+    n.row.dif <- abs(n.row.dif)
+    
+    # whale counts:
+    jags.n.Laake <- abind(jags.input.Laake$jags.data$n,
+                          array(data = NA, 
+                                dim = c(n.row.dif, 2, 
+                                        dim(jags.input.Laake$jags.data$n)[3])),
+                          along = 1)
+    
+    jags.n.all <- abind(jags.n.Laake,
+                        jags.input.new$jags.data$n,
+                        along = 3)
+    
+  }
+  
+  
+  # visibility/Beaufort/Watch length and proportion
   # Visibility and Beaufort do not have extra two rows. So need to recalculate
   # the difference in the numbers of rows
   n.row.dif <- dim(jags.input.Laake$jags.data$vs)[1] - dim(jags.input.new$jags.data$vs)[1]
@@ -2143,6 +2113,29 @@ AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir, max.day = 90){
     jags.bf.all <- abind(jags.input.Laake$jags.data$bf,
                          jags.bf.new,
                          along = 3)    
+    
+    # Watch proportion
+    jags.watch.prop.new <- abind(jags.input.new$jags.data$watch.prop,
+                                 array(data = NA, 
+                                       dim = c(n.row.dif, 2, 
+                                               dim(jags.obs.new.new)[3])),
+                                 along = 1)
+    
+    jags.watch.prop.all <- abind(jags.input.Laake$jags.data$watch.prop,
+                                 jags.watch.prop.new,
+                                 along = 3)
+    
+    # Watch length
+    jags.watch.length.new <- abind(jags.input.new$jags.data$watch.length,
+                                   array(data = NA, 
+                                         dim = c(n.row.dif, 2, 
+                                                 dim(jags.obs.new.new)[3])),
+                                   along = 1)
+    
+    jags.watch.length.all <- abind(jags.input.Laake$jags.data$watch.length,
+                                   jags.watch.length.new,
+                                   along = 3)
+    
   } else {
     n.row.dif <- abs(n.row.dif)
     jags.vs.Laake <- abind(jags.input.Laake$jags.data$vs,
@@ -2165,6 +2158,29 @@ AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir, max.day = 90){
     jags.bf.all <- abind(jags.bf.Laake,
                          jags.input.new$jags.data$bf,
                          along = 3)
+    
+    # Watch proportion
+    jags.watch.prop.Laake <- abind(jags.input.Laake$jags.data$watch.prop,
+                                   array(data = NA, 
+                                         dim = c(n.row.dif, 2, 
+                                                 dim(jags.obs.Laake.new)[3])),
+                                   along = 1)
+    
+    jags.watch.prop.all <- abind(jags.watch.prop.Laake,
+                                 jags.input.new$jags.data$watch.prop,
+                                 along = 3)
+    
+    # Watch length
+    jags.watch.length.Laake <- abind(jags.input.Laake$jags.data$watch.length,
+                                     array(data = NA, 
+                                           dim = c(n.row.dif, 2, 
+                                                   dim(jags.obs.Laake.new)[3])),
+                                     along = 1)
+    
+    jags.watch.length.all <- abind(jags.watch.length.Laake,
+                                   jags.input.new$jags.data$watch.length,
+                                   along = 3)
+    
   }
 
   # Create partially observed N.
