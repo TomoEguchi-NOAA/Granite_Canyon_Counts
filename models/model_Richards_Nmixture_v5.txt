@@ -86,7 +86,7 @@ model{
 				n[d, s, y] ~ dbin(obs.prob[d,s,y], N[day[d,s,y], y])
 				log.lkhd[(d-1),s,y] <- logdensity.bin(n[d,s,y], obs.prob[d, s, y], N[day[d,s,y], y])
 				
-				# probability is discounted by the proportion of each watch period
+				# probability is discounted by the length of each watch period
 				obs.prob[d, s, y] <- prob[(d-1), s, y] * watch.length[(d-1), s, y]
 				# probability is mean + covariate effects
 				logit(prob[(d-1),s,y]) <- mean.prob +
