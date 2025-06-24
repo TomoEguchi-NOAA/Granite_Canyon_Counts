@@ -1341,7 +1341,8 @@ LaakeData2JagsInput <- function(min.dur, max.day = 100){
   
   Laake_SecondaryEffort <- SecondaryEffort[SecondaryEffort$Use,]
   
-  # Filter to minimum duration:
+  # Filter to minimum duration. min.dur is given in the unit of minuites, which
+  # is converted to the unit of days:
   Laake_PrimaryEffort %>%
     filter(effort >= min.dur / (60 * 24) ) -> Laake_PrimaryEffort
   
@@ -1733,6 +1734,7 @@ data2Jags_input_NoBUGS <- function(min.dur,
   # watch length in fractional days  
   Watch.Length <- list()
 
+  # watch lengths in the unit of "days"
   for (k in 1:length(begin.)){
     Watch.Length[[k]] <- end.[[k]] - begin.[[k]]
   }
@@ -2200,6 +2202,7 @@ AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir, max.day = 90){
                       vs = labelled::remove_attributes(jags.vs.all, "dimnames"),
                       bf = labelled::remove_attributes(jags.bf.all, "dimnames"),
                       watch.prop = labelled::remove_attributes(jags.watch.prop.all, "dimnames"),
+                      watch.length = labelled::remove_attributes(jags.watch.length.all, "dimnames"),
                       day = labelled::remove_attributes(jags.day.all, "dimnames"),
                       N = N)
   
@@ -2213,10 +2216,10 @@ AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir, max.day = 90){
 
 # Create data input for Jags from WinBUGS input.
 WinBUGSinput <- function(min.dur, 
-                                   WinBUGS.out.file,
-                                   years,
-                                   n.stations,
-                                   data.dir){
+                         WinBUGS.out.file,
+                         years,
+                         n.stations,
+                         data.dir){
   
   all.years <- c(2007, 2008, years)
   seasons <- sapply(all.years, FUN = function(x) paste0(x-1, "/", x))
