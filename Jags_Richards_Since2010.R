@@ -30,39 +30,28 @@ library(bayesplot)
 
 source("Granite_Canyon_Counts_fcns.R")
 #source("AllData2Jags_input.R")
+options(mc.cores = 5)
 
 Run.date <- Sys.Date() #"2024-12-05" #
 
 # Minimum length of observation periods in minutes
-min.dur <- 10 #85 #30 #85 #
+min.dur <- 60 #85 #30 #85 #
 
-ver <- "v5"
-
-model.name <- paste0("Richards_pois_bino_", ver) 
-jags.model <- paste0("models/model_", model.name, ".txt")
-
-out.file.name <- paste0("RData/JAGS_", model.name,"_min", min.dur,
-                        "_Since2010_NoBUGS_",
-                        Run.date, ".rds")
+ver <- "v4"
 
 years <- c(2010, 2011, 2015, 2016, 
-           2020, 2022, 2023, 2024)
+           2020, 2022, 2023, 2024, 2025)
 
-jags.input <- data2Jags_input_NoBUGS(min.dur = min.dur, 
-                                     years = years,
-                                     data.dir = "RData/V2.1_Nov2024")
-
-jags.params <- c("OBS.RF", "BF.Fixed",
-                 "VS.Fixed",
-                 "mean.prob", "mean.N", "Max",
-                 "Corrected.Est", "Raw.Est", "N",
-                 "K", "S1", "S2", "P",
+jags.params <- c("VS.Fixed", "BF.Fixed",
+                 "Max", "K", "S1", "S2", "P",
+                 "mean.prob", "prob", "obs.prob",
+                 "mean.N", "Corrected.Est", "N", "obs.N",
+                 "OBS.RF", "sigma.Obs",
                  "Max.alpha", "Max.beta",
                  "S1.alpha", "S2.alpha",
                  "S1.beta", "S2.beta",
                  "P.alpha", "P.beta",
                  "K.alpha", "K.beta",
-                 "N.alpha",
                  "log.lkhd")
 
 MCMC.params <- list(n.samples = 250000,
@@ -70,39 +59,19 @@ MCMC.params <- list(n.samples = 250000,
                     n.burnin = 200000,
                     n.chains = 5)
 
-if (!file.exists(out.file.name)){
-  
-  Start_Time<-Sys.time()
-  
-  jm <- jagsUI::jags(jags.input$jags.data,
-                     inits = NULL,
-                     parameters.to.save= jags.params,
-                     model.file = jags.model,
-                     n.chains = MCMC.params$n.chains,
-                     n.burnin = MCMC.params$n.burnin,
-                     n.thin = MCMC.params$n.thin,
-                     n.iter = MCMC.params$n.samples,
-                     DIC = T,
-                     parallel=T)
-  
-  Run_Time <- Sys.time() - Start_Time
-  jm.out <- list(jm = jm,
-                 jags.input = jags.input,
-                 #start.year = all.start.year,
-                 jags.params = jags.params,
-                 jags.model = jags.model,
-                 MCMC.params = MCMC.params,
-                 Run_Time = Run_Time,
-                 Run_Date = Start_Time,
-                 Sys.env = Sys.getenv())
-  
-  saveRDS(jm.out,
-          file = out.file.name)
-  
-} else {
-  
-  jm.out <- readRDS(out.file.name)
-}
+jm.out <- Jags_Richards_Since2010_fcn(min.dur = min.dur, 
+                                      max.day = 90, 
+                                      ver = ver, 
+                                      years = years, 
+                                      data.dir = "RData/V2.1_Feb2025", 
+                                      jags.params = jags.params, 
+                                      MCMC.params = MCMC.params)
+
+# model.name <- paste0("Richards_Nmixture_", ver) 
+# out.file.name <- paste0("RData/JAGS_", model.name,"_min", min.dur,
+#                         "_Since2010_NoBUGS_",
+#                         Run.date, ".rds")
+# jm.out <- readRDS(out.file.name)
 
 # need to turn zeros into NAs when there were no second station:
 jags.data <- jm.out$jags.input$jags.data
@@ -153,19 +122,69 @@ mcmc_trace(jm.out$jm$samples, c("S1.alpha", "S1.beta",
 mcmc_dens(jm.out$jm$samples, c("BF.Fixed", "VS.Fixed"))
 
 # plot.trace.dens function is in Granite_Canyon_Counts_fcns.R
-ps.K <- plot.trace.dens(param = "K", 
-                        jags.out = "jm.out$jm")
+ps.K <- plot.trace.dens(var.name = "K", 
+                        jm = jm.out$jm)
 
-ps.P <- plot.trace.dens(param = "P", 
-                        jags.out = "jm.out$jm")
+ps.P <- plot.trace.dens(var.name = "P", 
+                        jm = jm.out$jm)
 
 
-ps.S1 <- plot.trace.dens(param = "S1", 
-                         jags.out = "jm.out$jm")
+ps.S1 <- plot.trace.dens(var.name = "S1", 
+                         jm = jm.out$jm)
 
-ps.S2 <- plot.trace.dens(param = "S2", 
-                         jags.out = "jm.out$jm")
+ps.S2 <- plot.trace.dens(var.name = "S2", 
+                         jm = jm.out$jm)
 
-ps.Max <- plot.trace.dens(param = "Max", 
-                          jags.out = "jm.out$jm")
+ps.Max <- plot.trace.dens(var.name = "Max", 
+                          jm = jm.out$jm)
 
+
+all.start.year <- jm.out$jags.input$start.years
+
+# Create a dataframe with all years, including unsampled years.
+all.years <- data.frame(start.year = seq(min(all.start.year), max(all.start.year))) %>%
+  mutate(Season = paste0(start.year, "/", start.year + 1))
+
+# Look at the annual abundance estimates:
+Nhat. <- data.frame(Season = paste0(all.start.year, "/", all.start.year+1),
+                    Nhat = jm.out$jm$q50$Corrected.Est,
+                    LCL = jm.out$jm$q2.5$Corrected.Est,
+                    UCL = jm.out$jm$q97.5$Corrected.Est) %>%
+  right_join(all.years, by = "Season") %>%
+  arrange(start.year) %>%
+  mutate(Method = paste0("Eguchi ", ver))
+
+# This is for daily estimates
+N.hats.day <- data.frame(Season = rep(paste0(all.start.year, "/", all.start.year+1), 
+                                      each = nrow(jm.out$jm$mean$N)), #rep(Nhat.$Season, each = nrow(jm.out$jm$mean$N)),
+                         Day = rep(1:nrow(jm.out$jm$mean$N), times = length(all.start.year)),
+                         Mean = as.vector(jm.out$jm$mean$N),
+                         LCL = as.vector(jm.out$jm$q2.5$N),
+                         UCL = as.vector(jm.out$jm$q97.5$N)) 
+
+# Daily estimates plots
+p.daily.Richards <- ggplot(N.hats.day %>% group_by(Season)) + 
+  geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
+              fill = "blue", alpha = 0.5) +
+  geom_path(aes(x = Day, y = Mean)) + 
+  #geom_point(aes(x = Day, y = Mean)) +
+  facet_wrap(~ Season)
+
+# These are not the best estimates because they were not updated as more data
+# were collected. I should use the output from the most recent WinBUGS run for 
+# the last x years.
+#Reported.estimates <- read.csv(file = "Data/all_estimates_2024.csv") %>%
+Reported.estimates <- read.csv(file = "Data/Nhats_2025.csv") %>%  
+  transmute(Season = Season,
+            Nhat = Nhat,
+            LCL = LCL,
+            UCL = UCL) %>%
+  right_join(all.years, by = "Season") %>%
+  arrange(start.year) %>%
+  mutate(Method = "Reported")
+
+all.Nhats <- rbind(Nhat., Reported.estimates)
+
+ggplot(all.Nhats) +
+  geom_point(aes(x = Season, y = Nhat, color = Method)) +
+  geom_errorbar(aes(x = Season, ymin = LCL, ymax = UCL, color = Method))

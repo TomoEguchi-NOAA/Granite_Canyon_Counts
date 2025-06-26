@@ -29,6 +29,7 @@ library(loo)
 library(bayesplot)
 
 source("Granite_Canyon_Counts_fcns.R")
+options(mc.cores = 5)
 
 WinBUGS.Run.Date <- "2025-04-11"
 #WinBUGS.Run.Date <- "2025-06-06"

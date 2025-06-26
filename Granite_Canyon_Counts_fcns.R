@@ -220,13 +220,13 @@ get.results.jags <- function(file.name){
 #                             jags.params = jags.params, 
 #                             MCMC.params = MCMC.params)                    
 
-Jags_Richards_Since2010_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC.params){
+Jags_Richards_Since2010_fcn <- function(min.dur, max.day = 90, ver, years, data.dir, jags.params, MCMC.params){
   print("Starting Jags_Richards_Since2010_fcn")
   
   Run.date <- Sys.Date() #"2024-12-05" #
   
   # Minimum length of observation periods in minutes
-  model.name <- paste0("Richards_pois_bino_", ver) 
+  model.name <- paste0("Richards_Nmixture_", ver) 
   jags.model <- paste0("models/model_", model.name, ".txt")
   
   out.file.name <- paste0("RData/JAGS_", model.name,"_min", min.dur,
@@ -235,36 +235,44 @@ Jags_Richards_Since2010_fcn <- function(min.dur, ver, years, data.dir, jags.para
   
   jags.input <- data2Jags_input_NoBUGS(min.dur = min.dur, 
                                        years = years,
-                                       data.dir = data.dir)
+                                       data.dir = data.dir,
+                                       max.day = max.day)
   
+  if (!file.exists(out.file.name)){
+    Start_Time<-Sys.time()
+    
+    jm <- jagsUI::jags(jags.input$jags.data,
+                       inits = NULL,
+                       parameters.to.save= jags.params,
+                       model.file = jags.model,
+                       n.chains = MCMC.params$n.chains,
+                       n.burnin = MCMC.params$n.burnin,
+                       n.thin = MCMC.params$n.thin,
+                       n.iter = MCMC.params$n.samples,
+                       DIC = T,
+                       parallel=T)
+    
+    Run_Time <- Sys.time() - Start_Time
+    jm.out <- list(jm = jm,
+                   jags.input = jags.input,
+                   #start.year = all.start.year,
+                   jags.params = jags.params,
+                   jags.model = jags.model,
+                   MCMC.params = MCMC.params,
+                   Run_Time = Run_Time,
+                   Run_Date = Run.date,
+                   Sys.env = Sys.getenv())
+    
+    saveRDS(jm.out,
+            file = out.file.name)
+    
+  } else {
+    print("Results from a preivous analysis was loaded.")
+    jm.out <- readRDS(out.file.name)
+    
+  }
   
-  Start_Time<-Sys.time()
-  
-  jm <- jagsUI::jags(jags.input$jags.data,
-                     inits = NULL,
-                     parameters.to.save= jags.params,
-                     model.file = jags.model,
-                     n.chains = MCMC.params$n.chains,
-                     n.burnin = MCMC.params$n.burnin,
-                     n.thin = MCMC.params$n.thin,
-                     n.iter = MCMC.params$n.samples,
-                     DIC = T,
-                     parallel=T)
-  
-  Run_Time <- Sys.time() - Start_Time
-  jm.out <- list(jm = jm,
-                 jags.input = jags.input,
-                 #start.year = all.start.year,
-                 jags.params = jags.params,
-                 jags.model = jags.model,
-                 MCMC.params = MCMC.params,
-                 Run_Time = Run_Time,
-                 Run_Date = Run.date,
-                 Sys.env = Sys.getenv())
-  
-  saveRDS(jm.out,
-          file = out.file.name)
-  
+  return(jm.out)
 
 }
 
