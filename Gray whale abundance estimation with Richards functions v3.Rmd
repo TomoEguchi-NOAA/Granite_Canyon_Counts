@@ -84,13 +84,13 @@ save.fig.fcn <- function(fig, file.name, replace = F,
 
 Analytical methods to estimate abundance of gray whales from visual surveys at Granite Canyon, CA, have evolved over the years [@laakeGrayWhaleSouthbound2012; @durbanEstimatingGrayWhale2015]. Laake et al. (2012) used the distance sampling approach with generalized additive models (GAMs). Durban et al. (2015) developed a new method using a Bayesian N-mixture approach, which was approved by the IWC and it has been used for the analysis since the 2015/2016 season. In short, Durban et al.'s method used the observed changes in migrating gray whales at a location along the migration corridor. The general trend is that the number of gray whale sightings increases over time until it reaches its peak, then decreases. Durban et al.'s method used the Gaussian function to capture this general trend. Deviations from the Gaussian function was modeled via fitting a spline function to the observed counts.
 
-The analysis was conducted using WinBUGS, which had become obsolete over the last decade or so. In this report, I provide improvements to Durban et al.'s method. In the following, I first describe the method by Durban et al. and point out underlying assumptions that are somewhat too strict. Then, I introduce a new approach that is consistent with the basic idea of the method by Durban et al. but improve it by replacing the Gaussian/spline model with another function. I show the performance of the new approach using simulated data. Finally, I reanalyze the real data from Granite Canyon, CA, to compare abundance estimates between the two approaches.
+The analysis was conducted using WinBUGS, which had become obsolete over the last decade or so. In this report, I provide improvements to Durban et al.'s method. In the following, I first describe the method by Durban et al. and point out underlying assumptions. Then, I introduce a new approach that is consistent with the basic idea of the method by Durban et al. but improve it by replacing the Gaussian/spline model with another function. Finally, I reanalyze the real data from Granite Canyon, CA, to compare abundance estimates among the three approaches.
 
 ## Method by Durban et al. {.unnumbered}
 
 At the field station located at Granite Canyon, CA, in order to estimate detectability of gray whales by visual observers, counts from two independent stations of paired observers operating simultaneously were compared during two years (2009/2010 and 2010/2011). The two watch stations were positioned 35 m apart at the same elevation (22.5 m) above sea level (Durban et al. 2015). For the years with only one station, detectability was extrapolated for all monitored watch periods based on the fitted model for detectability, where the counts for the south watch station were treated as zero inflated binomial outcomes. The binomial probability was specified as the product of an indicator function and the detectability ($u_{i,j,t} \times p_{i,j,t}$), where $u$ = 1 or 0 to indicate whether or not count data were collected from that station. This formulation ensured that structural zero counts from periods without a second watch did not contribute to the likelihood for estimation of $p$ or $N$ (Durban et al. 2015).
 
-Consistent with Laake et al. (2012), the model for detectability incorporated fixed effects for visibility ($V$) and Beaufort Scale ($B$), whereas observers were treated as random effects ($O$). These were modelled as additive effects on a general intercept so that the direction and magnitude of the estimated effects away from zero (no effect) could be assessed. The selection for the inclusion of these effects were accomplished by using Bayesian model selection with stochastic binary indicator variables $I$ to switch each of the three possible effects either in or out of the model.
+Consistent with Laake et al. (2012), the model for detectability incorporated fixed effects for visibility ($V$) and the Beaufort sea state ($B$), whereas observers were treated as random effects ($O$). These were modeled as additive effects on a general intercept so that the direction and magnitude of the estimated effects away from zero (no effect) could be assessed. The selection for the inclusion of these effects were accomplished by using Bayesian model selection with stochastic binary indicator variables $I$ to switch each of the three possible effects either in or out of the model.
 
 ### Mathematical description {.unnumbered}
 
@@ -146,7 +146,7 @@ $$ g_{d,t} = S_{0,t} + S_{1,t} * d_t + \sum_{k=1}^{m} \lambda_{k,t} (d_t – \ka
 
 ### Some concerns about Durban et al's method {.unnumbered}
 
-The approach in Durban et al. (2015) used the "cut" function within WinBUGS to dissociate estimated parameters in one function (i.e., $f_{d,t}$ or $g_{d,t}$) from those in the other function (i.e., $g_{d,t}$ or $f_{d,t}$, respectively). The function (\cut) is unavailable in modern Bayesian computation packages (e.g., JAGS, STAN) and its use has been questioned [@plummer2015]. In short, "cut" function does not converge to a well-defined limiting distribution (Plummer 2015). In addition, the assumption that the number of gray whales migrating in front of the observation station follows a Gaussian distribution centered around the mid point of the pre-defined migration season is somewhat questionable. The true curve in abundance may not be symmetric around a peak and the peak may not be instantaneous. In other words, the peak may persist for a few days. Fitting spline functions to observed counts may alleviate some of these problems but a fitted spline to observed counts may be too flexible. A spline fit would lose the general idea that the number of whales increases from the beginning of a migration season, reaches a peak, then decreases over time to the end of the migration season.
+The approach in Durban et al. (2015) used the "cut" function within WinBUGS to dissociate estimated parameters in one function (i.e., $f_{d,t}$ or $g_{d,t}$) from those in the other function (i.e., $g_{d,t}$ or $f_{d,t}$, respectively). The function (\cut) is unavailable in modern Bayesian computation packages (e.g., JAGS, STAN) and its use has been questioned [@plummer2015]. In short, "cut" function does not converge to a well-defined limiting distribution (Plummer 2015). In addition, the assumption that the number of gray whales migrating in front of the observation station follows a Gaussian distribution centered around the mid point of the pre-defined migration season is somewhat questionable. The true curve in abundance may not be symmetric around a peak and the peak may not be instantaneous. In other words, the peak may persist for a few days. Fitting spline functions to observed counts may alleviate some of these problems but a fitted spline to observed counts may be too flexible. A spline fit would lose the general idea that the number of whales increases from the beginning of a migration season, reaches a peak, then decreases over time to the end of the migration season. In addition, Durban et al.'s approach assumed that two observation stations operated simultaneously with identical effort. In reality, however, watch durations were not identical between two stations in previous years (i.e., data in Laake's analysis).
 
 ## Modification {.unnumbered}
 
@@ -154,7 +154,7 @@ Because of the way spline is fit to data points, it is impossible to use just sp
 
 ### Model description {.unnumbered}
 
-In order to overcome these difficulties with the previous approach, I use a more flexible function that can accommodate the general shape (increase, peak then decrease) and asymmetrical around the peak. The function is often called Richards' function [@richards1959] and it has been used, for example, to model changes in the number of nesting turtles [@girondotModelingApproachesQuantify2007]. The model is defined as follows.
+In order to overcome these difficulties with the previous approach, I use a more flexible function that can accommodate the general shape (increase, peak then decrease) and asymmetrical around the peak. The function is called Richards' function [@richards1959] and it has been used, for example, to model changes in the number of nesting turtles [@girondotModelingApproachesQuantify2007]. The model is defined as follows.
 
 $$M_1 = (1 + (2 e^K - 1) * e^{(P-d)/S_1}) ^ {(-1/e^K)}$$
 
@@ -180,7 +180,7 @@ Effects of these parameters on the shape of the function are described in the fo
 
 #### Effects of $S_1$ {.unnumbered}
 
-The parameter $S_1 < 0$ defines how the curve decreases from its peak. The rate of decline slows down as $S_1$ becomes greater (i.e., closer to zero; Figure \@ref(fig:Figure-S1)). Because we make an assumption that there are no whales migrating after day 90, the lower bound of $S_1$ can be restricted to a certain value, (e.g., $-5 < S_1 < 0$).
+The parameter $S_1 < 0$ defines how the curve decreases from its peak. The rate of decline slows down as $S_1$ becomes greater (i.e., closer to zero; Figure \@ref(fig:Figure-S1)). Because we make an assumption that there are no whales migrating after day 90 (or any other assumed "end" day), the lower bound of $S_1$ can be restricted to a certain value, (e.g., $-5 < S_1 < 0$).
 
 ```{r S1, echo=FALSE, message=FALSE}
 S1 <- c(-10, -5, -2.5, -1.2, -0.6, -0.3)
@@ -376,7 +376,7 @@ knitr::include_graphics(paste0("figures/P_", dpi.set, "dpi.png"))
 
 #### Fitting the model to observed counts {.unnumbered}
 
-The proposed new approach replaces the spline-Gaussian selection step in Durban et al. with Richards' functions. The observed counts are modeled with binomial distributions as it was in Durban et al. (2015)
+The proposed new approach replaces the spline-Gaussian selection step in Durban et al. with Richards' function. The observed counts are modeled with binomial distributions as it was in Durban et al. (2015)
 
 $$ n_{i_t,s,y} \sim BIN(N_{t, y}, p_{i_t, s, y} * \theta_{i_t, y}) $$
 

@@ -30,8 +30,6 @@
 # for N. 
 #
 # This version (v4) has year spcific S1 and S2 parameters with hyperparameters.
-# Seems to have higher estimates than Durban's method. Results for earlier years
-# are not precise and very different from Laake's method in many years.
 #
 # 2024-07-09: It allows different numbers of sampling periods between primary
 # and secondary sampling stations. 
