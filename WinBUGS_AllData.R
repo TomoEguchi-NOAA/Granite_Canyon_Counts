@@ -27,6 +27,7 @@ max.day <- 90
 # min.dur is one of 10, 30, 85 or any other that was used in Extract_Data_All_v2.Rmd
 years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025)
 data.dir = "RData/V2.1_Feb2025"
+
 input.list <- AllData2JagsInput_NoBUGS(min.dur, years = years, data.dir, max.day = max.day)  
 
 jags.data <- input.list$jags.data
