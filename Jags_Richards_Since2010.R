@@ -122,12 +122,17 @@ mcmc_trace(jm.out$jm$samples, c("S1.alpha", "S1.beta",
 mcmc_dens(jm.out$jm$samples, c("BF.Fixed", "VS.Fixed"))
 
 # plot.trace.dens function is in Granite_Canyon_Counts_fcns.R
-ps.K <- plot.trace.dens(var.name = "K", 
+ps.K <- plot.trace.dens(var.name = "\\bK\\b(?!\\.\\w*)", 
                         jm = jm.out$jm)
 
-ps.P <- plot.trace.dens(var.name = "P", 
+ps.K. <- plot.trace.dens(var.name = "K.", 
                         jm = jm.out$jm)
 
+ps.P <- plot.trace.dens(var.name = "\\bP\\b(?!\\.\\w*)", 
+                        jm = jm.out$jm)
+
+ps.P.alpha <- plot.trace.dens(var.name = "P.alpha", 
+                         jm = jm.out$jm)
 
 ps.S1 <- plot.trace.dens(var.name = "S1", 
                          jm = jm.out$jm)

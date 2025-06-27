@@ -29,6 +29,65 @@ years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025)
 data.dir = "RData/V2.1_Feb2025"
 input.list <- AllData2JagsInput_NoBUGS(min.dur, years = years, data.dir, max.day = max.day)  
 
+jags.data <- input.list$jags.data
+
+obs.vec <- as.vector(jags.data$obs) 
+data.frame(obs = obs.vec) %>%
+  mutate(obs.f = as.factor(obs)) %>%
+  group_by(obs.f) %>%
+  summarize(n = n(),
+            obs = first(obs)) -> obs.summary
+
+obs.n.min <- 10
+obs.too.few <- obs.summary %>% filter(n < obs.n.min)  
+
+obs.to.keep <- obs.summary %>% filter(n >= obs.n.min) 
+obs.to.keep$new.ID <- seq(1, dim(obs.to.keep)[1])
+obs.others <- max(obs.to.keep$new.ID)
+
+obs <- jags.data$obs
+new.no.obs <- obs.others + 1
+old.no.obs <- max(obs.to.keep$obs)
+for (k in 1:nrow(obs.too.few)){
+  obs[obs == obs.too.few$obs[k]] <- NA
+}
+
+for (k in 1:(nrow(obs.to.keep)-1)){
+  obs[obs == obs.to.keep$obs[k]]  <- obs.to.keep$new.ID[k] 
+}
+
+obs[is.na(obs)] <- obs.others
+obs[obs == old.no.obs] <- new.no.obs
+
+
+
+n <- input.list$jags.data$n[2:(max(input.list$jags.data$periods[,1]) - 2), ,]
+day <- input.list$jags.data$day[2:(max(input.list$jags.data$periods[,1]) - 2), ,]
+day[day == max.day] <- NA
+day.new <- array(dim = c(max(input.list$jags.data$periods[,1]), 2, dim(input.list$jags.data$n)[3]))
+k1 <- k2 <- 1
+for (k1 in 1:2){
+  for (k2 in 1:dim(input.list$jags.data$n)[3]){
+    day.1 <- na.omit(day[, k1, k2])
+    if (length(day.1) > 1)
+      day.new[1:(length(day.1)+2),k1,k2] <- c(day.1, 1, 90)    
+  }
+}
+
+# jags data includes day 1 and max.day
+periods <- input.list$jags.data$periods[,1] - 2
+
+
+
+WinBUGS.input <- data2WinBUGS_input(data.dir = "RData/V2.1_Feb2025",
+                                    years = c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025),
+                                    min.dur = 60) 
+
+# In June 2025, I changed the jags input to move day 1 and max.day to the beginning
+# and the end of day and n arrays. So, that needs to be changed for WinBUGS input. 
+
+
+
 # Convert jags input to WinBUGS input. Necessary variables are:
 # n = n[1:max(periods[1:x]),,1:x],
 # n.com = n[1:max(periods[1:x]),,1:x],
@@ -58,12 +117,6 @@ input.list <- AllData2JagsInput_NoBUGS(min.dur, years = years, data.dir, max.day
 # n.knots=14,
 # Watch.Length=Watch.Length[1:(max(periods[1:x])+2), 1:x]
 
-# For this analysis, I have to change "days" array because 90 was not the maximum
-# in the old (Laake's) datasets. I truncate data to maximum of day 90. 
-# In Durban's approach, the day matrix is 2D
-day.mat <- input.list$jags.data$day[,1,]
-day.mat[day.mat > 89] <- NA   # Remove all 90 and above
-day.mat[day.mat < 2] <- NA    # Remove all 1s - this will be reentered later
 
 periods <- colSums(!is.na(day.mat))
 
@@ -85,19 +138,13 @@ for(i in 1:length(periods)){
   day.mat[(periods[i]+1):(periods[i]+2),i] <- c(1, 90)
 }
 
-# In my code, watch.prop is the proportion of total watch periods in a day (540
-# minutes) that was actually observed. In Durban's code, Watch.Length is the length
-# of each shift in days. 
-Watch.Length <- (input.list$jags.data$watch.prop[,1,] * 540)/(60*24)
+Watch.Length <- input.list$jags.data$watch.prop[,1,]
 Watch.Length[Watch.Length < 0.0001] <- 1  # day 1 and 90 are considered full coverage
 
 # need to add 1s where days are 1 and 90:
 Watch.Length[day.mat == 1] <- 1
 Watch.Length[day.mat == 90] <- 1
 
-n <- input.list$jags.data$n
-n[is.na(n)] <- 0
-n <- n[1:max(periods), ,]
 
 obs <- input.list$jags.data$obs
 obs <- obs[1:max(periods),,]
@@ -135,8 +182,8 @@ t.max <- BUGS.data$n.year
 n.obs <- BUGS.data$n.obs
 dim.obs <- dim(BUGS.data$obs)
 periods <- BUGS.data$periods
-for (k in 1:t.max) print(BUGS.data$obs[1:periods[k], 1, k])
-for (k in 1:t.max) print(BUGS.data$obs[1:periods[k], 2, k])
+# for (k in 1:t.max) print(BUGS.data$obs[1:periods[k], 1, k])
+# for (k in 1:t.max) print(BUGS.data$obs[1:periods[k], 2, k])
 
 # Create an initial values function:
 N_inits1 <- BUGS.data$n[, 1,] * 2 + 2
@@ -184,9 +231,9 @@ BUGS.inits <- function() list(mean.prob = 0.5,
                               z = matrix(1, nrow=90, ncol= x))
 
 
-MCMC.params <- list(n.iter = 85000, #200, #
-                   n.thin = 50, #2, #80
-                   n.burnin = 50000, #50, #
+MCMC.params <- list(n.iter = 200, #85000, #
+                   n.thin = 2, #50, #80
+                   n.burnin = 50, #50000, #
                    n.chains = 5)
 # 
 # This set runs quickly. Good to use this set to see if data and model are correct.
@@ -223,7 +270,7 @@ if (!file.exists(out.file.name)){
                    n.iter = MCMC.params$n.iter, 
                    n.burnin = MCMC.params$n.burnin, 
                    n.thin = MCMC.params$n.thin,
-                   debug = F,
+                   debug = T,
                    bugs.directory = WinBUGS.dir,
                    DIC = FALSE)
   

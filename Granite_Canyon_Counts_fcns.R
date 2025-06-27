@@ -59,11 +59,13 @@ create.observer.list <- function(sightings.primary){
               Identifier = Identifier,
               data = data.x) -> tmp
   
-  # Remove those (tmp) from the new observer list
-  new.observers %>%
-    anti_join(tmp, by = "Identifier") -> tmp.2
-  
-  tmp.4 <- rbind(Observer.2, tmp.2) %>%
+  # ID.new needs to be replaced with the "new" Laake-based ID (ID)
+  for (k in 1:nrow(tmp)){
+    new.observers[new.observers$ID == tmp$ID.new[k], "ID"] <- tmp$ID[k]
+    
+  }
+
+  tmp.4 <- rbind(Observer.2, new.observers) %>%
     mutate(Observer = Identifier) %>%
     select(-Identifier) %>%
     na.omit() 
@@ -81,10 +83,15 @@ create.observer.list <- function(sightings.primary){
                                     ID = c(ARV.ID, ARV.ID), 
                                     Observer = c("ARV", "AVS"),
                                     data = "pre2009")) %>%
-    rename(obs = Observer) %>%
-    arrange(by = ID)
+    rename(obs = Observer) 
     
-  return(all.observers)
+  all.observers %>%
+    distinct(obs, .keep_all = T) -> uniq.observers 
+  
+  observers.list <- list(all = all.observers,
+                         unique = uniq.observers)
+  
+  return(observers.list)
 }
 
 
@@ -339,33 +346,6 @@ NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC
     #jags.input.list$jags.data["N"] <- NULL
     # Modify jags data to rearrange days and provide zeros for t = 1 and t = max.day
     jags.data <- jags.input.list$jags.data
-    
-    # jags.data$periods <- jags.data$periods - 2
-    # 
-    # jags.data$day[jags.data$day == 1] <- NA
-    # jags.data$day[jags.data$day == max.day] <- NA
-    # 
-    # jags.data$n[jags.data$day == 1] <- NA
-    # jags.data$n[jags.data$day == max.day] <- NA
-    # 
-    # for (k in 1:jags.data$n.year){
-    #   jags.data$day[(jags.data$periods[k, 1]+1), 1, k] <- max.day
-    #   jags.data$n[(jags.data$periods[k, 1]+1), 1, k] <- 0
-    #   if (jags.data$n.station[k] == 2){
-    #     jags.data$day[(jags.data$periods[k, 2]+1), 2, k] <- max.day
-    #     jags.data$n[(jags.data$periods[k, 2]+1), 2, k] <- 0
-    #   }
-    #   
-    # }
-    # 
-    # jags.data$day <- abind::abind(array(data = 1, 
-    #                                     dim = c(1, 2, jags.data$n.year)),
-    #                               jags.data$day, along = 1)
-    # 
-    # jags.data$n <- abind::abind(array(data = 0, 
-    #                                   dim = c(1, 2, jags.data$n.year)),
-    #                             jags.data$n, along = 1)
-    # 
     
     obs.vec <- as.vector(jags.data$obs) 
     data.frame(obs = obs.vec) %>%
@@ -1710,15 +1690,18 @@ data2Jags_input_NoBUGS <- function(min.dur,
     # observers - include all observers from Laake's data
     # Some observers were only found in the secondary stations. So, they 
     # need to be added. 
-    all.observers <- create.observer.list(rbind(primary.sightings.df,
+    obs.list <- create.observer.list(rbind(primary.sightings.df,
                                                 secondary.sightings.df) %>%
                                             select(Start.year, Observer))
     
+    all.observers <- obs.list$unique
     sightings.df <- rbind(primary.sightings.df, secondary.sightings.df)
     
   } else {
-    all.observers <- create.observer.list(primary.sightings.df %>%
-                                            select(Start.year, Observer))
+    obs.list <- create.observer.list(primary.sightings.df %>%
+                                       select(Start.year, Observer))
+    all.observers <- obs.list$unique
+    
     sightings.df <- primary.sightings.df
   }
 
@@ -1939,24 +1922,21 @@ AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir, max.day = 90){
                                            data.dir = data.dir,
                                            max.day = max.day)
   
-  obs.all <- create.observer.list(jags.input.new$sightings %>%
+  obs.list <- create.observer.list(jags.input.new$sightings %>%
                                     select(Start.year, Observer))
   
+  obs.all <- obs.list$all
   obs.all %>% 
     filter(data == "pre2009") -> obs.all.Laake
   
   obs.all %>% 
     filter(data == "new.data") -> obs.all.new
   
-  # jags.input.Laake$obs %>%
-  #   left_join(obs.all, by = "obs") -> obs.Laake
-  # 
-  # jags.input.new$obs %>%
-  #   transmute(obs = obs,
-  #             obs.ID = ID.new) %>%
-  #   left_join(obs.all, by = "obs") -> obs.new
-  
   No.obs.ID <- 1 + max(obs.all$ID)  
+  No.obs.ID.new <- jags.input.new$obs %>% 
+    filter(obs == "No obs") %>%
+    pull(ID.new)
+  
   # Replace observer IDs in each dataset with new IDs (obs.all.new$ID.all)
   jags.obs.Laake <- jags.input.Laake$jags.data$obs
   
@@ -2301,7 +2281,7 @@ WinBUGSinput <- function(min.dur,
 
 plot.trace.dens <- function(jm, var.name){
   par.names <- unlist(dimnames(jm$samples[[1]])[2])
-  col.idx <- grep(var.name, par.names)
+  col.idx <- grep(var.name, par.names, perl = T)
   samples.list <- list()
   
   n.samples <- nrow(jm$samples[[1]])
