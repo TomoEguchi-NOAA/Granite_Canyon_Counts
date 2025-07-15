@@ -32,12 +32,12 @@ source("Granite_Canyon_Counts_fcns.R")
 #source("AllData2Jags_input.R")
 options(mc.cores = 5)
 
-Run.date <- Sys.Date() #"2024-12-05" #
+Run.date <- "2025-06-26" #Sys.Date() #
 
 # Minimum length of observation periods in minutes
 min.dur <- 60 #85 #30 #85 #
 
-ver <- "v4"
+ver <- "v5"
 
 years <- c(2010, 2011, 2015, 2016, 
            2020, 2022, 2023, 2024, 2025)
@@ -65,7 +65,8 @@ jm.out <- Jags_Richards_Since2010_fcn(min.dur = min.dur,
                                       years = years, 
                                       data.dir = "RData/V2.1_Feb2025", 
                                       jags.params = jags.params, 
-                                      MCMC.params = MCMC.params)
+                                      MCMC.params = MCMC.params,
+                                      Run.date = Run.date)
 
 # model.name <- paste0("Richards_Nmixture_", ver) 
 # out.file.name <- paste0("RData/JAGS_", model.name,"_min", min.dur,

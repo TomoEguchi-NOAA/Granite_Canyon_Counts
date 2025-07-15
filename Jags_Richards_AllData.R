@@ -34,7 +34,7 @@ options(mc.cores = 5)
 WinBUGS.Run.Date <- "2025-04-11"
 #WinBUGS.Run.Date <- "2025-06-06"
 
-Run.date <- Sys.Date() #"2025-04-21" #"2025-04-17" #
+Run.date <- "2025-06-24" #Sys.Date() #"2025-04-21" #"2025-04-17" #
 
 # Minimum length of observation periods in minutes
 min.dur <- 60 #10 #85 #

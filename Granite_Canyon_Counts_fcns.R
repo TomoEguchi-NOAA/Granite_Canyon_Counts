@@ -227,10 +227,10 @@ get.results.jags <- function(file.name){
 #                             jags.params = jags.params, 
 #                             MCMC.params = MCMC.params)                    
 
-Jags_Richards_Since2010_fcn <- function(min.dur, max.day = 90, ver, years, data.dir, jags.params, MCMC.params){
+Jags_Richards_Since2010_fcn <- function(min.dur, max.day = 90, ver, years, data.dir, jags.params, MCMC.params, Run.date = Sys.Date()){
   print("Starting Jags_Richards_Since2010_fcn")
   
-  Run.date <- Sys.Date() #"2024-12-05" #
+  #Run.date <- Sys.Date() #"2024-12-05" #
   
   # Minimum length of observation periods in minutes
   model.name <- paste0("Richards_Nmixture_", ver) 
