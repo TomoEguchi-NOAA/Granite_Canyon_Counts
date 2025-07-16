@@ -92,11 +92,8 @@ model{
 				logit(prob[(d-1),s,y]) <- mean.prob +
 								(BF.Fixed * bf[(d-1),s,y]) +
 								(VS.Fixed * vs[(d-1),s,y]) +
-								(OBS.RF[obs[(d-1),s,y]]) 
-								#(BF.Fixed * bf[(d-1),s,y]) + 
-								#(VS.Fixed * vs[(d-1),s,y])
-								#(OBS.RF[obs[(d-1),s,y]]) 	
-								#beta.1 * scaled.day[(d-1),s,y] +
+								(OBS.RF[obs[d,s,y]]) 
+
 			}
 		}
 	}
