@@ -40,7 +40,7 @@ Run.date <- "2025-06-24" #Sys.Date() #"2025-04-21" #"2025-04-17" #
 min.dur <- 60 #10 #85 #
 
 # v3 has conversion issues. v4 and v5 seem to work fine. 2025-06-25
-ver <- "v5" #  "v3" #"v5" # "v4" # 
+ver <- "v4" #  "v3" #"v5" # "v4" # 
 
 # These are the ending year of each season - for example, 2022 in the following vector indicates
 # for the 2021/2022 season. These data were extracted using Extract_Data_All_v2.Rmd
@@ -299,10 +299,10 @@ p.Nhats <- ggplot(all.estimates) +
   ylim(2000, 40000) +
   theme(legend.position = "top")
 
-# ggsave(plot = p.Nhats,
-#        filename = paste0("figures/Nhats_", ver, "_", min.dur, "min.png"),
-#        device = "png",
-#        dpi = 600)
+ggsave(plot = p.Nhats,
+       filename = paste0("figures/Nhats_", ver, "_", min.dur, "min.png"),
+       device = "png",
+       dpi = 600)
 
 Nhat. %>% 
   select(Season, start.year, Nhat, LCL, UCL) %>%

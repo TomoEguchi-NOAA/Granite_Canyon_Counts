@@ -44,43 +44,11 @@ save.fig.fcn <- function(fig, file.name, replace = F,
   
 }
 
-# the following two functions have been replaced with plot.trace.dens in
-# Granite_Canyon_Counts_fcns.R
-# plots.trace <- function(jm, params, params.df = NULL){
-#   out.list <- list()
-#   for (i in 1:length(params)){
-#     
-#     p.tmp <- mcmc_trace(jm$samples, params[i]) +
-#         legend_none() + xaxis_text(on = FALSE)
-#       
-#       if (!is.null(params.df)){
-#         if (!is.na(params.df[i, "value"])){
-#         p.tmp <- p.tmp + 
-#           hline_at(params.df[i, "value"], 
-#                    color = "red", size = 1.2)
-#           
-#         }
-#       }
-#       
-#     out.list[[i]] <- p.tmp 
-#   }
-#   return(out.list)
-# }
-# 
-# plots.dens <- function(jm, params){
-#   out.list <- list()
-#   for (k in 1:length(params)){
-#     out.list[[k]] <- mcmc_dens(jm$samples, params[k]) #+
-# 
-#   }
-#   
-#   return(out.list)
-# }
 
 ```
 
 ## Introduction {.unnumbered}
-*A paragraph on gray whales*
+The Eastern North Pacific (ENP) gray whale (*Eschrichtius robustus*) population undertakes one of the longest annual migrations of any mammal, traveling between its Arctic feeding grounds and the warm-water lagoons of Baja California, Mexico, where they calve and breed. This iconic population has been the subject of extensive research due to its remarkable recovery from historic whaling and its continued vulnerability to environmental changes and anthropogenic impacts. Understanding the dynamics of the ENP gray whale population, including its abundance, distribution, and migratory patterns, is crucial for effective conservation and management efforts.
 
 Analytical methods to estimate abundance of gray whales from visual surveys at Granite Canyon, CA, have evolved over the years [@laakeGrayWhaleSouthbound2012; @durbanEstimatingGrayWhale2015]. Laake et al. (2012) used the distance sampling approach with generalized additive models (GAMs). Durban et al. (2015) developed a new method using a Bayesian N-mixture approach, which was approved by the IWC and it has been used for the analysis since the 2015/2016 season. In short, Durban et al.'s method used the observed changes in migrating gray whales at a location along the migration corridor. The general trend is that the number of gray whale sightings increases over time until it reaches its peak, then decreases. Durban et al.'s method used the Gaussian function to capture this general trend. Deviations from the Gaussian function was modeled via fitting a spline function to the observed counts.
 
@@ -90,11 +58,11 @@ The analysis was conducted using WinBUGS, which had become obsolete over the las
 
 At the field station located at Granite Canyon, CA, in order to estimate detectability of gray whales by visual observers, counts from two independent stations of paired observers operating simultaneously were compared during two years (2009/2010 and 2010/2011). The two watch stations were positioned 35 m apart at the same elevation (22.5 m) above sea level (Durban et al. 2015). For the years with only one station, detectability was extrapolated for all monitored watch periods based on the fitted model for detectability, where the counts for the south watch station were treated as zero inflated binomial outcomes. The binomial probability was specified as the product of an indicator function and the detectability ($u_{i,j,t} \times p_{i,j,t}$), where $u$ = 1 or 0 to indicate whether or not count data were collected from that station. This formulation ensured that structural zero counts from periods without a second watch did not contribute to the likelihood for estimation of $p$ or $N$ (Durban et al. 2015).
 
-Consistent with Laake et al. (2012), the model for detectability incorporated fixed effects for visibility ($V$) and the Beaufort sea state ($B$), whereas observers were treated as random effects ($O$). These were modeled as additive effects on a general intercept so that the direction and magnitude of the estimated effects away from zero (no effect) could be assessed. The selection for the inclusion of these effects were accomplished by using Bayesian model selection with stochastic binary indicator variables $I$ to switch each of the three possible effects either in or out of the model.
+Consistent with Laake et al. (2012), the model for detectability incorporated fixed effects for visibility ($V$) and the Beaufort sea state ($B$), whereas observers were treated as random effects ($O$). These were modeled as additive effects on a general intercept so that the direction and magnitude of the estimated effects away from zero (no effect) could be assessed. The selection for the inclusion of these effects were accomplished by using Bayesian model selection with stochastic binary indicator variables $I$ to switch each of the three possible effects (i.e., $V$, $B$, and $O$) either in or out of the model.
 
-### Mathematical description {.unnumbered}
+### Mathematical description (probably will be in an appendix) {.unnumbered}
 
-This section was extracted from Durban et al. (2015), almost verbatim. I edited some places to make explanations clearer in my mind and changed some symbols to make them consistent between theirs and my proposed approach, which is described later in this document.
+This section was extracted from Durban et al. (2015), almost verbatim. I edited some places to make explanations clearer and changed some symbols to make them consistent between theirs and my proposed approach, which is described later in this document.
 
 The total counts of whales ($n_{i,d(j),t}$) during the watch period $j$ of the $d$th day in the year $t$ at the watch station $i$ was modeled as a binomial random deviate (in the paper, $j$ was not specified as the $j$th watch period during the $d$th day of the season):
 
@@ -150,7 +118,7 @@ The approach in Durban et al. (2015) used the "cut" function within WinBUGS to d
 
 ## Modification {.unnumbered}
 
-Because of the way spline is fit to data points, it is impossible to use just spline when data are not collected from day 1. Missing data points (weekends, not having 90 days of observations) are linearly interpolated unless there is an assumed data generating model (the Normal distribution in the approach by Durban et al.) that is common among years. Instead of using Normal and spline functions, I use one flexible function (Richards function).
+Because of the way spline is fit to data points, it is impossible to use just spline when data are not collected from day 1. Missing data points (e.g., weekends, not having 90 days of observations) are linearly interpolated unless there is an assumed data generating model (the Gaussian distribution in the approach by Durban et al.) that is common among years. Instead Gaussian distribution and spline functions, I use one flexible function (Richards function).
 
 ### Model description {.unnumbered}
 
@@ -176,7 +144,7 @@ $N_{max} >> N_{min}$. $N_{max}$ is not the maximum number of whales migrating pe
 
 Effects of these parameters on the shape of the function are described in the following section.
 
-### Function characteristics {.unnumbered}
+### Function characteristics - should be moved to an appendix {.unnumbered}
 
 #### Effects of $S_1$ {.unnumbered}
 
