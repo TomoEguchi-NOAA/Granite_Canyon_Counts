@@ -62,10 +62,10 @@ model{
 	}  
 
 	# Set N= 0 when t = 1 or t = max.day
-	for (y in 1:n.year){
-		N[1, y] <- 0
-		N[n.days, y] <- 0
-	}
+	#for (y in 1:n.year){
+	#	N[1, y] <- 0
+	#	N[n.days, y] <- 0
+	#}
 	
 	# observations are from the realized abundance: N-mixture part with 
 	# binomial sampling
@@ -91,11 +91,7 @@ model{
 				logit(prob[(d-1),s,y]) <- mean.prob +
 								(BF.Fixed * bf[(d-1),s,y]) +
 								(VS.Fixed * vs[(d-1),s,y]) +
-								(OBS.RF[obs[(d-1),s,y]]) 
-								#(BF.Fixed * bf[(d-1),s,y]) + 
-								#(VS.Fixed * vs[(d-1),s,y])
-								#(OBS.RF[obs[(d-1),s,y]]) 	
-								#beta.1 * scaled.day[(d-1),s,y] +
+								(OBS.RF[obs[d,s,y]]) 
 			}
 		}
 	}

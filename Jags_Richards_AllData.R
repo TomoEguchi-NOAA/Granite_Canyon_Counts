@@ -40,7 +40,7 @@ Run.date <- "2025-06-24" #Sys.Date() #"2025-04-21" #"2025-04-17" #
 min.dur <- 60 #10 #85 #
 
 # v3 has conversion issues. v4 and v5 seem to work fine. 2025-06-25
-ver <- "v4" #  "v3" #"v5" # "v4" # 
+ver <- "v3" #  "v3" #"v5" # "v4" # 
 
 # These are the ending year of each season - for example, 2022 in the following vector indicates
 # for the 2021/2022 season. These data were extracted using Extract_Data_All_v2.Rmd
@@ -284,11 +284,12 @@ Reported.estimates %>%
   select(Season) %>% 
   unique() -> sampled.seasons 
 
+# Reported estimates are identical to the reanalysis so remove. 
 Laake.abundance.new %>%
   rbind(Durban.abundance.df) %>%
   rbind(Nhat.) -> all.estimates
 #  rbind(spline.Nhat) 
-#  rbind(Reported.estimates %>% na.omit()) -> all.estimates
+  #rbind(Reported.estimates %>% na.omit()) -> all.estimates
 
 p.Nhats <- ggplot(all.estimates) +
   geom_point(aes(x = start.year, y = Nhat,
@@ -353,14 +354,15 @@ obsd.n.df <- data.frame(Season = rep(all.season, each = dim(obsd.n.prop)[1]),
                         effort = as.vector(obsd.effort.primary)) %>%
   na.omit()
 
+# ggplot(obsd.n.df) +
+#   geom_point(aes(x = day, y = obsd.n)) +
+#   facet_wrap(~ Season)
+# 
+# ggplot(obsd.n.df) +
+#   geom_point(aes(x = day, y = effort)) +
+#   facet_wrap(~ Season)
 
-ggplot(obsd.n.df) +
-  geom_point(aes(x = day, y = obsd.n)) +
-  facet_wrap(~ Season)
-
-ggplot(obsd.n.df) +
-  geom_point(aes(x = day, y = effort)) +
-  facet_wrap(~ Season)
+p.RF.Obs <- plot.trace.dens(jm.out$jm, "OBS.RF")
 
 # Simple comparison between observed counts per hour vs. estimated abundance
 # obsd.n.prop.sum <- data.frame(Season = all.season,

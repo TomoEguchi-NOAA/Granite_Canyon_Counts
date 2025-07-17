@@ -60,7 +60,123 @@ At the field station located at Granite Canyon, CA, in order to estimate detecta
 
 Consistent with Laake et al. (2012), the model for detectability incorporated fixed effects for visibility ($V$) and the Beaufort sea state ($B$), whereas observers were treated as random effects ($O$). These were modeled as additive effects on a general intercept so that the direction and magnitude of the estimated effects away from zero (no effect) could be assessed. The selection for the inclusion of these effects were accomplished by using Bayesian model selection with stochastic binary indicator variables $I$ to switch each of the three possible effects (i.e., $V$, $B$, and $O$) either in or out of the model.
 
-### Mathematical description (probably will be in an appendix) {.unnumbered}
+A mathematical description of the approach by Durban et al. is in the Appendix. 
+
+### Some concerns about Durban et al's method {.unnumbered}
+
+The approach in Durban et al. (2015) used the "cut" function within WinBUGS to dissociate estimated parameters in one function (i.e., $f_{d,t}$ or $g_{d,t}$) from those in the other function (i.e., $g_{d,t}$ or $f_{d,t}$, respectively). The function (\cut) is unavailable in modern Bayesian computation packages (e.g., JAGS, STAN) and its use has been questioned [@plummer2015]. In short, "cut" function does not converge to a well-defined limiting distribution (Plummer 2015). In addition, the assumption that the number of gray whales migrating in front of the observation station follows a Gaussian distribution centered around the mid point of the pre-defined migration season is somewhat questionable. The true curve in abundance may not be symmetric around a peak and the peak may not be instantaneous. In other words, the peak may persist for a few days. Fitting spline functions to observed counts may alleviate some of these problems but a fitted spline to observed counts may be too flexible. A spline fit would lose the general idea that the number of whales increases from the beginning of a migration season, reaches a peak, then decreases over time to the end of the migration season. In addition, Durban et al.'s approach assumed that two observation stations operated simultaneously with identical effort. In reality, however, watch durations were not identical between two stations in previous years (i.e., data in Laake's analysis).
+
+## Modification {.unnumbered}
+
+Because of the way spline is fit to data points, it is impossible to use just spline when data are not collected from day 1. Missing data points (e.g., weekends, not having 90 days of observations) are linearly interpolated unless there is an assumed data generating model (the Gaussian distribution in the approach by Durban et al.) that is common among years. Instead Gaussian distribution and spline functions, I use one flexible function (Richards function).
+
+### Model description {.unnumbered}
+
+In order to overcome these difficulties with the previous approach, I use a more flexible function that can accommodate the general shape (increase, peak then decrease) and asymmetrical around the peak. The function is called Richards' function [@richards1959] and it has been used, for example, to model changes in the number of nesting turtles [@girondotModelingApproachesQuantify2007]. The model is defined as follows.
+
+$$M_1 = (1 + (2 e^K - 1) * e^{(P-d)/S_1}) ^ {(-1/e^K)}$$
+
+$$M_2 = (1 + (2 e^K - 1) * e^{(P-d)/S_2}) ^ {(-1/e^K)}$$
+
+$$N = N_{min} + (N_{max} - N_{min}) * (M_1 * M_2),$$
+
+where $d$ is the number of days from the day that first gray whale migrate through the sampling location, or the number of days since an arbitrary date,
+
+$S_1 < 0$ and $S_2 > 0$ define how the slope decreases and increases, respectively,
+
+$K > 0$ defines the "flatness" at the peak of the function,
+
+$P$ defines where the peak is relative to the range of $d$, where $min(d) < P < max(d)$,
+
+$N_{min}$ is zero, i.e., the number of whales migrating outside of a migration season and,
+
+$N_{max} >> N_{min}$. $N_{max}$ is not the maximum number of whales migrating per day but it is a parameter that may be fixed or estimated during the analysis.
+
+Effects of these parameters on the shape of the function are described in the Appendix.
+
+
+#### Fitting the model to observed counts {.unnumbered}
+
+The proposed new approach replaces the spline-Gaussian selection step in Durban et al. with Richards' function. The observed counts are modeled with binomial distributions as it was in Durban et al. (2015)
+
+$$ n_{i_t,s,y} \sim BIN(N_{t, y}, p_{i_t, s, y} * \theta_{i_t, y}) $$
+
+where $n_{i_t, s, y}$ is the observed number of gray whales during the watch period $i$ of the $t$-th day of the season $y$ from the station $s$, $N_{t, y}$ is the number of gray whales that migrated through the sampling area during the $t$-th day of season $y$, $p_{i_t, s, y}$ is the sighting probability of the station $s$ during the watch period $i$ of the $t$-th day of the season $y$, and $\theta_{i_t,y}$ is the fractional duration of the watch period $i_t$ in the units of days. This is identical to Durban's approach. 
+
+The sighting probability $p_{i_t, s, y}$ is modeled as a function of the Beaufort sea state ($B$), visibility ($V$), and observers ($O$). Beaufort sea state and visibility were treated as fixed effects, whereas observers were treated as random effects. I removed the indicator function that selected covariates in Durban's approach. Whether or not each variable was needed would be apparent from the coefficient (i.e., $\beta$). 
+
+$$ logit(p_{i_t, s, y}) = \beta_0 + \beta_{B} * B_{i_t, y} + \beta_{V} * V_{i_t, y} + O_{i_t, s, y}  $$
+
+This is identical to how the sighting probability was modeled in Durban et al. (2015). I grouped all observers who had less than 10 observation periods.  
+
+The number of gray whales that migrated through the sampling area during the $t$-th day of the season was modeled as a Poisson variable with the mean $\bar{N}_{t, y}$ [@raftery1988].
+
+$$ N_{t, y} \sim POI(\bar{N}_{t,y}) $$
+
+where $\bar{N}_{t,y}$ is the expected number of whales that migrate through the sampling area on the $t$-th day of the season $y$ and modeled with the Richards function above.
+
+The total number of gray whales for season $y$ is the sum of all $N_{t, y}$ and corrected for nighttime passage:
+
+$$ N_y = \lambda * \sum_{t = 1} ^ {max(d)} N_{t, y} $$ and
+
+$$ \lambda \sim N(1.0875, 0.03625) $$ (Perryman et al. 1999).
+
+I created three sub-models by changing whether of not the parameters of Richards' function (i.e., $K$, $P$, $S_1$, and $S_2$) are time dependent. 
+
+* Model 1: All time dependent.
+* Model 2: $S_1$ and $S_2$ are time dependent.
+* Model 3: $S_1$, $S_2$, and $P$ are time dependent.
+
+#### Reanalysis of the data {.unnumbered}
+
+The entire dataset from the 1967-1968 season was analyzed using the new approach and the results compared to the reported estimates in Eguchi et al. (2025). Sightings data between the 1967/1968 and 2005/2006 seasons were obtained from the *ERAnalysis* package (https://github.com/jlaake/ERAnalysis, Laake YR). All sighting data were treated equally to create input data for the new analysis, where all shifts of at least 60 minutes with the Beaufort sea state of < 5 and the visibility code of < 5 were included in the analysis. In the approach by Durban et al., the duration of annual migration period was assumed to be 90 days, where the number of migrating gray whales on day 1 and 90 was assumed to be zero. In the earlier dataset, however, sightings were recorded beyond the 90th day. Consequently, I changed the duration of annual migration to 100 days, where the number of gray whales was assumed to be zero on day 1 and 100. JAGS models and R scripts to conduct the analysis, including data extraction and executing the JAGS models, are available at GitHub (https://github.com/TomoEguchi-NOAA/GrayWhaleAbundance). 
+
+```{r new-analysis, echo=FALSE, message=FALSE, warning=FALSE}
+
+v3.out <- readRDS("RData/JAGS_Richards_Nmixture_v3_1968to2025_min60_NoBUGS.rds")
+v4.out <- readRDS("RData/JAGS_Richards_Nmixture_v4_1968to2025_min60_NoBUGS.rds")
+v5.out <- readRDS("RData/JAGS_Richards_Nmixture_v5_1968to2025_min60_NoBUGS.rds")
+
+```
+
+The three models were fitted to the sightings data over 32 seasons. According to the Rhat statistics, convergence did not reach for `r length(v3.out$max.Rhat.big)` parameters that were monitored (`r names(max.Rhat.big)[1:(length(max.Rhat.big)-1)]`) for Model 1. For Model 2 and Model 3, all Rhat statistics were < 1.1, indicating acceptable convergence of all monitored parameters.  
+
+Because we have observed the change in the timing of the peak of migration over the years (Eguchi et al. 2024, 2025), I decided to use Model 3 for parameter inference.  
+
+Pareto k statistics indicated that the model fit reasonably well to the data. A majority of Pareto k statistics were less than 0.7 (`r which(v5.out$LOOIC.n$loo.out$diagnostics$pareto_k < 0.7) %>% length()` out of `r length(v5.out$LOOIC.n$loo.out$diagnostics$pareto_k)`), with the maximum value of `r signif(max(v5.out$LOOIC.n$loo.out$diagnostics$pareto_k), 3)`.  
+
+```{r JAGS-results, echo=F,message=FALSE}
+rm(list = c("v4.out", "v3.out"))
+
+
+
+
+```
+
+Convergence was not reached for all parameters where the maximum $\hat{R}$ statistic was `r signif(max.r.hat.real, 3)`. There were `r length(which(unlist(jm.out.real$jm$Rhat) > 1.1))` parameters that resulted in $\hat{R}$ statistic \> 1.1. A closer examination of $\hat{R}$ statistics revealed that high values were associated with the mean.N and N parameters, as well as the parameters for Richards function (S1, S2, and P) for the 2015/2016 season.
+
+As a consequence, annual estimates also were greater for Durban's method than for the new approach and precision was better for the new approach (Figure \@ref(fig:Figure-N-hats)).
+
+```{r Figure-daily-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated dailyt abundance and their 95% CIs using Durban's method (green) and new approach (blue)."}
+
+knitr::include_graphics(paste0("figures/N_hats_BUGS_JAGS_real_", model.d,   model.v, "_", dpi.set, "dpi.png"))
+```
+
+```{r Figure-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated annual abundance and their 95% CIs using Durban's method (green) and new approach (blue)."}
+
+knitr::include_graphics(paste0("figures/corrected_N_hats_BUGS_JAGS_real_", model.d,   model.v, "_", dpi.set, "dpi.png"))
+```
+
+
+
+
+
+## Literature cited {.unnumbered}
+
+
+## Appendix
+
+### Mathematical description of Durban's approach {.unnumbered}
 
 This section was extracted from Durban et al. (2015), almost verbatim. I edited some places to make explanations clearer and changed some symbols to make them consistent between theirs and my proposed approach, which is described later in this document.
 
@@ -112,39 +228,7 @@ A linear (on the log scale) penalized spline was used to describe this relations
 
 $$ g_{d,t} = S_{0,t} + S_{1,t} * d_t + \sum_{k=1}^{m} \lambda_{k,t} (d_t – \kappa_{k,t}) $$ Where $S_{0,t}, S_{1,t}$ and $\lambda_{1,t}, \dots, \lambda_{m,t}$ were regression coefficients to be estimated separately for each year and $\kappa_{1,t} < \kappa_{2,t} < \dots < \kappa_{m,t}$ were fixed knots. To ensure the desired flexibility, we used m = 15 knots, which is a relatively large number. To avoid overfitting, the $\lambda$'s were penalized by assuming that they were Normally distributed random variables with mean 0 and standard deviation $\sim Uniform(0,10)$. The parameters $S_{0,t}, S_{1,t}$ were modeled as fixed effects with Normal(0, 10) prior distributions.
 
-### Some concerns about Durban et al's method {.unnumbered}
-
-The approach in Durban et al. (2015) used the "cut" function within WinBUGS to dissociate estimated parameters in one function (i.e., $f_{d,t}$ or $g_{d,t}$) from those in the other function (i.e., $g_{d,t}$ or $f_{d,t}$, respectively). The function (\cut) is unavailable in modern Bayesian computation packages (e.g., JAGS, STAN) and its use has been questioned [@plummer2015]. In short, "cut" function does not converge to a well-defined limiting distribution (Plummer 2015). In addition, the assumption that the number of gray whales migrating in front of the observation station follows a Gaussian distribution centered around the mid point of the pre-defined migration season is somewhat questionable. The true curve in abundance may not be symmetric around a peak and the peak may not be instantaneous. In other words, the peak may persist for a few days. Fitting spline functions to observed counts may alleviate some of these problems but a fitted spline to observed counts may be too flexible. A spline fit would lose the general idea that the number of whales increases from the beginning of a migration season, reaches a peak, then decreases over time to the end of the migration season. In addition, Durban et al.'s approach assumed that two observation stations operated simultaneously with identical effort. In reality, however, watch durations were not identical between two stations in previous years (i.e., data in Laake's analysis).
-
-## Modification {.unnumbered}
-
-Because of the way spline is fit to data points, it is impossible to use just spline when data are not collected from day 1. Missing data points (e.g., weekends, not having 90 days of observations) are linearly interpolated unless there is an assumed data generating model (the Gaussian distribution in the approach by Durban et al.) that is common among years. Instead Gaussian distribution and spline functions, I use one flexible function (Richards function).
-
-### Model description {.unnumbered}
-
-In order to overcome these difficulties with the previous approach, I use a more flexible function that can accommodate the general shape (increase, peak then decrease) and asymmetrical around the peak. The function is called Richards' function [@richards1959] and it has been used, for example, to model changes in the number of nesting turtles [@girondotModelingApproachesQuantify2007]. The model is defined as follows.
-
-$$M_1 = (1 + (2 e^K - 1) * e^{(P-d)/S_1}) ^ {(-1/e^K)}$$
-
-$$M_2 = (1 + (2 e^K - 1) * e^{(P-d)/S_2}) ^ {(-1/e^K)}$$
-
-$$N = N_{min} + (N_{max} - N_{min}) * (M_1 * M_2),$$
-
-where $d$ is the number of days from the day that first gray whale migrate through the sampling location, or the number of days since an arbitrary date,
-
-$S_1 < 0$ and $S_2 > 0$ define how the slope decreases and increases, respectively,
-
-$K > 0$ defines the "flatness" at the peak of the function,
-
-$P$ defines where the peak is relative to the range of $d$, where $min(d) < P < max(d)$,
-
-$N_{min}$ is zero, i.e., the number of whales migrating outside of a migration season and,
-
-$N_{max} >> N_{min}$. $N_{max}$ is not the maximum number of whales migrating per day but it is a parameter that may be fixed or estimated during the analysis.
-
-Effects of these parameters on the shape of the function are described in the following section.
-
-### Function characteristics - should be moved to an appendix {.unnumbered}
+### Richards' function's characteristics {.unnumbered}
 
 #### Effects of $S_1$ {.unnumbered}
 
@@ -341,528 +425,3 @@ save.fig.fcn(p.P,
 knitr::include_graphics(paste0("figures/P_", dpi.set, "dpi.png"))
 
 ```
-
-#### Fitting the model to observed counts {.unnumbered}
-
-The proposed new approach replaces the spline-Gaussian selection step in Durban et al. with Richards' function. The observed counts are modeled with binomial distributions as it was in Durban et al. (2015)
-
-$$ n_{i_t,s,y} \sim BIN(N_{t, y}, p_{i_t, s, y} * \theta_{i_t, y}) $$
-
-where $n_{i_t, s, y}$ is the observed number of gray whales during the watch period $i$ of the $t$-th day of the season $y$ from the station $s$, $N_{t, y}$ is the number of gray whales that migrated through the sampling area during the $t$-th day of season $y$, $p_{i_t, s, y}$ is the sighting probability of the station $s$ during the watch period $i$ of the $t$-th day of the season $y$, and $\theta_{i_t,y}$ is the fractional duration of the watch period $i_t$ in the units of days. This is identical to Durban's approach. 
-
-The sighting probability $p_{i_t, s, y}$ is modeled as a function of the Beaufort sea state ($B$), visibility ($V$), and observers ($O$). Beaufort sea state and visibility were treated as fixed effects, whereas observers were treated as random effects. I removed the indicator function that selected covariates in Durban's approach. Whether or not each variable was needed would be apparent from the coefficient (i.e., $\beta$). 
-
-$$ logit(p_{i_t, s, y}) = \beta_0 + \beta_{B} * B_{i_t, y} + \beta_{V} * V_{i_t, y} + O_{i_t, s, y}  $$
-
-This is identical to how the sighting probability was modeled in Durban et al. (2015). I grouped all observers who had less than 10 observation periods.  
-
-The number of gray whales that migrated through the sampling area during the $t$-th day of the season was modeled as a Poisson variable with the mean $\bar{N}_{t, y}$ [@raftery1988].
-
-$$ N_{t, y} \sim POI(\bar{N}_{t,y}) $$
-
-where $\bar{N}_{t,y}$ is the expected number of whales that migrate through the sampling area on the $t$-th day of the season $y$ and modeled with the Richards function above.
-
-The total number of gray whales for season $y$ is the sum of all $N_{t, y}$ and corrected for nighttime passage:
-
-$$ N_y = \lambda * \sum_{t = 1} ^ {90} N_{t, y} $$ and
-
-$$ \lambda \sim N(1.0875, 0.03625) $$ (Perryman et al. 1999).
-
-
-#### Reanalysis of the last 8 seasons {.unnumbered}
-
-Data from last 9 seasons were analyzed using the new approach and the results compared to results from Durban et al's approach.
-
-```{r new-analysis-9yr-v2, echo=FALSE, message=FALSE, warning=FALSE}
-BUGS.out <- readRDS("RData/WinBUGS_10yr_v2_min85.rds")
-run.date.real <- "2024-02-27" #Sys.Date() #"2023-01-06"   # Change it accordingly
-# out.file.name <- paste0("RData/JAGS_pois_binom_9yr_v2_", 
-#                         run.date.real, ".rds")
-
-out.file.name <- paste0("RData/JAGS_", model.d, model.v, "_", "_9yr_v2_", 
-                        run.date.real, ".rds")
-
-n.station <- c(1,1,1,1,1,1,1,1,1,1)
-#n.station[colSums(BUGS.out$jags.data$n[,2,]) > 0] <- 2
-n.station[colSums(BUGS.out$BUGS.data$n[,2,]) > 0] <- 2
-jags.data.real <- list(  n = BUGS.out$BUGS.data$n,
-                         n.station = n.station,
-                         n.year = dim(BUGS.out$BUGS.data$n)[3],
-                         n.obs = BUGS.out$BUGS.data$n.obs,
-                         periods = BUGS.out$BUGS.data$periods,
-                         obs = BUGS.out$BUGS.data$obs,
-                         vs = scale(BUGS.out$BUGS.data$vs),
-                         bf = scale(BUGS.out$BUGS.data$bf),
-                         watch.prop = (BUGS.out$BUGS.data$Watch.Length*24*60)/540,
-                         day = BUGS.out$BUGS.data$day,
-                         n.days = 90)
-
-MCMC.params <- jm.sim.out$MCMC.params
-jags.params <- jm.sim.out$jags.params
-jags.model <- jm.sim.out$jags.model
-if (!file.exists(out.file.name)){
-
-  Start_Time<-Sys.time()
-
-  jm <- jagsUI::jags(jags.data.real,
-                     inits = NULL,
-                     parameters.to.save= jags.params,
-                     model.file = jags.model,
-                     n.chains = MCMC.params$n.chains,
-                     n.burnin = MCMC.params$n.burnin,
-                     n.thin = MCMC.params$n.thin,
-                     n.iter = MCMC.params$n.samples,
-                     DIC = T,
-                     parallel=T)
-
-  Run_Time <- Sys.time() - Start_Time
-  jm.out.real <- list(jm = jm,
-                      jags.data = jags.data.real,
-                      jags.params = jags.params,
-                      jags.model = jags.model,
-                      MCMC.params = MCMC.params,
-                      Run_Time = Run_Time,
-                      Sys.env = Sys.getenv())
-  
-  saveRDS(jm.out.real,
-          file = out.file.name)
-
-} else {
-
-  jm.out.real <- readRDS(out.file.name)
-}
-
-# need to turn zeros into NAs when there were no second station:
-data.array <- jm.out.real$jags.data$n
-data.array[,2,which(jm.out.real$jags.data$n.station == 1)] <- NA
-
-LOOIC.n <- compute.LOOIC(loglik.array = jm.out.real$jm$sims.list$log.lkhd,
-                         data.array = data.array,
-                         MCMC.params = jm.out.real$MCMC.params)
-
-# Look at Rhat statistics
-max.Rhat.real <- lapply(jm.out.real$jm$Rhat, FUN = max, na.rm = T) %>% unlist()
-max.Rhat.real.big <- max.Rhat.real[which(max.Rhat.real > 1.1)]
-```
-
-According to the Rhat statistics, convergence did not reach for `r length(max.Rhat.big)` parameters that were monitored (`r names(max.Rhat.big)[1:(length(max.Rhat.big)-1)]`). 
-
-
-Pareto k statistics indicated that the model fit reasonably well to the data. A majority of Pareto k statistics were less than 0.7 (`r which(LOOIC.n$loo.out$diagnostics$pareto_k < 0.7) %>% length()` out of `r length(LOOIC.n$loo.out$diagnostics$pareto_k)`), with the maximum value of `r signif(max(LOOIC.n$loo.out$diagnostics$pareto_k), 3)`. Convergence of MCMC did not reach for 
-
-```{r JAGS-results, echo=F,message=FALSE}
-Season <- c("2006/2007", "2007/2008", "2009/2010", "2010/2011",
-            "2014/2015", "2015/2016", "2019/2020", "2021/2022",
-            "2022/2023", "2023/2024")
-
-# Create a vector of parameter names
-# Some are year specific:
-n.Season <- length(Season)
-params.to.summarize.n.Season <- c("S1", "S2", "P", "Max", "K",
-                                  "Corrected.Est", "Raw.Est")
-
-# Some are common among all years
-params.to.summarize.n.1 <- c("mean.prob", "BF.Fixed", "VS.Fixed")
-
-# Add year specific indices
-param.names.n.Season <- lapply(params.to.summarize.n.Season,
-                               FUN = function(x, n.Season){
-                                 out <- vector(mode = "character", length = n.Season)
-                                 for (k in 1:n.Season){
-                                   out[k] <- paste0(x, "[", k, "]")
-                                   
-                                 }
-                                 return(out)},
-                               n.Season)
-
-# Combine the two groups to make a vector of all parameter names
-param.names <- c(unlist(param.names.n.Season),
-                 params.to.summarize.n.1)
-
-p.dens <- plots.dens(jm.out.real$jm, params = param.names)
-p.trace <- plots.trace(jm.out.real$jm, params = param.names)
-
-for (k in 1:length(param.names)){
-  save.fig.fcn(fig = p.trace[[k]],
-               file.name = paste0("figures/", param.names[k], "_real_trace_", model.d,  model.v, "_", 
-                                  dpi.set, "dpi.png"),
-               dpi = dpi.set, replace = save.fig)
-
-  save.fig.fcn(fig = p.dens[[k]],
-               file.name = paste0("figures/", param.names[k], "_real_dens_", model.d,  model.v, "_", 
-                                  dpi.set, "dpi.png"),
-               dpi = dpi.set, replace = save.fig)
-
-
-}
-
-mean.N.hats.JAGS <- data.frame(Season = rep(Season, each = 90),
-                               Day = rep(1:90, length(Season)),
-                               Mean = as.vector(jm.out.real$jm$mean$mean.N),
-                               LCL = as.vector(jm.out.real$jm$q2.5$mean.N),
-                               UCL = as.vector(jm.out.real$jm$q97.5$mean.N))
-
-N.hats.JAGS <- data.frame(Season = rep(Season, each = 90),
-                          Day = rep(1:90, times = length(Season)),
-                          Mean = as.vector(jm.out.real$jm$mean$N),
-                          LCL = as.vector(jm.out.real$jm$q2.5$N),
-                          UCL = as.vector(jm.out.real$jm$q97.5$N))
-
-Corrected.Est.df.JAGS <- data.frame(Season = Season,
-                                    Mean = as.vector(jm.out.real$jm$mean$Corrected.Est),
-                                    Median = as.vector(jm.out.real$jm$q50$Corrected.Est),
-                                    LCL = as.vector(jm.out.real$jm$q2.5$Corrected.Est),
-                                    UCL = as.vector(jm.out.real$jm$q97.5$Corrected.Est))
-
-# get the BUGS output
-# Extract estimated daily counts
-Daily.Est.BUGS <- BUGS.out$BUGS_out$sims.list$Daily.Est
-sp.BUGS <- BUGS.out$BUGS_out$sims.list$sp
-com.BUGS <- BUGS.out$BUGS_out$sims.list$com
-Corrected.Est.BUGS <- BUGS.out$BUGS_out$sims.list$Corrected.Est
-
-stats.list <- vector(mode = "list",
-                     length = dim(Daily.Est.BUGS)[3])
-
-for (k in 1:dim(Daily.Est.BUGS)[3]){
-  stats.list[[k]] <- data.frame(Daily.Est.median = apply(Daily.Est.BUGS[,,k], 2,
-                                                         mean),
-                                Daily.Est.median = apply(Daily.Est.BUGS[,,k], 2,
-                                                         median),
-                                Daily.Est.LCL = apply(Daily.Est.BUGS[,,k], 2,
-                                                      quantile,0.275),
-                                Daily.Est.UCL = apply(Daily.Est.BUGS[,,k], 2,
-                                                      quantile,0.975),
-                                sp.median = apply(exp(sp.BUGS[,,k]), 2,
-                                                  median),
-                                sp.LCL = apply(exp(sp.BUGS[,,k]), 2,
-                                               quantile,0.025),
-                                sp.UCL = apply(exp(sp.BUGS[,,k]), 2,
-                                               quantile,0.975),
-                                com.median = apply(exp(com.BUGS[,,k]), 2,
-                                                   median),
-                                com.LCL = apply(exp(com.BUGS[,,k]), 2,
-                                                quantile,0.025),
-                                com.UCL = apply(exp(com.BUGS[,,k]), 2,
-                                                quantile,0.975),
-                                #total.median = apply(exp(sp[,,k]), 1, sum),
-                                days = 1:dim(Daily.Est.BUGS)[2],
-                                Season = Season[k])
-}
-
-all.stats.BUGS <- do.call("rbind", stats.list) %>% group_by(Season)
-
-Corrected.Est.df.BUGS <- data.frame(total.mean = apply(Corrected.Est.BUGS,
-                                                       FUN = mean,
-                                                       MARGIN = 2),
-                                    total.median = apply(Corrected.Est.BUGS,
-                                                         FUN = median,
-                                                         MARGIN = 2),
-                                    total.LCL = apply(Corrected.Est.BUGS,
-                                                      MARGIN = 2,
-                                                      FUN = quantile, 0.025),
-                                    total.UCL = apply(Corrected.Est.BUGS,
-                                                      MARGIN = 2,
-                                                      FUN = quantile, 0.975),
-                                    Season = Season)
-
-p.mean.N.hats.JAGS <- ggplot(mean.N.hats.JAGS %>% group_by(Season)) +
-  geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
-              fill = "blue", alpha = 0.5) +
-  geom_path(aes(x = Day, y = Mean)) +
-
-  facet_wrap(~ Season)
-
-save.fig.fcn(p.mean.N.hats.JAGS,
-             file.name = paste0("figures/mean_N_pois_bino_real_", model.d,  model.v, "_", 
-                                dpi.set, "dpi.png"),
-             dpi = dpi.set, replace = save.fig)
-
-Corrected.Est.df.JAGS %>% left_join(Corrected.Est.df.BUGS,
-                                    by = "Season") %>%
-  transmute(Season = Season,
-            Mean.JAGS = Mean,
-            Median.JAGS = Median,
-            LCL.JAGS = LCL,
-            UCL.JAGS = UCL,
-            Mean.BUGS = total.mean,
-            Median.BUGS = total.median,
-            LCL.BUGS = total.LCL,
-            UCL.BUGS = total.UCL) -> Corrected.Est.all
-
-p.N.hats <- ggplot(N.hats.JAGS) +
-  geom_ribbon(aes(x = Day,
-                  ymin = LCL,
-                  ymax = UCL),
-              fill = "blue",
-              alpha = 0.5) +
-  geom_path(aes(x = Day, y = Mean)) +
-  geom_ribbon(data = all.stats.BUGS,
-              aes(x = days,
-                  ymin = Daily.Est.LCL,
-                  ymax = Daily.Est.UCL),
-              fill = "olivedrab",
-              alpha = 0.5) +
-  geom_path(data = all.stats.BUGS,
-            aes(x = days, y = Daily.Est.median)) +
-  #geom_point(data = obsd.n.df, aes(x = day, y = n))+
-  facet_wrap(~ Season) 
-
-save.fig.fcn(p.N.hats,
-             file.name = paste0("figures/N_hats_BUGS_JAGS_real_",model.d,   model.v, "_", 
-                                dpi.set, "dpi.png"),
-             dpi = dpi.set, replace = save.fig)
-
-p.corrected.N.hats <- ggplot(Corrected.Est.all) +
-  geom_errorbar(aes(x = Season, ymin = LCL.JAGS, ymax = UCL.JAGS),
-                color = "blue") +
-  geom_point(aes(x = Season, y = Mean.JAGS)) +
-  #geom_point(data = Corrected.Est.df.JAGS,
-  #           aes(x = Season, y = Median),
-  #           shape = 0) +
-  geom_errorbar(aes(x = Season,
-                    ymin = LCL.BUGS,
-                    ymax = UCL.BUGS),
-                color = "olivedrab") +
-  geom_point(aes(x = Season, y = Median.BUGS)) +
-  xlab("") + ylab("Mean abundance (95% CI)") +
-  theme(axis.text.x = element_text(angle = 60, vjust = 1, hjust = 1))
-
-save.fig.fcn(p.corrected.N.hats,
-             file.name = paste0("figures/corrected_N_hats_BUGS_JAGS_real_", model.d,  model.v, "_", 
-                                dpi.set, "dpi.png"),
-             dpi = dpi.set, replace = save.fig)
-
-
-```
-
-Convergence was not reached for all parameters where the maximum $\hat{R}$ statistic was `r signif(max.r.hat.real, 3)`. There were `r length(which(unlist(jm.out.real$jm$Rhat) > 1.1))` parameters that resulted in $\hat{R}$ statistic \> 1.1. A closer examination of $\hat{R}$ statistics revealed that high values were associated with the mean.N and N parameters, as well as the parameters for Richards function (S1, S2, and P) for the 2015/2016 season.
-
-Similarly to the analysis of simulated data, daily estimates were generally less for the new approach than Durban's approach (Figure \@ref(fig:Figure-daily-N-hats)). Estimates from the new approach was more precise than those from Durban's method. As a consequence, annual estimates also were greater for Durban's method than for the new approach and precision was better for the new approach (Figure \@ref(fig:Figure-N-hats)).
-
-```{r Figure-daily-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated dailyt abundance and their 95% CIs using Durban's method (green) and new approach (blue)."}
-
-knitr::include_graphics(paste0("figures/N_hats_BUGS_JAGS_real_", model.d,   model.v, "_", dpi.set, "dpi.png"))
-```
-
-```{r Figure-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated annual abundance and their 95% CIs using Durban's method (green) and new approach (blue)."}
-
-knitr::include_graphics(paste0("figures/corrected_N_hats_BUGS_JAGS_real_", model.d,   model.v, "_", dpi.set, "dpi.png"))
-```
-
-
-#### Application of the novel approach to data in Laake et al. {-}
-
-In this section, I apply the novel approach of estimating the abundance of gray whale from data collected by visual surveys at Granite Canyon from the 1967/1968 season to 2006/2007 season. The data were obtained from Jeff Laake via Github (https://github.com/jlaake/ERAnalysis/tree/master/ERAnalysis). These data were analyzed and results published (Laake et al. 2012). 
-
-##### Data {-}
-
-START FROM THIS CHUNK 2023-08-11
-
-```{r Laake-data, echo=FALSE}
-# sightings
-Laake_PrimarySightings <- read.csv(file = "Data/Laake_PrimarySightings.csv")
-Laake_SecondarySightings <- read.csv(file = "Data/Laake_SecondarySightings.csv")
-
-# effort
-Laake_PrimaryEffort <- read.csv(file = "Data/Laake_PrimaryEffort.csv") %>%
-  filter(Use)
-Laake_SecondaryEffort <- read.csv(file = "Data/Laake_SecondaryEffort.csv") %>%
-  filter(Use)
-
-# observers
-obs <- c(unique(Laake_PrimaryEffort$Observer),
-  unique(Laake_SecondaryEffort$Observer)) %>% unique()
-Laake.obs <- data.frame(obs = obs,
-                        obs.ID = seq(1:length(obs)))
-
-Laake_PrimaryEffort %>% 
-  group_by(Date) %>% 
-  summarize(sum.effort = sum(effort)) -> tmp
-# maximum daily effort was 0.447917, or 10.75 hrs.
- 
-max.effort <- max(tmp$sum.effort)
-Laake_PrimaryEffort %>% 
-         group_by(Start.year) %>%
-  summarize(Date = Date,
-            Year = first(Start.year),
-            n = nwhales,
-            Day = as.Date(Date) - as.Date(paste0(Year, "-12-01")),
-            Season = paste0(Year, "/", Year + 1),
-            obs = Observer,
-            vs = vis,
-            bf = beaufort,
-            watch.prop = effort/max.effort) -> Laake.primary.counts
-
-# Although the maximum effort for the secondary effort was 10 hrs, I use
-# the same max effort as the primary
-# Laake_SecondaryEffort %>% 
-#   group_by(Date) %>% 
-#   summarize(sum.effort = sum(effort)) -> tmp
-
-Laake_SecondaryEffort %>% 
-         group_by(Start.year) %>%
-  summarize(Date = Date,
-            Year = first(Start.year),
-            n = nwhales,
-            Day = as.Date(Date) - as.Date(paste0(Year, "-12-01")),
-            Season = paste0(Year, "/", Year + 1),
-            obs = Observer,
-            vs = vis,
-            bf = beaufort,
-            watch.prop = effort/max.effort) -> Laake.secondary.counts
-
-Laake.primary.counts %>% 
-  group_by(Date) %>%
-  summarize(Year = first(Start.year),
-            Date = Date,
-            Day = as.Date(Date) - as.Date(paste0(Year, "-12-01")),
-            Season = paste0(Year, "/", Year + 1),
-            Daily.n = sum(n)) -> Laake.primary.daily.counts
-
-p.Laake.daily.counts <- ggplot(data = Laake.primary.daily.counts) +
-  geom_path(aes(x = Day, y = Daily.n)) +
-    facet_wrap(~ Season) 
-
-
-```
-
-```{r jags-Laake, echo=FALSE}
-
-jags.model.Laake <- "models/model_Richards_pois_bino_v2_Laake.txt"
-
-run.date.Laake <- Sys.Date() #"2023-08-11"
-out.file.name <- paste0("RData/JAGS_Richards_v2_Laake_", 
-                        run.date.Laake, ".rds")
-
-# Find double observer years
-double.obs.year <- unique(Laake_SecondaryEffort$Start.year) 
-all.year <- unique(Laake_PrimaryEffort$Start.year)
-
-n.station <- rep(1, length(all.year))
-n.station[all.year %in% double.obs.year] <- 2
-
-# convert the dataframe into a 3D array of sighting numbers
-# n[d, s, y] with for (y in 1:n.year)
-# 		s in 1:n.station[y]
-#			d in 1:periods[y]
-
-Laake.primary.counts %>%
-  group_by(Start.year) %>%
-  summarize(Season = first(Season),
-            periods = first(n())) -> Laake.primary.periods
-
-Laake.secondary.counts %>%
-  group_by(Start.year) %>%
-  summarize(Season = first(Season),
-            periods = first(n())) -> Laake.secondary.periods
-
-Laake.primary.periods %>% 
-  left_join(Laake.secondary.periods, by = "Season") %>%
-  select(Start.year.x, Season, periods.x, periods.y) %>%
-  transmute(Start.year = Start.year.x,
-            Season = Season,
-            periods.1 = periods.x,
-            periods.2 = periods.y) -> Laake.periods
-
-day <- bf <- vs <- watch.prop <- obs.input <- n.Laake <- array(dim = c(max(Laake.primary.periods$periods),
-                         2, length(all.year)))
-
-
-y <- 3
-y2 <- 1
-for (y in 1:length(all.year)){
-  temp.data <- Laake.primary.counts %>%
-    filter(Start.year == all.year[y]) %>%
-    arrange(Day) %>%
-    left_join(Laake.obs, by = "obs")
-  
-  n.Laake[1:Laake.primary.periods$periods[y], 1, y] <- temp.data$n
-  obs.input[1:Laake.primary.periods$periods[y], 1, y] <- temp.data$obs.ID
-  watch.prop[1:Laake.primary.periods$periods[y], 1, y] <- temp.data$watch.prop
-  bf[1:Laake.primary.periods$periods[y], 1, y] <- scale(temp.data$bf)
-  vs[1:Laake.primary.periods$periods[y], 1, y] <- scale(temp.data$vs)
-  day[1:Laake.primary.periods$periods[y], 1, y] <- as.numeric(temp.data$Day)
-  
-  # fill in the secondary observations
-  if (isTRUE(all.year[y] %in% double.obs.year)){
-    temp.data <- Laake.secondary.counts %>%
-      filter(Start.year == all.year[y])%>%
-    left_join(Laake.obs, by = "obs")
-    
-    n.Laake[1:Laake.secondary.periods$periods[y2], 2, y] <- temp.data$n
-    obs.input[1:Laake.secondary.periods$periods[y2], 2, y] <- temp.data$obs.ID
-    watch.prop[1:Laake.secondary.periods$periods[y2], 2, y] <- temp.data$watch.prop
-    bf[1:Laake.secondary.periods$periods[y2], 2, y] <- scale(temp.data$bf)
-    vs[1:Laake.secondary.periods$periods[y2], 2, y] <- scale(temp.data$vs)
-    day[1:Laake.secondary.periods$periods[y2], 2, y] <- as.numeric(temp.data$Day)
-    
-    y2 <- y2 + 1
-    
-  }
-}
-
-jags.data.Laake <- list(  n = n.Laake,
-                         n.station = n.station,
-                         n.year = length(all.year),
-                         n.obs = nrow(Laake.obs),
-                         periods = Laake.periods %>% 
-                           select(periods.1, periods.2) %>% simplify2array(),
-                         obs = obs.input,
-                         vs = vs,
-                         bf = bf,
-                         watch.prop = watch.prop,
-                         day = day)
-
-MCMC.params <- jm.sim.out$MCMC.params
-jags.params <- jm.sim.out$jags.params
-
-if (!file.exists(out.file.name)){
-
-  Start_Time<-Sys.time()
-
-  jm <- jagsUI::jags(jags.data.Laake,
-                     inits = NULL,
-                     parameters.to.save= jags.params,
-                     model.file = jags.model.Laake,
-                     n.chains = MCMC.params$n.chains,
-                     n.burnin = MCMC.params$n.burnin,
-                     n.thin = MCMC.params$n.thin,
-                     n.iter = MCMC.params$n.samples,
-                     DIC = T,
-                     parallel=T)
-
-  Run_Time <- Sys.time() - Start_Time
-  jm.out.Laake <- list(jm = jm,
-                      jags.data = jags.data.Laake,
-                      jags.params = jags.params,
-                      jags.model = jags.model.Laake,
-                      MCMC.params = MCMC.params,
-                      Run_Time = Run_Time,
-                      Sys.env = Sys.getenv())
-  
-  saveRDS(jm.out.Laake,
-          file = out.file.name)
-
-} else {
-
-  jm.out.Laake <- readRDS(out.file.name)
-}
-
-# need to turn zeros into NAs when there were no second station:
-data.array <- jm.out.Laake$jags.data$n
-data.array[,2,which(jm.out.Laake$jags.data$n.station == 1)] <- NA
-
-LOOIC.n.Laake <- compute.LOOIC(loglik.array = jm.out.Laake$jm$sims.list$log.lkhd,
-                               data.array = data.array,
-                               MCMC.params = jm.out.Laake$MCMC.params)
-
-# Look at Rhat statistics
-max.Rhat.Laake <- lapply(jm.out.Laake$jm$Rhat, FUN = max, na.rm = T) %>%
-  unlist()
-max.Rhat.Laake.big <- max.Rhat.Laake[which(max.Rhat.real > 1.1)]
-```
-
-
-
-## Literature cited {.unnumbered}
