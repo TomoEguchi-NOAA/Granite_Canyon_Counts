@@ -40,7 +40,7 @@ Run.date <- "2025-06-24" #Sys.Date() #"2025-04-21" #"2025-04-17" #
 min.dur <- 60 #10 #85 #
 
 # v3 has conversion issues. v4 and v5 seem to work fine. 2025-06-25
-ver <- "v3" #  "v3" #"v5" # "v4" # 
+ver <- "v5a" #  "v3" #"v5" # "v4" # 
 
 # These are the ending year of each season - for example, 2022 in the following vector indicates
 # for the 2021/2022 season. These data were extracted using Extract_Data_All_v2.Rmd
@@ -49,10 +49,15 @@ years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025)
 data.dir <- "RData/V2.1_Feb2025"
 max.day <- 100
 
-MCMC.params <- list(n.samples = 250000,
+MCMC.params <- list(n.samples = 200000,
                     n.thin = 100,
-                    n.burnin = 200000,
+                    n.burnin = 150000,
                     n.chains = 5)
+
+# MCMC.params <- list(n.samples = 250000,
+#                     n.thin = 100,
+#                     n.burnin = 200000,
+#                     n.chains = 5)
 # 
 # # v3 does not converge well with the above MCMC setting so increasing samples
 # MCMC.params <- list(n.samples = 1000000,

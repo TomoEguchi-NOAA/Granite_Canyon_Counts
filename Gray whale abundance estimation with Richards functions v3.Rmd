@@ -133,9 +133,9 @@ The entire dataset from the 1967-1968 season was analyzed using the new approach
 
 ```{r new-analysis, echo=FALSE, message=FALSE, warning=FALSE}
 
-v3.out <- readRDS("RData/JAGS_Richards_Nmixture_v3_1968to2025_min60_NoBUGS.rds")
-v4.out <- readRDS("RData/JAGS_Richards_Nmixture_v4_1968to2025_min60_NoBUGS.rds")
-v5.out <- readRDS("RData/JAGS_Richards_Nmixture_v5_1968to2025_min60_NoBUGS.rds")
+v3.out <- readRDS("RData/JAGS_Richards_Nmixture_v3a_1968to2025_min60_NoBUGS.rds")
+v4.out <- readRDS("RData/JAGS_Richards_Nmixture_v4a_1968to2025_min60_NoBUGS.rds")
+v5.out <- readRDS("RData/JAGS_Richards_Nmixture_v5a_1968to2025_min60_NoBUGS.rds")
 
 ```
 
