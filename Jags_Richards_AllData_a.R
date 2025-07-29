@@ -57,6 +57,7 @@ MCMC.params <- list(n.samples = 350000,
 
 jags.params <- c("VS.Fixed", "BF.Fixed",
                  "Max", "K", "S1", "S2", "P",
+                 "P1", "P2", "P2.U",
                  "mean.prob", "prob", "obs.prob",
                  "mean.N", "Corrected.Est", "N", "obs.N",
                  "OBS.RF", "sigma.Obs",
@@ -69,7 +70,7 @@ jags.params <- c("VS.Fixed", "BF.Fixed",
                  #"N.alpha", "N.obs",
                  "log.lkhd")
 
-for (ver in c("v3a", "v4a", "v5a")){
+for (ver in c("v2a", "v3a", "v4a", "v5a")){
   
   jm.out <- NoBUGS_Richards_fcn(min.dur = min.dur, 
                                 ver = ver, 
