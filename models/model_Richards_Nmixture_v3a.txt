@@ -64,12 +64,6 @@ model{
 		}
 	}  
 
-	# Set N= 0 when t = 1 or t = max.day
-	#for (y in 1:n.year){
-	#	N[1, y] <- 0
-	#	N[n.days, y] <- 0
-	#}
-	
 	# observations are from the realized abundance: N-mixture part with 
 	# binomial sampling
 	
@@ -88,9 +82,7 @@ model{
 				n[d, s, y] ~ dbin(obs.prob[d,s,y], N[day[d,s,y], y])
 				log.lkhd[(d-1),s,y] <- logdensity.bin(n[d,s,y], obs.prob[d, s, y], N[day[d,s,y], y])
 								
-				# probability is discounted by the length of each watch period
-				#obs.prob[d, s, y] <- prob[(d-1), s, y] * watch.length[(d-1), s, y]
-				# probability is mean + covariate effects
+				# probability is mean + covariate effects and watch.length as an offset				
 				logit(obs.prob[d,s,y]) <- mean.prob +
 								(BF.Fixed * bf[(d-1),s,y]) +
 								(VS.Fixed * vs[(d-1),s,y]) +
@@ -108,13 +100,7 @@ model{
 	# becomes large. 
 	
 	# It doesn't make sense to make it [0,1]...
-	mean.prob ~ dunif(-1.5, 3) 
-	#for (y in 1:n.year){	
-		#mean.prob[y] ~ dunif(-1.5, 3) #dnorm(0, 0.01)T(-0.5,)
-		#for (s in 1:n.station[y]){
-		#	mean.prob[s,y] ~ dnorm(0, 0.001)T(0,)		
-		#}
-	#}
+	mean.prob ~ dunif(-1.5, 3) 	
 	
 	# priors for Richards function parameters. 
 	for (y in 1:n.year){

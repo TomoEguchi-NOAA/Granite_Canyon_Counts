@@ -65,12 +65,6 @@ model{
 		}
 	}  
 
-	# Set N= 0 when t = 1 or t = max.day
-	#for (y in 1:n.year){
-	#	N[1, y] <- 0
-	#	N[n.days, y] <- 0
-	#}
-	
 	# observations are from the realized abundance: N-mixture part with 
 	# binomial sampling
 	
@@ -89,8 +83,6 @@ model{
 				n[d, s, y] ~ dbin(obs.prob[d,s,y], N[day[d,s,y], y])
 				log.lkhd[(d-1),s,y] <- logdensity.bin(n[d,s,y], obs.prob[d, s, y], N[day[d,s,y], y])
 				
-				# probability is discounted by the length of each watch period
-				# obs.prob[d, s, y] <- prob[(d-1), s, y] * watch.length[(d-1), s, y]
 				# probability is mean + covariate effects and watch.length as an offset
 				logit(obs.prob[d,s,y]) <- mean.prob +
 								(BF.Fixed * bf[(d-1),s,y]) +
@@ -101,9 +93,7 @@ model{
 			}
 		}
 	}
-	
-	#beta.1 ~ dnorm(0, 0.001)
-	
+		
 	# one mean.prob for the entire time series may not make sense.  
 	# Year-specific mean.prob (intercept) doesn't work so well probably because some years
 	# don't have enough data points. It becomes so small and the estimated abundance
