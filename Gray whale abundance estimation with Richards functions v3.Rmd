@@ -26,6 +26,8 @@ library(rmarkdown)
 library(loo)
 library(bayesplot)
 
+options(mc.cores = 5)
+
 set_flextable_defaults(font.size = 9,
                        font.family = "Cambria")
 
@@ -68,15 +70,15 @@ The approach in Durban et al. (2015) used the "cut" function within WinBUGS to d
 
 ## Modification {.unnumbered}
 
-Because of the way spline is fit to data points, it is impossible to use just spline when data are not collected from day 1. Missing data points (e.g., weekends, not having 90 days of observations) are linearly interpolated unless there is an assumed data generating model (the Gaussian distribution in the approach by Durban et al.) that is common among years. Instead Gaussian distribution and spline functions, I use one flexible function (Richards function).
+Because of the way spline is fit to data points, it is impossible to use just spline when data are not collected from day 1. Missing data points (e.g., weekends, not having 90 days of observations) are linearly interpolated unless there is an assumed data generating model (the Gaussian distribution in the approach by Durban et al.) that is common among years. Instead Gaussian distribution and spline functions, I use one flexible function.
 
 ### Model description {.unnumbered}
 
-In order to overcome these difficulties with the previous approach, I use a more flexible function that can accommodate the general shape (increase, peak then decrease) and asymmetrical around the peak. The function is called Richards' function [@richards1959] and it has been used, for example, to model changes in the number of nesting turtles [@girondotModelingApproachesQuantify2007]. The model is defined as follows.
+In order to overcome these difficulties with the previous approach, I use a more flexible function that can accommodate the general shape (increase, peak then decrease) and asymmetrical around the peak. This pattern can be modeled with the product of two sigmoid equations or mathematical functions with a peak in the middle. Durban et al. used a Gaussian function to model this pattern. A similar pattern is often found in nesting marine turtles. Girondot et al. (2007) used the first-order derivative of a modified form of the Verhurst equation to model the number of nesting leatherback turtles in French Guiana and Suriname. The equation is similar to the Richards equation (Richards 1959) and has the following form.
 
-$$M_1 = (1 + (2 e^K - 1) * e^{(P-d)/S_1}) ^ {(-1/e^K)}$$
+$$M_1 = (1 + (2 e^K - 1) * e^{(P_1-d)/S_1}) ^ {(-1/e^K)}$$
 
-$$M_2 = (1 + (2 e^K - 1) * e^{(P-d)/S_2}) ^ {(-1/e^K)}$$
+$$M_2 = (1 + (2 e^K - 1) * e^{(P_2-d)/S_2}) ^ {(-1/e^K)}$$
 
 $$N = N_{min} + (N_{max} - N_{min}) * (M_1 * M_2),$$
 
@@ -86,7 +88,7 @@ $S_1 < 0$ and $S_2 > 0$ define how the slope decreases and increases, respective
 
 $K > 0$ defines the "flatness" at the peak of the function,
 
-$P$ defines where the peak is relative to the range of $d$, where $min(d) < P < max(d)$,
+$P_1$ and $P_2$ ($P_1 <= P_2$) define where the peak is relative to the range of $d$, where $min(d) < P < max(d)$,
 
 $N_{min}$ is zero, i.e., the number of whales migrating outside of a migration season and,
 
@@ -94,20 +96,17 @@ $N_{max} >> N_{min}$. $N_{max}$ is not the maximum number of whales migrating pe
 
 Effects of these parameters on the shape of the function are described in the Appendix.
 
+I created six versions of the equation, varied by how $K$, $P_1$, and $P_2$ were defined (Table x). The $S_1$, $S_2$, and $N_{max}$ parameters were assumed to be year specific. Each parameter had a hyper-distribution of either a Gaussian or a gamma distribution. Uniform distributions were used for prior distributions of hyperparameters (Appendix Table X). This function provided the daily mean number of gray whales passing through the observation point. The daily number of whales passing through the observation point was modeled with a Poisson distribution with the mean.
 
-#### Fitting the model to observed counts {.unnumbered}
+The N-mixture model of Durban et al. was used to approximate the sampling process. Specifically, the observation probability $p_{i_t, s, y}$ was a function of the viewing conditions (the Beaufort sea state ($B$) and visibility code ($V$), the overall mean probability of detection ($\beta_0$), observer random effects ($O$), and a watch duration offset ($L$). The watch duration offset was included to accommodate differing durations of observation shifts due to inclement conditions. For the observer random effects, because some observers lacked multiple observation periods, they were not helpful as a random effect in the model. Consequently, I pooled all observers with less than 10 shifts (or sightings?) as one “observer.”  I removed the indicator function that selected covariates in Durban's approach. Whether or not each variable was needed would be apparent from the coefficient (i.e., $\beta$). 
 
-The proposed new approach replaces the spline-Gaussian selection step in Durban et al. with Richards' function. The observed counts are modeled with binomial distributions as it was in Durban et al. (2015)
+$$ logit(p_{i_t, s, y}) = \beta_0 + \beta_{B} * B_{i_t, y} + \beta_{V} * V_{i_t, y} + O_{i_t, s, y} + log(L_{i_t, y})  $$
 
-$$ n_{i_t,s,y} \sim BIN(N_{t, y}, p_{i_t, s, y} * \theta_{i_t, y}) $$
+Observed counts were modeled with binomial distributions with the daily abundance and the detection probability. 
 
-where $n_{i_t, s, y}$ is the observed number of gray whales during the watch period $i$ of the $t$-th day of the season $y$ from the station $s$, $N_{t, y}$ is the number of gray whales that migrated through the sampling area during the $t$-th day of season $y$, $p_{i_t, s, y}$ is the sighting probability of the station $s$ during the watch period $i$ of the $t$-th day of the season $y$, and $\theta_{i_t,y}$ is the fractional duration of the watch period $i_t$ in the units of days. This is identical to Durban's approach. 
+$$ n_{i_t,s,y} \sim BIN(N_{t, y}, p_{i_t, s, y}) $$
 
-The sighting probability $p_{i_t, s, y}$ is modeled as a function of the Beaufort sea state ($B$), visibility ($V$), and observers ($O$). Beaufort sea state and visibility were treated as fixed effects, whereas observers were treated as random effects. I removed the indicator function that selected covariates in Durban's approach. Whether or not each variable was needed would be apparent from the coefficient (i.e., $\beta$). 
-
-$$ logit(p_{i_t, s, y}) = \beta_0 + \beta_{B} * B_{i_t, y} + \beta_{V} * V_{i_t, y} + O_{i_t, s, y}  $$
-
-This is identical to how the sighting probability was modeled in Durban et al. (2015). I grouped all observers who had less than 10 observation periods.  
+where $n_{i_t, s, y}$ is the observed number of gray whales during the watch period $i$ of the $t$-th day of the season $y$ from the station $s$, $N_{t, y}$ is the number of gray whales that migrated through the sampling area during the $t$-th day of season $y$, and $p_{i_t, s, y}$ is the sighting probability of the station $s$ during the watch period $i$ of the $t$-th day of the season $y$.  
 
 The number of gray whales that migrated through the sampling area during the $t$-th day of the season was modeled as a Poisson variable with the mean $\bar{N}_{t, y}$ [@raftery1988].
 
@@ -121,25 +120,46 @@ $$ N_y = \lambda * \sum_{t = 1} ^ {max(d)} N_{t, y} $$ and
 
 $$ \lambda \sim N(1.0875, 0.03625) $$ (Perryman et al. 1999).
 
-I created three sub-models by changing whether of not the parameters of Richards' function (i.e., $K$, $P$, $S_1$, and $S_2$) are time dependent. 
+In Durban’s analysis, the annual migration started on December 1 and ended 90 days later, where the number of passing whales was assumed to be zero on days 1 and 90. In previous years, however, observations were made beyond the 90th day. To analyze all data, I defined the annual migration period to 100 days, rather than 90 days, starting on December 1, and assumed that the number of passing whales was zero on days 1 and 100. 
 
-* Model 1: All time dependent.
-* Model 2: $S_1$ and $S_2$ are time dependent.
-* Model 3: $S_1$, $S_2$, and $P$ are time dependent.
+The models were fitted to data using JAGS (Plummer) in the R statistical environment, using the jagsUI package (ref). Goodness-of-fit was determined via LOOIC and Pareto-k statistics (Vehtari, A., Gelman, A. & Gabry, J. Practical Bayesian model evaluation using leave-one-out cross-validation and WAIC. Stat Comput 27, 1413–1432 (2017). https://doi.org/10.1007/s11222-016-9696-4), using the loo package (ref), and the convergence of MCMC was determined through the R-hat statistic. For each model, 350,000 steps of five chains were run, where the first 300,000 samples of each chain were treated as “burn-in” and discarded. The remaining 250,000 posterior samples (50,000 samples of five chains) were thinned by taking every 100 samples, resulting in 2500 posterior samples for making inference. JAGS models and R scripts to conduct the analysis, including data extraction and executing the JAGS models, are available at the GitHub repository (https://github.com/TomoEguchi-NOAA/GrayWhaleAbundance). 
 
-#### Reanalysis of the data {.unnumbered}
+To compare the three approaches (Laake’s, Durban’s, and the new), I fitted generalized additive models to point abundance estimates for the last 11 years. Raw data were not available for the 2007/2008 season, so it was not included in Laake’s and the new analyses. Further, the rate of recent decline in the estimated abundance was compared among the three approaches by fitting linear models to the abundance estimates between the 2015/2016 and 2024/2025 seasons.
 
-The entire dataset from the 1967-1968 season was analyzed using the new approach and the results compared to the reported estimates in Eguchi et al. (2025). Sightings data between the 1967/1968 and 2005/2006 seasons were obtained from the *ERAnalysis* package (https://github.com/jlaake/ERAnalysis, Laake YR). All sighting data were treated equally to create input data for the new analysis, where all shifts of at least 60 minutes with the Beaufort sea state of < 5 and the visibility code of < 5 were included in the analysis. In the approach by Durban et al., the duration of annual migration period was assumed to be 90 days, where the number of migrating gray whales on day 1 and 90 was assumed to be zero. In the earlier dataset, however, sightings were recorded beyond the 90th day. Consequently, I changed the duration of annual migration to 100 days, where the number of gray whales was assumed to be zero on day 1 and 100. JAGS models and R scripts to conduct the analysis, including data extraction and executing the JAGS models, are available at GitHub (https://github.com/TomoEguchi-NOAA/GrayWhaleAbundance). 
+
+### Results {.unnumbered}
+
+The entire dataset from the 1967-1968 season was analyzed using the new approach and the results compared to the reported estimates in Eguchi et al. (2025). Sightings data between the 1967/1968 and 2005/2006 seasons were obtained from the *ERAnalysis* package (https://github.com/jlaake/ERAnalysis, Laake YR). All sighting data were treated equally to create input data for the new analysis, where all shifts of at least 60 minutes with the Beaufort sea state of < 5 and the visibility code of < 5 were included in the analysis. 
 
 ```{r new-analysis, echo=FALSE, message=FALSE, warning=FALSE}
+# v1.out <- readRDS("RData/JAGS_Richards_Nmixture_v1a_1968to2025_min60_NoBUGS.rds")
+# v2.out <- readRDS("RData/JAGS_Richards_Nmixture_v2a_1968to2025_min60_NoBUGS.rds")
+# v3.out <- readRDS("RData/JAGS_Richards_Nmixture_v3a_1968to2025_min60_NoBUGS.rds")
+# v4.out <- readRDS("RData/JAGS_Richards_Nmixture_v4a_1968to2025_min60_NoBUGS.rds")
+# v5.out <- readRDS("RData/JAGS_Richards_Nmixture_v5a_1968to2025_min60_NoBUGS.rds")
+# v6.out <- readRDS("RData/JAGS_Richards_Nmixture_v6a_1968to2025_min60_NoBUGS.rds")
 
-v3.out <- readRDS("RData/JAGS_Richards_Nmixture_v3a_1968to2025_min60_NoBUGS.rds")
-v4.out <- readRDS("RData/JAGS_Richards_Nmixture_v4a_1968to2025_min60_NoBUGS.rds")
-v5.out <- readRDS("RData/JAGS_Richards_Nmixture_v5a_1968to2025_min60_NoBUGS.rds")
+max.Rhat.big <- list()
+.out <- LOOIC.n <- list()
+for (k in 1:6){
+  .out[[k]] <- readRDS(paste0("RData/JAGS_Richards_Nmixture_v", k, "a_1968to2025_min60_NoBUGS.rds"))
+  max.Rhat <- lapply(.out[[k]]$jm$Rhat, FUN = max, na.rm = T) %>%
+    unlist()
+  max.Rhat.big[[k]] <- max.Rhat[which(max.Rhat > 1.1)]
+  
+  data.array <- .out[[k]]$jags.input$jags.data$n
+  data.array[,2,which(.out[[k]]$jags.input$jags.data$n.station == 1)] <- NA
+  data.array[,2,which(.out[[k]]$jags.input$jags.data$n.station == 1)] <- NA
 
+  LOOIC.n[[k]] <- compute.LOOIC(loglik.array = .out[[k]]$jm$sims.list$log.lkhd,
+                                data.array = data.array,
+                                MCMC.params = .out[[k]]$MCMC.params)
+}
+
+# v4a converged for all monitored parameters. 
 ```
 
-The three models were fitted to the sightings data over 32 seasons. According to the Rhat statistics, convergence did not reach for `r length(v3.out$max.Rhat.big)` parameters that were monitored (`r names(max.Rhat.big)[1:(length(max.Rhat.big)-1)]`) for Model 1. For Model 2 and Model 3, all Rhat statistics were < 1.1, indicating acceptable convergence of all monitored parameters.  
+The six models were fitted to the sightings data over 32 seasons. According to the Rhat statistics, convergence did not reach for `r length(v3.out$max.Rhat.big)` parameters that were monitored (`r names(max.Rhat.big)[1:(length(max.Rhat.big)-1)]`) for Model 1. For Model 2 and Model 3, all Rhat statistics were < 1.1, indicating acceptable convergence of all monitored parameters.  
 
 Because we have observed the change in the timing of the peak of migration over the years (Eguchi et al. 2024, 2025), I decided to use Model 3 for parameter inference.  
 
