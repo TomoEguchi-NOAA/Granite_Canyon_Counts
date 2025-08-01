@@ -112,7 +112,7 @@ model{
 	}
 		
 	P ~ dunif(30, 60) 
-	K ~ d(0, 5) 
+	K ~ dunif(0, 5) 
 		     
 	## Observer random effects
 	for(o in 1:n.obs){

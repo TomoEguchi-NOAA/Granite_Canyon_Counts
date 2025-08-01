@@ -70,8 +70,8 @@ jags.params <- c("VS.Fixed", "BF.Fixed",
                  #"N.alpha", "N.obs",
                  "log.lkhd")
 
-for (ver in c("v1a", "v2a", "v3a", "v4a", "v5a", "v6a")){
-  
+#for (ver in c("v1a", "v2a", "v3a", "v4a", "v5a", "v6a")){
+for (ver in c("v1b", "v2b", "v3b", "v4b", "v5b", "v6b")){
   jm.out <- NoBUGS_Richards_fcn(min.dur = min.dur, 
                                 ver = ver, 
                                 years = years, 

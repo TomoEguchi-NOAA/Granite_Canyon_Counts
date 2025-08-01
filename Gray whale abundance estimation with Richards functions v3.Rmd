@@ -131,7 +131,7 @@ To compare the three approaches (Laake’s, Durban’s, and the new), I fitted g
 
 The entire dataset from the 1967-1968 season was analyzed using the new approach and the results compared to the reported estimates in Eguchi et al. (2025). Sightings data between the 1967/1968 and 2005/2006 seasons were obtained from the *ERAnalysis* package (https://github.com/jlaake/ERAnalysis, Laake YR). All sighting data were treated equally to create input data for the new analysis, where all shifts of at least 60 minutes with the Beaufort sea state of < 5 and the visibility code of < 5 were included in the analysis. 
 
-```{r new-analysis, echo=FALSE, message=FALSE, warning=FALSE}
+```{r model-comparison, echo=FALSE, message=FALSE, warning=FALSE}
 # v1.out <- readRDS("RData/JAGS_Richards_Nmixture_v1a_1968to2025_min60_NoBUGS.rds")
 # v2.out <- readRDS("RData/JAGS_Richards_Nmixture_v2a_1968to2025_min60_NoBUGS.rds")
 # v3.out <- readRDS("RData/JAGS_Richards_Nmixture_v3a_1968to2025_min60_NoBUGS.rds")
@@ -156,17 +156,14 @@ for (k in 1:6){
                                 MCMC.params = .out[[k]]$MCMC.params)
 }
 
-# v4a converged for all monitored parameters. 
 ```
 
-The six models were fitted to the sightings data over 32 seasons. According to the Rhat statistics, convergence did not reach for `r length(v3.out$max.Rhat.big)` parameters that were monitored (`r names(max.Rhat.big)[1:(length(max.Rhat.big)-1)]`) for Model 1. For Model 2 and Model 3, all Rhat statistics were < 1.1, indicating acceptable convergence of all monitored parameters.  
+The six models were fitted to the sightings data over 32 seasons. According to the Rhat statistic, only one model (Model 4) converged for all monitored parameters. Consequently, I used Model 4 for making inference on the parameters. The Pareto-k statistics indicated that `r which(LOOIC.n[[4]]$loo.out$diagnostics$pareto_k > 0.7) %>% length()` data points did not fit well to the model, which was `r LOOIC.n[[4]]$loo.out$` % of all data points. For the remainder of the data points, Pareto k statistics was < 0.7, indicating good fit.   
 
-Because we have observed the change in the timing of the peak of migration over the years (Eguchi et al. 2024, 2025), I decided to use Model 3 for parameter inference.  
-
-Pareto k statistics indicated that the model fit reasonably well to the data. A majority of Pareto k statistics were less than 0.7 (`r which(v5.out$LOOIC.n$loo.out$diagnostics$pareto_k < 0.7) %>% length()` out of `r length(v5.out$LOOIC.n$loo.out$diagnostics$pareto_k)`), with the maximum value of `r signif(max(v5.out$LOOIC.n$loo.out$diagnostics$pareto_k), 3)`.  
 
 ```{r JAGS-results, echo=F,message=FALSE}
-rm(list = c("v4.out", "v3.out"))
+v4.out <- .out[[4]]
+rm(list = c(".out"))
 
 
 
