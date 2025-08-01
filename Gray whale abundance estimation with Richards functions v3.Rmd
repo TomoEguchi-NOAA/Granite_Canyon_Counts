@@ -158,7 +158,7 @@ for (k in 1:6){
 
 ```
 
-The six models were fitted to the sightings data over 32 seasons. According to the Rhat statistic, only one model (Model 4) converged for all monitored parameters. Consequently, I used Model 4 for making inference on the parameters. The Pareto-k statistics indicated that `r which(LOOIC.n[[4]]$loo.out$diagnostics$pareto_k > 0.7) %>% length()` data points did not fit well to the model, which was `r LOOIC.n[[4]]$loo.out$` % of all data points. For the remainder of the data points, Pareto k statistics was < 0.7, indicating good fit.   
+The six models were fitted to the sightings data over 32 seasons. According to the Rhat statistic, only one model (Model 4) converged for all monitored parameters. Consequently, I used Model 4 for making inference on parameters, including abundance. The Pareto-k statistics indicated that `r which(LOOIC.n[[4]]$loo.out$diagnostics$pareto_k > 0.7) %>% length()` data points did not fit well to the model, which was `r LOOIC.n[[4]]$loo.out$` % of all data points. For the remainder of the data points, Pareto k statistics was < 0.7, indicating good fit.   
 
 
 ```{r JAGS-results, echo=F,message=FALSE}
