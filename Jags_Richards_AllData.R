@@ -40,7 +40,7 @@ Run.date <- "2025-06-24" #Sys.Date() #"2025-04-21" #"2025-04-17" #
 min.dur <- 60 #10 #85 #
 
 # v3 has conversion issues. v4 and v5 seem to work fine. 2025-06-25
-ver <- "v6a" #  "v3" #"v5" # "v4" # 
+ver <- "v7a" #  "v3" #"v5" # "v4" # 
 
 # These are the ending year of each season - for example, 2022 in the following vector indicates
 # for the 2021/2022 season. These data were extracted using Extract_Data_All_v2.Rmd
@@ -156,11 +156,14 @@ if (ver == "v4"){
   mcmc_trace(jm.out$jm$samples, paste0("P2[", par.idx, "]"))
 } else if (ver == "v6a"){
   mcmc_trace(jm.out$jm$samples, c("P1", "P2"))
+} else if (ver == "v7a"){
+  mcmc_trace(jm.out$jm$samples, paste0("S1[", par.idx, "]"))
+  mcmc_trace(jm.out$jm$samples, paste0("S2[", par.idx, "]"))
 }
 
-mcmc_trace(jm.out$jm$samples, paste0("S1[", par.idx, "]"))
-mcmc_trace(jm.out$jm$samples, paste0("S2[", par.idx, "]"))
-mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
+#mcmc_trace(jm.out$jm$samples, paste0("S1[", par.idx, "]"))
+#mcmc_trace(jm.out$jm$samples, paste0("S2[", par.idx, "]"))
+#mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
 
 
 all.start.year <- c(jm.out$jags.input$jags.input.Laake$all.start.year,
