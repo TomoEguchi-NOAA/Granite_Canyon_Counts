@@ -81,7 +81,7 @@ MCMC.params <- list(n.samples = 200000,
 #                     n.chains = 5)
 
 jags.params <- c("VS.Fixed", "BF.Fixed",
-                 "Max", "K", "S1", "S2", "P",
+                 "Max", "K", "K1", "K2", "S1", "S2", "P",
                  "mean.prob", "prob", "obs.prob",
                  "mean.N", "Corrected.Est", "N", "obs.N",
                  "OBS.RF", "sigma.Obs",
@@ -134,15 +134,15 @@ max.new.Rhat.big <- new.Rhat[which(new.Rhat > 1.01)]
 
 if (grepl("a", ver)){
   mcmc_dens(jm.out$jm$samples, c("S1.alpha", "S1.beta",
-                                 "S2.alpha", "S2.beta",
+                                 "S2.alpha", "S2.beta"))
                                  #"P.alpha", "P.beta",
-                                 "K.alpha", "K.beta"))
+                                 #"K.alpha", "K.beta"))
   # P.alpha and P.beta seem to be not behaving well - the right tails are not 
   # captured. 
   mcmc_trace(jm.out$jm$samples, c("S1.alpha", "S1.beta",
-                                  "S2.alpha", "S2.beta",
+                                  "S2.alpha", "S2.beta"))
                                   #"P.alpha", "P.beta",
-                                  "K.alpha", "K.beta"))
+                                  #"K.alpha", "K.beta"))
   
 }
 
@@ -195,6 +195,14 @@ if (grepl("v1", ver)){
   p.trace.P <- mcmc_trace(jm.out$jm$samples, paste0("P[", par.idx, "]"))
   p.trace.Max <- mcmc_trace(jm.out$jm$samples, c("Max"))
 
+} else if (grepl("v9", ver)){
+  p.trace.K1 <- mcmc_trace(jm.out$jm$samples, paste0("K1[", par.idx, "]"))
+  p.trace.K2 <- mcmc_trace(jm.out$jm$samples, paste0("K2[", par.idx, "]"))
+  
+  p.trace.P <- mcmc_trace(jm.out$jm$samples, paste0("P[", par.idx, "]"))
+  p.trace.Max <- mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
+  
+  
 }
 
 #mcmc_trace(jm.out$jm$samples, paste0("S1[", par.idx, "]"))
