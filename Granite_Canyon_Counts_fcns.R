@@ -2547,6 +2547,25 @@ Richards_fcn <- function(d, S1, S2, K, P, min, max){
 }
 
 
+Richards_fcn_1 <- function(d, S1, S2, K1, K2, P1, P2, min, max){
+  K1 <- abs(K1)
+  K2 <- abs(K2)
+  
+  if (S1 > 0) S1 <- -S1
+  if (S2 < 0) S2 <- -S2
+  
+  if (P1 > P2){
+    P1.1 <- P1
+    P1 <- P2
+    P2 <- P1.1
+  }
+  
+  M1 <- (1 + (2 * exp(K1) - 1) * exp((1/S1) * (P1 - d))) ^ (-1/exp(K1))
+  M2 <- (1 + (2 * exp(K2) - 1) * exp((1/S2) * (P2 - d))) ^ (-1/exp(K2))
+  N <- min + (max - min) * (M1 * M2)
+  return(N)
+}
+
 
 
 # A function to get one data file from selected directory
