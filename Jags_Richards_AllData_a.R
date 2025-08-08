@@ -61,7 +61,7 @@ MCMC.params <- list(n.samples = 550000,
 #                     n.chains = 5)
 
 jags.params <- c("VS.Fixed", "BF.Fixed",
-                 "Max", "K", "S1", "S2", "P",
+                 "Max", "K", "K1", "K2", "S1", "S2", "P",
                  "P1", "P2", "P2.U",
                  "mean.prob", "prob", "obs.prob",
                  "mean.N", "Corrected.Est", "N", "obs.N",
