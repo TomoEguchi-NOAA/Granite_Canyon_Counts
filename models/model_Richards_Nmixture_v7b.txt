@@ -107,34 +107,19 @@ model{
 	# priors for Richards function parameters. 
 	for (y in 1:n.year){
 		
-		S1[y] ~ dgamma(S1.alpha, S1.beta)  
-		S2[y] ~ dgamma(S2.alpha, S2.beta)  
+		S1[y] ~ dunif(1, 10) 
+		S2[y] ~ dunif(1, 10) 
 	
 	}
 
-	Max ~ dnorm(2000, 1/(800^2))T(0,)
-	
-	# Uniform distributions were adjusted to capture entire posterior 
-	# distributions the hyper-parameters. 
-	
-	S1.alpha ~ dunif(0.1, 50)
-	S1.beta ~ dunif(0.01, 5)
-	
-	S2.alpha ~ dunif(0.1, 50)
-	S2.beta ~ dunif(0.01, 10)
-	
+	Max ~ dunif(500, 4000) #dnorm(2000, 1/(800^2))T(0,)
+		
 	# There is no need to create a hyperdistribution for P, which is the peak of
 	# the migration
 	P ~ dunif(30, 60)
 	
-	K ~ dgamma(K.alpha, K.beta) 
-	
-	# K.beta <= K.alpha seems to work better with the gamma distribution for K
-	# So, I add a random number to K.beta to create K.alpha
-	K.beta ~ dunif(0, 5000)
-	K.unif ~ dunif(0, 500)
-	K.alpha <- K.beta + K.unif
-	     
+	K ~ dunif(0, 5) 
+		     
 	## Observer random effects
 	for(o in 1:n.obs){
 		OBS.RF[o] ~ dnorm(0,tau.Obs)

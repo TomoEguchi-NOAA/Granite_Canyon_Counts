@@ -108,7 +108,7 @@ model{
 		S1[y] ~ dgamma(S1.alpha, S1.beta)  
 		S2[y] ~ dgamma(S2.alpha, S2.beta)  
 		K[y] ~ dgamma(K.alpha, K.beta)   
-		P[y] ~ dgamma(P.alpha, P.beta) 
+		P[y] ~ dunif(30, 60) #dgamma(P.alpha, P.beta) 
 
 	}
 
@@ -121,8 +121,8 @@ model{
 	S2.alpha ~ dunif(0.1, 50)
 	S2.beta ~ dunif(0.01, 10)
 	
-	P.alpha ~ dunif(1, 10000)
-	P.beta ~ dunif(0.01, 250)
+	#P.alpha ~ dunif(1, 10000)
+	#P.beta ~ dunif(0.01, 250)
 	
 	# K.beta <= K.alpha seems to work better with the gamma distribution for K
 	# So, I add a random number to K.beta to create K.alpha

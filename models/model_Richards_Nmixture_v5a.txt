@@ -107,7 +107,7 @@ model{
 		Max[y] ~ dnorm(2000, 1/(800^2))T(0,)
 		S1[y] ~ dgamma(S1.alpha, S1.beta)  
 		S2[y] ~ dgamma(S2.alpha, S2.beta)  
-		P[y] ~ dgamma(P.alpha, P.beta) 	
+		P[y] ~ dunif(30, 60) #dgamma(P.alpha, P.beta) 	
 	}
 
 	# Uniform distributions were adjusted to capture entire posterior 
@@ -119,8 +119,8 @@ model{
 	S2.alpha ~ dunif(0.1, 50)
 	S2.beta ~ dunif(0.01, 10)
 	
-	P.alpha ~ dunif(1, 10000)
-	P.beta ~ dunif(0.01, 250)
+	#P.alpha ~ dunif(1, 10000)
+	#P.beta ~ dunif(0.01, 250)
 	
 	K ~ dgamma(K.alpha, K.beta) 
 	

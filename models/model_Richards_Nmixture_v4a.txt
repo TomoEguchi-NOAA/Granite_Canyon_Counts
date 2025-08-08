@@ -120,10 +120,13 @@ model{
 	S2.alpha ~ dunif(0.1, 50)
 	S2.beta ~ dunif(0.01, 10)
 	
-	P.alpha ~ dunif(1, 10000)
-	P.beta ~ dunif(0.01, 250)
+	#P.alpha ~ dunif(1, 10000)
+	#P.beta ~ dunif(0.01, 250)
 	
-	P ~ dgamma(P.alpha, P.beta) 
+	# There is no need to create a hyperdistribution for P, which is the peak of
+	# the migration
+	P ~ dunif(30, 60) #dgamma(P.alpha, P.beta) 
+	
 	K ~ dgamma(K.alpha, K.beta) 
 	
 	# K.beta <= K.alpha seems to work better with the gamma distribution for K

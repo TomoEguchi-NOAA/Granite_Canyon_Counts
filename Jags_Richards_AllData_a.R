@@ -29,11 +29,16 @@ max.day <- 100
 #                     n.burnin = 150000,
 #                     n.chains = 5)
 
-MCMC.params <- list(n.samples = 350000,
+# MCMC.params <- list(n.samples = 350000,
+#                     n.thin = 100,
+#                     n.burnin = 300000,
+#                     n.chains = 5)
+
+MCMC.params <- list(n.samples = 550000,
                     n.thin = 100,
-                    n.burnin = 300000,
+                    n.burnin = 500000,
                     n.chains = 5)
-# 
+
 # # v3 does not converge well with the above MCMC setting so increasing samples
 # MCMC.params <- list(n.samples = 1000000,
 #                     n.thin = 500,
@@ -50,9 +55,9 @@ MCMC.params <- list(n.samples = 350000,
 #                     n.burnin = 5000,
 #                     n.chains = 5)
 # 
-# MCMC.params <- list(n.samples = 10000,
-#                     n.thin = 10,
-#                     n.burnin = 500,
+# MCMC.params <- list(n.samples = 100,
+#                     n.thin = 2,
+#                     n.burnin = 50,
 #                     n.chains = 5)
 
 jags.params <- c("VS.Fixed", "BF.Fixed",
@@ -64,14 +69,15 @@ jags.params <- c("VS.Fixed", "BF.Fixed",
                  "Max.alpha", "Max.beta",
                  "S1.alpha", "S2.alpha",
                  "S1.beta", "S2.beta",
-                 "P.alpha", "P.beta",
+                 #"P.alpha", "P.beta",
                  "K.alpha", "K.beta",
                  #"beta.1",
                  #"N.alpha", "N.obs",
                  "log.lkhd")
 
-for (ver in c("v1a", "v2a", "v3a", "v4a", "v5a", "v6a", "v7a")){
-#for (ver in c("v1b", "v2b", "v3b", "v4b", "v5b", "v6b")){
+for (ver in c("v1a", "v2a", "v3a", "v4a", "v5a", "v6a", "v7a", "v8a", "v1b", "v2b", "v3b", "v4b", "v5b", "v6b", "v7b", "v8b")){
+#for (ver in c("v1b", "v2b", "v3b", "v4b", "v5b", "v6b", "v7b", "v8b")){
+  print(paste0("Starting ", ver, " at ", Sys.time()))
   jm.out <- NoBUGS_Richards_fcn(min.dur = min.dur, 
                                 ver = ver, 
                                 years = years, 

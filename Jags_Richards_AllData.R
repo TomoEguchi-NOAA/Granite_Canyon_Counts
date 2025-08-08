@@ -30,6 +30,7 @@ library(bayesplot)
 
 source("Granite_Canyon_Counts_fcns.R")
 options(mc.cores = 5)
+save.plot <- F
 
 WinBUGS.Run.Date <- "2025-04-11"
 #WinBUGS.Run.Date <- "2025-06-06"
@@ -39,8 +40,7 @@ Run.date <- "2025-06-24" #Sys.Date() #"2025-04-21" #"2025-04-17" #
 # Minimum length of observation periods in minutes
 min.dur <- 60 #10 #85 #
 
-# v3 has conversion issues. v4 and v5 seem to work fine. 2025-06-25
-ver <- "v7a" #  "v3" #"v5" # "v4" # 
+ver <- "v4a" #  "v3" #"v5" # "v4" # 
 
 # These are the ending year of each season - for example, 2022 in the following vector indicates
 # for the 2021/2022 season. These data were extracted using Extract_Data_All_v2.Rmd
@@ -88,7 +88,7 @@ jags.params <- c("VS.Fixed", "BF.Fixed",
                  "Max.alpha", "Max.beta",
                  "S1.alpha", "S2.alpha",
                  "S1.beta", "S2.beta",
-                 "P.alpha", "P.beta",
+                 #"P.alpha", "P.beta",
                  "K.alpha", "K.beta",
                  #"beta.1",
                  #"N.alpha", "N.obs",
@@ -120,45 +120,81 @@ LOOIC.n <- compute.LOOIC(loglik.array = jm.out$jm$sims.list$log.lkhd,
 
 # There are some (< 0.5%) bad ones. I should look at which ones are not fitting well.
 
-# Look at Rhat statistics
-max.Rhat <- lapply(jm.out$jm$Rhat, FUN = max, na.rm = T) %>%
-  unlist()
-max.Rhat.big <- max.Rhat[which(max.Rhat > 1.1)]
+# Compute new Rhat (rank-normalized Rhat as per Vehtari et al. 2021)
+params <- "^VS\\.Fixed|^BF\\.Fixed|^Max|^S1|^S2|^P1|^P2|^K|^OBS\\.RF\\["
+new.Rhat <- rank.normalized.R.hat(jm.out$jm$samples, params)
+#max.Rhat <- lapply(.out[[k]]$jm$Rhat, FUN = max, na.rm = T) %>%
+#  unlist()
+max.new.Rhat.big <- new.Rhat[which(new.Rhat > 1.01)]
 
-mcmc_dens(jm.out$jm$samples, c("S1.alpha", "S1.beta",
-                               "S2.alpha", "S2.beta",
-                               "P.alpha", "P.beta",
-                               "K.alpha", "K.beta"))
-# P.alpha and P.beta seem to be not behaving well - the right tails are not 
-# captured. 
-mcmc_trace(jm.out$jm$samples, c("S1.alpha", "S1.beta",
-                                "S2.alpha", "S2.beta",
-                                "P.alpha", "P.beta",
-                                "K.alpha", "K.beta"))
+# Look at Rhat statistics
+# max.Rhat <- lapply(jm.out$jm$Rhat, FUN = max, na.rm = T) %>%
+#   unlist()
+# max.Rhat.big <- max.Rhat[which(max.Rhat > 1.1)]
+
+if (grepl("a", ver)){
+  mcmc_dens(jm.out$jm$samples, c("S1.alpha", "S1.beta",
+                                 "S2.alpha", "S2.beta",
+                                 #"P.alpha", "P.beta",
+                                 "K.alpha", "K.beta"))
+  # P.alpha and P.beta seem to be not behaving well - the right tails are not 
+  # captured. 
+  mcmc_trace(jm.out$jm$samples, c("S1.alpha", "S1.beta",
+                                  "S2.alpha", "S2.beta",
+                                  #"P.alpha", "P.beta",
+                                  "K.alpha", "K.beta"))
+  
+}
 
 mcmc_dens(jm.out$jm$samples, c("BF.Fixed", "VS.Fixed"))
 
-# v4 has one P and one K.
-par.idx <- c(1:nrow(jm.out$jm$mean$S1))
 
-if (ver == "v4"){
-  mcmc_trace(jm.out$jm$samples, c("P", "K"))
-  mcmc_dens(jm.out$jm$samples, c("P", "K"))
-} else if (ver == "v3"){
-  mcmc_trace(jm.out$jm$samples, paste0("P[", par.idx, "]"))
-  mcmc_trace(jm.out$jm$samples, paste0("K[", par.idx, "]"))
+# v4 has one P and one K. S1 is always year specific
+par.idx <- c(1:nrow(jm.out$jm$mean$S1))
+p.trace.S1 <- mcmc_trace(jm.out$jm$samples, paste0("S1[", par.idx, "]"))
+p.trace.S2 <- mcmc_trace(jm.out$jm$samples, paste0("S2[", par.idx, "]"))
+
+if (grepl("v1", ver)){
+  p.trace.K <- mcmc_trace(jm.out$jm$samples, paste0("K[", par.idx, "]"))
+  p.trace.P1 <- mcmc_trace(jm.out$jm$samples, paste0("P1[", par.idx, "]"))
+  p.trace.P2 <- mcmc_trace(jm.out$jm$samples, paste0("P2[", par.idx, "]"))
+  p.trace.Max <- mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
   
-} else if (ver == "v3a" | ver == "v5a"){
-  mcmc_trace(jm.out$jm$samples, paste0("P[", par.idx, "]"))
-  mcmc_trace(jm.out$jm$samples, "K")
-} else if (ver == "v2a" | ver == "v1a"){
-  mcmc_trace(jm.out$jm$samples, paste0("P1[", par.idx, "]"))
-  mcmc_trace(jm.out$jm$samples, paste0("P2[", par.idx, "]"))
-} else if (ver == "v6a"){
-  mcmc_trace(jm.out$jm$samples, c("P1", "P2"))
-} else if (ver == "v7a"){
-  mcmc_trace(jm.out$jm$samples, paste0("S1[", par.idx, "]"))
-  mcmc_trace(jm.out$jm$samples, paste0("S2[", par.idx, "]"))
+} else if (grepl("v2", ver)){
+  p.trace.K <- mcmc_trace(jm.out$jm$samples, c("K"))
+  p.trace.P1 <- mcmc_trace(jm.out$jm$samples, paste0("P1[", par.idx, "]"))
+  p.trace.P2 <- mcmc_trace(jm.out$jm$samples, paste0("P2[", par.idx, "]"))
+  p.trace.Max <- mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
+
+} else if (grepl("v3", ver)){
+  p.trace.P <- mcmc_trace(jm.out$jm$samples, paste0("P[", par.idx, "]"))
+  p.trace.K <- mcmc_trace(jm.out$jm$samples, paste0("K[", par.idx, "]"))
+  p.trace.Max <- mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
+
+} else if (grepl("v4", ver)){
+
+  p.trace.P.K <- mcmc_trace(jm.out$jm$samples, c("K", "P"))
+  p.trace.Max <- mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
+
+} else if (grepl("v5", ver)){
+  p.trace.K <- mcmc_trace(jm.out$jm$samples, c("K"))
+  p.trace.P <- mcmc_trace(jm.out$jm$samples, paste0("P[", par.idx, "]"))
+  p.trace.Max <- mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
+
+} else if (grepl("v6", ver)){
+  p.trace.K <- mcmc_trace(jm.out$jm$samples, c("K"))
+  p.trace.P1 <- mcmc_trace(jm.out$jm$samples, paste0("P1[", par.idx, "]"))
+  p.trace.P2 <- mcmc_trace(jm.out$jm$samples, paste0("P2[", par.idx, "]"))
+  p.trace.Max <- mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
+  
+} else if (grepl("v7", ver)){
+  p.trace.K.P.Max <- mcmc_trace(jm.out$jm$samples, c("K", "P", "Max"))
+
+} else if (grepl("v8", ver)){
+  p.trace.K <- mcmc_trace(jm.out$jm$samples, paste0("K[", par.idx, "]"))
+  p.trace.P <- mcmc_trace(jm.out$jm$samples, paste0("P[", par.idx, "]"))
+  p.trace.Max <- mcmc_trace(jm.out$jm$samples, c("Max"))
+
 }
 
 #mcmc_trace(jm.out$jm$samples, paste0("S1[", par.idx, "]"))
@@ -216,6 +252,19 @@ Reported.estimates <- read.csv(file = "Data/Nhats_2025.csv") %>%
 WinBugs.out <- readRDS(file = paste0("RData/WinBUGS_2007to2025_v2_min", min.dur,
                                      "_100000_",
                                      WinBUGS.Run.Date, ".rds"))
+
+# Compute rank-normalized Rhat for WinBUGS output
+BUGS.params <- "^lambda|^beta|^OBS.RF"
+BUGS.samples <- WinBugs.out$BUGS.out$sims.array
+BUGS.col.names <- grep(BUGS.params, dimnames(BUGS.samples)[[3]], 
+                  value = T, perl = T)
+subset.BUGS.samples <- BUGS.samples[,,BUGS.col.names]
+subset.BUGS.mcmc.array <- as_draws_array(subset.BUGS.samples, .nchains = 5)
+BUGS.Rhat <- apply(subset.BUGS.mcmc.array, MARGIN = 3, FUN = rhat)
+
+#max.Rhat <- lapply(.out[[k]]$jm$Rhat, FUN = max, na.rm = T) %>%
+#  unlist()
+BUGS.Rhat.big <- BUGS.Rhat[which(BUGS.Rhat > 1.01)]
 
 # WinBugs.out <- readRDS(file = paste0("RData/WinBUGS_1968to2025_v2_min", min.dur, 
 #                                      "_85000_",
@@ -313,10 +362,11 @@ p.Nhats <- ggplot(all.estimates) +
   ylim(2000, 40000) +
   theme(legend.position = "top")
 
-ggsave(plot = p.Nhats,
-       filename = paste0("figures/Nhats_", ver, "_", min.dur, "min.png"),
-       device = "png",
-       dpi = 600)
+if (save.plot)
+  ggsave(plot = p.Nhats,
+         filename = paste0("figures/Nhats_", ver, "_", min.dur, "min.png"),
+         device = "png",
+         dpi = 600)
 
 Nhat. %>% 
   select(Season, start.year, Nhat, LCL, UCL) %>%

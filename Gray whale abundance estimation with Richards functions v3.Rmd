@@ -133,7 +133,7 @@ To compare the three approaches (Laake’s, Durban’s, and the new), I fitted g
 
 ### Results {.unnumbered}
 
-The entire dataset from the 1967-1968 season was analyzed using the new approach and the results compared to the reported estimates in Eguchi et al. (2025). Sightings data between the 1967/1968 and 2005/2006 seasons were obtained from the *ERAnalysis* package (<https://github.com/jlaake/ERAnalysis>, Laake YR). All sighting data were treated equally to create input data for the new analysis, where all shifts of at least 60 minutes with the Beaufort sea state of \< 5 and the visibility code of \< 5 were included in the analysis.
+The entire dataset from the 1967/1968 season was analyzed using the new approach and the results compared to the reported estimates in Eguchi et al. (2025). Sightings data between the 1967/1968 and 2005/2006 seasons were obtained from the *ERAnalysis* package (<https://github.com/jlaake/ERAnalysis>, Laake YR). All sighting data were treated equally to create input data for the new analysis, where all shifts of at least 60 minutes with the Beaufort sea state of \< 5 and the visibility code of \< 5 were included in the analysis.
 
 ```{r model-comparison, echo=FALSE, message=FALSE, warning=FALSE}
 # v1.out <- readRDS("RData/JAGS_Richards_Nmixture_v1a_1968to2025_min60_NoBUGS.rds")
@@ -153,13 +153,17 @@ The entire dataset from the 1967-1968 season was analyzed using the new approach
 # (?!...) is a negative look ahead, which requires the perl = TRUE argument in R's grep.
 params <- "^VS\\.Fixed|^BF\\.Fixed|^Max\\[|^S1\\[|^S2\\[|^P\\b(?!\\.\\w*)|^OBS\\.RF\\["
 
+# For constant Max models (Model 7 and Model 8)
 params.1 <- "^VS\\.Fixed|^BF\\.Fixed|^Max|^S1\\[|^S2\\[|^P\\b(?!\\.\\w*)|^OBS\\.RF\\["
+
+# including hyperparameters and year-specific Max (all models except 7 and 8.
+params.2 <- "^VS\\.Fixed|^BF\\.Fixed|^Max\\[|^S1|^S2|^P|^OBS\\.RF\\["
 
 max.Rhat.big <- list()
 .out <- LOOIC.n <- list()
 for (k in 1:6){
   .out[[k]] <- readRDS(paste0("RData/JAGS_Richards_Nmixture_v", k, "a_1968to2025_min60_NoBUGS.rds"))
-  new.Rhat <- rank.normalized.R.hat(.out[[k]]$jm$samples, params)
+  new.Rhat <- rank.normalized.R.hat(.out[[k]]$jm$samples, params.2)
   #max.Rhat <- lapply(.out[[k]]$jm$Rhat, FUN = max, na.rm = T) %>%
   #  unlist()
   max.Rhat.big[[k]] <- new.Rhat[which(new.Rhat > 1.01)]
@@ -175,7 +179,9 @@ for (k in 1:6){
 
 ```
 
-The models were fitted to the sightings data over 32 seasons. According to the rank-normalized Rhat statistic, only one model (Model 4) converged for all monitored parameters. Consequently, I used Model 4 for making inference on parameters, including abundance. The Pareto-k statistics indicated that `r which(LOOIC.n[[4]]$loo.out$diagnostics$pareto_k > 0.7) %>% length()` data points did not fit well to the model, which was `r LOOIC.n[[4]]$loo.out$` % of all data points. For the remainder of the data points, Pareto k statistics was \< 0.7, indicating good fit.
+The models were fitted to the sightings data over 32 seasons. According to the rank-normalized R-hat statistic, Model 4 showed the least number of parameters with the rank-normalized Rhat > 1.01, where the maximum was Y. For those parameters in Model 4 with Rhat>1.01, trace plots indicated satisfactory convergence for all of them (Appendix figure). Practically, however, Model 3 with year-specific P parameter made more sense than Model 4, which assumed a constant P parameter among years. Consequently, I use Model 4 for parameter inference in the following section. 
+
+The Pareto-k statistics indicated that `r which(LOOIC.n[[4]]$loo.out$diagnostics$pareto_k > 0.7) %>% length()` data points did not fit well to the model, which was `r LOOIC.n[[4]]$loo.out$` % of all data points. For the remainder of the data points, Pareto k statistics was \< 0.7, indicating good fit.
 
 ```{r JAGS-results, echo=F,message=FALSE}
 v4.out <- .out[[4]]
@@ -186,7 +192,7 @@ rm(list = c(".out"))
 
 ```
 
-Convergence was not reached for all parameters where the maximum $\hat{R}$ statistic was `r signif(max.r.hat.real, 3)`. There were `r length(which(unlist(jm.out.real$jm$Rhat) > 1.1))` parameters that resulted in $\hat{R}$ statistic \> 1.1. A closer examination of $\hat{R}$ statistics revealed that high values were associated with the mean.N and N parameters, as well as the parameters for Richards function (S1, S2, and P) for the 2015/2016 season.
+
 
 As a consequence, annual estimates also were greater for Durban's method than for the new approach and precision was better for the new approach (Figure \@ref(fig:Figure-N-hats)).
 

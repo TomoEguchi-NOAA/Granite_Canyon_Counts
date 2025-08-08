@@ -123,10 +123,10 @@ model{
 	S2.alpha ~ dunif(0.1, 50)
 	S2.beta ~ dunif(0.01, 10)
 	
-	P.alpha ~ dunif(1, 10000)
-	P.beta ~ dunif(0.01, 250)
+	#P.alpha ~ dunif(1, 10000)
+	#P.beta ~ dunif(0.01, 250)
 	
-	P1 ~ dgamma(P.alpha, P.beta) 	
+	P1 ~ dunif(30, 60) #dgamma(P.alpha, P.beta) 	
 	P2.U ~ dunif(0.001, 5)
 	P2 <- P1 + P2.U
 	K ~ dgamma(K.alpha, K.beta) 

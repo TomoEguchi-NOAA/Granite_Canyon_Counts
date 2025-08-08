@@ -29,12 +29,12 @@
 # Bayes approach. Biometrika 75:223-228), I use a Poisson distribution as the prior
 # for N. 
 #
-# This version (v7) has year spcific S1 and S2 parameters with hyperparameters and the 
-# Max parameter is shared among years.
-#
-# This v7a version uses watch.length as an offset in the logit(obs.prob) and eliminated
+# This v9 version has year spcific Max, K1, K2, S1, S2, and P parameters with hyperparameters.
+# For v9, I created two K parameters.
+# 
+# This v9a version uses watch.length as an offset in the logit(obs.prob) and eliminated
 # the intermediate prob[(d-1), s, y].
-#
+# 
 # 2024-07-09: It allows different numbers of sampling periods between primary
 # and secondary sampling stations. 
 #
@@ -53,13 +53,13 @@ model{
 		for (t in 2:(n.days-1)){
 			# year-specific K - results in conversion issues. 2022-11-09 
 			# This was fixed by adding hyperparameters. 2024
-			M1[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/(-S1[y])) * (P - t))) ^ (-1/exp(K))
-			M2[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/S2[y]) * (P - t))) ^ (-1/exp(K))
+			M1[t, y] <- (1 + (2 * exp(K1[y]) - 1) * exp((1/(-S1[y])) * (P[y] - t))) ^ (-1/exp(K1[y]))
+			M2[t, y] <- (1 + (2 * exp(K2[y]) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K2[y]))
 			
-			mean.N[t, y] <- (Max) * (M1[t, y] * M2[t, y]) 
+			mean.N[t, y] <- (Max[y]) * (M1[t, y] * M2[t, y]) 
 			
 			# True N is station independent and partially observed
-			# N = 0 when t = 1 or t = max.day			
+			# N = 0 when t = 1 or t = max.day
 			N[t, y] ~ dpois(mean.N[t,y])
 			
 		}
@@ -79,43 +79,43 @@ model{
 	for (y in 1:n.year){
 		for (s in 1:n.station[y]){
 			for (d in 2:(periods[y,s]-1)){
-				
 				# observation per period d								
 				n[d, s, y] ~ dbin(obs.prob[d,s,y], N[day[d,s,y], y])
 				log.lkhd[(d-1),s,y] <- logdensity.bin(n[d,s,y], obs.prob[d, s, y], N[day[d,s,y], y])
 								
-				# mean is not station-year specific
 				# probability is mean + covariate effects and watch.length as an offset				
 				logit(obs.prob[d,s,y]) <- mean.prob +
 								(BF.Fixed * bf[(d-1),s,y]) +
 								(VS.Fixed * vs[(d-1),s,y]) +
 								(OBS.RF[obs[d,s,y]]) +
 								log(watch.length[(d-1), s, y])
-
 			}
 		}
 	}
-		
+	
+	#beta.1 ~ dnorm(0, 0.001)
+	
 	# one mean.prob for the entire time series may not make sense.  
 	# Year-specific mean.prob (intercept) doesn't work so well probably because some years
 	# don't have enough data points. It becomes so small and the estimated abundance
 	# becomes large. 
 	
 	# It doesn't make sense to make it [0,1]...
-	mean.prob ~ dunif(-1.5, 3) 
+	mean.prob ~ dunif(-1.5, 3) 	
 	
 	# priors for Richards function parameters. 
 	for (y in 1:n.year){
-		
+		Max[y] ~ dnorm(2000, 1/(800^2))T(0,)
 		S1[y] ~ dgamma(S1.alpha, S1.beta)  
 		S2[y] ~ dgamma(S2.alpha, S2.beta)  
-	
+		K1[y] ~ dgamma(K1.alpha, K1.beta)   
+		K2[y] ~ dgamma(K2.alpha, K2.beta)   
+		P[y] ~ dunif(30, 60) #dgamma(P.alpha, P.beta) 
+
 	}
 
-	Max ~ dnorm(2000, 1/(800^2))T(0,)
-	
 	# Uniform distributions were adjusted to capture entire posterior 
-	# distributions the hyper-parameters. 
+	# distributions of the hyper-parameters. 
 	
 	S1.alpha ~ dunif(0.1, 50)
 	S1.beta ~ dunif(0.01, 5)
@@ -123,18 +123,19 @@ model{
 	S2.alpha ~ dunif(0.1, 50)
 	S2.beta ~ dunif(0.01, 10)
 	
-	# There is no need to create a hyperdistribution for P, which is the peak of
-	# the migration
-	P ~ dunif(30, 60)
-	
-	K ~ dgamma(K.alpha, K.beta) 
+	#P.alpha ~ dunif(1, 10000)
+	#P.beta ~ dunif(0.01, 250)
 	
 	# K.beta <= K.alpha seems to work better with the gamma distribution for K
 	# So, I add a random number to K.beta to create K.alpha
-	K.beta ~ dunif(0, 5000)
-	K.unif ~ dunif(0, 500)
-	K.alpha <- K.beta + K.unif
+	K1.beta ~ dunif(0, 5000)
+	K1.unif ~ dunif(0, 500)
+	K1.alpha <- K1.beta + K1.unif
 	     
+	K2.beta ~ dunif(0, 5000)
+	K2.unif ~ dunif(0, 500)
+	K2.alpha <- K2.beta + K2.unif
+
 	## Observer random effects
 	for(o in 1:n.obs){
 		OBS.RF[o] ~ dnorm(0,tau.Obs)

@@ -108,7 +108,7 @@ model{
 		S1[y] ~ dgamma(S1.alpha, S1.beta)  
 		S2[y] ~ dgamma(S2.alpha, S2.beta)  
 		K[y] ~ dgamma(K.alpha, K.beta)   
-		P[y] ~ dgamma(P.alpha, P.beta) 
+		P[y] ~ dunif(30, 60) #gamma(P.alpha, P.beta) 
 
 	}
 
