@@ -34,10 +34,10 @@ max.day <- 100
 #                     n.burnin = 300000,
 #                     n.chains = 5)
 
-# MCMC.params <- list(n.samples = 550000,
-#                     n.thin = 100,
-#                     n.burnin = 500000,
-#                     n.chains = 5)
+MCMC.params <- list(n.samples = 550000,
+                    n.thin = 100,
+                    n.burnin = 500000,
+                    n.chains = 5)
 
 # # v3 does not converge well with the above MCMC setting so increasing samples
 # MCMC.params <- list(n.samples = 1000000,
@@ -45,10 +45,10 @@ max.day <- 100
 #                     n.burnin = 750000,
 #                     n.chains = 5)
 
-MCMC.params <- list(n.samples = 50000,
-                    n.thin = 20,
-                    n.burnin = 10000,
-                    n.chains = 5)
+# MCMC.params <- list(n.samples = 50000,
+#                     n.thin = 20,
+#                     n.burnin = 10000,
+#                     n.chains = 5)
 
 # MCMC.params <- list(n.samples = 25000,
 #                     n.thin = 10,
