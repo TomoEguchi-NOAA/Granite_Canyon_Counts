@@ -40,7 +40,7 @@ Run.date <- "2025-06-24" #Sys.Date() #"2025-04-21" #"2025-04-17" #
 # Minimum length of observation periods in minutes
 min.dur <- 60 #10 #85 #
 
-ver <- "v4a" #  "v3" #"v5" # "v4" # 
+ver <- "v10a" #  "v3" #"v5" # "v4" # 
 
 # These are the ending year of each season - for example, 2022 in the following vector indicates
 # for the 2021/2022 season. These data were extracted using Extract_Data_All_v2.Rmd
@@ -49,10 +49,16 @@ years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025)
 data.dir <- "RData/V2.1_Feb2025"
 max.day <- 100
 
-MCMC.params <- list(n.samples = 200000,
+
+MCMC.params <- list(n.samples = 550000,
                     n.thin = 100,
-                    n.burnin = 150000,
+                    n.burnin = 500000,
                     n.chains = 5)
+
+# MCMC.params <- list(n.samples = 200000,
+#                     n.thin = 100,
+#                     n.burnin = 150000,
+#                     n.chains = 5)
 
 # MCMC.params <- list(n.samples = 250000,
 #                     n.thin = 100,
@@ -82,6 +88,7 @@ MCMC.params <- list(n.samples = 200000,
 
 jags.params <- c("VS.Fixed", "BF.Fixed",
                  "Max", "K", "K1", "K2", "S1", "S2", "P",
+                 "P1", "P2",
                  "mean.prob", "prob", "obs.prob",
                  "mean.N", "Corrected.Est", "N", "obs.N",
                  "OBS.RF", "sigma.Obs",
@@ -109,6 +116,11 @@ jm.out <- NoBUGS_Richards_fcn(min.dur = min.dur,
                               obs.n.min = 10,
                               max.day = 100)
 
+if (!jm.out$new.run){
+  jags.params <- jm.out$jags.params
+  MCMC.params <- jm.out$MCMC.params
+}
+
 # need to turn zeros into NAs when there were no second station:
 data.array <- jm.out$jags.input$jags.data$n
 data.array[,2,which(jm.out$jags.input$jags.data$n.station == 1)] <- NA
@@ -133,8 +145,8 @@ max.new.Rhat.big <- new.Rhat[which(new.Rhat > 1.01)]
 # max.Rhat.big <- max.Rhat[which(max.Rhat > 1.1)]
 
 if (grepl("a", ver)){
-  mcmc_dens(jm.out$jm$samples, c("S1.alpha", "S1.beta",
-                                 "S2.alpha", "S2.beta"))
+  # mcmc_dens(jm.out$jm$samples, c("S1.alpha", "S1.beta",
+  #                                "S2.alpha", "S2.beta"))
                                  #"P.alpha", "P.beta",
                                  #"K.alpha", "K.beta"))
   # P.alpha and P.beta seem to be not behaving well - the right tails are not 
@@ -154,7 +166,7 @@ par.idx <- c(1:nrow(jm.out$jm$mean$S1))
 p.trace.S1 <- mcmc_trace(jm.out$jm$samples, paste0("S1[", par.idx, "]"))
 p.trace.S2 <- mcmc_trace(jm.out$jm$samples, paste0("S2[", par.idx, "]"))
 
-if (grepl("v1", ver)){
+if (grepl("v1(?!\\d[a-zA-Z])", ver, perl = TRUE)){
   p.trace.K <- mcmc_trace(jm.out$jm$samples, paste0("K[", par.idx, "]"))
   p.trace.P1 <- mcmc_trace(jm.out$jm$samples, paste0("P1[", par.idx, "]"))
   p.trace.P2 <- mcmc_trace(jm.out$jm$samples, paste0("P2[", par.idx, "]"))
@@ -203,6 +215,13 @@ if (grepl("v1", ver)){
   p.trace.Max <- mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
   
   
+} else if (grepl("v10", ver)){
+  p.trace.K1 <- mcmc_trace(jm.out$jm$samples, paste0("K1[", par.idx, "]"))
+  p.trace.K2 <- mcmc_trace(jm.out$jm$samples, paste0("K2[", par.idx, "]"))
+  p.trace.P1 <- mcmc_trace(jm.out$jm$samples, paste0("P1[", par.idx, "]"))
+  p.trace.P2 <- mcmc_trace(jm.out$jm$samples, paste0("P2[", par.idx, "]"))
+  
+  p.trace.Max <- mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
 }
 
 #mcmc_trace(jm.out$jm$samples, paste0("S1[", par.idx, "]"))
@@ -396,17 +415,72 @@ Nhat. %>%
 
 # Check convergence
 high.Rhat <- function(x){
-  return(data.frame(idx = which(x > 1.1),
-                    start.year = all.start.year[which(x > 1.1)],
-                    Rhat = x[which(x > 1.1)]))
+  return(data.frame(idx = which(x > 1.01),
+                    start.year = all.start.year[which(x > 1.01)],
+                    Rhat = x[which(x > 1.01)]))
 }
 
-high.Rhat.Max <- high.Rhat(jm.out$jm$Rhat$Max)
+if (grepl("v1(?!\\d[a-zA-Z])", ver, perl = TRUE)){
+  p.trace.K <- mcmc_trace(jm.out$jm$samples, paste0("K[", par.idx, "]"))
+  p.trace.P1 <- mcmc_trace(jm.out$jm$samples, paste0("P1[", par.idx, "]"))
+  p.trace.P2 <- mcmc_trace(jm.out$jm$samples, paste0("P2[", par.idx, "]"))
+  
+  high.Rhat.Max <- high.Rhat(new.Rhat[grep("Max", names(new.Rhat))])
+  high.Rhat.P1 <- high.Rhat(new.Rhat[grep("P1", names(new.Rhat))])
+  high.Rhat.P2 <- high.Rhat(new.Rhat[grep("P2", names(new.Rhat))])
+} else if (grepl("v2", ver)){
+  
+  high.Rhat.Max <- high.Rhat(new.Rhat[grep("Max", names(new.Rhat))])
+  high.Rhat.P1 <- high.Rhat(new.Rhat[grep("P1", names(new.Rhat))])
+  high.Rhat.P2 <- high.Rhat(new.Rhat[grep("P2", names(new.Rhat))])
+  
+} else if (grepl("v3", ver)){
+  
+  high.Rhat.Max <- high.Rhat(new.Rhat[grep("Max", names(new.Rhat))])
+  high.Rhat.K <- high.Rhat(new.Rhat[grep("K", names(new.Rhat))])  
+  high.Rhat.P <- high.Rhat(new.Rhat[grep("P", names(new.Rhat))])
+  
+} else if (grepl("v4", ver)){
+  
+  high.Rhat.Max <- high.Rhat(new.Rhat[grep("Max", names(new.Rhat))])
 
-high.Rhat.K <- high.Rhat(jm.out$jm$Rhat$K)
-high.Rhat.S1 <- high.Rhat(jm.out$jm$Rhat$S1)
-high.Rhat.S2 <- high.Rhat(jm.out$jm$Rhat$S2)
-high.Rhat.P <- high.Rhat(jm.out$jm$Rhat$P)
+} else if (grepl("v5", ver)){
+  
+  high.Rhat.Max <- high.Rhat(new.Rhat[grep("Max", names(new.Rhat))])
+  high.Rhat.P <- high.Rhat(new.Rhat[grep("P", names(new.Rhat))])
+  
+} else if (grepl("v6", ver)){
+
+  high.Rhat.Max <- high.Rhat(new.Rhat[grep("Max", names(new.Rhat))])
+  high.Rhat.P1 <- high.Rhat(new.Rhat[grep("P1", names(new.Rhat))])
+  high.Rhat.P2 <- high.Rhat(new.Rhat[grep("P2\\[", names(new.Rhat))])
+} else if (grepl("v7", ver)){
+
+} else if (grepl("v8", ver)){
+  high.Rhat.K1 <- high.Rhat(new.Rhat[grep("K1", names(new.Rhat))])  
+  high.Rhat.K2 <- high.Rhat(new.Rhat[grep("K2", names(new.Rhat))])  
+  high.Rhat.P <- high.Rhat(new.Rhat[grep("P", names(new.Rhat))])
+  
+} else if (grepl("v9", ver)){
+  
+  high.Rhat.Max <- high.Rhat(new.Rhat[grep("Max", names(new.Rhat))])
+  high.Rhat.K1 <- high.Rhat(new.Rhat[grep("K1", names(new.Rhat))])  
+  high.Rhat.K2 <- high.Rhat(new.Rhat[grep("K2", names(new.Rhat))])  
+  high.Rhat.P <- high.Rhat(new.Rhat[grep("P", names(new.Rhat))])
+  
+} else if (grepl("v10", ver)){
+
+  high.Rhat.P1 <- high.Rhat(new.Rhat[grep("P1", names(new.Rhat))])  
+  high.Rhat.P2 <- high.Rhat(new.Rhat[grep("P2\\[", names(new.Rhat))])
+  high.Rhat.K1 <- high.Rhat(new.Rhat[grep("K1", names(new.Rhat))])  
+  high.Rhat.K2 <- high.Rhat(new.Rhat[grep("K2", names(new.Rhat))])  
+}
+
+
+high.Rhat.S1 <- high.Rhat(new.Rhat[grep("S1\\[", names(new.Rhat))])
+high.Rhat.S2 <- high.Rhat(new.Rhat[grep("S2\\[", names(new.Rhat))])
+
+
 
 # Compare how daily sums among years
 obsd.periods.primary <- jm.out$jags.input$jags.data$periods[,1]

@@ -450,7 +450,8 @@ NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC
                    Run_Time = Run_Time,
                    Run_Date = Run.date,
                    out.file.name = out.file.name,
-                   Sys.env = Sys.getenv())
+                   Sys.env = Sys.getenv(),
+                   new.run = TRUE)
     
     saveRDS(jm.out,
             file = out.file.name)
@@ -458,6 +459,7 @@ NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC
   } else {
     print("Previously saved results were read.")
     jm.out <- readRDS(file = out.file.name)
+    jm.out$new.run <- FALSE
   }
   
   return(jm.out)
