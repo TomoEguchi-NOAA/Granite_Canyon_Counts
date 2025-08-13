@@ -1,6 +1,13 @@
 
 # define some functions
 
+# Check convergence
+high.Rhat <- function(x){
+  return(data.frame(idx = which(x > 1.01),
+                    start.year = all.start.year[which(x > 1.01)],
+                    Rhat = x[which(x > 1.01)]))
+}
+
 # Compute the "rank-normalized R-hat" by Vehtari et al. (2021) from jagsUI
 # output.
 # Vehtari, A., Gelman, A., Simpson, D., Carpenter, B., & Bürkner, P.-C. (2021). Rank-normalization, folding, and localization: An improved R-hat for assessing convergence of MCMC. Bayesian Analysis, 16(2), 667–718.

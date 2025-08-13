@@ -32,8 +32,8 @@
 # This v11 version has year spcific Max, K1, K2, P1 and P2 parameters with hyperparameters.
 # For v11, S1 and S2 are time independent.
 # 
-# This v10b version uses watch.length as an offset in the logit(obs.prob) and eliminated
-# the intermediate prob[(d-1), s, y]. Also, in v9b, hyperparameters were removed and
+# This v11b version uses watch.length as an offset in the logit(obs.prob) and eliminated
+# the intermediate prob[(d-1), s, y]. Also, in v11b, hyperparameters were removed and
 # priors were set directly to the parameters.
 # 
 # 2024-07-09: It allows different numbers of sampling periods between primary

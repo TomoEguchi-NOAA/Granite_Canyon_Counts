@@ -40,7 +40,7 @@ Run.date <- "2025-06-24" #Sys.Date() #"2025-04-21" #"2025-04-17" #
 # Minimum length of observation periods in minutes
 min.dur <- 60 #10 #85 #
 
-ver <- "v10a" #  "v3" #"v5" # "v4" # 
+ver <- "v11a" #  "v3" #"v5" # "v4" # 
 
 # These are the ending year of each season - for example, 2022 in the following vector indicates
 # for the 2021/2022 season. These data were extracted using Extract_Data_All_v2.Rmd
@@ -162,72 +162,85 @@ mcmc_dens(jm.out$jm$samples, c("BF.Fixed", "VS.Fixed"))
 
 
 # v4 has one P and one K. S1 is always year specific
-par.idx <- c(1:nrow(jm.out$jm$mean$S1))
-p.trace.S1 <- mcmc_trace(jm.out$jm$samples, paste0("S1[", par.idx, "]"))
-p.trace.S2 <- mcmc_trace(jm.out$jm$samples, paste0("S2[", par.idx, "]"))
+par.idx <- c(1:jm.out$jags.input$jags.data$n.year)
 
-if (grepl("v1(?!\\d[a-zA-Z])", ver, perl = TRUE)){
-  p.trace.K <- mcmc_trace(jm.out$jm$samples, paste0("K[", par.idx, "]"))
-  p.trace.P1 <- mcmc_trace(jm.out$jm$samples, paste0("P1[", par.idx, "]"))
-  p.trace.P2 <- mcmc_trace(jm.out$jm$samples, paste0("P2[", par.idx, "]"))
-  p.trace.Max <- mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
-  
-} else if (grepl("v2", ver)){
+# K trace plots
+if (grepl("v2", ver) | 
+    grepl("v5", ver) | 
+    grepl("v15", ver) | 
+    grepl("v16", ver)){
   p.trace.K <- mcmc_trace(jm.out$jm$samples, c("K"))
-  p.trace.P1 <- mcmc_trace(jm.out$jm$samples, paste0("P1[", par.idx, "]"))
-  p.trace.P2 <- mcmc_trace(jm.out$jm$samples, paste0("P2[", par.idx, "]"))
-  p.trace.Max <- mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
-
-} else if (grepl("v3", ver)){
-  p.trace.P <- mcmc_trace(jm.out$jm$samples, paste0("P[", par.idx, "]"))
+} else if (grepl("v1(?!\\d[a-zA-Z])", ver) | 
+           grepl("v3", ver) | 
+           grepl("v12", ver) | 
+           grepl("v13", ver)){
   p.trace.K <- mcmc_trace(jm.out$jm$samples, paste0("K[", par.idx, "]"))
-  p.trace.Max <- mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
-
-} else if (grepl("v4", ver)){
-
-  p.trace.P.K <- mcmc_trace(jm.out$jm$samples, c("K", "P"))
-  p.trace.Max <- mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
-
-} else if (grepl("v5", ver)){
-  p.trace.K <- mcmc_trace(jm.out$jm$samples, c("K"))
-  p.trace.P <- mcmc_trace(jm.out$jm$samples, paste0("P[", par.idx, "]"))
-  p.trace.Max <- mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
-
-} else if (grepl("v6", ver)){
-  p.trace.K <- mcmc_trace(jm.out$jm$samples, c("K"))
-  p.trace.P1 <- mcmc_trace(jm.out$jm$samples, paste0("P1[", par.idx, "]"))
-  p.trace.P2 <- mcmc_trace(jm.out$jm$samples, paste0("P2[", par.idx, "]"))
-  p.trace.Max <- mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
-  
-} else if (grepl("v7", ver)){
-  p.trace.K.P.Max <- mcmc_trace(jm.out$jm$samples, c("K", "P", "Max"))
-
-} else if (grepl("v8", ver)){
-  p.trace.K <- mcmc_trace(jm.out$jm$samples, paste0("K[", par.idx, "]"))
-  p.trace.P <- mcmc_trace(jm.out$jm$samples, paste0("P[", par.idx, "]"))
-  p.trace.Max <- mcmc_trace(jm.out$jm$samples, c("Max"))
-
-} else if (grepl("v9", ver)){
-  p.trace.K1 <- mcmc_trace(jm.out$jm$samples, paste0("K1[", par.idx, "]"))
-  p.trace.K2 <- mcmc_trace(jm.out$jm$samples, paste0("K2[", par.idx, "]"))
-  
-  p.trace.P <- mcmc_trace(jm.out$jm$samples, paste0("P[", par.idx, "]"))
-  p.trace.Max <- mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
-  
-  
-} else if (grepl("v10", ver)){
-  p.trace.K1 <- mcmc_trace(jm.out$jm$samples, paste0("K1[", par.idx, "]"))
-  p.trace.K2 <- mcmc_trace(jm.out$jm$samples, paste0("K2[", par.idx, "]"))
-  p.trace.P1 <- mcmc_trace(jm.out$jm$samples, paste0("P1[", par.idx, "]"))
-  p.trace.P2 <- mcmc_trace(jm.out$jm$samples, paste0("P2[", par.idx, "]"))
-  
-  p.trace.Max <- mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
+  high.Rhat.K <- high.Rhat(new.Rhat[grep("K", names(new.Rhat))])  
 }
 
-#mcmc_trace(jm.out$jm$samples, paste0("S1[", par.idx, "]"))
-#mcmc_trace(jm.out$jm$samples, paste0("S2[", par.idx, "]"))
-#mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
+# K1 and K2 trace plots
+if (grepl("v9", ver) | 
+    grepl("v10", ver) | 
+    grepl("v11", ver) | 
+    grepl("v14", ver)){
+  p.trace.K1 <- mcmc_trace(jm.out$jm$samples, paste0("K1[", par.idx, "]"))
+  p.trace.K2 <- mcmc_trace(jm.out$jm$samples, paste0("K2[", par.idx, "]"))
+  high.Rhat.K1 <- high.Rhat(new.Rhat[grep("K1", names(new.Rhat))])  
+  high.Rhat.K2 <- high.Rhat(new.Rhat[grep("K2", names(new.Rhat))])  
+}
 
+# P1 and P2 trace plots
+if (grepl("v1(?!\\d[a-zA-Z])", ver) | 
+    grepl("v2", ver) | 
+    grepl("v10", ver) | 
+    grepl("v11", ver) | 
+    grepl("v13", ver) | 
+    grepl("v15", ver)){
+  p.trace.P1 <- mcmc_trace(jm.out$jm$samples, paste0("P1[", par.idx, "]"))
+  p.trace.P2 <- mcmc_trace(jm.out$jm$samples, paste0("P2[", par.idx, "]"))
+  high.Rhat.P1 <- high.Rhat(new.Rhat[grep("P1", names(new.Rhat))])
+  high.Rhat.P2 <- high.Rhat(new.Rhat[grep("P2", names(new.Rhat))])
+}
+
+# P trace plots
+if (grepl("v3", ver) | 
+    grepl("v5", ver) | 
+    grepl("v9", ver) | 
+    grepl("v12", ver)| 
+    grepl("v14", ver)| 
+    grepl("v16", ver)){
+  p.trace.P <- mcmc_trace(jm.out$jm$samples, paste0("P[", par.idx, "]"))
+  high.Rhat.P <- high.Rhat(new.Rhat[grep("P", names(new.Rhat))])
+  
+}
+
+# Max trace plots
+p.trace.Max <- mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
+high.Rhat.Max <- high.Rhat(new.Rhat[grep("Max", names(new.Rhat))])
+
+# S1 and S2 trace plots
+if (grepl("v1(?!\\d[a-zA-Z])", ver) | 
+    grepl("v2", ver) | 
+    grepl("v3", ver) | 
+    grepl("v5", ver) | 
+    grepl("v9", ver) | 
+    grepl("v10", ver)){
+  p.trace.S1 <- mcmc_trace(jm.out$jm$samples, paste0("S1[", par.idx, "]"))
+  p.trace.S2 <- mcmc_trace(jm.out$jm$samples, paste0("S2[", par.idx, "]"))
+  high.Rhat.S1 <- high.Rhat(new.Rhat[grep("S1\\[", names(new.Rhat))])
+  high.Rhat.S2 <- high.Rhat(new.Rhat[grep("S2\\[", names(new.Rhat))])
+  
+} else if (grepl("v11", ver) | 
+           grepl("v12", ver) | 
+           grepl("v13", ver) | 
+           grepl("v14", ver) | 
+           grepl("v15", ver) | 
+           grepl("v16", ver)){
+  p.trace.S1.S2 <- mcmc_trace(jm.out$jm$samples, c("S1", "S2"))
+  high.Rhat.S1 <- high.Rhat(new.Rhat[grep("S1", names(new.Rhat))])
+  high.Rhat.S2 <- high.Rhat(new.Rhat[grep("S2", names(new.Rhat))])
+  
+}
 
 all.start.year <- c(jm.out$jags.input$jags.input.Laake$all.start.year,
                     jm.out$jags.input$jags.input.new$start.years)
@@ -412,74 +425,6 @@ Nhat. %>%
                  UCL.Durban = UCL)) %>%
   mutate(d.Laake.Eguchi = Nhat.Laake - Nhat.Eguchi,
          d.Durban.Eguchi = Nhat.Durban - Nhat.Eguchi) -> Nhat.all.wide
-
-# Check convergence
-high.Rhat <- function(x){
-  return(data.frame(idx = which(x > 1.01),
-                    start.year = all.start.year[which(x > 1.01)],
-                    Rhat = x[which(x > 1.01)]))
-}
-
-if (grepl("v1(?!\\d[a-zA-Z])", ver, perl = TRUE)){
-  p.trace.K <- mcmc_trace(jm.out$jm$samples, paste0("K[", par.idx, "]"))
-  p.trace.P1 <- mcmc_trace(jm.out$jm$samples, paste0("P1[", par.idx, "]"))
-  p.trace.P2 <- mcmc_trace(jm.out$jm$samples, paste0("P2[", par.idx, "]"))
-  
-  high.Rhat.Max <- high.Rhat(new.Rhat[grep("Max", names(new.Rhat))])
-  high.Rhat.P1 <- high.Rhat(new.Rhat[grep("P1", names(new.Rhat))])
-  high.Rhat.P2 <- high.Rhat(new.Rhat[grep("P2", names(new.Rhat))])
-} else if (grepl("v2", ver)){
-  
-  high.Rhat.Max <- high.Rhat(new.Rhat[grep("Max", names(new.Rhat))])
-  high.Rhat.P1 <- high.Rhat(new.Rhat[grep("P1", names(new.Rhat))])
-  high.Rhat.P2 <- high.Rhat(new.Rhat[grep("P2", names(new.Rhat))])
-  
-} else if (grepl("v3", ver)){
-  
-  high.Rhat.Max <- high.Rhat(new.Rhat[grep("Max", names(new.Rhat))])
-  high.Rhat.K <- high.Rhat(new.Rhat[grep("K", names(new.Rhat))])  
-  high.Rhat.P <- high.Rhat(new.Rhat[grep("P", names(new.Rhat))])
-  
-} else if (grepl("v4", ver)){
-  
-  high.Rhat.Max <- high.Rhat(new.Rhat[grep("Max", names(new.Rhat))])
-
-} else if (grepl("v5", ver)){
-  
-  high.Rhat.Max <- high.Rhat(new.Rhat[grep("Max", names(new.Rhat))])
-  high.Rhat.P <- high.Rhat(new.Rhat[grep("P", names(new.Rhat))])
-  
-} else if (grepl("v6", ver)){
-
-  high.Rhat.Max <- high.Rhat(new.Rhat[grep("Max", names(new.Rhat))])
-  high.Rhat.P1 <- high.Rhat(new.Rhat[grep("P1", names(new.Rhat))])
-  high.Rhat.P2 <- high.Rhat(new.Rhat[grep("P2\\[", names(new.Rhat))])
-} else if (grepl("v7", ver)){
-
-} else if (grepl("v8", ver)){
-  high.Rhat.K1 <- high.Rhat(new.Rhat[grep("K1", names(new.Rhat))])  
-  high.Rhat.K2 <- high.Rhat(new.Rhat[grep("K2", names(new.Rhat))])  
-  high.Rhat.P <- high.Rhat(new.Rhat[grep("P", names(new.Rhat))])
-  
-} else if (grepl("v9", ver)){
-  
-  high.Rhat.Max <- high.Rhat(new.Rhat[grep("Max", names(new.Rhat))])
-  high.Rhat.K1 <- high.Rhat(new.Rhat[grep("K1", names(new.Rhat))])  
-  high.Rhat.K2 <- high.Rhat(new.Rhat[grep("K2", names(new.Rhat))])  
-  high.Rhat.P <- high.Rhat(new.Rhat[grep("P", names(new.Rhat))])
-  
-} else if (grepl("v10", ver)){
-
-  high.Rhat.P1 <- high.Rhat(new.Rhat[grep("P1", names(new.Rhat))])  
-  high.Rhat.P2 <- high.Rhat(new.Rhat[grep("P2\\[", names(new.Rhat))])
-  high.Rhat.K1 <- high.Rhat(new.Rhat[grep("K1", names(new.Rhat))])  
-  high.Rhat.K2 <- high.Rhat(new.Rhat[grep("K2", names(new.Rhat))])  
-}
-
-
-high.Rhat.S1 <- high.Rhat(new.Rhat[grep("S1\\[", names(new.Rhat))])
-high.Rhat.S2 <- high.Rhat(new.Rhat[grep("S2\\[", names(new.Rhat))])
-
 
 
 # Compare how daily sums among years
