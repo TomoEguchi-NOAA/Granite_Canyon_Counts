@@ -1,6 +1,6 @@
 #Jags_Richards_AllData_a.R
-# It runs NoBUGS_Richards_fcn for two (or more) models and saves the results.
-# 
+# It runs NoBUGS_Richards_fcn on multiple models and saves the results.
+# To see results, use Jags_Richards_AllData.R. 
 
 rm(list = ls())
 #library(ERAnalysis)
