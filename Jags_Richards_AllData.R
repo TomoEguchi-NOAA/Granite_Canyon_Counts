@@ -160,6 +160,8 @@ if (grepl("a", ver)){
 
 mcmc_dens(jm.out$jm$samples, c("BF.Fixed", "VS.Fixed"))
 
+all.start.year <- c(jm.out$jags.input$jags.input.Laake$all.start.year,
+                    jm.out$jags.input$jags.input.new$start.years)
 
 # v4 has one P and one K. S1 is always year specific
 par.idx <- c(1:jm.out$jags.input$jags.data$n.year)
@@ -170,7 +172,7 @@ if (grepl("v2", ver) |
     grepl("v15", ver) | 
     grepl("v16", ver)){
   p.trace.K <- mcmc_trace(jm.out$jm$samples, c("K"))
-} else if (grepl("v1(?!\\d[a-zA-Z])", ver) | 
+} else if (grepl("v1(?!\\d[a-zA-Z])", ver, perl = TRUE) | 
            grepl("v3", ver) | 
            grepl("v12", ver) | 
            grepl("v13", ver)){
@@ -190,7 +192,7 @@ if (grepl("v9", ver) |
 }
 
 # P1 and P2 trace plots
-if (grepl("v1(?!\\d[a-zA-Z])", ver) | 
+if (grepl("v1(?!\\d[a-zA-Z])", ver, perl = TRUE) | 
     grepl("v2", ver) | 
     grepl("v10", ver) | 
     grepl("v11", ver) | 
@@ -219,7 +221,7 @@ p.trace.Max <- mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
 high.Rhat.Max <- high.Rhat(new.Rhat[grep("Max", names(new.Rhat))])
 
 # S1 and S2 trace plots
-if (grepl("v1(?!\\d[a-zA-Z])", ver) | 
+if (grepl("v1(?!\\d[a-zA-Z])", ver, perl = TRUE) | 
     grepl("v2", ver) | 
     grepl("v3", ver) | 
     grepl("v5", ver) | 
@@ -241,9 +243,6 @@ if (grepl("v1(?!\\d[a-zA-Z])", ver) |
   high.Rhat.S2 <- high.Rhat(new.Rhat[grep("S2", names(new.Rhat))])
   
 }
-
-all.start.year <- c(jm.out$jags.input$jags.input.Laake$all.start.year,
-                    jm.out$jags.input$jags.input.new$start.years)
 
 # Create a dataframe with all years, including unsampled years.
 all.years <- data.frame(start.year = seq(min(all.start.year), max(all.start.year))) %>%

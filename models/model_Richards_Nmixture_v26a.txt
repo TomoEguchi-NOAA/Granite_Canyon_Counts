@@ -29,12 +29,11 @@
 # Bayes approach. Biometrika 75:223-228), I use a Poisson distribution as the prior
 # for N. 
 #
-# This v14 version has year spcific Max, K1, K2, and P parameters.
-# S1 and S2 parameters are time independent.
-#
-# This v14b version uses watch.length as an offset in the logit(obs.prob) and eliminated
-# the intermediate prob[(d-1), s, y]. Also, in v14b, hyperparameters were removed and
-# priors were set directly to the parameters.
+# This v26 version has year spcific Max, S2, K1, K2, P1 and P2 parameters with hyperparameters.
+# For v26 S1 is time independent.
+# 
+# This v26a version uses watch.length as an offset in the logit(obs.prob) and eliminated
+# the intermediate prob[(d-1), s, y].
 # 
 # 2024-07-09: It allows different numbers of sampling periods between primary
 # and secondary sampling stations. 
@@ -54,8 +53,8 @@ model{
 		for (t in 2:(n.days-1)){
 			# year-specific K - results in conversion issues. 2022-11-09 
 			# This was fixed by adding hyperparameters. 2024
-			M1[t, y] <- (1 + (2 * exp(K1[y]) - 1) * exp((1/(-S1)) * (P[y] - t))) ^ (-1/exp(K1[y]))
-			M2[t, y] <- (1 + (2 * exp(K2[y]) - 1) * exp((1/S2) * (P[y] - t))) ^ (-1/exp(K2[y]))
+			M1[t, y] <- (1 + (2 * exp(K1[y]) - 1) * exp((1/(-S1)) * (P1[y] - t))) ^ (-1/exp(K1[y]))
+			M2[t, y] <- (1 + (2 * exp(K2[y]) - 1) * exp((1/S2[y]) * (P2[y] - t))) ^ (-1/exp(K2[y]))
 			
 			mean.N[t, y] <- (Max[y]) * (M1[t, y] * M2[t, y]) 
 			
@@ -105,17 +104,40 @@ model{
 	mean.prob ~ dunif(-1.5, 3) 	
 	
 	# priors for Richards function parameters. 
-
 	for (y in 1:n.year){
-		Max[y] ~ dunif(500, 4000)
-		K1[y] ~ dunif(0, 5)   
-		K2[y] ~ dunif(0, 5)   
-		P[y] ~ dunif(30, 60) 	
+		Max[y] ~ dnorm(2000, 1/(800^2))T(0,)
+		S2[y] ~ dgamma(S1.alpha, S1.beta)  
+		K1[y] ~ dgamma(K1.alpha, K1.beta)   
+		K2[y] ~ dgamma(K2.alpha, K2.beta)   
+		P1[y] ~ dunif(30, 60) #dgamma(P.alpha, P.beta) 
+		P2.U[y] ~ dunif(0.001, 5)
+		P2[y] <- P1[y] + P2.U[y]
+		
 	}
 
-	S1 ~ dunif(1, 10)  
-	S2 ~ dunif(1, 10)  
-		     
+	S1 ~ dgamma(S2.alpha, S2.beta)  
+	# Uniform distributions were adjusted to capture entire posterior 
+	# distributions of the hyper-parameters. 
+	
+	S1.alpha ~ dunif(0.1, 50)
+	S1.beta ~ dunif(0.01, 5)
+	
+	S2.alpha ~ dunif(0.1, 50)
+	S2.beta ~ dunif(0.01, 10)
+	
+	#P.alpha ~ dunif(1, 10000)
+	#P.beta ~ dunif(0.01, 250)
+	
+	# K.beta <= K.alpha seems to work better with the gamma distribution for K
+	# So, I add a random number to K.beta to create K.alpha
+	K1.beta ~ dunif(0, 5000)
+	K1.unif ~ dunif(0, 500)
+	K1.alpha <- K1.beta + K1.unif
+	     
+	K2.beta ~ dunif(0, 5000)
+	K2.unif ~ dunif(0, 500)
+	K2.alpha <- K2.beta + K2.unif
+
 	## Observer random effects
 	for(o in 1:n.obs){
 		OBS.RF[o] ~ dnorm(0,tau.Obs)

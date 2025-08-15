@@ -7,14 +7,15 @@
 #
 # The function has the following form:
 # 
-# M1 <- (1 + (2 * exp(K) - 1) * exp((1/S1) * (P - d))) ^ (-1/exp(K))
-# M2 <- (1 + (2 * exp(K) - 1) * exp((1/S2) * (P - d))) ^ (-1/exp(K))
+# M1 <- (1 + (2 * exp(K) - 1) * exp((1/S1) * (P1 - d))) ^ (-1/exp(K))
+# M2 <- (1 + (2 * exp(K) - 1) * exp((1/S2) * (P2 - d))) ^ (-1/exp(K))
 # N <- min + (max - min) * (M1 * M2)
 #
 # d is the number of days from the beginning of migration season
 # S1 < 0 and S2 > 0 define the "fatness" of the function
 # K > 0 defines the "flatness" at the peak of the function
-# P defines where the peak is relatvie to the range of d min(d) < P < max(d)
+# P1 and P2 define where the peak is relatvie to the range of d min(d) < P < max(d),
+# where P1 < P2
 # min is "the basal level of the number of whales outside the migration season"
 # max > min
 #
@@ -29,13 +30,13 @@
 # Bayes approach. Biometrika 75:223-228), I use a Poisson distribution as the prior
 # for N. 
 #
-# This v14 version has year spcific Max, K1, K2, and P parameters.
-# S1 and S2 parameters are time independent.
+# This version (v18) has year spcific S1, P1 and P2 parameters with hyperparameters.
+# S2 and K are shared among years.
 #
-# This v14b version uses watch.length as an offset in the logit(obs.prob) and eliminated
-# the intermediate prob[(d-1), s, y]. Also, in v14b, hyperparameters were removed and
-# priors were set directly to the parameters.
-# 
+# This v18b version uses watch.length as an offset in the logit(obs.prob) and eliminated
+# the intermediate prob[(d-1), s, y]. Also, in v18b, hyperparameters were removed and
+# priors were set directly to the parameters
+#
 # 2024-07-09: It allows different numbers of sampling periods between primary
 # and secondary sampling stations. 
 #
@@ -54,8 +55,8 @@ model{
 		for (t in 2:(n.days-1)){
 			# year-specific K - results in conversion issues. 2022-11-09 
 			# This was fixed by adding hyperparameters. 2024
-			M1[t, y] <- (1 + (2 * exp(K1[y]) - 1) * exp((1/(-S1)) * (P[y] - t))) ^ (-1/exp(K1[y]))
-			M2[t, y] <- (1 + (2 * exp(K2[y]) - 1) * exp((1/S2) * (P[y] - t))) ^ (-1/exp(K2[y]))
+			M1[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/(-S1[y])) * (P1[y] - t))) ^ (-1/exp(K))
+			M2[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/S2) * (P2[y] - t))) ^ (-1/exp(K))
 			
 			mean.N[t, y] <- (Max[y]) * (M1[t, y] * M2[t, y]) 
 			
@@ -65,7 +66,7 @@ model{
 			
 		}
 	}  
-
+	
 	# observations are from the realized abundance: N-mixture part with 
 	# binomial sampling
 	
@@ -83,13 +84,16 @@ model{
 				# observation per period d								
 				n[d, s, y] ~ dbin(obs.prob[d,s,y], N[day[d,s,y], y])
 				log.lkhd[(d-1),s,y] <- logdensity.bin(n[d,s,y], obs.prob[d, s, y], N[day[d,s,y], y])
-								
-				# probability is mean + covariate effects and watch.length as an offset				
+				
+				# probability is discounted by the length of each watch period
+				# obs.prob[d, s, y] <- prob[(d-1), s, y] * watch.length[(d-1), s, y]
+				# probability is mean + covariate effects and watch.length as an offset
 				logit(obs.prob[d,s,y]) <- mean.prob +
 								(BF.Fixed * bf[(d-1),s,y]) +
 								(VS.Fixed * vs[(d-1),s,y]) +
 								(OBS.RF[obs[d,s,y]]) +
 								log(watch.length[(d-1), s, y])
+
 			}
 		}
 	}
@@ -102,20 +106,21 @@ model{
 	# becomes large. 
 	
 	# It doesn't make sense to make it [0,1]...
-	mean.prob ~ dunif(-1.5, 3) 	
+	mean.prob ~ dunif(-1.5, 3) 
 	
 	# priors for Richards function parameters. 
-
 	for (y in 1:n.year){
 		Max[y] ~ dunif(500, 4000)
-		K1[y] ~ dunif(0, 5)   
-		K2[y] ~ dunif(0, 5)   
-		P[y] ~ dunif(30, 60) 	
+		S1[y] ~ dunif(1, 10)  		
+		P1[y] ~ dunif(30, 60) 	
+		P2.U[y] ~ dunif(0.001, 5)
+		P2[y] <- P1[y] + P2.U[y]
 	}
-
-	S1 ~ dunif(1, 10)  
+	
+	K ~ dunif(0, 5)   
 	S2 ~ dunif(1, 10)  
-		     
+	
+	     
 	## Observer random effects
 	for(o in 1:n.obs){
 		OBS.RF[o] ~ dnorm(0,tau.Obs)
