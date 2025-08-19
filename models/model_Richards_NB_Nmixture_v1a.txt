@@ -59,8 +59,8 @@ model{
 			
 			# True N is station independent and partially observed
 			# N = 0 when t = 1 or t = max.day
-			prob[t, y] <- r[y]/(r[y] + mean.N[t,y])
-			N[t, y] ~ dnegbin(prob[t,y], r[y])
+			prob[t, y] <- r[t,y]/(r[t,y] + mean.N[t,y])
+			N[t, y] ~ dnegbin(prob[t,y], r[t,y])
 			
 		}
 	}  
@@ -115,10 +115,16 @@ model{
 		P1[y] ~ dunif(30, 60) #gamma(P.alpha, P.beta) 	
 		P2.U[y] ~ dunif(0.001, 5)
 		P2[y] <- P1[y] + P2.U[y]
-		r[y] ~ dunif(0, 50)
-		alpha[y] <- 1/r[y]		
+			
 	}
 
+	for (y in 1:n.year){
+		for (t in 1:n.days){
+			r[t,y] ~ dunif(0, 50)
+			alpha[t,y] <- 1/r[t,y]	
+		}
+	}
+	
 	# Uniform distributions were adjusted to capture entire posterior 
 	# distributions of the hyper-parameters. 
 	

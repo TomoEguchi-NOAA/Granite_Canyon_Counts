@@ -473,6 +473,151 @@ NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC
   
 }
 
+# Runs a Richards' function with Negative Binomial-Binom model on datasets without using
+# WinBUGS input, i.e., creating input data from output of Extract_Data_All_v2.Rmd.
+# It also uses Laake's data.
+# 
+# Requires to provide the minimum watch duration, a version of the model (see 
+# Jags models for details and differences - they are
+# different in which parameters of Richards' function are time specific),
+# years for which the model is fit, a directory name where data are stored,
+# parameters to be monitored, and MCMC parameters as a list.
+# 
+# max.day = the maximum number of days to be included. It is counted from 1 December.
+#           Default is 100 because there were some observations beyond day 90 in old 
+#           (Laake's) dataset
+# obs.n.min = the number of observation records per observer to be included. Observers with
+#             less than obs.n.min records are pooled as "others" for calculating the 
+#             random effects of observers. Default is 10.
+# Results are saved in a subdirectory under the current working directory named "RData."
+# 
+# Example:
+# jags.params <- c("OBS.RF", "BF.Fixed",
+#                   "VS.Fixed",
+#                   "mean.prob", "mean.N", "Max",
+#                   "Corrected.Est", "Raw.Est", "N",
+#                   "K", "S1", "S2", "P",
+#                   "Max.alpha", "Max.beta",
+#                   "S1.alpha", "S2.alpha",
+#                   "S1.beta", "S2.beta",
+#                   "P.alpha", "P.beta",
+#                   "K.alpha", "K.beta",
+#                   "N.alpha", "r", "alphpa",
+#                   "log.lkhd")
+# 
+# MCMC.params <- list(n.samples = 250000,
+#                     n.thin = 100,
+#                     n.burnin = 200000,
+#                     n.chains = 5)
+#                     
+# NoBUGS_Richards_NB_fcn(min.dur = 30, 
+#                     ver = "v3", 
+#                     years = c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024), 
+#                     data.dir = "RData/V2.1_Nov2024", 
+#                     jags.params = jags.params, 
+#                     MCMC.params = MCMC.params,
+#                     max.day = 100,
+#                     obs.n.min = 10)     
+#                     
+NoBUGS_Richards_NB_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC.params, max.day = 100, obs.n.min = 10, Run.date = Sys.Date()){
+  print("Starting NoBUGS_Richards_NB_fcn")
+  
+  #Run.date <- Sys.Date()
+  model.name <- paste0("Richards_NB_Nmixture_", ver) 
+  jags.model <- paste0("models/model_", model.name, ".txt")
+  
+  out.file.name <- paste0("RData/JAGS_", model.name, 
+                          "_1968to", max(years), 
+                          "_min", min.dur,
+                          "_NoBUGS.rds")
+  
+  if (!file.exists(out.file.name)){
+    jags.input.list <- AllData2JagsInput_NoBUGS(min.dur, years = years, data.dir, max.day)                        
+    #jags.input.list$jags.data["N"] <- NULL
+    # Modify jags data to rearrange days and provide zeros for t = 1 and t = max.day
+    jags.data <- jags.input.list$jags.data
+    
+    # Code observers so that only observers with the minimum sample size are kept
+    obs.vec <- as.vector(jags.data$obs) 
+    data.frame(obs = obs.vec) %>%
+      mutate(obs.f = as.factor(obs)) %>%
+      group_by(obs.f) %>%
+      summarize(n = n(),
+                obs = first(obs)) -> obs.summary
+    
+    obs.too.few <- obs.summary %>% filter(n < obs.n.min)  
+    
+    obs.to.keep <- obs.summary %>% filter(n >= obs.n.min) 
+    obs.to.keep$new.ID <- seq(1, dim(obs.to.keep)[1])
+    obs.others <- max(obs.to.keep$new.ID)
+    
+    obs <- jags.data$obs
+    new.no.obs <- obs.others + 1
+    old.no.obs <- max(obs.to.keep$obs)
+    for (k in 1:nrow(obs.too.few)){
+      obs[obs == obs.too.few$obs[k]] <- NA
+    }
+    
+    for (k in 1:(nrow(obs.to.keep)-1)){
+      obs[obs == obs.to.keep$obs[k]]  <- obs.to.keep$new.ID[k] 
+    }
+    
+    obs[is.na(obs)] <- obs.others
+    obs[obs == old.no.obs] <- new.no.obs
+    
+    jags.data$obs <- obs
+    jags.data$n.obs <- max(obs) - 1
+    
+    #jags.data$scaled.day <- jags.data$day-(max.day/2)
+    #jags.data["N"] <- NULL
+    ###  ###  ###
+    
+    jags.input <- list(jags.data = jags.data,
+                       min.dur = min.dur, 
+                       jags.input.Laake = jags.input.list$jags.input.Laake,
+                       jags.input.new = jags.input.list$jags.input.new,
+                       jags.original.data = jags.input.list$jags.data,
+                       data.dir = data.dir,
+                       obs.summary = obs.summary)
+    
+    Start_Time<-Sys.time()
+    
+    jm <- jagsUI::jags(jags.data,
+                       inits = NULL,
+                       parameters.to.save= jags.params,
+                       model.file = jags.model,
+                       n.chains = MCMC.params$n.chains,
+                       n.burnin = MCMC.params$n.burnin,
+                       n.thin = MCMC.params$n.thin,
+                       n.iter = MCMC.params$n.samples,
+                       DIC = T,
+                       parallel=T)
+    
+    Run_Time <- Sys.time() - Start_Time
+    jm.out <- list(jm = jm,
+                   jags.input = jags.input,
+                   #start.year = all.start.year,
+                   jags.params = jags.params,
+                   jags.model = jags.model,
+                   MCMC.params = MCMC.params,
+                   Run_Time = Run_Time,
+                   Run_Date = Run.date,
+                   out.file.name = out.file.name,
+                   Sys.env = Sys.getenv(),
+                   new.run = TRUE)
+    
+    saveRDS(jm.out,
+            file = out.file.name)
+    
+  } else {
+    print("Previously saved results were read.")
+    jm.out <- readRDS(file = out.file.name)
+    jm.out$new.run <- FALSE
+  }
+  
+  return(jm.out)
+  
+}
 
 # Runs a Richards' function with Pois-Binom model on datasets for data since 2006. 
 # It does not use an input list of WinBUGS from an output file from a WinBUGS run. Data
