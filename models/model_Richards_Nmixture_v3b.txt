@@ -106,9 +106,9 @@ model{
 	# priors for Richards function parameters. 
 
 	for (y in 1:n.year){
-		Max[y] ~ dunif(500, 4000)
-		S1[y] ~ dunif(1, 10)  
-		S2[y] ~ dunif(1, 10)  
+		Max[y] ~ dunif(500, 6000)
+		S1[y] ~ dunif(0, 20)  
+		S2[y] ~ dunif(0, 20)  
 		K[y] ~ dunif(0, 5)   
 		
 		P[y] ~ dunif(30, 60) 	

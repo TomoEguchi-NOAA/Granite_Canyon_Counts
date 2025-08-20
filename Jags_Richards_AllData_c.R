@@ -72,12 +72,12 @@ jags.params <- c("VS.Fixed", "BF.Fixed",
                  "S1.beta", "S2.beta",
                  #"P.alpha", "P.beta",
                  "K.alpha", "K.beta",
-				 "r", "alpha",
+                 "r", "alpha",
                  #"beta.1",
                  #"N.alpha", "N.obs",
                  "log.lkhd")
 
-for (ver in c("v1a", "v2a", "v3a", "v5a", "v9a", "v10a", "v11a", "v12a", "v13a", "v14a", "v15a", "v16a", "v17a", "v18a", "v19a", "v20a", "v21a", "v22a", "v23a", "v24a", "v25a", "v26a", "v27a", "v28a")){
+for (ver in c("v2a", "v2a", "v3a", "v5a", "v9a", "v10a", "v11a", "v12a", "v13a", "v14a", "v15a", "v16a", "v17a", "v18a", "v19a", "v20a", "v21a", "v22a", "v23a", "v24a", "v25a", "v26a", "v27a", "v28a")){
 #for (ver in c("v16a", "v16b", "v17a", "v17b", "v18a", "v18b", "v19a", "v19b", "v20a", "v20b", "v21a", "v21b", "v22a", "v22b", "v23a", "v23b", "v24a", "v24b", "v25a", "v25b", "v26a", "v26b", "v27a", "v27b", "v28a", "v28b")){
   print(paste0("Starting ", ver, " at ", Sys.time()))
   jm.out <- NoBUGS_Richards_NB_fcn(min.dur = min.dur, 
