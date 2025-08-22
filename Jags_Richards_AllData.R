@@ -40,7 +40,7 @@ Run.date <- "2025-06-24" #Sys.Date() #"2025-04-21" #"2025-04-17" #
 # Minimum length of observation periods in minutes
 min.dur <- 60 #10 #85 #
 
-ver <- "v1b" #  "v3" #"v5" # "v4" # 
+ver <- "v20a" #  "v3" #"v5" # "v4" # 
 
 # These are the ending year of each season - for example, 2022 in the following vector indicates
 # for the 2021/2022 season. These data were extracted using Extract_Data_All_v2.Rmd
@@ -151,14 +151,14 @@ if (grepl("a", ver)){
                                  #"K.alpha", "K.beta"))
   # P.alpha and P.beta seem to be not behaving well - the right tails are not 
   # captured. 
-  mcmc_trace(jm.out$jm$samples, c("S1.alpha", "S1.beta",
-                                  "S2.alpha", "S2.beta"))
-                                  #"P.alpha", "P.beta",
-                                  #"K.alpha", "K.beta"))
+  p.trace.hyper.params <- mcmc_trace(jm.out$jm$samples, c("S1.alpha", "S1.beta",
+                                                          "S2.alpha", "S2.beta",
+                                                          #"P.alpha", "P.beta",
+                                                          "K.alpha", "K.beta"))
   
 }
 
-mcmc_dens(jm.out$jm$samples, c("BF.Fixed", "VS.Fixed"))
+p.trace.Fixed.params <- mcmc_trace(jm.out$jm$samples, c("BF.Fixed", "VS.Fixed"))
 
 all.start.year <- c(jm.out$jags.input$jags.input.Laake$all.start.year,
                     jm.out$jags.input$jags.input.new$start.years)
