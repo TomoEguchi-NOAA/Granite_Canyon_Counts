@@ -218,16 +218,16 @@ p.trace.2 <- mcmc_trace(jm.out$jm$samples,
 if (save.fig) {
   save.fig.fcn(fig = p.trace.1, 
                file.name = "figures/M5_trace_1.png", 
-               replace = F, 
+               replace = T, 
                dpi = dpi.set, device = "png",
-               height = 3, width = 3, units = "in",
+               height = 5, width = 7, units = "in",
                bg = "white")
   
   save.fig.fcn(fig = p.trace.2, 
                file.name = "figures/M5_trace_2.png", 
-               replace = F, 
+               replace = T, 
                dpi = dpi.set, device = "png",
-               height = 3, width = 3, units = "in",
+               height = 5, width = 7, units = "in",
                bg = "white")
 
 }
@@ -255,7 +255,8 @@ N.hats.day <- data.frame(Season = rep(paste0(all.start.year,
                                    times = length(all.start.year)),
                          Mean = as.vector(jm.out$jm$mean$N),
                          LCL = as.vector(jm.out$jm$q2.5$N),
-                         UCL = as.vector(jm.out$jm$q97.5$N)) 
+                         UCL = as.vector(jm.out$jm$q97.5$N),
+                         Method = "Eguchi") 
 
 # Daily estimates plots
 p.daily.Richards <- ggplot(N.hats.day %>% group_by(Season)) + 
@@ -264,6 +265,13 @@ p.daily.Richards <- ggplot(N.hats.day %>% group_by(Season)) +
   geom_path(aes(x = Day, y = Mean)) + 
   #geom_point(aes(x = Day, y = Mean)) +
   facet_wrap(~ Season)
+
+save.fig.fcn(fig = p.daily.Richards, 
+               file.name = "figures/Daily_Eguchi.png", 
+               replace = T, 
+               dpi = dpi.set, device = "png",
+               height = 5, width = 7, units = "in",
+               bg = "white")
 
 Reported.estimates <- read.csv(file = "Data/Nhats_2025.csv") %>%  
   transmute(Season = Season,
@@ -285,7 +293,7 @@ WinBugs.out <- readRDS(file = paste0("RData/WinBUGS_2007to2025_v2_min",
 BUGS.params <- "^lambda|^beta|^OBS.RF"
 BUGS.samples <- WinBugs.out$BUGS.out$sims.array
 BUGS.col.names <- grep(BUGS.params, dimnames(BUGS.samples)[[3]], 
-                  value = T, perl = T)
+                       value = T, perl = T)
 subset.BUGS.samples <- BUGS.samples[,,BUGS.col.names]
 subset.BUGS.mcmc.array <- as_draws_array(subset.BUGS.samples,
                                          .nchains = 5)
@@ -347,14 +355,31 @@ N.hats.day.Durban <- data.frame(Season = rep(WinBugs.out$BUGS.input$seasons,
                                           length(WinBugs.out$BUGS.input$seasons)),
                                 Mean = as.vector(mean.mat),
                                 LCL = as.vector(LCL.mat),
-                                UCL = as.vector(UCL.mat))
+                                UCL = as.vector(UCL.mat),
+                                Method = "Durban")
 
+N.hats.day.all <- rbind(N.hats.day, N.hats.day.Durban)
 # Daily estimates plots
 p.daily.Durban <- ggplot(N.hats.day.Durban %>% group_by(Season)) + 
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
               fill = "blue", alpha = 0.5) +
   geom_path(aes(x = Day, y = Mean)) + 
   facet_wrap(~ Season)
+
+if (save.fig)
+  save.fig.fcn(fig = p.daily.Durban, 
+               file.name = "figures/Daily_Durban.png", 
+               replace = T, 
+               dpi = dpi.set, device = "png",
+               height = 5, width = 7, units = "in",
+               bg = "white")
+
+p.daily. <- ggplot(N.hats.day.all %>% group_by(Season)) + 
+  geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL, fill = Method),
+              alpha = 0.5) +
+  geom_path(aes(x = Day, y = Mean)) + 
+  facet_wrap(~ Season)
+
 
 # Include non-survey years - no estimates for 2007/2008 because I don't have
 # raw data for that year. Only the WinBUGS inputs. 
@@ -392,8 +417,10 @@ p.Nhats <- ggplot(all.estimates) +
 
 if (save.fig)
   save.fig.fcn(fig = p.Nhats,
-               file.name = paste0("figures/Nhats_", 
-                           ver, "_", min.dur, "min.png"),
+               file.name = paste0("figures/Nhats_v", 
+                                  ver, "_min", min.dur, "_", dpi.set, "dpi.png"),
+               replace = T,
+               height = 5, width = 7,
                dpi = dpi.set)
 
 Nhat. %>% 
@@ -442,6 +469,13 @@ obsd.n.df <- data.frame(Season = rep(all.season, each = dim(obsd.n.prop)[1]),
 
 p.RF.Obs <- plot.trace.dens(jm.out$jm, "OBS.RF")
 
+if (save.fig)
+  save.fig.fcn(fig = p.RF.Obs$p.trace, 
+               file.name = "figures/Observer_trace.png", 
+               replace = T, 
+               dpi = dpi.set, device = "png",
+               height = 5, width = 7, units = "in",
+               bg = "white")
 
 ```
 
@@ -449,14 +483,15 @@ p.RF.Obs <- plot.trace.dens(jm.out$jm, "OBS.RF")
 
 As a consequence, annual estimates also were greater for Durban's method than for the new approach and precision was better for the new approach (Figure \@ref(fig:Figure-N-hats)).
 
-```{r Figure-daily-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated dailyt abundance and their 95% CIs using Durban's method (green) and new approach (blue)."}
+```{r Figure-daily-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated daily abundance and their 95% CIs using the new approach. The black lines indicate the mean."}
 
-knitr::include_graphics(paste0("figures/N_hats_BUGS_JAGS_real_", model.d,   model.v, "_", dpi.set, "dpi.png"))
+knitr::include_graphics("figures/Daily_Eguchi.png")
 ```
 
 ```{r Figure-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated annual abundance and their 95% CIs using Durban's method (green) and new approach (blue)."}
 
-knitr::include_graphics(paste0("figures/corrected_N_hats_BUGS_JAGS_real_", model.d,   model.v, "_", dpi.set, "dpi.png"))
+knitr::include_graphics(paste0("figures/Nhats_v", 
+                               ver, "_min", min.dur, "_", dpi.set, "dpi.png"))
 ```
 
 ## Literature cited {.unnumbered}

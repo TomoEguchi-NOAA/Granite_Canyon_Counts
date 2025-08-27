@@ -2517,13 +2517,18 @@ plot.trace.dens <- function(jm, var.name){
     for (k in 1:length(col.idx)){
       samples.list[[k]] <- unlist(lapply(samples, FUN = function(x) x[,k]))
     }
+    
+    # Order the facet variable numerically and create a factor variable
+    # Suggested by Gemini coding partner
     samples.df <- data.frame(seq = rep(1:n.samples, 
                                        times = n.chains),
                              sample = unlist(samples.list),
                              par.name = rep(par.names[col.idx], 
                                             each = length(samples.list[[1]])),
                              chain = rep(1:n.chains, 
-                                         each = n.samples))
+                                         each = n.samples)) %>%
+      mutate(numeric.index = as.numeric(str_extract(par.name, "\\d+"))) %>%
+      mutate(par.name.ordered = factor(par.name, levels = unique(par.name[order(numeric.index)])))
   } else {
     samples.vec <- unlist(samples)
     samples.df <- data.frame(seq = rep(1:n.samples),
@@ -2536,12 +2541,12 @@ plot.trace.dens <- function(jm, var.name){
 
   p.trace <- ggplot(samples.df) +
     geom_line(aes(x = seq, y = sample, color = chain)) +
-    facet_wrap(~ par.name) +
+    facet_wrap(~ par.name.ordered) +
     theme(legend.position = "none")
   
   p.dens <- ggplot(samples.df) +
     geom_density(aes(x = sample)) +
-    facet_wrap(~ par.name)
+    facet_wrap(~ par.name.ordered)
   
   return(list(df = samples.df,
               p.trace = p.trace,
