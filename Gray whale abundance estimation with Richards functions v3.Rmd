@@ -31,7 +31,9 @@ options(mc.cores = 5)
 set_flextable_defaults(font.size = 9,
                        font.family = "Cambria")
 
+min.dur <- 60
 dpi.set <- 600
+WinBUGS.Run.Date <- "2025-04-11"
 
 save.fig.fcn <- function(fig, file.name, replace = F, 
                          dpi = dpi.set, device = "png",
@@ -97,9 +99,15 @@ $N_{max} >> N_{min}$. $N_{max}$ is not the maximum number of whales migrating pe
 
 Effects of these parameters on the shape of the function are described in the Appendix.
 
-I created eight versions of the equation, varied by how $P_1$, $P_2$, $S_1$, and $S_2$ were defined (Table x). The $N_{max}$ parameter was assumed to be year specific and $K$ constant. Each parameter had a hyper-distribution of either a Gaussian, uniform, or gamma distribution. Uniform distributions were used for the prior distributions of hyperparameters (Appendix Table X). This function provided the daily mean number of gray whales passing through the observation point. The daily number of whales passing through the observation point was modeled with a Poisson distribution with the mean.
+I created eight versions of the equation, varied by how $P_1$, $P_2$, $S_1$, and $S_2$ were defined (Table x). The $N_{max}$ parameter was assumed to be year specific and $K$ constant. Each parameter had a hyper-distribution of either a Gaussian, uniform, or gamma distribution. Uniform distributions were used for the prior distributions of hyperparameters (Appendix Table X). 
 
-The N-mixture model of Durban et al. was used to approximate the sampling process. Specifically, the observation probability $p_{i_t, s, y}$ was a function of the viewing conditions (the Beaufort sea state ($B$) and visibility code ($V$), the overall mean probability of detection ($\beta_0$), observer random effects ($O$), and a watch duration offset ($L$). The watch duration offset was included to accommodate differing durations of observation shifts due to inclement conditions. For the observer random effects, because some observers lacked multiple observation periods, they were not helpful as a random effect in the model. Consequently, I pooled all observers with less than 10 sightings as one “observer.” I removed the indicator function that selected covariates in Durban's approach. Whether or not each variable was needed would be apparent from the coefficient (i.e., $\beta$).
+This equation provided the daily mean number of gray whales passing through the observation point. The daily number of whales passing through the observation point was modeled with a Poisson distribution with the mean.
+
+$$ N_{t, y} \sim POI(\bar{N}_{t,y}) $$
+
+where $\bar{N}_{t,y}$ is the expected number of whales that migrate through the sampling area on the $t$-th day of the season $y$, which is modeled with the equation above.
+
+The N-mixture model of Durban et al. was used to approximate the sampling process. Specifically, the observation probability $p_{i_t, s, y}$ was a function of the viewing conditions (the Beaufort sea state ($B$) and visibility code ($V$)), the overall mean probability of detection ($\beta_0$), observer random effects ($O$), and a watch duration offset ($L$). The watch duration offset was included to accommodate differing duration of observation shifts due to inclement conditions. For the observer random effects, because some observers lacked multiple observation periods, they were not useful as a random effect in the model. Consequently, I pooled all observers with less than 10 sightings as one “observer.” I removed the indicator function that selected covariates in Durban's approach. Whether or not each variable was needed would be apparent from the coefficient (i.e., $\beta_B$ and $\beta_V$).
 
 $$ logit(p_{i_t, s, y}) = \beta_0 + \beta_{B} * B_{i_t, y} + \beta_{V} * V_{i_t, y} + O_{i_t, s, y} + log(L_{i_t, y})  $$
 
@@ -109,40 +117,32 @@ $$ n_{i_t,s,y} \sim BIN(N_{t, y}, p_{i_t, s, y}) $$
 
 where $n_{i_t, s, y}$ is the observed number of gray whales during the watch period $i$ of the $t$-th day of the season $y$ from the station $s$, $N_{t, y}$ is the number of gray whales that migrated through the sampling area during the $t$-th day of season $y$, and $p_{i_t, s, y}$ is the sighting probability of the station $s$ during the watch period $i$ of the $t$-th day of the season $y$.
 
-The number of gray whales that migrated through the sampling area during the $t$-th day of the season was modeled as a Poisson variable with the mean $\bar{N}_{t, y}$ [@raftery1988].
-
-$$ N_{t, y} \sim POI(\bar{N}_{t,y}) $$
-
-where $\bar{N}_{t,y}$ is the expected number of whales that migrate through the sampling area on the $t$-th day of the season $y$ and modeled with the Richards function above.
-
 The total number of gray whales for season $y$ is the sum of all $N_{t, y}$ and corrected for nighttime passage:
 
 $$ N_y = \lambda * \sum_{t = 1} ^ {max(d)} N_{t, y} $$ and
 
 $$ \lambda \sim N(1.0875, 0.03625) $$ (Perryman et al. 1999).
 
-In Durban’s analysis, the annual migration started on December 1 and ended 90 days later, where the number of passing whales was assumed to be zero on days 1 and 90. In previous years, however, observations were made beyond the 90th day. To analyze all data, I defined the annual migration period to 100 days, rather than 90 days, starting on December 1, and assumed that the number of passing whales was zero on days 1 and 100.
+In Durban’s analysis, the annual migration started on December 1 and ended 90 days later, where the number of passing whales was assumed to be zero on days 1 and 90 (February 29th or March 1st). In previous years, however, observations were made beyond the 90th day. To analyze all data, I defined the annual migration period to be 100 days (March 10th or 11th), rather than 90 days, starting on December 1, and assumed that the number of passing whales was zero on days 1 and 100.
 
-The models were fitted to data using JAGS (Plummer) in the R statistical environment, using the jagsUI package (ref). Goodness-of-fit was determined via Pareto-k statistics ([@vehtari_practical_2017]) Vehtari et al. 2017), using the loo package (ref), and the convergence of MCMC was determined through the rank-normalized R-hat statistic (Vehtari et al. 2021). For each model, 350,000 steps of five chains were run, where the first 300,000 samples of each chain were treated as “burn-in” and discarded. The remaining 250,000 posterior samples (50,000 samples of five chains) were thinned by taking every 100 samples, resulting in 2500 posterior samples for making inference. JAGS models and R scripts to conduct the analysis, including data extraction and executing the JAGS models, are available at the GitHub repository (<https://github.com/TomoEguchi-NOAA/GrayWhaleAbundance>).
+The models were fitted to data using JAGS (Plummer) in the R statistical environment, using the *jagsUI* package (Kellner 2024. Kellner K (2024). jagsUI: A Wrapper Around 'rjags' to Streamline 'JAGS' Analyses_. R package version 1.6.2,  <https://CRAN.R-project.org/package=jagsUI>.). Goodness-of-fit was determined via Pareto-k statistics ([@vehtari_practical_2017]) Vehtari et al. 2017), using the *loo* package (Vehtari et al. 2024, Vehtari A, Gabry J, Magnusson M, Yao Y, Bürkner P, Paananen T, Gelman A (2024). “loo: Efficient leave-one-out cross-validation and WAIC for Bayesian models.” R package version 2.8.0,
+  <https://mc-stan.org/loo/>.), and the convergence of MCMC was determined through the rank-normalized R-hat statistic (Vehtari et al. 2021). For each model, 550,000 steps of five chains were run, where the first 500,000 samples of each chain were treated as “burn-in” and discarded. The remaining 250,000 posterior samples (50,000 samples of five chains) were thinned by taking every 100 samples, resulting in 2500 posterior samples for making inference. 
 
 Vehtari, A., Gelman, A., Simpson, D., Carpenter, B., & Bürkner, P.-C. (2021). Rank-normalization, folding, and localization: An improved R-hat for assessing convergence of MCMC. Bayesian Analysis, 16(2), 667–718. <https://doi.org/10.1214/20-BA1221>
 
 Vehtari, A., Gelman, A. & Gabry, J. Practical Bayesian model evaluation using leave-one-out cross-validation and WAIC. Stat Comput 27, 1413–1432 (2017). <https://doi.org/10.1007/s11222-016-9696-4>)
 
-To compare the three approaches (Laake’s, Durban’s, and the new), I fitted generalized additive models to point abundance estimates for the last 11 years. Raw data were not available for the 2007/2008 season, so it was not included in Laake’s and the new analyses. Further, the rate of recent decline in the estimated abundance was compared among the three approaches by fitting linear models to the point abundance estimates between the 2015/2016 and 2024/2025 seasons.
+To compare the three approaches (Laake’s, Durban’s, and the new), I fitted generalized additive models to point abundance estimates for the last 11 years. Raw data were not available for the 2007/2008 season, so it was not included in Laake’s and the new analyses. Further, the rate of recent decline in the estimated abundance was compared among the three approaches by fitting linear models to the point abundance estimates between the 2015/2016 and 2024/2025 seasons. The new method was also compared to Laake's approach over the entire dataset (1967/1968 - 2024/2025).
+
+JAGS models and R scripts to conduct the analysis, including data extraction and executing the JAGS models, are available at the GitHub repository (<https://github.com/TomoEguchi-NOAA/GrayWhaleAbundance>).
 
 ### Results {.unnumbered}
 
-The entire dataset from the 1967/1968 season was analyzed using the new approach and the results compared to the reported estimates in Eguchi et al. (2025). Sightings data between the 1967/1968 and 2005/2006 seasons were obtained from the *ERAnalysis* package (<https://github.com/jlaake/ERAnalysis>, Laake YR). All sighting data were treated equally to create input data for the new analysis, where all shifts of at least 60 minutes with the Beaufort sea state of \< 5 and the visibility code of \< 5 were included in the analysis.
+The entire dataset from the 1967/1968 season was analyzed using the new approach and the results compared to the reported estimates in Eguchi et al. (2025). Sightings data between the 1967/1968 and 2005/2006 seasons were obtained from the *ERAnalysis* package (<https://github.com/jlaake/ERAnalysis>, Laake 2012). An R script was written to convert the sightings data in the package to an input structure for the new analysis. No raw data were available for the 2006/2007 season. Consequently, it was excluded from the analysis. The remainder of the data, i.e., 2007/2008 to 2024/2025, were extracted from raw data files using an R script (available at the GitHub repository). All sighting data were used create input data for the new analysis, where all shifts of at least 60 minutes with the Beaufort sea state of \< 5 and the visibility code of \< 5 were included in the analysis.
 
 ```{r model-comparison, echo=FALSE, message=FALSE, warning=FALSE}
-# v1.out <- readRDS("RData/JAGS_Richards_Nmixture_v1a_1968to2025_min60_NoBUGS.rds")
-# v2.out <- readRDS("RData/JAGS_Richards_Nmixture_v2a_1968to2025_min60_NoBUGS.rds")
-# v3.out <- readRDS("RData/JAGS_Richards_Nmixture_v3a_1968to2025_min60_NoBUGS.rds")
-#v4.out <- readRDS("RData/JAGS_Richards_Nmixture_v4a_1968to2025_min60_NoBUGS.rds")
-# v5.out <- readRDS("RData/JAGS_Richards_Nmixture_v5a_1968to2025_min60_NoBUGS.rds")
-# v6.out <- readRDS("RData/JAGS_Richards_Nmixture_v6a_1968to2025_min60_NoBUGS.rds")
-
+model.names <- c("2", "15", "17", "18",
+                 "5", "16", "19", "20")
 # Select only parameters for the function. 
 # ^ means the subsequent letter is the beginning of a string
 # \\. means a literal period
@@ -159,35 +159,288 @@ params.1 <- "^VS\\.Fixed|^BF\\.Fixed|^Max|^S1\\[|^S2\\[|^P\\b(?!\\.\\w*)|^OBS\\.
 # including hyperparameters and year-specific Max (all models except 7 and 8.
 params.2 <- "^VS\\.Fixed|^BF\\.Fixed|^Max\\[|^S1|^S2|^P|^OBS\\.RF\\["
 
-max.Rhat.big <- list()
-.out <- LOOIC.n <- list()
-for (k in 1:6){
-  .out[[k]] <- readRDS(paste0("RData/JAGS_Richards_Nmixture_v", k, "a_1968to2025_min60_NoBUGS.rds"))
-  new.Rhat <- rank.normalized.R.hat(.out[[k]]$jm$samples, params.2)
+#max.Rhat.big <- list()
+n.big.Rhat <- n.bad.Pareto <- prop.bad.Pareto <- LOOIC <- vector(mode = "numeric", length = length(model.names))
+
+for (k in 1:length(model.names)){
+  .out <- readRDS(paste0("RData/JAGS_Richards_Nmixture_v", model.names[k], "a_1968to2025_min", min.dur, "_NoBUGS.rds"))
+  new.Rhat <- rank.normalized.R.hat(.out$jm$samples, params.2)
   #max.Rhat <- lapply(.out[[k]]$jm$Rhat, FUN = max, na.rm = T) %>%
   #  unlist()
-  max.Rhat.big[[k]] <- new.Rhat[which(new.Rhat > 1.01)]
+  max.Rhat.big <- new.Rhat[which(new.Rhat > 1.01)]
   
-  data.array <- .out[[k]]$jags.input$jags.data$n
-  data.array[,2,which(.out[[k]]$jags.input$jags.data$n.station == 1)] <- NA
-  data.array[,2,which(.out[[k]]$jags.input$jags.data$n.station == 1)] <- NA
+  data.array <- .out$jags.input$jags.data$n
+  data.array[,2,which(.out$jags.input$jags.data$n.station == 1)] <- NA
+  data.array[,2,which(.out$jags.input$jags.data$n.station == 1)] <- NA
 
-  LOOIC.n[[k]] <- compute.LOOIC(loglik.array = .out[[k]]$jm$sims.list$log.lkhd,
-                                data.array = data.array,
-                                MCMC.params = .out[[k]]$MCMC.params)
+  LOOIC.n <- compute.LOOIC(loglik.array = .out$jm$sims.list$log.lkhd,
+                           data.array = data.array,
+                           MCMC.params = .out$MCMC.params)
+  n.big.Rhat[k] <- length(max.Rhat.big)
+  LOOIC[k] <- LOOIC.n$loo.out$estimates["looic", "Estimate"]
+  n.bad.Pareto[k] <- sum(LOOIC.n$loo.out$pointwise[,5] > 0.7)
+  prop.bad.Pareto[k] <- 100 * (n.bad.Pareto[k]/nrow(LOOIC.n$loo.out$pointwise))
 }
+
+out.table <- data.frame(model = 1:length(model.names),
+                        LOOIC = LOOIC,
+                        dLOOIC = LOOIC - min(LOOIC),
+                        n.big.Rhat = n.big.Rhat,
+                        n.bad.Pareto = n.bad.Pareto,
+                        p.bad.Pareto = prop.bad.Pareto)
 
 ```
 
-The models were fitted to the sightings data over 32 seasons. According to the rank-normalized R-hat statistic, Model 4 showed the least number of parameters with the rank-normalized Rhat > 1.01, where the maximum was Y. For those parameters in Model 4 with Rhat>1.01, trace plots indicated satisfactory convergence for all of them (Appendix figure). Practically, however, Model 3 with year-specific P parameter made more sense than Model 4, which assumed a constant P parameter among years. Consequently, I use Model 4 for parameter inference in the following section. 
-
-The Pareto-k statistics indicated that `r which(LOOIC.n[[4]]$loo.out$diagnostics$pareto_k > 0.7) %>% length()` data points did not fit well to the model, which was `r LOOIC.n[[4]]$loo.out$` % of all data points. For the remainder of the data points, Pareto k statistics was \< 0.7, indicating good fit.
+The eight models were fitted to the sightings data over 32 seasons. According to the rank-normalized R-hat statistic, Model `r out.table$model[which(n.big.Rhat == min(out.table$n.big.Rhat))]` showed the least number (`r out.table$n.big.Rhat[which(n.big.Rhat == min(out.table$n.big.Rhat))]`) of parameters with the rank-normalized Rhat \> 1.01. LOOIC indicated that Model `r out.table$model[which(out.table$dLOOIC == 0)]` was the best. According to the Pareto k statistics, Model `r out.table$model[which(out.table$n.bad.Pareto == min(out.table$n.bad.Pareto))]` showed the least number of data points that were considered ill fit (Appendix Table y). Considering these results, and visual inspection of trace plots of parameter that had the rank-normalized Rhat statistics \> 1.01 (Appendix Figure x), I concluded that Model 5 was the best, which consisted of year-specific P (P1 = P2), and year-specific S1 and S2 parameters (Table x). In the following I use Model 5 for parameter inference. 
 
 ```{r JAGS-results, echo=F,message=FALSE}
-v4.out <- .out[[4]]
 rm(list = c(".out"))
+ver <- 5
+jm.out <- readRDS(paste0("RData/JAGS_Richards_Nmixture_v",
+                         ver,
+                         "a_1968to2025_min", min.dur,
+                         "_NoBUGS.rds"))
+
+all.start.year <- c(jm.out$jags.input$jags.input.Laake$all.start.year,
+                    jm.out$jags.input$jags.input.new$start.years)
+
+# trace plots of parameters with high Rhat values:
+new.Rhat <- rank.normalized.R.hat(jm.out$jm$samples, params.2)
+max.Rhat.big <- new.Rhat[which(new.Rhat > 1.01)]
+params.Rhat.big <- names(max.Rhat.big)
+
+p.trace.1 <- mcmc_trace(jm.out$jm$samples, 
+                        pars = params.Rhat.big[1:32])
+
+p.trace.2 <- mcmc_trace(jm.out$jm$samples, 
+                        pars = params.Rhat.big[33:58])
+
+if (save.fig) {
+  save.fig.fcn(fig = p.trace.1, 
+               file.name = "figures/M5_trace_1.png", 
+               replace = F, 
+               dpi = dpi.set, device = "png",
+               height = 3, width = 3, units = "in",
+               bg = "white")
+  
+  save.fig.fcn(fig = p.trace.2, 
+               file.name = "figures/M5_trace_2.png", 
+               replace = F, 
+               dpi = dpi.set, device = "png",
+               height = 3, width = 3, units = "in",
+               bg = "white")
+
+}
+
+# Create a dataframe with all years, including unsampled years.
+all.years <- data.frame(start.year = seq(min(all.start.year), max(all.start.year))) %>%
+  mutate(Season = paste0(start.year, "/", start.year + 1))
+
+# Look at the annual abundance estimates:
+Nhat. <- data.frame(Season = paste0(all.start.year, "/",
+                                    all.start.year+1),
+                    Nhat = jm.out$jm$q50$Corrected.Est,
+                    LCL = jm.out$jm$q2.5$Corrected.Est,
+                    UCL = jm.out$jm$q97.5$Corrected.Est) %>%
+  right_join(all.years, by = "Season") %>%
+  arrange(start.year) %>%
+  mutate(Method = paste0("Eguchi ", ver))
+
+# This is for daily estimates
+N.hats.day <- data.frame(Season = rep(paste0(all.start.year, 
+                                             "/", all.start.year+1),
+                                      
+                                      each = nrow(jm.out$jm$mean$N)), 
+                         Day = rep(1:nrow(jm.out$jm$mean$N), 
+                                   times = length(all.start.year)),
+                         Mean = as.vector(jm.out$jm$mean$N),
+                         LCL = as.vector(jm.out$jm$q2.5$N),
+                         UCL = as.vector(jm.out$jm$q97.5$N)) 
+
+# Daily estimates plots
+p.daily.Richards <- ggplot(N.hats.day %>% group_by(Season)) + 
+  geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
+              fill = "blue", alpha = 0.5) +
+  geom_path(aes(x = Day, y = Mean)) + 
+  #geom_point(aes(x = Day, y = Mean)) +
+  facet_wrap(~ Season)
+
+Reported.estimates <- read.csv(file = "Data/Nhats_2025.csv") %>%  
+  transmute(Season = Season,
+            Nhat = Nhat,
+            LCL = LCL,
+            UCL = UCL,
+            Method = paste0(Method, "-Reported")) %>%
+  right_join(all.years, by = "Season") %>%
+  arrange(start.year) %>%
+  relocate(Method, .after = start.year)
+
+#WinBugs.run.date <- "2025-04-11"
+WinBugs.out <- readRDS(file = paste0("RData/WinBUGS_2007to2025_v2_min", 
+                                     min.dur,
+                                     "_100000_",
+                                     WinBUGS.Run.Date, ".rds"))
+
+# Compute rank-normalized Rhat for WinBUGS output
+BUGS.params <- "^lambda|^beta|^OBS.RF"
+BUGS.samples <- WinBugs.out$BUGS.out$sims.array
+BUGS.col.names <- grep(BUGS.params, dimnames(BUGS.samples)[[3]], 
+                  value = T, perl = T)
+subset.BUGS.samples <- BUGS.samples[,,BUGS.col.names]
+subset.BUGS.mcmc.array <- as_draws_array(subset.BUGS.samples,
+                                         .nchains = 5)
+BUGS.Rhat <- apply(subset.BUGS.mcmc.array, MARGIN = 3, FUN = rhat)
+
+#max.Rhat <- lapply(.out[[k]]$jm$Rhat, FUN = max, na.rm = T) %>%
+#  unlist()
+BUGS.Rhat.big <- BUGS.Rhat[which(BUGS.Rhat > 1.01)]
+
+Corrected.Est <- WinBugs.out$BUGS.out$sims.list$Corrected.Est
+
+# We don't have raw data for 2006/2007 and 2007/2008 seasons
+seasons <- c("2006/2007", "2007/2008",
+             jm.out$jags.input$jags.input.new$seasons)
+
+all.season <- paste0(all.start.year, "/", all.start.year+1)
+Durban.abundance.df <- data.frame(Season = WinBugs.out$BUGS.input$seasons,
+                                  Nhat = apply(Corrected.Est,
+                                               FUN = mean,
+                                               MARGIN = 2),
+                                  # CV = apply(Corrected.Est,
+                                  #            FUN = function(x) 100*sqrt(var(x))/mean(x),
+                                  #            MARGIN = 2),
+                                  # median = apply(Corrected.Est, 
+                                  #                FUN = median, 
+                                  #                MARGIN = 2),
+                                  LCL = apply(Corrected.Est, 
+                                              MARGIN = 2, 
+                                              FUN = quantile,
+                                              0.025),
+                                  UCL = apply(Corrected.Est, 
+                                              MARGIN = 2, 
+                                              FUN = quantile,
+                                              0.975)) %>%
+  right_join(all.years, by = "Season") %>%
+  arrange(start.year) %>%
+  mutate(Method = "Durban")
+
+# Create a dataframe for daily estimates:
+daily.estim <- WinBugs.out$BUGS.out$sims.list$Daily.Est
+
+# get stats:
+mean.mat <- LCL.mat <- UCL.mat <- matrix(data = NA, 
+                                         nrow = dim(daily.estim)[2], 
+                                         ncol = dim(daily.estim)[3])
+
+for (k1 in 1:dim(daily.estim)[2]){
+  for (k2 in 1:dim(daily.estim)[3]){
+    mean.mat[k1, k2] <- mean(daily.estim[,k1,k2])
+    LCL.mat[k1, k2] <- quantile(daily.estim[,k1,k2], 0.025)
+    UCL.mat[k1, k2] <- quantile(daily.estim[,k1,k2], 0.975)
+  }
+  
+}
+
+N.hats.day.Durban <- data.frame(Season = rep(WinBugs.out$BUGS.input$seasons, 
+                                             each = dim(daily.estim)[2]),
+                                Day = rep(1:dim(daily.estim)[2], 
+                                          length(WinBugs.out$BUGS.input$seasons)),
+                                Mean = as.vector(mean.mat),
+                                LCL = as.vector(LCL.mat),
+                                UCL = as.vector(UCL.mat))
+
+# Daily estimates plots
+p.daily.Durban <- ggplot(N.hats.day.Durban %>% group_by(Season)) + 
+  geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
+              fill = "blue", alpha = 0.5) +
+  geom_path(aes(x = Day, y = Mean)) + 
+  facet_wrap(~ Season)
+
+# Include non-survey years - no estimates for 2007/2008 because I don't have
+# raw data for that year. Only the WinBUGS inputs. 
+Laake.abundance.new <- read.csv(file = "Data/all_estimates_Laake_2025.csv") %>%
+  mutate(LCL = CL.low,
+         UCL = CL.high) %>%
+  select(c(Season, Nhat, LCL, UCL)) %>%
+  right_join(all.years, by = "Season") %>%
+  arrange(start.year) %>%
+  mutate(Method = "Laake")
+
+#Laake.output <- read_rds(file = "RData/Laake_abundance_estimates_2024.rds")
+
+# In reported estimates, there are two 2006/2007.
+Reported.estimates %>%
+  na.omit() %>%
+  select(Season) %>% 
+  unique() -> sampled.seasons 
+
+# Reported estimates are identical to the reanalysis so remove. 
+Laake.abundance.new %>%
+  rbind(Durban.abundance.df) %>%
+  rbind(Nhat.) -> all.estimates
+#  rbind(spline.Nhat) 
+  #rbind(Reported.estimates %>% na.omit()) -> all.estimates
+
+p.Nhats <- ggplot(all.estimates) +
+  geom_point(aes(x = start.year, y = Nhat,
+                 color = Method),
+             alpha = 0.5) +
+  geom_errorbar(aes(x = start.year, ymin = LCL, ymax = UCL,
+                    color = Method)) +
+  ylim(2000, 40000) +
+  theme(legend.position = "top")
+
+if (save.fig)
+  save.fig.fcn(fig = p.Nhats,
+               file.name = paste0("figures/Nhats_", 
+                           ver, "_", min.dur, "min.png"),
+               dpi = dpi.set)
+
+Nhat. %>% 
+  select(Season, start.year, Nhat, LCL, UCL) %>%
+  rename(Nhat.Eguchi = Nhat,
+         LCL.Eguchi = LCL,
+         UCL.Eguchi = UCL) %>%
+  cbind(Laake.abundance.new %>%
+          select(Nhat, LCL, UCL) %>%
+          rename(Nhat.Laake = Nhat,
+                 LCL.Laake = LCL,
+                 UCL.Laake = UCL)) %>%
+  cbind(Durban.abundance.df %>%
+          select(Nhat, LCL, UCL) %>%
+          rename(Nhat.Durban = Nhat,
+                 LCL.Durban = LCL,
+                 UCL.Durban = UCL)) %>%
+  mutate(d.Laake.Eguchi = Nhat.Laake - Nhat.Eguchi,
+         d.Durban.Eguchi = Nhat.Durban - Nhat.Eguchi) -> Nhat.all.wide
 
 
+# Compare how daily sums among years
+obsd.periods.primary <- jm.out$jags.input$jags.data$periods[,1]
+watch.prop.primary <- jm.out$jags.input$jags.data$watch.prop[,1,]
+obsd.effort.primary <- rbind(rep(0, times = dim(watch.prop.primary)[2]), 
+                             watch.prop.primary, 
+                             rep(0, times = dim(watch.prop.primary)[2]))
+
+obsd.n.primary <- jm.out$jags.input$jags.data$n[,1,]
+obsd.day.primary <- jm.out$jags.input$jags.data$day[,1,]
+obsd.n.prop <- obsd.n.primary[,] * obsd.effort.primary
+
+obsd.n.df <- data.frame(Season = rep(all.season, each = dim(obsd.n.prop)[1]),
+                        obsd.n = as.vector(obsd.n.prop),
+                        day = as.vector(obsd.day.primary),
+                        effort = as.vector(obsd.effort.primary)) %>%
+  na.omit()
+
+# ggplot(obsd.n.df) +
+#   geom_point(aes(x = day, y = obsd.n)) +
+#   facet_wrap(~ Season)
+# 
+# ggplot(obsd.n.df) +
+#   geom_point(aes(x = day, y = effort)) +
+#   facet_wrap(~ Season)
+
+p.RF.Obs <- plot.trace.dens(jm.out$jm, "OBS.RF")
 
 
 ```
