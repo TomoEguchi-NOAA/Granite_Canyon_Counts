@@ -76,7 +76,7 @@ jags.params <- c("VS.Fixed", "BF.Fixed",
                  #"N.alpha", "N.obs",
                  "log.lkhd")
 
-for (ver in c("v1b", "v2b", "v3b", "v5b", "v9b", "v10b")){
+for (ver in c("v2a", "v2b", "v3b", "v5b", "v9b", "v10b")){
 #for (ver in c("v16a", "v16b", "v17a", "v17b", "v18a", "v18b", "v19a", "v19b", "v20a", "v20b", "v21a", "v21b", "v22a", "v22b", "v23a", "v23b", "v24a", "v24b", "v25a", "v25b", "v26a", "v26b", "v27a", "v27b", "v28a", "v28b")){
   print(paste0("Starting ", ver, " at ", Sys.time()))
   jm.out <- NoBUGS_Richards_fcn(min.dur = min.dur, 
