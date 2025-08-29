@@ -25,6 +25,7 @@ library(abind)
 library(rmarkdown)
 library(loo)
 library(bayesplot)
+library(ggridges)
 
 options(mc.cores = 5)
 
@@ -246,6 +247,30 @@ Nhat. <- data.frame(Season = paste0(all.start.year, "/",
   arrange(start.year) %>%
   mutate(Method = paste0("Eguchi ", ver))
 
+# Create an observed counts dataframe
+obs.day <- jm.out$jags.input$jags.data$day[,1,]
+obs.n <- jm.out$jags.input$jags.data$n[,1,]
+
+obs.n.df <- data.frame(start.year = rep(all.start.year, each = 100),
+                       Season = rep(paste0(all.start.year, "/",
+                                           all.start.year+1),
+                                    each = 100),
+                       Day = rep(1:100, times = length(all.start.year)),
+                       n = NA)
+
+k1 <- k2 <- 1
+for (k1 in 1:length(all.start.year)){
+  obs.day.1 <- obs.day[, k1]
+  obs.n.1 <- obs.n[, k1]
+  obs.day.1.uniq <- na.omit(unique(obs.day.1))
+  for (k2 in 1:length(obs.day.1.uniq)){
+    obs.n.df[obs.n.df$start.year == all.start.year[k1] &
+               obs.n.df$Day == obs.day.1.uniq[k2], "n"] <- sum(obs.n[obs.day[,k1] == obs.day.1.uniq[k2], k1], na.rm = T)
+    
+  }
+  
+}
+
 # This is for daily estimates
 N.hats.day <- data.frame(Season = rep(paste0(all.start.year, 
                                              "/", all.start.year+1),
@@ -256,14 +281,16 @@ N.hats.day <- data.frame(Season = rep(paste0(all.start.year,
                          Mean = as.vector(jm.out$jm$mean$N),
                          LCL = as.vector(jm.out$jm$q2.5$N),
                          UCL = as.vector(jm.out$jm$q97.5$N),
+                         obs.n = obs.n.df$n,
                          Method = "Eguchi") 
+
 
 # Daily estimates plots
 p.daily.Richards <- ggplot(N.hats.day %>% group_by(Season)) + 
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
               fill = "blue", alpha = 0.5) +
   geom_path(aes(x = Day, y = Mean)) + 
-  #geom_point(aes(x = Day, y = Mean)) +
+  geom_point(aes(x = Day, y = obs.n), color = "darkgreen") +
   facet_wrap(~ Season)
 
 save.fig.fcn(fig = p.daily.Richards, 
@@ -304,6 +331,35 @@ BUGS.Rhat <- apply(subset.BUGS.mcmc.array, MARGIN = 3, FUN = rhat)
 BUGS.Rhat.big <- BUGS.Rhat[which(BUGS.Rhat > 1.01)]
 
 Corrected.Est <- WinBugs.out$BUGS.out$sims.list$Corrected.Est
+
+# Create an observed counts dataframe
+Bugs.obs.day <- WinBugs.out$BUGS.input$data$day
+Bugs.obs.n <- WinBugs.out$BUGS.input$data$n[,1,]
+Bugs.obs.n <- rbind(Bugs.obs.n, matrix(nrow = 2, ncol = ncol(Bugs.obs.n)))
+
+Bugs.start.year <- WinBugs.out$BUGS.input$all.years - 1
+Bugs.obs.n.df <- data.frame(start.year = rep(Bugs.start.year, 
+                                             each = 90),
+                       Season = rep(paste0(Bugs.start.year, "/",
+                                           Bugs.start.year + 1),
+                                    each = 90),
+                       Day = rep(1:90, times = length(Bugs.start.year)),
+                       n = NA)
+
+k1 <- k2 <- 1
+for (k1 in 1:length(Bugs.start.year)){
+  obs.day.1 <- Bugs.obs.day[, k1]
+  obs.n.1 <- Bugs.obs.n[, k1]
+  obs.day.1.uniq <- na.omit(unique(obs.day.1)) 
+  obs.day.1.uniq <- obs.day.1.uniq[obs.day.1.uniq > 1 & obs.day.1.uniq < 90]
+  for (k2 in 1:length(obs.day.1.uniq)){
+    Bugs.obs.n.df[Bugs.obs.n.df$start.year == Bugs.start.year[k1] &
+                    Bugs.obs.n.df$Day == obs.day.1.uniq[k2], "n"] <- sum(Bugs.obs.n[Bugs.obs.day[,k1] == obs.day.1.uniq[k2], k1], 
+                                                                         na.rm = T)
+    
+  }
+  
+}
 
 # We don't have raw data for 2006/2007 and 2007/2008 seasons
 seasons <- c("2006/2007", "2007/2008",
@@ -356,6 +412,7 @@ N.hats.day.Durban <- data.frame(Season = rep(WinBugs.out$BUGS.input$seasons,
                                 Mean = as.vector(mean.mat),
                                 LCL = as.vector(LCL.mat),
                                 UCL = as.vector(UCL.mat),
+                                obs.n = Bugs.obs.n.df$n, 
                                 Method = "Durban")
 
 N.hats.day.all <- rbind(N.hats.day, N.hats.day.Durban)
@@ -364,6 +421,7 @@ p.daily.Durban <- ggplot(N.hats.day.Durban %>% group_by(Season)) +
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
               fill = "blue", alpha = 0.5) +
   geom_path(aes(x = Day, y = Mean)) + 
+  geom_point(aes(x = Day, y = obs.n), color = "darkgreen")
   facet_wrap(~ Season)
 
 if (save.fig)
@@ -378,6 +436,7 @@ p.daily. <- ggplot(N.hats.day.all %>% group_by(Season)) +
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL, fill = Method),
               alpha = 0.5) +
   geom_path(aes(x = Day, y = Mean)) + 
+  geom_point(aes(x = Day, y = obs.n, color = Method)) +
   facet_wrap(~ Season)
 
 
@@ -479,20 +538,166 @@ if (save.fig)
 
 ```
 
+Estimated abundances from the new approach generally followed the same trend as the previous analyses (Figure \@ref(fig:Figure-N-hats)). Laake’s and the new approaches exhibited lower estimates than those from Durban’s approach, where the new approach resulted in the lowest. The exact abundance estimates, however, are not critical because they do not reflect the total abundance of the population. Patterns of fluctuations and trends in estimates are more important than the point estimates. The three approaches exhibited similar patterns and fluctuations in estimated abundance. 
 
 
-As a consequence, annual estimates also were greater for Durban's method than for the new approach and precision was better for the new approach (Figure \@ref(fig:Figure-N-hats)).
+```{r Figure-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated annual abundance and their 95% CIs using Laake's method (green), Durban's method (red), and new approach (blue)."}
+
+knitr::include_graphics(paste0("figures/Nhats_v", 
+                               ver, "_min", min.dur, "_", dpi.set, "dpi.png"))
+
+```
+
+Posterior distributions of the parameters of the Richards function provided valuable insights into how annual gray whale migration varied among years. The P parameters, which defined the location of the peak, changed over the years (Figure \@ref(fig:Figure-P-posteriors)). This has been reported in previous studies (Eguchi et al. 2023, 2024, 2025), although the significance and causes for the change are unknown. The S1 and S2 parameters also varied among years, indicating that the duration of migration varied among years.  
+
+```{r posterior-Richards-plots, echo=FALSE, message=FALSE}
+
+posteriors.P <- plot.trace.dens(jm.out$jm, 
+                                var.name = "P")
+
+posteriors.P$df %>%
+  mutate(start.year = all.start.year[numeric.index],
+         start.year.f = as.factor(start.year)) %>% 
+  rename(P = sample)-> P.df
+
+p.posteriors.P <- ggplot(P.df, aes(x = P, y = start.year.f)) +
+  geom_density_ridges()
+
+if (save.fig)
+  save.fig.fcn(fig = p.posteriors.P,
+               file.name = paste0("figures/posterior_P_", dpi.set, "dpi.png"),
+               replace = T,
+               height = 5, width = 7,
+               dpi = dpi.set)
+
+# Need to include \\[ to remove S1.alpha and S1.beta
+posteriors.S1 <- plot.trace.dens(jm.out$jm,
+                                 var.name = "S1\\[")
+
+posteriors.S1$df %>%
+  mutate(start.year = all.start.year[numeric.index],
+         start.year.f = as.factor(start.year)) %>% 
+  rename(S1 = sample)-> S1.df
+
+p.posteriors.S1 <- ggplot(S1.df, aes(x = S1, y = start.year.f)) +
+  geom_density_ridges()
+
+if (save.fig)
+  save.fig.fcn(fig = p.posteriors.S1,
+               file.name = paste0("figures/posterior_S1_", dpi.set, "dpi.png"),
+               replace = T,
+               height = 5, width = 7,
+               dpi = dpi.set)
+ 
+posteriors.S2 <- plot.trace.dens(jm.out$jm,
+                                 var.name = "S2\\[")
+
+posteriors.S2$df %>%
+  mutate(start.year = all.start.year[numeric.index],
+         start.year.f = as.factor(start.year)) %>% 
+  rename(S2 = sample)-> S2.df
+
+p.posteriors.S2 <- ggplot(S2.df, aes(x = S2, y = start.year.f)) +
+  geom_density_ridges()
+
+if (save.fig)
+  save.fig.fcn(fig = p.posteriors.S2,
+               file.name = paste0("figures/posterior_S2_", dpi.set, "dpi.png"),
+               replace = T,
+               height = 5, width = 7,
+               dpi = dpi.set)
+
+
+```
+
+
+```{r Figure-P-posteriors, echo=FALSE, message=FALSE, fig.cap = "Posterior distributions of year-specific P parameters."}
+
+knitr::include_graphics(paste0("figures/posterior_P_", dpi.set, "dpi.png"))
+
+```
+
+The fixed effect of the Beaufort sea state on observation probability was positive (Figure x), indicating that higher Beaufort sea states corresponded with greater detection probabilities. This was a perplexing result. More singleton whales might have been detected at low sea states than at higher sea states, whereas only large groups were sighted at high sea states. As expected, the fixed effect of the sighting condition on observation probability was negative (Figure x), indicating that less favorable conditions resulted in lower detection probabilities. The observer random effects indicated significant differences among observers, as found in the previous analysis by Durban et al. (Appendix Figure x).  
+
+```{r posterior-fixed-effects-plots, echo=FALSE, message=FALSE}
+
+posteriors.Fixed <- plot.trace.dens(jm.out$jm, 
+                                    var.name = ".Fixed")
+
+p.posteriors.Fixed <- ggplot(posteriors.Fixed$df) +
+  geom_density(aes(x = sample)) +
+  facet_wrap(~ par.name.ordered, scales = "free_x")
+  
+
+if (save.fig)
+  save.fig.fcn(fig = p.posteriors.Fixed,
+               file.name = paste0("figures/posterior_Fixed_", dpi.set, "dpi.png"),
+               replace = T,
+               height = 5, width = 7,
+               dpi = dpi.set)
+
+# Look into why BF.Fixed is negative.
+n.mat <- jm.out$jags.input$jags.data$n[,1,]
+bf.mat <- rbind(matrix(data = NA, nrow = 1, ncol = length(all.start.year)),
+                       jm.out$jags.input$jags.data$bf[,1,],
+                matrix(data = NA, nrow = 1, ncol = length(all.start.year)))
+                
+day.mat <- jm.out$jags.input$jags.data$day[,1,]
+
+n.and.bf <- data.frame(n = n.mat[day.mat > 1 & day.mat < 100],
+                       bf = bf.mat[day.mat > 1 & day.mat < 100])
+
+```
+
+
+
+```{r Figure-Fixed-posteriors, echo=FALSE, message=FALSE, fig.cap = "Posterior distributions of the  coefficients for the visibility code (VS) and Beaufort sea state (BF)."}
+
+knitr::include_graphics(paste0("figures/posterior_Fixed_", dpi.set, "dpi.png"))
+
+```
+
+Fitted GAMs to the recent 11 years of estimated abundance showed that the three approaches provided comparable results (Figure y). Furthermore, linear models fitted to the last 5 years indicated a similar rate of decline from the three approaches. 
+
+
+```{r gam-glm-fit, echo=F,message=FALSE}
+
+all.estimates %>% na.omit() %>%
+  mutate(time = start.year - min(start.year)) -> all.estimates.gam
+  
+all.estimates.gam %>%
+  filter(Method == "Eguchi 5") -> all.estimates.Eguchi
+
+all.estimates.gam %>% 
+  filter(Method == "Laake") -> all.estimates.Laake
+
+all.estimates.gam %>%
+  filter(Method == "Durban") -> all.estimates.Durban
+
+gam.Eguchi <- mgcv::gam(Nhat ~ s(time), data = all.estimates.Eguchi)
+gam.Laake <- mgcv::gam(Nhat ~ s(time), data = all.estimates.Laake)
+gam.Durban <- mgcv::gam(Nhat ~ s(time), data = all.estimates.Durban)
+
+lm.Eguchi <- lm(Nhat ~ time, 
+                  data = all.estimates.Eguchi %>% filter(start.year > 2005))
+
+lm.Laake <- lm(Nhat ~ time, 
+                  data = all.estimates.Laake %>% filter(start.year > 2005))
+
+lm.Durban <- lm(Nhat ~ time, 
+                  data = all.estimates.Durban %>% filter(start.year > 2005))
+
+```
+
+
 
 ```{r Figure-daily-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated daily abundance and their 95% CIs using the new approach. The black lines indicate the mean."}
 
 knitr::include_graphics("figures/Daily_Eguchi.png")
 ```
 
-```{r Figure-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated annual abundance and their 95% CIs using Durban's method (green) and new approach (blue)."}
 
-knitr::include_graphics(paste0("figures/Nhats_v", 
-                               ver, "_min", min.dur, "_", dpi.set, "dpi.png"))
-```
+
 
 ## Literature cited {.unnumbered}
 

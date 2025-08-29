@@ -2071,9 +2071,11 @@ data2Jags_input_NoBUGS <- function(min.dur,
                       periods = periods.mat,
                       n.days = max(day, na.rm = T),
                       obs = obs.new,
-                      vs = apply(vs, MARGIN = c(2,3), 
+                      vs = vs,
+                      bf = bf,
+                      vs.centered = apply(vs, MARGIN = c(2,3), 
                                  FUN = scale, scale = FALSE),
-                      bf = apply(bf, MARGIN = c(2,3), 
+                      bf.centered = apply(bf, MARGIN = c(2,3), 
                                  FUN = scale, scale = FALSE),
                       watch.length = watch.length,
                       watch.prop = (watch.length * 24)/9,
@@ -2527,8 +2529,9 @@ plot.trace.dens <- function(jm, var.name){
                                             each = length(samples.list[[1]])),
                              chain = rep(1:n.chains, 
                                          each = n.samples)) %>%
-      mutate(numeric.index = as.numeric(str_extract(par.name, "\\d+"))) %>%
+      mutate(numeric.index = as.numeric(str_extract(par.name, "(?<=\\[)\\d+(?=\\])"))) %>%
       mutate(par.name.ordered = factor(par.name, levels = unique(par.name[order(numeric.index)])))
+    
   } else {
     samples.vec <- unlist(samples)
     samples.df <- data.frame(seq = rep(1:n.samples),
