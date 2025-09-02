@@ -439,6 +439,13 @@ p.daily. <- ggplot(N.hats.day.all %>% group_by(Season)) +
   geom_point(aes(x = Day, y = obs.n, color = Method)) +
   facet_wrap(~ Season)
 
+if (save.fig)
+  save.fig.fcn(fig = p.daily., 
+               file.name = "figures/Daily_Eguchi_Durban.png", 
+               replace = T, 
+               dpi = dpi.set, device = "png",
+               height = 5, width = 7, units = "in",
+               bg = "white")
 
 # Include non-survey years - no estimates for 2007/2008 because I don't have
 # raw data for that year. Only the WinBUGS inputs. 
@@ -528,14 +535,22 @@ obsd.n.df <- data.frame(Season = rep(all.season, each = dim(obsd.n.prop)[1]),
 
 p.RF.Obs <- plot.trace.dens(jm.out$jm, "OBS.RF")
 
-if (save.fig)
+if (save.fig){  
   save.fig.fcn(fig = p.RF.Obs$p.trace, 
                file.name = "figures/Observer_trace.png", 
                replace = T, 
                dpi = dpi.set, device = "png",
                height = 5, width = 7, units = "in",
                bg = "white")
-
+  
+  save.fig.fcn(fig = p.RF.Obs$p.dens, 
+               file.name = "figures/Observer_dens.png", 
+               replace = T, 
+               dpi = dpi.set, device = "png",
+               height = 5, width = 7, units = "in",
+               bg = "white")
+  
+}
 ```
 
 Estimated abundances from the new approach generally followed the same trend as the previous analyses (Figure \@ref(fig:Figure-N-hats)). Laake’s and the new approaches exhibited lower estimates than those from Durban’s approach, where the new approach resulted in the lowest. The exact abundance estimates, however, are not critical because they do not reflect the total abundance of the population. Patterns of fluctuations and trends in estimates are more important than the point estimates. The three approaches exhibited similar patterns and fluctuations in estimated abundance. 
@@ -693,7 +708,7 @@ lm.Durban <- lm(Nhat ~ time,
 
 ```{r Figure-daily-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated daily abundance and their 95% CIs using the new approach. The black lines indicate the mean."}
 
-knitr::include_graphics("figures/Daily_Eguchi.png")
+knitr::include_graphics("figures/Daily_Eguchi_Durban.png")
 ```
 
 
