@@ -632,7 +632,6 @@ knitr::include_graphics(paste0("figures/posterior_P_", dpi.set, "dpi.png"))
 
 ```
 
-The fixed effect of the Beaufort sea state on observation probability was positive (Figure x), indicating that higher Beaufort sea states corresponded with greater detection probabilities. This was a perplexing result. More singleton whales might have been detected at low sea states than at higher sea states, whereas only large groups were sighted at high sea states. As expected, the fixed effect of the sighting condition on observation probability was negative (Figure x), indicating that less favorable conditions resulted in lower detection probabilities. The observer random effects indicated significant differences among observers, as found in the previous analysis by Durban et al. (Appendix Figure x).  
 
 ```{r posterior-fixed-effects-plots, echo=FALSE, message=FALSE}
 
@@ -665,6 +664,7 @@ n.and.bf <- data.frame(n = n.mat[day.mat > 1 & day.mat < 100],
 ```
 
 
+The fixed effect of the Beaufort sea state on observation probability was positive (Figure x), indicating that higher Beaufort sea states corresponded with greater detection probabilities. This was a perplexing result. More singleton whales might have been detected at low sea states than at higher sea states, whereas only large groups were sighted at high sea states. At the Beaufort sea state 0, the largest observed group was `r n.and.bf %>% filter(bf == 0) %>% summarise(max.n = max(n))`, whereas there were `r n.and.bf %>% filter(bf > 0, n > 74) %>% summarise(n.more.than.74 = n())` groups that were greater than 74 for the Beaufort sea state > 0. As expected, the fixed effect of the sighting condition on observation probability was negative (Figure x), indicating that less favorable conditions resulted in lower detection probabilities. The observer random effects indicated significant differences among observers, as found in the previous analysis by Durban et al. (Appendix Figure x).  
 
 ```{r Figure-Fixed-posteriors, echo=FALSE, message=FALSE, fig.cap = "Posterior distributions of the  coefficients for the visibility code (VS) and Beaufort sea state (BF)."}
 
