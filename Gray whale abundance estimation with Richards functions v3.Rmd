@@ -664,7 +664,7 @@ n.and.bf <- data.frame(n = n.mat[day.mat > 1 & day.mat < 100],
 ```
 
 
-The fixed effect of the Beaufort sea state on observation probability was positive (Figure x), indicating that higher Beaufort sea states corresponded with greater detection probabilities. This was a perplexing result. More singleton whales might have been detected at low sea states than at higher sea states, whereas only large groups were sighted at high sea states. At the Beaufort sea state 0, the largest observed group was `r n.and.bf %>% filter(bf == 0) %>% summarise(max.n = max(n))`, whereas there were `r n.and.bf %>% filter(bf > 0, n > 74) %>% summarise(n.more.than.74 = n())` groups that were greater than 74 for the Beaufort sea state > 0. As expected, the fixed effect of the sighting condition on observation probability was negative (Figure x), indicating that less favorable conditions resulted in lower detection probabilities. The observer random effects indicated significant differences among observers, as found in the previous analysis by Durban et al. (Appendix Figure x).  
+The fixed effect of the Beaufort sea state on observation probability was positive (Figure x), indicating that higher Beaufort sea states corresponded with greater detection probabilities. This was a perplexing result. More singleton whales might have been detected at low sea states than at higher sea states, whereas only large groups were sighted at high sea states. At the Beaufort sea state 0, the largest observed group was `r n.and.bf %>% filter(bf == 0) %>% summarise(max.n = max(n))`, whereas there were `r n.and.bf %>% filter(bf > 0, n > 74) %>% summarise(n.more.than.74 = n())` groups that were greater than 74 for the Beaufort sea state > 0. As expected, the fixed effect of the sighting condition on observation probability was negative (Figure \@ref(fig:Figure-Fixed-posteriors)), indicating that less favorable conditions resulted in lower detection probabilities. The observer random effects indicated significant differences among observers, as found in the previous analysis by Durban et al. (Appendix Figure x).  
 
 ```{r Figure-Fixed-posteriors, echo=FALSE, message=FALSE, fig.cap = "Posterior distributions of the  coefficients for the visibility code (VS) and Beaufort sea state (BF)."}
 
@@ -672,37 +672,116 @@ knitr::include_graphics(paste0("figures/posterior_Fixed_", dpi.set, "dpi.png"))
 
 ```
 
-Fitted GAMs to the recent 11 years of estimated abundance showed that the three approaches provided comparable results (Figure y). Furthermore, linear models fitted to the last 5 years indicated a similar rate of decline from the three approaches. 
 
 
 ```{r gam-glm-fit, echo=F,message=FALSE}
-
+library(mgcv)
 all.estimates %>% na.omit() %>%
   mutate(time = start.year - min(start.year)) -> all.estimates.gam
   
 all.estimates.gam %>%
-  filter(Method == "Eguchi 5") -> all.estimates.Eguchi
+  filter(Method == "Eguchi 5") %>% 
+  filter(start.year > 2005) -> gam.estimates.Eguchi
 
 all.estimates.gam %>% 
-  filter(Method == "Laake") -> all.estimates.Laake
+  filter(Method == "Laake") %>% 
+  filter(start.year > 2005) -> gam.estimates.Laake
 
 all.estimates.gam %>%
-  filter(Method == "Durban") -> all.estimates.Durban
+  filter(Method == "Durban") %>% 
+  filter(start.year > 2005)-> gam.estimates.Durban
 
-gam.Eguchi <- mgcv::gam(Nhat ~ s(time), data = all.estimates.Eguchi)
-gam.Laake <- mgcv::gam(Nhat ~ s(time), data = all.estimates.Laake)
-gam.Durban <- mgcv::gam(Nhat ~ s(time), data = all.estimates.Durban)
+gam.Eguchi <- mgcv::gam(Nhat ~ s(time), 
+                        method = "REML", 
+                        data = gam.estimates.Eguchi )
+gam.Laake <- mgcv::gam(Nhat ~ s(time), 
+                       method = "REML",
+                       data = gam.estimates.Laake)
+gam.Durban <- mgcv::gam(Nhat ~ s(time), 
+                        method = "REML",
+                        data = gam.estimates.Durban)
 
-lm.Eguchi <- lm(Nhat ~ time, 
-                  data = all.estimates.Eguchi %>% filter(start.year > 2005))
+all.estimates.Eguchi %>% 
+  filter(start.year > 2005) %>%
+  left_join(all.estimates.Durban %>% filter(start.year > 2005), by = start.year) -> tmp
+  
+pred.data <- data.frame(time = seq(min(gam.estimates.Eguchi$time), 
+                                   max(gam.estimates.Eguchi$time), length.out = 200))
 
-lm.Laake <- lm(Nhat ~ time, 
-                  data = all.estimates.Laake %>% filter(start.year > 2005))
+gam.preds.Eguchi <-predict(gam.Eguchi, newdata = pred.data, se.fit = TRUE)
+gam.preds.Durban <-predict(gam.Durban, newdata = pred.data, se.fit = TRUE)
+gam.preds.Laake <-predict(gam.Laake, newdata = pred.data, se.fit = TRUE)
 
-lm.Durban <- lm(Nhat ~ time, 
-                  data = all.estimates.Durban %>% filter(start.year > 2005))
+# Combine predictions with the x values and calculate the confidence interval
+pred.data %>%
+  mutate(fit = gam.preds.Eguchi$fit,
+         SE = gam.preds.Eguchi$se.fit,
+         upper_CI = gam.preds.Eguchi$fit + (1.96 * SE),
+         lower_CI = gam.preds.Eguchi$fit - (1.96 * SE),
+         Method = "Eguchi") -> pred.Eguchi
+
+pred.data %>%
+  mutate(fit = gam.preds.Durban$fit,
+         SE = gam.preds.Durban$se.fit,
+         upper_CI = gam.preds.Durban$fit + (1.96 * SE),
+         lower_CI = gam.preds.Durban$fit - (1.96 * SE),
+         Method = "Durban") -> pred.Durban
+
+pred.data %>%
+  mutate(fit = gam.preds.Laake$fit,
+         SE = gam.preds.Laake$se.fit,
+         upper_CI = gam.preds.Laake$fit + (1.96 * SE),
+         lower_CI = gam.preds.Laake$fit - (1.96 * SE),
+         Method = "Laake") -> pred.Laake
+
+pred.all <- rbind(pred.Eguchi, pred.Durban, pred.Laake) 
+  #mutate(method.f = as.factor(method))
+
+p.gam.fit <- ggplot() +
+  # Add the confidence interval ribbon using the new prediction data
+  geom_ribbon(data = pred.all,
+              aes(x = time, ymin = lower_CI, ymax = upper_CI, fill = Method), 
+              alpha = 0.3) +
+  
+  # Add the fitted line using the new prediction data
+  geom_line(data = pred.all,
+            aes(x = time, y = fit, color = Method), 
+            size = 1) +
+  theme(legend.position = "top")
+  
+  # geom_point(data = all.estimates.gam %>%
+  #              filter(start.year > 2005),
+  #            aes(x = time, y = Nhat, color = Method)) +  # Plot the raw data points from the original dataframe
+  
+
+if (save.fig)
+  save.fig.fcn(fig = p.gam.fit,
+               file.name = paste0("figures/gam_fit_", dpi.set, "dpi.png"),
+               replace = T,
+               height = 5, width = 7,
+               dpi = dpi.set)
+
+lm.Eguchi <- lm(log(Nhat) ~ time, 
+                data = all.estimates.Eguchi %>% filter(start.year > 2013))
+
+lm.Laake <- lm(log(Nhat) ~ time, 
+               data = all.estimates.Laake %>% filter(start.year > 2013))
+
+lm.Durban <- lm(log(Nhat) ~ time, 
+                data = all.estimates.Durban %>% filter(start.year > 2013))
 
 ```
+
+
+Fitted GAMs to the estimated abundance between the 2006/2007 and 2024/2025 seasons indicated that the three approaches provided comparable results with respect to the general trend of abundance (Figure \@ref(fig:Figure-gam-fits)). Furthermore, linear models ($log(Nhat) = time + e$) fitted to the data from the 2014/2015 season to the 2024/2025 season indicated a similar rate of decline from the three approaches (Laake: `r signif(lm.Laake$coefficients[2],1)`. Durban: `r signif(lm.Durban$coefficients[2],1)`, Eguchi: `r signif(lm.Eguchi$coefficients[2],1)`)
+
+
+
+```{r Figure-gam-fits, echo=FALSE, message=FALSE, fig.cap = "Fitted generalized additive models to Estimated abundance and their 95% CIs."}
+
+knitr::include_graphics(paste0("figures/gam_fit_", dpi.set, "dpi.png"))
+```
+
 
 
 
