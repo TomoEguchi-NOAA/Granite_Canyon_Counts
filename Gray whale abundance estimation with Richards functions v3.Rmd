@@ -276,6 +276,8 @@ N.hats.day <- data.frame(Season = rep(paste0(all.start.year,
                                              "/", all.start.year+1),
                                       
                                       each = nrow(jm.out$jm$mean$N)), 
+                         start.year = rep(all.start.year,
+                                          each = nrow(jm.out$jm$mean$N)),
                          Day = rep(1:nrow(jm.out$jm$mean$N), 
                                    times = length(all.start.year)),
                          Mean = as.vector(jm.out$jm$mean$N),
@@ -407,6 +409,8 @@ for (k1 in 1:dim(daily.estim)[2]){
 
 N.hats.day.Durban <- data.frame(Season = rep(WinBugs.out$BUGS.input$seasons, 
                                              each = dim(daily.estim)[2]),
+                                start.year = rep(WinBugs.out$BUGS.input$all.years - 1,
+                                                 each = dim(daily.estim)[2]),
                                 Day = rep(1:dim(daily.estim)[2], 
                                           length(WinBugs.out$BUGS.input$seasons)),
                                 Mean = as.vector(mean.mat),
@@ -415,7 +419,8 @@ N.hats.day.Durban <- data.frame(Season = rep(WinBugs.out$BUGS.input$seasons,
                                 obs.n = Bugs.obs.n.df$n, 
                                 Method = "Durban")
 
-N.hats.day.all <- rbind(N.hats.day, N.hats.day.Durban)
+N.hats.day.all <- rbind(N.hats.day, N.hats.day.Durban) %>% 
+  filter(start.year > 2005)
 # Daily estimates plots
 p.daily.Durban <- ggplot(N.hats.day.Durban %>% group_by(Season)) + 
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
@@ -435,7 +440,7 @@ if (save.fig)
 p.daily. <- ggplot(N.hats.day.all %>% group_by(Season)) + 
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL, fill = Method),
               alpha = 0.5) +
-  geom_path(aes(x = Day, y = Mean)) + 
+  geom_path(aes(x = Day, y = Mean, color = Method), size = 1) + 
   geom_point(aes(x = Day, y = obs.n, color = Method)) +
   facet_wrap(~ Season)
 
@@ -484,7 +489,8 @@ p.Nhats <- ggplot(all.estimates) +
 if (save.fig)
   save.fig.fcn(fig = p.Nhats,
                file.name = paste0("figures/Nhats_v", 
-                                  ver, "_min", min.dur, "_", dpi.set, "dpi.png"),
+                                  ver, "_min", min.dur, 
+                                  "_", dpi.set, "dpi.png"),
                replace = T,
                height = 5, width = 7,
                dpi = dpi.set)
@@ -672,6 +678,14 @@ knitr::include_graphics(paste0("figures/posterior_Fixed_", dpi.set, "dpi.png"))
 
 ```
 
+The daily estimated mean between Durban's and new approaches was similar qualitatively (Figure \@ref(fig:Figure-daily-N-hats)), indicating the two approached used the data in a similar manner. 
+
+
+
+```{r Figure-daily-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated daily abundance and their 95% CIs using the new approach. The black lines indicate the mean."}
+
+knitr::include_graphics("figures/Daily_Eguchi_Durban.png")
+```
 
 
 ```{r gam-glm-fit, echo=F,message=FALSE}
@@ -762,18 +776,18 @@ if (save.fig)
                dpi = dpi.set)
 
 lm.Eguchi <- lm(log(Nhat) ~ time, 
-                data = all.estimates.Eguchi %>% filter(start.year > 2013))
+                data = all.estimates.gam %>% filter(start.year > 2013, Method == "Eguchi 5"))
 
 lm.Laake <- lm(log(Nhat) ~ time, 
-               data = all.estimates.Laake %>% filter(start.year > 2013))
+               data = all.estimates.gam %>% filter(start.year > 2013, Method == "Laake"))
 
 lm.Durban <- lm(log(Nhat) ~ time, 
-                data = all.estimates.Durban %>% filter(start.year > 2013))
+                data = all.estimates.gam %>% filter(start.year > 2013, Method == "Durban"))
 
 ```
 
 
-Fitted GAMs to the estimated abundance between the 2006/2007 and 2024/2025 seasons indicated that the three approaches provided comparable results with respect to the general trend of abundance (Figure \@ref(fig:Figure-gam-fits)). Furthermore, linear models ($log(Nhat) = time + e$) fitted to the data from the 2014/2015 season to the 2024/2025 season indicated a similar rate of decline from the three approaches (Laake: `r signif(lm.Laake$coefficients[2],1)`. Durban: `r signif(lm.Durban$coefficients[2],1)`, Eguchi: `r signif(lm.Eguchi$coefficients[2],1)`)
+Fitted GAMs to the estimated abundance between the 2006/2007 and 2024/2025 seasons indicated that the three approaches provided comparable results with respect to the general trend (Figure \@ref(fig:Figure-gam-fits)). Furthermore, linear models ($log(Nhat) = time + \epsilon$) fitted to the data from the 2014/2015 season to the 2024/2025 season indicated a similar rate of decline from the three approaches (Laake: `r signif(lm.Laake$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Laake))["time", "Std. Error"], 2)`. Durban: `r signif(lm.Durban$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Durban))["time", "Std. Error"], 2)`, Eguchi: `r signif(lm.Eguchi$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Durban))["time", "Std. Error"], 2)`).
 
 
 
@@ -783,12 +797,7 @@ knitr::include_graphics(paste0("figures/gam_fit_", dpi.set, "dpi.png"))
 ```
 
 
-
-
-```{r Figure-daily-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated daily abundance and their 95% CIs using the new approach. The black lines indicate the mean."}
-
-knitr::include_graphics("figures/Daily_Eguchi_Durban.png")
-```
+Combined together, the new approach improved the method of Durban et al. 
 
 
 
