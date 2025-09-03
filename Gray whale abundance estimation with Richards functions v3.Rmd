@@ -10,7 +10,7 @@ csl: marine-ecology-progress-series.csl
 
 ```{r setup, include=FALSE}
 rm(list = ls())
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, cache = TRUE)
 save.fig <- T
 
 source("Granite_Canyon_Counts_fcns.R")
@@ -141,7 +141,7 @@ JAGS models and R scripts to conduct the analysis, including data extraction and
 
 The entire dataset from the 1967/1968 season was analyzed using the new approach and the results compared to the reported estimates in Eguchi et al. (2025). Sightings data between the 1967/1968 and 2005/2006 seasons were obtained from the *ERAnalysis* package (<https://github.com/jlaake/ERAnalysis>, Laake 2012). An R script was written to convert the sightings data in the package to an input structure for the new analysis. No raw data were available for the 2006/2007 season. Consequently, it was excluded from the analysis. The remainder of the data, i.e., 2007/2008 to 2024/2025, were extracted from raw data files using an R script (available at the GitHub repository). All sighting data were used create input data for the new analysis, where all shifts of at least 60 minutes with the Beaufort sea state of \< 5 and the visibility code of \< 5 were included in the analysis.
 
-```{r model-comparison, echo=FALSE, message=FALSE, warning=FALSE}
+```{r model-comparison, echo=FALSE, message=FALSE, warning=FALSE, cache=TRUE}
 model.names <- c("2", "15", "17", "18",
                  "5", "16", "19", "20")
 # Select only parameters for the function. 
@@ -194,7 +194,7 @@ out.table <- data.frame(model = 1:length(model.names),
 
 The eight models were fitted to the sightings data over 32 seasons. According to the rank-normalized R-hat statistic, Model `r out.table$model[which(n.big.Rhat == min(out.table$n.big.Rhat))]` showed the least number (`r out.table$n.big.Rhat[which(n.big.Rhat == min(out.table$n.big.Rhat))]`) of parameters with the rank-normalized Rhat \> 1.01. LOOIC indicated that Model `r out.table$model[which(out.table$dLOOIC == 0)]` was the best. According to the Pareto k statistics, Model `r out.table$model[which(out.table$n.bad.Pareto == min(out.table$n.bad.Pareto))]` showed the least number of data points that were considered ill fit (Appendix Table y). Considering these results, and visual inspection of trace plots of parameter that had the rank-normalized Rhat statistics \> 1.01 (Appendix Figure x), I concluded that Model 5 was the best, which consisted of year-specific P (P1 = P2), and year-specific S1 and S2 parameters (Table x). In the following I use Model 5 for parameter inference. 
 
-```{r JAGS-results, echo=F,message=FALSE}
+```{r JAGS-results, echo=F,message=FALSE, cache=TRUE}
 rm(list = c(".out"))
 ver <- 5
 jm.out <- readRDS(paste0("RData/JAGS_Richards_Nmixture_v",
@@ -435,7 +435,7 @@ p.daily.Durban <- ggplot(N.hats.day.Durban %>% group_by(Season)) +
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
               fill = "blue", alpha = 0.5) +
   geom_path(aes(x = Day, y = Mean)) + 
-  geom_point(aes(x = Day, y = obs.n), color = "darkgreen")
+  geom_point(aes(x = Day, y = obs.n), color = "darkgreen") +
   facet_wrap(~ Season)
 
 if (save.fig)
@@ -493,6 +493,7 @@ p.Nhats <- ggplot(all.estimates) +
   geom_errorbar(aes(x = start.year, ymin = LCL, ymax = UCL,
                     color = Method)) +
   ylim(2000, 40000) +
+  xlab("") + ylab("Abundance") +
   theme(legend.position = "top")
 
 if (save.fig)
@@ -580,7 +581,7 @@ knitr::include_graphics(paste0("figures/Nhats_v",
 
 Posterior distributions of the parameters of the Richards function provided valuable insights into how annual gray whale migration varied among years. The P parameters, which defined the location of the peak, changed over the years (Figure \@ref(fig:Figure-P-posteriors)). This has been reported in previous studies (Eguchi et al. 2023, 2024, 2025), although the significance and causes for the change are unknown. The S1 and S2 parameters, which define the width of the function, also varied among years, indicating that the duration of migration varied among years (Appendix Figure y).  
 
-```{r posterior-Richards-plots, echo=FALSE, message=FALSE}
+```{r posterior-Richards-plots, echo=FALSE, message=FALSE, cache=TRUE}
 
 posteriors.P <- plot.trace.dens(jm.out$jm, 
                                 var.name = "P")
@@ -591,7 +592,8 @@ posteriors.P$df %>%
   rename(P = sample)-> P.df
 
 p.posteriors.P <- ggplot(P.df, aes(x = P, y = start.year.f)) +
-  geom_density_ridges()
+  geom_density_ridges() +
+  ylab("")
 
 if (save.fig)
   save.fig.fcn(fig = p.posteriors.P,
@@ -610,7 +612,8 @@ posteriors.S1$df %>%
   rename(S1 = sample)-> S1.df
 
 p.posteriors.S1 <- ggplot(S1.df, aes(x = S1, y = start.year.f)) +
-  geom_density_ridges()
+  geom_density_ridges() +
+  ylab("")
 
 if (save.fig)
   save.fig.fcn(fig = p.posteriors.S1,
@@ -628,7 +631,8 @@ posteriors.S2$df %>%
   rename(S2 = sample)-> S2.df
 
 p.posteriors.S2 <- ggplot(S2.df, aes(x = S2, y = start.year.f)) +
-  geom_density_ridges()
+  geom_density_ridges() +
+  ylab("")
 
 if (save.fig)
   save.fig.fcn(fig = p.posteriors.S2,
@@ -648,14 +652,15 @@ knitr::include_graphics(paste0("figures/posterior_P_", dpi.set, "dpi.png"))
 ```
 
 
-```{r posterior-fixed-effects-plots, echo=FALSE, message=FALSE}
+```{r posterior-fixed-effects-plots, echo=FALSE, message=FALSE, cache=TRUE}
 
 posteriors.Fixed <- plot.trace.dens(jm.out$jm, 
                                     var.name = ".Fixed")
 
 p.posteriors.Fixed <- ggplot(posteriors.Fixed$df) +
   geom_density(aes(x = sample)) +
-  facet_wrap(~ par.name.ordered, scales = "free_x")
+  facet_wrap(~ par.name.ordered, scales = "free_x") +
+  xlab("") + ylab("Density")
   
 
 if (save.fig)
@@ -697,7 +702,7 @@ knitr::include_graphics("figures/Daily_Eguchi_Durban.png")
 ```
 
 
-```{r gam-glm-fit, echo=F,message=FALSE}
+```{r gam-glm-fit, echo=F,message=FALSE, cache=TRUE}
 library(mgcv)
 all.estimates %>% na.omit() %>%
   mutate(time = start.year - min(start.year)) -> all.estimates.gam
@@ -1069,18 +1074,19 @@ knitr::include_graphics(paste0("figures/P_", dpi.set, "dpi.png"))
 ```
 
 #### Trace plots of parameters with high rank-standardized R hat values
-```{r Figure-trace-1, echo=FALSE, message=FALSE, fig.cap="Trace plots of parameters with high Rhat values }
+```{r Figure-trace-1, echo=FALSE, message=FALSE, fig.cap="Trace plots of parameters with high Rhat values" }
+
 knitr::include_graphics(paste0("figures/M5_trace_1.png"))
 
 ```
 
-```{r Figure-trace-2, echo=FALSE, message=FALSE, fig.cap="Trace plots of parameters with high Rhat values }
+```{r Figure-trace-2, echo=FALSE, message=FALSE, fig.cap="Trace plots of parameters with high Rhat values" }
 knitr::include_graphics(paste0("figures/M5_trace_2.png"))
 
 ```
 
 
-```{r Figure-trace-3, echo=FALSE, message=FALSE, fig.cap="Trace plots of parameters with high Rhat values }
+```{r Figure-trace-3, echo=FALSE, message=FALSE, fig.cap="Trace plots of parameters with high Rhat values" }
 knitr::include_graphics(paste0("figures/M5_trace_3.png"))
 
 ```
@@ -1094,7 +1100,7 @@ knitr::include_graphics(paste0("figures/posteriors_S1_", dpi.set, "dpi.png"))
 ```
 
 
-```{r Figure-S1-posteriors, echo=FALSE, message=FALSE, fig.cap="Changes in the S2 parameter over time."}
+```{r Figure-S2-posteriors, echo=FALSE, message=FALSE, fig.cap="Changes in the S2 parameter over time."}
 
 knitr::include_graphics(paste0("figures/posteriors_S2_", dpi.set, "dpi.png"))
 
