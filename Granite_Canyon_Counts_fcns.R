@@ -1059,8 +1059,12 @@ data2WinBUGS_input <- function(data.dir, years, min.dur){
   library(tidyverse)
   
   # this file contains all necessary inputs for 2006 - 2019 from Josh Stewart
-  # We need 206/2007 and 2007/2008 data as we don't have the original data files
+  # We need 2006/2007 and 2007/2008 data as we don't have the original data files
   data.0 <- readRDS("RData/2006-2019_GC_Formatted_Data.RDS")
+  
+  # 2006/2007 data are available in Laake's ERAnalysis package. 
+  # I should use those "raw" data so that the minimum duration can be applied
+  # to the season. But... I don't think that much work is needed. 2025-09-03
   
   # e.g., 2007 refers to 2006/2007
   all.years <- c(2007, 2008, years)
@@ -2509,7 +2513,9 @@ WinBUGSinput <- function(min.dur,
 
 plot.trace.dens <- function(jm, var.name){
   par.names <- unlist(dimnames(jm$samples[[1]])[2])
-  col.idx <- grep(var.name, par.names, perl = T)
+  
+  col.idx <- grep(var.name, par.names, perl = T)    
+
   samples.list <- list()
   
   n.samples <- nrow(jm$samples[[1]])

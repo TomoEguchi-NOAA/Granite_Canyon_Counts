@@ -211,26 +211,35 @@ max.Rhat.big <- new.Rhat[which(new.Rhat > 1.01)]
 params.Rhat.big <- names(max.Rhat.big)
 
 p.trace.1 <- mcmc_trace(jm.out$jm$samples, 
-                        pars = params.Rhat.big[1:32])
+                        pars = params.Rhat.big[1:25])
 
 p.trace.2 <- mcmc_trace(jm.out$jm$samples, 
-                        pars = params.Rhat.big[33:58])
+                        pars = params.Rhat.big[26:50])
+
+p.trace.3 <- mcmc_trace(jm.out$jm$samples, 
+                        pars = params.Rhat.big[51:58])
 
 if (save.fig) {
   save.fig.fcn(fig = p.trace.1, 
                file.name = "figures/M5_trace_1.png", 
                replace = T, 
                dpi = dpi.set, device = "png",
-               height = 5, width = 7, units = "in",
+               height = 10, width = 10, units = "in",
                bg = "white")
   
   save.fig.fcn(fig = p.trace.2, 
                file.name = "figures/M5_trace_2.png", 
                replace = T, 
                dpi = dpi.set, device = "png",
-               height = 5, width = 7, units = "in",
+               height = 10, width = 10, units = "in",
                bg = "white")
 
+  save.fig.fcn(fig = p.trace.3, 
+               file.name = "figures/M5_trace_3.png", 
+               replace = T, 
+               dpi = dpi.set, device = "png",
+               height = 10, width = 10, units = "in",
+               bg = "white")
 }
 
 # Create a dataframe with all years, including unsampled years.
@@ -559,7 +568,7 @@ if (save.fig){
 }
 ```
 
-Estimated abundances from the new approach generally followed the same trend as the previous analyses (Figure \@ref(fig:Figure-N-hats)). Laake’s and the new approaches exhibited lower estimates than those from Durban’s approach, where the new approach resulted in the lowest. The exact abundance estimates, however, are not critical because they do not reflect the total abundance of the population. Patterns of fluctuations and trends in estimates are more important than the point estimates. The three approaches exhibited similar patterns and fluctuations in estimated abundance. 
+Estimated abundances from the new approach generally followed the same trend as the previous analyses except a few notable differences (Figure \@ref(fig:Figure-N-hats)). Laake’s and the new approaches exhibited lower estimates than those from Durban’s approach, where the new approach resulted in the lowest. The exact abundance estimates, however, are not critical because they do not reflect the total abundance of the population. Patterns of fluctuations and trends in estimates are more important than the point estimates. The three approaches exhibited similar patterns and fluctuations in estimated abundance. 
 
 
 ```{r Figure-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated annual abundance and their 95% CIs using Laake's method (green), Durban's method (red), and new approach (blue)."}
@@ -569,7 +578,7 @@ knitr::include_graphics(paste0("figures/Nhats_v",
 
 ```
 
-Posterior distributions of the parameters of the Richards function provided valuable insights into how annual gray whale migration varied among years. The P parameters, which defined the location of the peak, changed over the years (Figure \@ref(fig:Figure-P-posteriors)). This has been reported in previous studies (Eguchi et al. 2023, 2024, 2025), although the significance and causes for the change are unknown. The S1 and S2 parameters also varied among years, indicating that the duration of migration varied among years.  
+Posterior distributions of the parameters of the Richards function provided valuable insights into how annual gray whale migration varied among years. The P parameters, which defined the location of the peak, changed over the years (Figure \@ref(fig:Figure-P-posteriors)). This has been reported in previous studies (Eguchi et al. 2023, 2024, 2025), although the significance and causes for the change are unknown. The S1 and S2 parameters, which define the width of the function, also varied among years, indicating that the duration of migration varied among years (Appendix Figure y).  
 
 ```{r posterior-Richards-plots, echo=FALSE, message=FALSE}
 
@@ -605,7 +614,7 @@ p.posteriors.S1 <- ggplot(S1.df, aes(x = S1, y = start.year.f)) +
 
 if (save.fig)
   save.fig.fcn(fig = p.posteriors.S1,
-               file.name = paste0("figures/posterior_S1_", dpi.set, "dpi.png"),
+               file.name = paste0("figures/posteriors_S1_", dpi.set, "dpi.png"),
                replace = T,
                height = 5, width = 7,
                dpi = dpi.set)
@@ -623,7 +632,7 @@ p.posteriors.S2 <- ggplot(S2.df, aes(x = S2, y = start.year.f)) +
 
 if (save.fig)
   save.fig.fcn(fig = p.posteriors.S2,
-               file.name = paste0("figures/posterior_S2_", dpi.set, "dpi.png"),
+               file.name = paste0("figures/posteriors_S2_", dpi.set, "dpi.png"),
                replace = T,
                height = 5, width = 7,
                dpi = dpi.set)
@@ -670,15 +679,15 @@ n.and.bf <- data.frame(n = n.mat[day.mat > 1 & day.mat < 100],
 ```
 
 
-The fixed effect of the Beaufort sea state on observation probability was positive (Figure x), indicating that higher Beaufort sea states corresponded with greater detection probabilities. This was a perplexing result. More singleton whales might have been detected at low sea states than at higher sea states, whereas only large groups were sighted at high sea states. At the Beaufort sea state 0, the largest observed group was `r n.and.bf %>% filter(bf == 0) %>% summarise(max.n = max(n))`, whereas there were `r n.and.bf %>% filter(bf > 0, n > 74) %>% summarise(n.more.than.74 = n())` groups that were greater than 74 for the Beaufort sea state > 0. As expected, the fixed effect of the sighting condition on observation probability was negative (Figure \@ref(fig:Figure-Fixed-posteriors)), indicating that less favorable conditions resulted in lower detection probabilities. The observer random effects indicated significant differences among observers, as found in the previous analysis by Durban et al. (Appendix Figure x).  
+The fixed effect of the Beaufort sea state on observation probability was positive (Figure \@ref(fig:Figure-Fixed-posteriors)) indicating that higher Beaufort sea states corresponded with greater detection probabilities. This was a perplexing result. More singleton whales might have been detected at low sea states than at higher sea states, whereas only large groups were sighted at high sea states. At the Beaufort sea state 0, the largest observed group was `r n.and.bf %>% filter(bf == 0) %>% summarise(max.n = max(n))`, whereas there were `r n.and.bf %>% filter(bf > 0, n > 74) %>% summarise(n.more.than.74 = n())` groups that were greater than 74 for the Beaufort sea state > 0. As expected, the fixed effect of the sighting condition on observation probability was negative (Figure \@ref(fig:Figure-Fixed-posteriors)), indicating that less favorable conditions resulted in lower detection probabilities. The observer random effects indicated significant differences among observers, as found in the previous analysis by Durban et al. (Appendix Figure x).  
 
-```{r Figure-Fixed-posteriors, echo=FALSE, message=FALSE, fig.cap = "Posterior distributions of the  coefficients for the visibility code (VS) and Beaufort sea state (BF)."}
+```{r Figure-Fixed-posteriors, echo=FALSE, message=FALSE, fig.cap = "Posterior distributions of the fixed-effects coefficients for the visibility code (VS) and Beaufort sea state (BF)."}
 
 knitr::include_graphics(paste0("figures/posterior_Fixed_", dpi.set, "dpi.png"))
 
 ```
 
-The daily estimated mean between Durban's and new approaches was similar qualitatively (Figure \@ref(fig:Figure-daily-N-hats)), indicating the two approached used the data in a similar manner. 
+The daily estimated mean between Durban's and new approaches was similar qualitatively (Figure \@ref(fig:Figure-daily-N-hats)), indicating the two approached used the data in a similar manner. For the 2006/2007 season, the new approach was applied to the data from the *ERAnalysis* package, whereas WinBUGS was ran on the input structure in Durban's analysis with 90 minutes as the minimum shift duration. Consequently, the observed counts are different between the two approaches. For the 2007/2008 season, no raw data were available. Therefore, the new approach was not applied to the data.  
 
 
 
@@ -715,10 +724,6 @@ gam.Durban <- mgcv::gam(Nhat ~ s(time),
                         method = "REML",
                         data = gam.estimates.Durban)
 
-all.estimates.Eguchi %>% 
-  filter(start.year > 2005) %>%
-  left_join(all.estimates.Durban %>% filter(start.year > 2005), by = start.year) -> tmp
-  
 pred.data <- data.frame(time = seq(min(gam.estimates.Eguchi$time), 
                                    max(gam.estimates.Eguchi$time), length.out = 200))
 
@@ -761,6 +766,8 @@ p.gam.fit <- ggplot() +
   geom_line(data = pred.all,
             aes(x = time, y = fit, color = Method), 
             size = 1) +
+  scale_x_continuous(labels = function(breaks){ paste0(breaks + 1967)}) +
+  xlab("") + ylab("Abundance") +
   theme(legend.position = "top")
   
   # geom_point(data = all.estimates.gam %>%
@@ -787,7 +794,7 @@ lm.Durban <- lm(log(Nhat) ~ time,
 ```
 
 
-Fitted GAMs to the estimated abundance between the 2006/2007 and 2024/2025 seasons indicated that the three approaches provided comparable results with respect to the general trend (Figure \@ref(fig:Figure-gam-fits)). Furthermore, linear models ($log(Nhat) = time + \epsilon$) fitted to the data from the 2014/2015 season to the 2024/2025 season indicated a similar rate of decline from the three approaches (Laake: `r signif(lm.Laake$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Laake))["time", "Std. Error"], 2)`. Durban: `r signif(lm.Durban$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Durban))["time", "Std. Error"], 2)`, Eguchi: `r signif(lm.Eguchi$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Durban))["time", "Std. Error"], 2)`).
+Fitted GAMs to the estimated abundance between the 2006/2007 and 2024/2025 seasons indicated that the three approaches provided comparable results with respect to the general trend (Figure \@ref(fig:Figure-gam-fits)). Furthermore, linear models ($log(Nhat) = time + \epsilon$) fitted to the point estimates from the 2014/2015 season to the 2024/2025 season indicated a similar rate of decline from the three approaches (Laake: `r signif(lm.Laake$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Laake))["time", "Std. Error"], 2)`. Durban: `r signif(lm.Durban$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Durban))["time", "Std. Error"], 2)`, Eguchi: `r signif(lm.Eguchi$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Eguchi))["time", "Std. Error"], 2)`).
 
 
 
@@ -796,10 +803,13 @@ Fitted GAMs to the estimated abundance between the 2006/2007 and 2024/2025 seaso
 knitr::include_graphics(paste0("figures/gam_fit_", dpi.set, "dpi.png"))
 ```
 
+## Discussion
 
-Combined together, the new approach improved the method of Durban et al. 
+The new approach yielded comparable results to those obtained by Laake’s and Durban’s approaches. Although point estimates were different in some years, confidence/credible intervals overlapped in majority of the time series. The new approach included several favorable properties compared with Durban’s approach. First, it eliminated the use of the “cut” function, which had been deemed statistically inappropriate (Plummer yr). Second, it is coded in a more contemporary language (JAGS), which is widely used and freely available. Third, the goodness-of-fit is determined through a modern criterion using log-likelihood (LOOIC and Pareto-k statistic). In Durban’s approach, only one model was available, and the goodness-of-fit was not evaluated. Fourth, it runs faster than WinBUGS. The most recent analysis over the past 11 years using WinBUGS with 100,000 MCMC steps took `r signif(WinBugs.out$Run_Time, 3)` hrs. In comparison, the entire 32-year dataset was analyzed in approximately `r signif(jm.out$Run_Time, 2)` hrs on the same computer using the new approach with 550,000 MCMC steps of five chains using JAGS. Sixth, although the general modeling framework is the same (N-mixture model), the new code is simpler. 
 
+Fitted GAMs indicated that these models provided a similar pattern of fluctuations in the EP gray whale abundance. The rate of recent decline in abundance was the same regardless of the approach used (compute these).  
 
+The new approach can accommodate additional information if it becomes available. For example, there is an effort to estimate the precision and possible biases of estimated group sizes by visual observers, using uncrewed aircraft systems (UAS). Suppose a correction function can be determined for each sighting, conditional on the recorded group size by visual observers. Such a function can be incorporated into the observation likelihood loop, where each sighting within a period is corrected using the function. The observed number of individual whales in each period, then, is the sum of all corrected group sizes within the period. 
 
 
 ## Literature cited {.unnumbered}
@@ -865,7 +875,7 @@ $$ g_{d,t} = S_{0,t} + S_{1,t} * d_t + \sum_{k=1}^{m} \lambda_{k,t} (d_t – \ka
 The parameter $S_1 < 0$ defines how the curve decreases from its peak. The rate of decline slows down as $S_1$ becomes greater (i.e., closer to zero; Figure \@ref(fig:Figure-S1)). Because we make an assumption that there are no whales migrating after day 90 (or any other assumed "end" day), the lower bound of $S_1$ can be restricted to a certain value, (e.g., $-5 < S_1 < 0$).
 
 ```{r S1, echo=FALSE, message=FALSE}
-S1 <- c(-10, -5, -2.5, -1.2, -0.6, -0.3)
+S1 <- c(10, 5, 2.5, 1.2, 0.6, 0.3)
 S2 <- 1.5
 K <- 1
 P <- 40
@@ -876,7 +886,7 @@ true.mean.N <- matrix(data = 0, nrow = 90, ncol = length(S1))
 for (c in 1:length(S1)){
   for (d in 1:90){
     true.mean.N[d, c] <- floor(Richards_fcn(d = d, 
-                                            S1 = S1[c], 
+                                            S1 = -S1[c], 
                                             S2 = S2,
                                             K = K, 
                                             P = P, 
@@ -894,12 +904,12 @@ data.df <- data.frame(Day = rep(1:90, times = length(S1)),
 
 p.S1 <- ggplot(data = data.df) +
   geom_path(aes(x = Day, y = mean.N), color = "red") +
-
-  facet_wrap(~ S1)
+  facet_wrap(~ S1) +
+  ylab("")
 
 save.fig.fcn(p.S1, 
              file.name = paste0("figures/S1_", dpi.set, "dpi.png"), 
-             replace = T, dpi = dpi.set)
+             height = 5, width = 7,replace = T, dpi = dpi.set)
 
 ```
 
@@ -942,12 +952,12 @@ data.df <- data.frame(Day = rep(1:90, times = length(S2)),
 
 p.S2 <- ggplot(data = data.df) +
   geom_path(aes(x = Day, y = mean.N), color = "red") +
-
-  facet_wrap(~ S2)
+  facet_wrap(~ S2) +
+  ylab("")
 
 save.fig.fcn(p.S2, 
              file.name = paste0("figures/S2_", dpi.set, "dpi.png"), 
-             replace = T, dpi = dpi.set)
+             height = 5, width = 7,replace = T, dpi = dpi.set)
 
 
 ```
@@ -991,11 +1001,12 @@ data.df <- data.frame(Day = rep(1:90, times = length(K)),
 
 p.K <- ggplot(data = data.df) +
   geom_path(aes(x = Day, y = mean.N), color = "red") +
-  facet_wrap(~ K)
+  facet_wrap(~ K) +
+  ylab("")
 
 save.fig.fcn(p.K, 
              file.name = paste0("figures/K_", dpi.set, "dpi.png"), 
-             replace = T, dpi = dpi.set)
+             height = 5, width = 7,replace = T, dpi = dpi.set)
 
 
 
@@ -1040,12 +1051,13 @@ data.df <- data.frame(Day = rep(1:90, times = length(P)),
 
 p.P <- ggplot(data = data.df) +
   geom_path(aes(x = Day, y = mean.N), color = "red") +
-  facet_wrap(~ P)
+  facet_wrap(~ P) +
+  ylab("")
 
 save.fig.fcn(p.P, 
              file.name = paste0("figures/P_", dpi.set, "dpi.png"), 
              replace = T, 
-             dpi = dpi.set)
+             height = 5, width = 7,dpi = dpi.set)
 
 
 ```
@@ -1053,5 +1065,37 @@ save.fig.fcn(p.P,
 ```{r Figure-P, echo=FALSE, message=FALSE, fig.cap="Effects of $P$. In this example, $S_1 = -2.5$, $S_2 = 2.5$, $K = 1.5$, $N_{max} = 800$."}
 
 knitr::include_graphics(paste0("figures/P_", dpi.set, "dpi.png"))
+
+```
+
+#### Trace plots of parameters with high rank-standardized R hat values
+```{r Figure-trace-1, echo=FALSE, message=FALSE, fig.cap="Trace plots of parameters with high Rhat values }
+knitr::include_graphics(paste0("figures/M5_trace_1.png"))
+
+```
+
+```{r Figure-trace-2, echo=FALSE, message=FALSE, fig.cap="Trace plots of parameters with high Rhat values }
+knitr::include_graphics(paste0("figures/M5_trace_2.png"))
+
+```
+
+
+```{r Figure-trace-3, echo=FALSE, message=FALSE, fig.cap="Trace plots of parameters with high Rhat values }
+knitr::include_graphics(paste0("figures/M5_trace_3.png"))
+
+```
+
+#### Changes in S1 and S2 over time
+
+```{r Figure-S1-posteriors, echo=FALSE, message=FALSE, fig.cap="Changes in the S1 parameter over time."}
+
+knitr::include_graphics(paste0("figures/posteriors_S1_", dpi.set, "dpi.png"))
+
+```
+
+
+```{r Figure-S1-posteriors, echo=FALSE, message=FALSE, fig.cap="Changes in the S2 parameter over time."}
+
+knitr::include_graphics(paste0("figures/posteriors_S2_", dpi.set, "dpi.png"))
 
 ```
