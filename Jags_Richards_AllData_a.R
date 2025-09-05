@@ -60,10 +60,10 @@ MCMC.params <- list(n.samples = 550000,
 #                     n.burnin = 50,
 #                     n.chains = 5)
 
-MCMC.params <- list(n.samples = 5000,
-                    n.thin = 5,
-                    n.burnin = 2500,
-                    n.chains = 5)
+# MCMC.params <- list(n.samples = 5000,
+#                     n.thin = 5,
+#                     n.burnin = 2500,
+#                     n.chains = 5)
 
 jags.params <- c("VS.Fixed", "BF.Fixed",
                  "Max", "K", "K1", "K2", "S1", "S2", "P",
