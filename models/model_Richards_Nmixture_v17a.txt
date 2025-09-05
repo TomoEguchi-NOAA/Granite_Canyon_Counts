@@ -70,6 +70,10 @@ model{
 	# binomial sampling
 	
 	# force n = 0 for t = 1 and t = max.day
+	# The index for n[100] is periods[y,s]+2 because the first entry for each year
+	# is day 1 (n = 0) and periods are counted as the number of data points for 
+	# that year. Day 100 is added to the number of periods plus day 1. 
+
 	for (y in 1:n.year){
 		for (s in 1:n.station[y]){
 			n[1, s, y] ~ dbin(0, 0)
