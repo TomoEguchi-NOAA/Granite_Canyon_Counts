@@ -72,13 +72,13 @@ model{
 	for (y in 1:n.year){
 		for (s in 1:n.station[y]){
 			n[1, s, y] ~ dbin(0, 0)
-			n[(periods[y,s]), s, y] ~ dbin(0,0)
+			n[(periods[y,s]+2), s, y] ~ dbin(0,0)
 		}
 	}
 		
 	for (y in 1:n.year){
 		for (s in 1:n.station[y]){
-			for (d in 2:(periods[y,s]-1)){
+			for (d in 2:(periods[y,s]+1)){
 				# observation per period d								
 				n[d, s, y] ~ dbin(obs.prob[d,s,y], N[day[d,s,y], y])
 				log.lkhd[(d-1),s,y] <- logdensity.bin(n[d,s,y], obs.prob[d, s, y], N[day[d,s,y], y])

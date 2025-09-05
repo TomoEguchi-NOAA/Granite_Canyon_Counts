@@ -26,6 +26,7 @@ library(rmarkdown)
 library(loo)
 library(bayesplot)
 library(ggridges)
+library(rstanarm)
 
 options(mc.cores = 5)
 
@@ -159,18 +160,20 @@ params.2 <- "^VS\\.Fixed|^BF\\.Fixed|^Max\\[|^S1|^S2|^P|^OBS\\.RF\\["
 n.big.Rhat <- n.bad.Pareto <- prop.bad.Pareto <- LOOIC <- vector(mode = "numeric", length = length(model.names))
 
 for (k in 1:length(model.names)){
-  .out <- readRDS(paste0("RData/JAGS_Richards_Nmixture_v", model.names[k], "a_1968to2025_min", min.dur, "_NoBUGS.rds"))
+  .out <- readRDS(paste0("RData/JAGS_Richards_Nmixture_v", 
+                         model.names[k], "a_1968to2025_min", 
+                         min.dur, "_NoBUGS.rds"))
   new.Rhat <- rank.normalized.R.hat(.out$jm$samples, params.2)
   #max.Rhat <- lapply(.out[[k]]$jm$Rhat, FUN = max, na.rm = T) %>%
   #  unlist()
   max.Rhat.big <- new.Rhat[which(new.Rhat > 1.01)]
   
-  data.array <- .out$jags.input$jags.data$n
-  data.array[,2,which(.out$jags.input$jags.data$n.station == 1)] <- NA
-  data.array[,2,which(.out$jags.input$jags.data$n.station == 1)] <- NA
+  # data.array <- .out$jags.input$jags.data$n
+  # data.array[,2,which(.out$jags.input$jags.data$n.station == 1)] <- NA
+  # data.array[,2,which(.out$jags.input$jags.data$n.station == 1)] <- NA
 
   LOOIC.n <- compute.LOOIC(loglik.array = .out$jm$sims.list$log.lkhd,
-                           data.array = data.array,
+                           #data.array = data.array,
                            MCMC.params = .out$MCMC.params)
   n.big.Rhat[k] <- length(max.Rhat.big)
   LOOIC[k] <- LOOIC.n$loo.out$estimates["looic", "Estimate"]
@@ -203,8 +206,31 @@ jm.out <- readRDS(paste0("RData/JAGS_Richards_Nmixture_v",
                          "a_1968to2025_min", min.dur,
                          "_NoBUGS.rds"))
 
-all.start.year <- c(jm.out$jags.input$jags.input.Laake$all.start.year,
-                    jm.out$jags.input$jags.input.new$start.years)
+# LOOIC and Pareto-k stats
+LOOIC.n <- compute.LOOIC(loglik.array = jm.out$jm$sims.list$log.lkhd,
+                         MCMC.params = jm.out$MCMC.params)
+
+# Match Pareto-k and data. Note that days 1 and 100 should be removed.
+n.array <- jm.out$jags.input$jags.data$n
+days <- jm.out$jags.input$jags.data$day
+
+# Create an array with corresponding years in non-NA elements
+year.array <- array(dim = dim(n.array))
+all.start.years <- c(jm.out$jags.input$jags.input.Laake$all.start.year,
+                     jm.out$jags.input$jags.input.new$start.years)
+
+for (k in 1:length(all.start.years)){
+    year.array[, , k] <- all.start.years[k]
+}
+
+n.vec <- n.array[days > 1 & days < 100] %>% na.omit()
+day.vec <- days[days > 1 & days < 100] %>% na.omit()
+year.vec <- year.array[days > 1 & days < 100] %>% na.omit()
+
+Pareto.df <- data.frame(year = year.vec,
+                        day = day.vec,
+                        n = n.vec,
+                        Pareto.K = LOOIC.n$loo.out$diagnostics$pareto_k)
 
 # trace plots of parameters with high Rhat values:
 new.Rhat <- rank.normalized.R.hat(jm.out$jm$samples, params.2)
@@ -242,6 +268,9 @@ if (save.fig) {
                height = 10, width = 10, units = "in",
                bg = "white")
 }
+
+all.start.year <- c(jm.out$jags.input$jags.input.Laake$all.start.year,
+                    jm.out$jags.input$jags.input.new$start.years)
 
 # Create a dataframe with all years, including unsampled years.
 all.years <- data.frame(start.year = seq(min(all.start.year), max(all.start.year))) %>%
@@ -295,6 +324,9 @@ N.hats.day <- data.frame(Season = rep(paste0(all.start.year,
                          UCL = as.vector(jm.out$jm$q97.5$N),
                          obs.n = obs.n.df$n,
                          Method = "Eguchi") 
+
+# To look at which data points had high Pareto-k values, I need to make all data 
+# in series. 
 
 
 # Daily estimates plots
@@ -436,6 +468,7 @@ N.hats.day.Durban <- data.frame(Season = rep(WinBugs.out$BUGS.input$seasons,
 
 N.hats.day.all <- rbind(N.hats.day, N.hats.day.Durban) %>% 
   filter(start.year > 2005)
+
 # Daily estimates plots
 p.daily.Durban <- ggplot(N.hats.day.Durban %>% group_by(Season)) + 
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
@@ -694,12 +727,13 @@ knitr::include_graphics(paste0("figures/posterior_Fixed_", dpi.set, "dpi.png"))
 
 ```
 
-The daily estimated mean between Durban's and new approaches was similar qualitatively (Figure \@ref(fig:Figure-daily-N-hats)), indicating the two approached used the data in a similar manner. For the 2006/2007 season, the new approach was applied to the data from the *ERAnalysis* package, whereas WinBUGS was ran on the input structure in Durban's analysis with 90 minutes as the minimum shift duration. Consequently, the observed counts are different between the two approaches. For the 2007/2008 season, no raw data were available. Therefore, the new approach was not applied to the data.
+The daily estimated mean between Durban's and the new approaches was similar qualitatively (Figure \@ref(fig:Figure-daily-N-hats)), indicating the two approaches used the data in a similar manner. 
 
-```{r Figure-daily-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated daily abundance and their 95% CIs using the new approach. The black lines indicate the mean."}
+```{r Figure-daily-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated daily abundance and their 95% CIs using Durban's (red) and the new approach (green). The solid lines indicate the mean. For the 2006/2007 season, the new approach was applied to the data from the *ERAnalysis* package, whereas WinBUGS was ran on the input structure in Durban's analysis with 90 minutes as the minimum shift duration. Consequently, the observed counts are different between the two approaches. For the 2007/2008 season, no raw data were available. Therefore, the new approach was not applied to the data."}
 
 knitr::include_graphics("figures/Daily_Eguchi_Durban.png")
 ```
+
 
 ```{r gam-glm-fit, echo=F,message=FALSE}
 library(mgcv)
@@ -797,7 +831,7 @@ lm.Durban <- lm(log(Nhat) ~ time,
 
 ```
 
-Fitted GAMs to the estimated abundance between the 2006/2007 and 2024/2025 seasons indicated that the three approaches provided comparable results with respect to the general trend (Figure \@ref(fig:Figure-gam-fits)). Furthermore, linear models ($log(Nhat) = time + \epsilon$) fitted to the point estimates from the 2014/2015 season to the 2024/2025 season indicated a similar rate of decline from the three approaches (Laake: `r signif(lm.Laake$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Laake))["time", "Std. Error"], 2)`. Durban: `r signif(lm.Durban$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Durban))["time", "Std. Error"], 2)`, Eguchi: `r signif(lm.Eguchi$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Eguchi))["time", "Std. Error"], 2)`).
+Fitted GAMs to the estimated abundance between the 2006/2007 and 2024/2025 seasons indicated that the three approaches provided comparable results in terms of the general trend (Figure \@ref(fig:Figure-gam-fits)). Furthermore, linear models ($log(Nhat) = time + \epsilon$) fitted to the point estimates from the 2014/2015 season to the 2024/2025 season indicated a statistically indistinguishable annual rate of decline among the three approaches (Laake: `r signif(lm.Laake$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Laake))["time", "Std. Error"], 2)`. Durban: `r signif(lm.Durban$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Durban))["time", "Std. Error"], 2)`, Eguchi: `r signif(lm.Eguchi$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Eguchi))["time", "Std. Error"], 2)`).
 
 ```{r Figure-gam-fits, echo=FALSE, message=FALSE, fig.cap = "Fitted generalized additive models to Estimated abundance and their 95% CIs."}
 
@@ -806,11 +840,13 @@ knitr::include_graphics(paste0("figures/gam_fit_", dpi.set, "dpi.png"))
 
 ## Discussion {.unnumbered}
 
-The new approach yielded comparable results to those obtained by Laake’s and Durban’s approaches. Although point estimates were different in some years, confidence/credible intervals overlapped in majority of the time series. The new approach included several favorable properties compared with Durban’s approach. First, it eliminated the use of the “cut” function, which had been deemed statistically inappropriate (Plummer yr). Second, it is coded in a more contemporary language (JAGS), which is widely used and freely available. Third, the goodness-of-fit is determined through a modern criterion using log-likelihood (LOOIC and Pareto-k statistic). In Durban’s approach, only one model was available, and the goodness-of-fit was not evaluated. Fourth, it runs faster than WinBUGS. The most recent analysis over the past 11 years using WinBUGS with 100,000 MCMC steps took `r signif(WinBugs.out$Run_Time, 3)` hrs. In comparison, the entire 32-year dataset was analyzed in approximately `r signif(jm.out$Run_Time, 2)` hrs on the same computer using the new approach with 550,000 MCMC steps of five chains using JAGS. Sixth, although the general modeling framework is the same (N-mixture model), the new code is simpler.
+The new approach yielded comparable results to those obtained by Laake’s and Durban’s approaches. Although point estimates were different in some years, confidence/credible intervals overlapped in majority of the time series. The new approach included several favorable properties compared with Durban’s approach. First, it eliminated the use of the “cut” function, which had been deemed statistically inappropriate (Plummer yr). Second, it is coded in a more contemporary language (JAGS), which is widely used and freely available. Third, the goodness-of-fit is determined through a modern criterion using log-likelihood (LOOIC and Pareto-k statistic). In Durban’s approach, only one model was available, and the goodness-of-fit was not evaluated. Fourth, it runs faster than WinBUGS. The most recent analysis over the past 11 years using WinBUGS with 100,000 MCMC steps took `r signif(WinBugs.out$Run_Time, 3)` hrs. In comparison, the entire 32-year dataset was analyzed in approximately `r signif(jm.out$Run_Time, 2)` hrs on the same computer using the new approach with 550,000 MCMC steps of five chains using JAGS. Fifth, although the general modeling framework is the same N-mixture model, the new approach is simpler.
 
-Fitted GAMs indicated that these models provided a similar pattern of fluctuations in the EP gray whale abundance. The rate of recent decline in abundance was the same regardless of the approach used (compute these).
+GAMs fitted to point estimates of abundance indicated that these models provided a similar pattern of fluctuations in the EP gray whale abundance. The rate of recent decline in abundance was the same regardless of the approach used. These results showed that the new approach provided equivalent abundance estimates to the previous approaches. 
 
-The new approach can accommodate additional information if it becomes available. For example, there is an effort to estimate the precision and possible biases of estimated group sizes by visual observers, using uncrewed aircraft systems (UAS). Suppose a correction function can be determined for each sighting, conditional on the recorded group size by visual observers. Such a function can be incorporated into the observation likelihood loop, where each sighting within a period is corrected using the function. The observed number of individual whales in each period, then, is the sum of all corrected group sizes within the period.
+The new approach can accommodate additional information if it becomes available. For example, there is an effort to estimate the precision and possible biases of estimated group sizes by visual observers, using uncrewed aircraft systems (UAS). Suppose a correction function can be determined for each sighting from the UAS-based data, conditional on the recorded group size by visual observers. Such a function can be incorporated into the observation likelihood loop, where each sighting within a period is corrected using the function. The model can be incorporated into a holistic population model, such as one created by Stewart et al. (2023). 
+
+In summary, the new approach provided a simpler and faster algorithm to estimate abundance of gray whales from the long-term visual surveys conducted at Granite Canyon, CA. 
 
 ## Literature cited {.unnumbered}
 
@@ -822,7 +858,7 @@ Vehtari, A., Gelman, A. & Gabry, J. Practical Bayesian model evaluation using le
 
 ### Mathematical description of Durban's approach {.unnumbered}
 
-This section was extracted from Durban et al. (2015), almost verbatim. I edited some places to make explanations clearer and changed some symbols to make them consistent between theirs and my proposed approach, which is described later in this document.
+This section was extracted from Durban et al. (2015), almost verbatim. I edited some places to make explanations clearer and changed some symbols to make them consistent between theirs and the new approach.
 
 The total counts of whales ($n_{i,d(j),t}$) during the watch period $j$ of the $d$th day in the year $t$ at the watch station $i$ was modeled as a binomial random deviate (in the paper, $j$ was not specified as the $j$th watch period during the $d$th day of the season):
 

@@ -1973,7 +1973,7 @@ data2Jags_input_NoBUGS <- function(min.dur,
       # 0.375 is 9 hrs and watch.prop = 1.0
       watch.length[1:(n.row.P-2),1,k] <- c(Final_data.P$watch.length)
       day[1:n.row.P,1,k] <- c(1, floor(Final_data.P$begin), max.day)
-      periods.mat[k,1] <- nrow(Final_data.P) + 2
+      periods.mat[k,1] <- nrow(Final_data.P) 
       
       # fill in the secondary 
       n.row.S <- length(Final_data.S$n) + 2
@@ -1988,7 +1988,7 @@ data2Jags_input_NoBUGS <- function(min.dur,
       watch.length[1:(n.row.S-2),2,k] <- c(Final_data.S$watch.length)
       day[1:n.row.S,2,k] <- c(1, floor(Final_data.S$begin), max.day)
       
-      periods.mat[k,2] <- nrow(Final_data.S) + 2
+      periods.mat[k,2] <- nrow(Final_data.S)
       
     } else {
       n.row <- length(Final_data$n) + 2
@@ -2002,7 +2002,7 @@ data2Jags_input_NoBUGS <- function(min.dur,
       obs[1:n.row,1,k] <- c(no.obs.ID, obs.year$ID, no.obs.ID)
       watch.length[1:(n.row-2),1,k] <- c(Final_data$watch.length)
       day[1:n.row,1,k] <- c(1, floor(Final_data$begin), max.day)
-      periods.mat[k,1] <- nrow(Final_data) + 2
+      periods.mat[k,1] <- nrow(Final_data)
       
     }
     
@@ -2615,37 +2615,29 @@ shift.hrs <- data.frame(shift = c(1:6),
                         end.hr = c(9,10.5,12,13.5,15,16.5))
 
 
-compute.LOOIC <- function(loglik.array, data.array, MCMC.params){
+compute.LOOIC <- function(loglik.array, MCMC.params){
   n.per.chain <- (MCMC.params$n.samples - MCMC.params$n.burnin)/MCMC.params$n.thin
+  n.samples <- dim(loglik.array)[1]
   
-  # Convert the log-likelihood and data arrays into vectors
-  loglik.vec <- c(loglik.array)
-  data.vec <- c(data.array)
+  # Create an empty list to hold the log likelihood values
+  ll.list <- vector("list", length = n.samples)
   
-  # Convert the log-likelihood vector into a 2D array
-  n.data <- length(data.vec)
-  loglik.mat <- array(loglik.vec, 
-                      c((n.per.chain * MCMC.params$n.chains), n.data))
+  # loop through each MCMC sample and collect log likelihood values
+  for (s in 1:n.samples){
+    ll.cube <- loglik.array[s,,,]
+    ll.list[[s]] <- ll.cube[!is.na(loglik.array[s,,,])]
+  }
   
-  # remove the log-likelihood values that correspond to NA data points
-  loglik.mat <- loglik.mat[, !is.na(data.vec)]
-  
-  # Also, some of data points (0s) were unobserved and no log likelihood values
-  # exist
-  colsums.loglik <- colSums(loglik.mat)
-  loglik.mat <- loglik.mat[, !is.na(colsums.loglik)]
-  
-  # remove NAs in the data vector
-  #data.vec <- data.vec[!is.na(data.vec)]
+  loglik.mat <- do.call(rbind, ll.list)
   
   Reff <- relative_eff(exp(loglik.mat),
                        chain_id = rep(1:MCMC.params$n.chains,
                                       each = n.per.chain),
-                       cores = 4)
+                       cores = 5)
   
   loo.out <- rstanarm::loo(loglik.mat, 
                            r_eff = Reff, 
-                           cores = 4, k_threshold = 0.7)
+                           cores = 5, k_threshold = 0.7)
   
   out.list <- list(Reff = Reff,
                    loo.out = loo.out)

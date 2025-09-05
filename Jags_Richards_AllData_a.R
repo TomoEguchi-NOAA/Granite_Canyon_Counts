@@ -60,6 +60,11 @@ MCMC.params <- list(n.samples = 550000,
 #                     n.burnin = 50,
 #                     n.chains = 5)
 
+MCMC.params <- list(n.samples = 5000,
+                    n.thin = 5,
+                    n.burnin = 2500,
+                    n.chains = 5)
+
 jags.params <- c("VS.Fixed", "BF.Fixed",
                  "Max", "K", "K1", "K2", "S1", "S2", "P",
                  "P1", "P2", "P2.U",
@@ -75,6 +80,7 @@ jags.params <- c("VS.Fixed", "BF.Fixed",
                  #"N.alpha", "N.obs",
                  "log.lkhd")
 
+ver <- "v5a"
 for (ver in c("v2a", "v15a", "v17a", "v18a", "v5a", "v16a", "v19a", "v20a")){
 #for (ver in c("v1b", "v2b", "v3b", "v4b", "v5b", "v6b", "v7b", "v8b")){
   print(paste0("Starting ", ver, " at ", Sys.time()))
