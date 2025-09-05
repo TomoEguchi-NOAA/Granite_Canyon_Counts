@@ -2620,24 +2620,34 @@ compute.LOOIC <- function(loglik.array, MCMC.params){
   n.samples <- dim(loglik.array)[1]
   
   # Create an empty list to hold the log likelihood values
-  ll.list <- vector("list", length = n.samples)
+  #ll.list <- vector("list", length = n.samples)
+  
+  loglik.list <- lapply(1:n.samples, function(s) {
+    # Extract the slice for the current sample 's'
+    slice <- loglik.array[s, , , ]
+    # Return the non-NA values from that slice
+    slice[!is.na(slice)]
+  })
+  
+  #loglik.list <- apply(loglik.array, 1, function(slice) slice[!is.na(slice)])
   
   # loop through each MCMC sample and collect log likelihood values
-  for (s in 1:n.samples){
-    ll.cube <- loglik.array[s,,,]
-    ll.list[[s]] <- ll.cube[!is.na(loglik.array[s,,,])]
-  }
+  # for (s in 1:n.samples){
+  #   ll.cube <- loglik.array[s,,,]
+  #   ll.list[[s]] <- ll.cube[!is.na(loglik.array[s,,,])]
+  # }
   
-  loglik.mat <- do.call(rbind, ll.list)
+  loglik.mat <- do.call(rbind, loglik.list)
   
   Reff <- relative_eff(exp(loglik.mat),
                        chain_id = rep(1:MCMC.params$n.chains,
                                       each = n.per.chain),
-                       cores = 5)
+                       cores = MCMC.params$n.chains)
   
   loo.out <- rstanarm::loo(loglik.mat, 
                            r_eff = Reff, 
-                           cores = 5, k_threshold = 0.7)
+                           cores = MCMC.params$n.chains, 
+                           k_threshold = 0.7)
   
   out.list <- list(Reff = Reff,
                    loo.out = loo.out)
