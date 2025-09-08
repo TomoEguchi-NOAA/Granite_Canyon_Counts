@@ -213,6 +213,7 @@ LOOIC.n <- compute.LOOIC(loglik.array = jm.out$jm$sims.list$log.lkhd,
 # Match Pareto-k and data. Note that days 1 and 100 should be removed.
 n.array <- jm.out$jags.input$jags.data$n
 days <- jm.out$jags.input$jags.data$day
+watch.prop <- jm.out$jags.input$jags.data$watch.length
 
 # Create an array with corresponding years in non-NA elements
 year.array <- array(dim = dim(n.array))
@@ -227,10 +228,27 @@ n.vec <- n.array[days > 1 & days < 100] %>% na.omit()
 day.vec <- days[days > 1 & days < 100] %>% na.omit()
 year.vec <- year.array[days > 1 & days < 100] %>% na.omit()
 
-Pareto.df <- data.frame(year = year.vec,
+# Watch.prop does not have day 1 and day 100.
+# To use the same selection using days, add zero rows:
+zero.rows <- array(data = 0, dim = c(1, 2, dim(n.array)[3]))
+watch.prop <- abind(zero.rows, watch.prop, along = 1)
+watch.prop <- abind(watch.prop, zero.rows, along = 1)
+
+watch.prop.vec <- watch.prop[days > 1 & days < 100]  %>% na.omit()
+
+Pareto.df <- data.frame(start.year = year.vec,
+                        season = paste0(year.vec, "/", (year.vec+1)),
                         day = day.vec,
                         n = n.vec,
-                        Pareto.K = LOOIC.n$loo.out$diagnostics$pareto_k)
+                        watch.prop = watch.prop.vec,
+                        Pareto.k = LOOIC.n$loo.out$diagnostics$pareto_k) %>%
+  mutate(Pareto.group = ifelse(Pareto.k < 0.7, "good", "bad"),
+         N.hat = n/watch.prop)
+
+
+p.Pareto.k <- ggplot(Pareto.df ) +
+  geom_point(aes(x = day, y = n, color = Pareto.group)) +
+  facet_wrap(~season)
 
 # trace plots of parameters with high Rhat values:
 new.Rhat <- rank.normalized.R.hat(jm.out$jm$samples, params.2)
@@ -267,6 +285,14 @@ if (save.fig) {
                dpi = dpi.set, device = "png",
                height = 10, width = 10, units = "in",
                bg = "white")
+  
+  save.fig.fcn(fig = p.Pareto.k, 
+               file.name = "figures/High_Pareto_k.png", 
+               replace = T, 
+               dpi = dpi.set, device = "png",
+               height = 10, width = 10, units = "in",
+               bg = "white")
+  
 }
 
 all.start.year <- c(jm.out$jags.input$jags.input.Laake$all.start.year,
@@ -289,13 +315,18 @@ Nhat. <- data.frame(Season = paste0(all.start.year, "/",
 # Create an observed counts dataframe
 obs.day <- jm.out$jags.input$jags.data$day[,1,]
 obs.n <- jm.out$jags.input$jags.data$n[,1,]
+obs.prop <- jm.out$jags.input$jags.data$watch.length[,1,]
+obs.prop <- rbind(c(rep(0, ncol(obs.n))),
+                  obs.prop,
+                  c(rep(0, ncol(obs.n))))
 
 obs.n.df <- data.frame(start.year = rep(all.start.year, each = 100),
                        Season = rep(paste0(all.start.year, "/",
                                            all.start.year+1),
                                     each = 100),
                        Day = rep(1:100, times = length(all.start.year)),
-                       n = NA)
+                       n = NA,
+                       prop = NA)
 
 k1 <- k2 <- 1
 for (k1 in 1:length(all.start.year)){
@@ -305,7 +336,8 @@ for (k1 in 1:length(all.start.year)){
   for (k2 in 1:length(obs.day.1.uniq)){
     obs.n.df[obs.n.df$start.year == all.start.year[k1] &
                obs.n.df$Day == obs.day.1.uniq[k2], "n"] <- sum(obs.n[obs.day[,k1] == obs.day.1.uniq[k2], k1], na.rm = T)
-    
+    obs.n.df[obs.n.df$start.year == all.start.year[k1] &
+               obs.n.df$Day == obs.day.1.uniq[k2], "prop"] <- sum(obs.prop[obs.day[,k1] == obs.day.1.uniq[k2], k1], na.rm = T)
   }
   
 }
@@ -323,25 +355,23 @@ N.hats.day <- data.frame(Season = rep(paste0(all.start.year,
                          LCL = as.vector(jm.out$jm$q2.5$N),
                          UCL = as.vector(jm.out$jm$q97.5$N),
                          obs.n = obs.n.df$n,
-                         Method = "Eguchi") 
-
-# To look at which data points had high Pareto-k values, I need to make all data 
-# in series. 
-
+                         prop = obs.n.df$prop,
+                         Method = "Eguchi") %>%
+  mutate(Nhat = obs.n/prop)
 
 # Daily estimates plots
 p.daily.Richards <- ggplot(N.hats.day %>% group_by(Season)) + 
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
               fill = "blue", alpha = 0.5) +
   geom_path(aes(x = Day, y = Mean)) + 
-  geom_point(aes(x = Day, y = obs.n), color = "darkgreen") +
+  geom_point(aes(x = Day, y = Nhat), color = "darkgreen") +
   facet_wrap(~ Season)
 
 save.fig.fcn(fig = p.daily.Richards, 
                file.name = "figures/Daily_Eguchi.png", 
                replace = T, 
                dpi = dpi.set, device = "png",
-               height = 5, width = 7, units = "in",
+               height = 10, width = 10, units = "in",
                bg = "white")
 
 Reported.estimates <- read.csv(file = "Data/Nhats_2025.csv") %>%  
@@ -382,6 +412,7 @@ Corrected.Est <- WinBugs.out$BUGS.out$sims.list$Corrected.Est
 Bugs.obs.day <- WinBugs.out$BUGS.input$data$day
 Bugs.obs.n <- WinBugs.out$BUGS.input$data$n[,1,]
 Bugs.obs.n <- rbind(Bugs.obs.n, matrix(nrow = 2, ncol = ncol(Bugs.obs.n)))
+Bugs.obs.prop <- WinBugs.out$BUGS.input$data$Watch.Length
 
 Bugs.start.year <- WinBugs.out$BUGS.input$all.years - 1
 Bugs.obs.n.df <- data.frame(start.year = rep(Bugs.start.year, 
@@ -390,7 +421,8 @@ Bugs.obs.n.df <- data.frame(start.year = rep(Bugs.start.year,
                                            Bugs.start.year + 1),
                                     each = 90),
                        Day = rep(1:90, times = length(Bugs.start.year)),
-                       n = NA)
+                       n = NA,
+                       Prop = NA)
 
 k1 <- k2 <- 1
 for (k1 in 1:length(Bugs.start.year)){
@@ -402,7 +434,9 @@ for (k1 in 1:length(Bugs.start.year)){
     Bugs.obs.n.df[Bugs.obs.n.df$start.year == Bugs.start.year[k1] &
                     Bugs.obs.n.df$Day == obs.day.1.uniq[k2], "n"] <- sum(Bugs.obs.n[Bugs.obs.day[,k1] == obs.day.1.uniq[k2], k1], 
                                                                          na.rm = T)
-    
+    Bugs.obs.n.df[Bugs.obs.n.df$start.year == Bugs.start.year[k1] &
+                    Bugs.obs.n.df$Day == obs.day.1.uniq[k2], "Prop"] <- sum(Bugs.obs.prop[Bugs.obs.day[,k1] == obs.day.1.uniq[k2], k1], 
+                                                                         na.rm = T)
   }
   
 }
@@ -461,7 +495,9 @@ N.hats.day.Durban <- data.frame(Season = rep(WinBugs.out$BUGS.input$seasons,
                                 LCL = as.vector(LCL.mat),
                                 UCL = as.vector(UCL.mat),
                                 obs.n = Bugs.obs.n.df$n, 
-                                Method = "Durban")
+                                prop = Bugs.obs.n.df$Prop,
+                                Method = "Durban") %>%
+  mutate(Nhat = obs.n/prop)
 ```
 
 ```{r all-results, message=FALSE, echo=FALSE}
@@ -474,7 +510,7 @@ p.daily.Durban <- ggplot(N.hats.day.Durban %>% group_by(Season)) +
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
               fill = "blue", alpha = 0.5) +
   geom_path(aes(x = Day, y = Mean)) + 
-  geom_point(aes(x = Day, y = obs.n), color = "darkgreen") +
+  geom_point(aes(x = Day, y = Nhat), color = "darkgreen") +
   facet_wrap(~ Season)
 
 if (save.fig)
@@ -1141,127 +1177,3 @@ knitr::include_graphics(paste0("figures/posteriors_S2_", dpi.set, "dpi.png"))
 ```
 
 ### JAGS code for Model 5
-
-model{
-
-	# Define Richards function - this is the mean of "true" daily abundance
-	# The realization is a Poisson deviate. 
-	for (y in 1:n.year){
-				
-		for (t in 2:(n.days-1)){
-			# year-specific K - results in conversion issues. 2022-11-09 
-			# This was fixed by adding hyperparameters. 2024
-			M1[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/(-S1[y])) * (P[y] - t))) ^ (-1/exp(K))
-			M2[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K))
-			
-			mean.N[t, y] <- (Max[y]) * (M1[t, y] * M2[t, y]) 
-			
-			# True N is station independent and partially observed
-			# N = 0 when t = 1 or t = max.day
-			N[t, y] ~ dpois(mean.N[t,y])
-			
-		}
-	}  
-
-	# observations are from the realized abundance: N-mixture part with 
-	# binomial sampling
-	
-	# force n = 0 for t = 1 and t = max.day
-	for (y in 1:n.year){
-		for (s in 1:n.station[y]){
-			n[1, s, y] ~ dbin(0, 0)
-			n[(periods[y,s]), s, y] ~ dbin(0,0)
-		}
-	}
-		
-	for (y in 1:n.year){
-		for (s in 1:n.station[y]){
-			for (d in 2:(periods[y,s]-1)){
-				# observation per period d								
-				n[d, s, y] ~ dbin(obs.prob[d,s,y], N[day[d,s,y], y])
-				log.lkhd[(d-1),s,y] <- logdensity.bin(n[d,s,y], obs.prob[d, s, y], N[day[d,s,y], y])
-				
-				# probability is mean + covariate effects and watch.length as an offset
-				logit(obs.prob[d,s,y]) <- mean.prob +
-								(BF.Fixed * bf[(d-1),s,y]) +
-								(VS.Fixed * vs[(d-1),s,y]) +
-								(OBS.RF[obs[d,s,y]]) +
-								log(watch.length[(d-1), s, y])
-
-			}
-		}
-	}
-		
-	# It doesn't make sense to make it [0,1]...
-	mean.prob ~ dunif(-1.5, 3) 
-	
-	# priors for Richards function parameters. 
-	for (y in 1:n.year){
-		Max[y] ~ dnorm(2000, 1/(800^2))T(0,)
-		S1[y] ~ dgamma(S1.alpha, S1.beta)  
-		S2[y] ~ dgamma(S2.alpha, S2.beta)  
-		P[y] ~ dunif(30, 60) #dgamma(P.alpha, P.beta) 	
-	}
-
-	# Uniform distributions were adjusted to capture entire posterior 
-	# distributions of the hyper-parameters. 
-	
-	S1.alpha ~ dunif(0.1, 50)
-	S1.beta ~ dunif(0.01, 5)
-	
-	S2.alpha ~ dunif(0.1, 50)
-	S2.beta ~ dunif(0.01, 10)
-	
-	#P.alpha ~ dunif(1, 10000)
-	#P.beta ~ dunif(0.01, 250)
-	
-	K ~ dgamma(K.alpha, K.beta) 
-	
-	# K.beta <= K.alpha seems to work better with the gamma distribution for K
-	# So, I add a random number to K.beta to create K.alpha
-	K.beta ~ dunif(0, 5000)
-	K.unif ~ dunif(0, 500)
-	K.alpha <- K.beta + K.unif
-	     
-	## Observer random effects
-	for(o in 1:n.obs){
-		OBS.RF[o] ~ dnorm(0,tau.Obs)
-	}#o
-  
-	sigma.Obs ~ dunif(0, 3) #dgamma(1, 0.1)
-	tau.Obs <- pow(sigma.Obs,-2)
-     
-	## Beaufort and visibility	
-	BF.Fixed ~ dnorm(0,0.001) 
-	VS.Fixed ~ dnorm(0,0.001) 
-  
-	### Summaries, Abundance Estimates, and Other Derived Quantities 
-	for(t in 1:n.year){
-		#N is Poisson deviates so they should be integers
-		#raw.unrounded[t] <- sum(N[1:n.days,t])
-		#Raw.Est[t] <- round(raw.unrounded[t])
-		
-		Raw.Est[t] <- sum(N[1:n.days, t])
-		# multiply raw estimates by correction factor for nighttime passage rates (below)
-		Corrected.Est[t] <- Raw.Est[t] * corr.factor 
-	}#t
-  
-	# Correction factor for nighttime passage rates (Perryman et al. 1999 Marine Mammal Science):
-	corr.factor ~ dnorm(mean.corr, tau.corr)
-	mean.corr <- 1.0875
-	sd.corr <- 0.03625
-	tau.corr <- pow(sd.corr,-2)
-  		
-	 
-  # In the paper, Perryman et al. stated that "... the multiplicative correction 
-  # factor for the entire visual survey based on a 15-h nocturnal (i.e., non-survey)
-  # period would be 1 + 0.175f (SE = 0.116 * (14/24)), where f is the fraction of total
-  # whales migrating afer 15 January." So, fixing the mean to be 1.0875, it assumes that
-  # the median date of migration is Jan 15 (1 + 0.175 * 0.5 = 1.0875). This may have to
-  # be fixed to adjust for the changing median migration date. SE of 0.03625 was not found
-  # in the paper... 0.116*(14/24) = 0.0677	
-  
-  # There was a typographic error in Perryman et al. Laake et al. (2012) stated that "... a
-  # standard error of f x 15/24 x 0.116 after correcting the typographic errors in Perryman
-  # et al. (1999).
-}
