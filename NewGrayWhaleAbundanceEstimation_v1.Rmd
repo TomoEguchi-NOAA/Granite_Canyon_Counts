@@ -65,7 +65,13 @@ This report presents improvements to the method developed by Durban et al. I wil
 
 To estimate the detectability of gray whales by visual observers at the field station located at Granite Canyon, CA, counts from two independent stations of paired observers operating simultaneously were compared during two seasons (2009/2010 and 2010/2011). The two watch stations were positioned 35 m apart at the same elevation (22.5 m) above sea level (Durban et al. 2015). For the years with only one station, the detectability was extrapolated for all monitored watch periods based on the fitted model for the detectability, where the counts for the south watch station were treated as zero inflated binomial outcomes. The binomial probability was specified as the product of an indicator function and the detectability ($u_{i,j,t} \times p_{i,j,t}$), where $u$ = 1 or 0 to indicate whether or not count data were collected from that station, respectively. This formulation ensured that structural zero counts from periods without a second watch did not contribute to the likelihood for estimation of $p$ or $N$ (Durban et al. 2015).
 
-Consistent with Laake et al. (2012), the model for the detectability incorporated fixed effects for visibility ($V$) and the Beaufort sea state ($B$), whereas observers were treated as random effects ($O$). These were modeled as additive effects on a general intercept so that the direction and magnitude of the estimated effects away from zero (no effect) could be assessed. The selection for the inclusion of these effects was accomplished by using Bayesian model selection with stochastic binary indicator variables $I$ to switch each of the three possible effects (i.e., $V$, $B$, and $O$) either in or out of the model.
+Consistent with Laake et al. (2012), the model for the detection probability incorporated fixed effects for visibility ($VS$) and the Beaufort sea state ($BF$), whereas observers were treated as random effects ($O$). These were modeled as additive effects on a general intercept so that the direction and magnitude of the estimated effects away from zero (no effect) could be assessed. The selection for the inclusion of these effects was accomplished by using Bayesian model selection with stochastic binary indicator variables $I$ to switch each of the three possible effects (i.e., $V$, $B$, and $O$) either in or out of the model:
+
+$$ logit(p) = logit(p_0) + BF_I \times B_{BF} \times BF + VS_I \times B_{VS} \times VS + O_I \times O $$
+
+$$ obs.prob = u \times p $$
+
+where $BF_I$, $VS_I$, and $O_I$ are indicator variables, $B_{BF}$ and $B_{VS}$ are coefficients, $BF$ and $VS$ are observed Beaufort and visibility codes, respectively, $O$ is the observer random effect, and $u$ is an indicator function on whether or not a secondary observer was present. Coefficients were computed separately for the normal and spline functions, where one or the other was selected based on which function was deemed appropriate for each day.
 
 A mathematical description of the approach by Durban et al. is provided in the Appendix.
 
@@ -75,7 +81,7 @@ Durban et al. (2015) used the "cut" function within WinBUGS to dissociate estima
 
 ## Methods {-}
 
-### Data
+### Data {-}
 A series of modifications were made from the 1967/1968 to 2006/2007 seasons (Laake et al. 2012). starting in the 2010/2011 season, further modifications were employed where a computer was used to predict movements of gray whale pods, thereby increasing the chance of repeatedly observing the same pods to accurately determine the number of individuals in each pod. In Durban et al. (2015), they treated the data from previous years as not compatible in their analysis. Consequently, the subsequent analysis to estimate gray whale abundance used the data since the 2006/2007 season (e.g., Stewart and Weller 2021, Eguchi et al., 2022, 2023, 2024, 2025). 
 
 In this paper, however, I used all the data from the 1967/1968 season because similar data were collected throughout the survey. I developed the model to be able to accommodate differing survey duration.   
@@ -118,7 +124,11 @@ $$ N_{t, y} \sim POI(\bar{N}_{t,y}) $$
 
 where $\bar{N}_{t,y}$ is the expected number of whales that migrate through the sampling area on the day $t$ of the season $y$, which is modeled with the Richards equation. The binomial model of Durban et al. was used to approximate the sampling process. The observation probability ($p_{i_t, s, y}$) was a function of the viewing conditions (the Beaufort sea state ($B$) and visibility code ($V$)), the overall mean probability of detection ($\beta_0$), observer random effects ($O$), and a watch duration offset ($L$). The watch duration offset was included to accommodate differing durations of observation shifts due to changes in survey protocols and inclement conditions. For the observer random effects, individuals with fewer than 10 sightings were pooled into a single “observer” category, as their limited data were not sufficient for use as a distinct random effect.
 
-$$ logit(p_{i_t, s, y}) = \beta_0 + \beta_{B} * B_{i_t, y} + \beta_{V} * V_{i_t, y} + O_{i_t, s, y} + log(L_{i_t, y})  $$ where the index $i_t$ is the watch period $i$ of the day $t$, $s$ is the station (1 or 2), and $y$ is the season.
+\begin{equation}
+logit(p_{i_t, s, y}) = \beta_0 + \beta_{B} \times B_{i_t, y} + \beta_{V} \times V_{i_t, y} + O_{i_t, s, y} + log(L_{i_t, y}) (\#eq:detection-probability)
+\end{equation}
+
+where the index $i_t$ is the watch period $i$ of the day $t$, $s$ is the station (1 or 2), and $y$ is the season.
 
 Observed counts were modeled with a binomial distribution:
 
@@ -170,6 +180,10 @@ JAGS models and R scripts to conduct the analysis, including data extraction and
 ```{r model-comparison, echo=FALSE, message=FALSE, warning=FALSE}
 model.names <- c("2", "15", "17", "18",
                  "5", "16", "19", "20")
+# model IDs in the manuscript is in the same order as above but the numbers are
+# different:
+model.ID <- c(1:length(model.names))
+
 # Select only parameters for the function. 
 # ^ means the subsequent letter is the beginning of a string
 # \\. means a literal period
@@ -189,6 +203,32 @@ params.2 <- "^VS\\.Fixed|^BF\\.Fixed|^Max\\[|^S1|^S2|^P|^OBS\\.RF\\["
 #max.Rhat.big <- list()
 n.big.Rhat <- n.bad.Pareto <- prop.bad.Pareto <- LOOIC <- vector(mode = "numeric", length = length(model.names))
 
+# t.1 <- Sys.time()
+# out.list <- lapply(model.names, 
+#                    FUN = function(x){
+#                      .out <- readRDS(paste0("RData/JAGS_Richards_Nmixture_v", 
+#                                             x, "a_1968to2025_min", 
+#                                             min.dur, "_NoBUGS.rds"))
+#                      new.Rhat <- rank.normalized.R.hat(.out$jm$samples, params.2)
+#                      max.Rhat.big <- new.Rhat[which(new.Rhat > 1.01)]
+#                      
+#                      LOOIC.n <- compute.LOOIC(loglik.array = .out$jm$sims.list$log.lkhd,
+#                                               #data.array = data.array,
+#                                               MCMC.params = .out$MCMC.params)
+#                      n.big.Rhat <- length(max.Rhat.big)
+#                      LOOIC <- LOOIC.n$loo.out$estimates["looic", "Estimate"]
+#                      n.bad.Pareto <- sum(LOOIC.n$loo.out$pointwise[,5] > 0.7)
+#                      prop.bad.Pareto <- 100 * (n.bad.Pareto/nrow(LOOIC.n$loo.out$pointwise))                     
+#                      
+#                      out.list <- list(LOOIC = LOOIC,
+#                                       n.big.Rhat = n.big.Rhat,
+#                                       n.bad.Pareto = n.bad.Pareto,
+#                                       prop.bad.Pareto = prop.bad.Pareto)
+#                      return(out.list)
+#                    })
+# d.t <- Sys.time() - t.1  # 1.70 min
+
+#t.2 <- Sys.time()
 for (k in 1:length(model.names)){
   .out <- readRDS(paste0("RData/JAGS_Richards_Nmixture_v", 
                          model.names[k], "a_1968to2025_min", 
@@ -210,17 +250,19 @@ for (k in 1:length(model.names)){
   n.bad.Pareto[k] <- sum(LOOIC.n$loo.out$pointwise[,5] > 0.7)
   prop.bad.Pareto[k] <- 100 * (n.bad.Pareto[k]/nrow(LOOIC.n$loo.out$pointwise))
 }
+#d.t.2 <- Sys.time() - t.2 # 1.68 min
 
-out.table <- data.frame(model = 1:length(model.names),
+out.table <- data.frame(model = model.ID,
                         #LOOIC = LOOIC,
                         dLOOIC = LOOIC - min(LOOIC),
                         n.big.Rhat = n.big.Rhat,
                         n.bad.Pareto = n.bad.Pareto,
-                        p.bad.Pareto = prop.bad.Pareto) %>% arrange(by = dLOOIC)
+                        p.bad.Pareto = prop.bad.Pareto) %>% 
+  arrange(by = dLOOIC)
 
 ```
 
-The eight models were fitted to the sightings data over 32 seasons. Based on LOOIC and Pareto-k statistics, Model `r out.table$model[which(out.table$dLOOIC == 0)]` was identified as the best-fitting model (Table \@ref(tab:model-table)). Although Model `r out.table$model[which(n.big.Rhat == min(out.table$n.big.Rhat))]` had the fewest parameters with the R-hat statistics \< 1.01 (Table 2), after visual inspection of trace plots for parameters with high Rhat statistics (Appendix Figures \@ref(fig:Figure-trace-1), \@ref(fig:Figure-trace-2), and \@ref(fig:Figure-trace-3)), I concluded that Model `r out.table$model[which(out.table$dLOOIC == 0)]` was the most appropriate for inference. The model consists of year-specific $P$ ($P_1 = P_2$), $S_1$, and $S_2$ parameters (Table \@ref(tab:model-definitions)).
+The eight models were fitted to the sightings data over 32 seasons. Based on LOOIC and Pareto-k statistics, Model `r out.table$model[1]` was identified as the best-fitting model (Table \@ref(tab:model-table)). Although Model `r model.ID[which(n.big.Rhat == min(n.big.Rhat))]` had the fewest parameters with the R-hat statistics \< 1.01 (Table 2), after visual inspection of trace plots for parameters with high Rhat statistics (Appendix Figures \@ref(fig:Figure-trace-1), \@ref(fig:Figure-trace-2), and \@ref(fig:Figure-trace-3)), I concluded that Model `r out.table$model[1]` was the most appropriate for inference. The model consists of year-specific $P$ ($P_1 = P_2$), $S_1$, and $S_2$ parameters (Table \@ref(tab:model-definitions)).
 
 ```{r model-table, echo=F, message=F, tab.cap="Comparison of eight models."}
 knitr::kable(out.table, col.names = c("Model", "$\\Delta$LOOIC", "# Rhat > 1.01", "# Pareto-K > 0.7", "% Pareto-K > 0.7" ), digits = 2, escape = FALSE)
@@ -780,19 +822,58 @@ lm.Durban <- lm(log(Nhat) ~ time,
 
 GAMs fitted to the estimated abundance between the 2006/2007 and 2024/2025 seasons indicated that all three approaches provided comparable results regarding the general trend (Figure \@ref(fig:Figure-gam-fits)). Furthermore, linear models ($log(Nhat) = time + \epsilon$) fitted to the point estimates from the 2014/2015 season to the 2024/2025 season revealed a statistically indistinguishable annual rate of decline among the three approaches (Laake: `r signif(lm.Laake$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Laake))["time", "Std. Error"], 2)`. Durban: `r signif(lm.Durban$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Durban))["time", "Std. Error"], 2)`, Eguchi: `r signif(lm.Eguchi$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Eguchi))["time", "Std. Error"], 2)`).
 
-```{r Figure-gam-fits, echo=FALSE, message=FALSE, fig.cap = "Fitted generalized additive models to Estimated abundance and their 95% CIs."}
+```{r Figure-gam-fits, echo=FALSE, message=FALSE, fig.cap = "Fitted generalized additive models to estimated abundance and their 95% CIs."}
 
 knitr::include_graphics(paste0("figures/gam_fit_", dpi.set, "dpi.png"))
 ```
 
-Detection probabilities ... 
-
 ```{r detection-probabilities, echo=FALSE, message=FALSE}
-
-
+mean.p.0 <- exp(jm.out$jm$mean$mean.prob)/(1 + exp(jm.out$jm$mean$mean.prob))
+p.0.CLs <- c(exp(jm.out$jm$q2.5$mean.prob)/(1 + exp(jm.out$jm$q2.5$mean.prob)),
+             exp(jm.out$jm$q97.5$mean.prob)/(1 + exp(jm.out$jm$q97.5$mean.prob)))
 
 ```
 
+
+In the new approach, the base detection probability ($\beta_0$) was significantly lower for the new approach (mean = `r signif(mean.p.0, 3)`, 95% CI = [`r signif(p.0.CLs[1], 3)` - `r signif(p.0.CLs[2], 3)`]) than in Durban et al. (0.80, 95% Highest Posterior Density Interval = 0.75-0.85). As expected, the fixed effect of the visibility code on observation probability was negative (Figure \@ref(fig:Figure-Fixed-posteriors)), indicating that less favorable conditions resulted in lower detection probabilities. Perplexingly, the fixed effect of the Beaufort sea state was positive (Figure \@ref(fig:Figure-Fixed-posteriors)) suggesting that higher Beaufort sea states corresponded with greater detection probabilities. One possible explanation is that observers may have detected more singletons at low sea states, whereas only large groups were sighted at high sea states. The observer random effects indicated significant differences among individuals, consistent with the findings of Durban et al. (Appendix Figure \@ref(fig:Figure-observers)).
+
+
+```{r posterior-fixed-effects-plots, echo=FALSE, message=FALSE}
+
+posteriors.Fixed <- plot.trace.dens(jm.out$jm, 
+                                    var.name = ".Fixed")
+
+p.posteriors.Fixed <- ggplot(posteriors.Fixed$df) +
+  geom_density(aes(x = sample)) +
+  facet_wrap(~ par.name.ordered, scales = "free_x") +
+  xlab("") + ylab("Density")
+  
+
+if (save.fig)
+  save.fig.fcn(fig = p.posteriors.Fixed,
+               file.name = paste0("figures/posterior_Fixed_", dpi.set, "dpi.png"),
+               replace = T,
+               height = 5, width = 7,
+               dpi = dpi.set)
+
+# Look into why BF.Fixed is negative.
+n.mat <- jm.out$jags.input$jags.data$n[,1,]
+bf.mat <- rbind(matrix(data = NA, nrow = 1, ncol = length(all.start.year)),
+                       jm.out$jags.input$jags.data$bf[,1,],
+                matrix(data = NA, nrow = 1, ncol = length(all.start.year)))
+                
+day.mat <- jm.out$jags.input$jags.data$day[,1,]
+
+n.and.bf <- data.frame(n = n.mat[day.mat > 1 & day.mat < 100],
+                       bf = bf.mat[day.mat > 1 & day.mat < 100])
+
+```
+
+```{r Figure-Fixed-posteriors, echo=FALSE, message=FALSE, fig.cap = "Posterior distributions of the fixed-effects coefficients for the visibility code (VS) and Beaufort sea state (BF)."}
+
+knitr::include_graphics(paste0("figures/posterior_Fixed_", dpi.set, "dpi.png"))
+
+```
 
 Posterior distributions of the Richards equation parameters provided valuable insights into how annual gray whale migration varied among years. The $P$ parameters, which define the timing of the migration peak, shifted over the years (Figure \@ref(fig:Figure-P-posteriors)), a phenomenon reported in previous studies (Eguchi et al. 2023, 2024, 2025), although the significance and causes for the change are unknown. The $S_1$ and $S_2$ parameters, which define the width of the migration curve, also varied annually, indicating that the duration of migration fluctuated from year to year (Appendix Figures \@ref(fig:Figure-S1-posteriors) and \@ref(fig:Figure-S2-posteriors)).
 
@@ -862,45 +943,6 @@ if (save.fig)
 ```{r Figure-P-posteriors, echo=FALSE, message=FALSE, fig.cap = "Posterior distributions of year-specific P parameters."}
 
 knitr::include_graphics(paste0("figures/posterior_P_", dpi.set, "dpi.png"))
-
-```
-
-```{r posterior-fixed-effects-plots, echo=FALSE, message=FALSE}
-
-posteriors.Fixed <- plot.trace.dens(jm.out$jm, 
-                                    var.name = ".Fixed")
-
-p.posteriors.Fixed <- ggplot(posteriors.Fixed$df) +
-  geom_density(aes(x = sample)) +
-  facet_wrap(~ par.name.ordered, scales = "free_x") +
-  xlab("") + ylab("Density")
-  
-
-if (save.fig)
-  save.fig.fcn(fig = p.posteriors.Fixed,
-               file.name = paste0("figures/posterior_Fixed_", dpi.set, "dpi.png"),
-               replace = T,
-               height = 5, width = 7,
-               dpi = dpi.set)
-
-# Look into why BF.Fixed is negative.
-n.mat <- jm.out$jags.input$jags.data$n[,1,]
-bf.mat <- rbind(matrix(data = NA, nrow = 1, ncol = length(all.start.year)),
-                       jm.out$jags.input$jags.data$bf[,1,],
-                matrix(data = NA, nrow = 1, ncol = length(all.start.year)))
-                
-day.mat <- jm.out$jags.input$jags.data$day[,1,]
-
-n.and.bf <- data.frame(n = n.mat[day.mat > 1 & day.mat < 100],
-                       bf = bf.mat[day.mat > 1 & day.mat < 100])
-
-```
-
-As expected, the fixed effect of the visibility code on observation probability was negative (Figure \@ref(fig:Figure-Fixed-posteriors)), indicating that less favorable conditions resulted in lower detection probabilities. Perplexingly, the fixed effect of the Beaufort sea state was positive (Figure \@ref(fig:Figure-Fixed-posteriors)) suggesting that higher Beaufort sea states corresponded with greater detection probabilities. One possible explanation is that observers may have detected more singletons at low sea states, whereas only large groups were sighted at high sea states. The observer random effects indicated significant differences among individuals, consistent with the findings of Durban et al. (Appendix Figure \@ref(fig:Figure-observers)).
-
-```{r Figure-Fixed-posteriors, echo=FALSE, message=FALSE, fig.cap = "Posterior distributions of the fixed-effects coefficients for the visibility code (VS) and Beaufort sea state (BF)."}
-
-knitr::include_graphics(paste0("figures/posterior_Fixed_", dpi.set, "dpi.png"))
 
 ```
 
