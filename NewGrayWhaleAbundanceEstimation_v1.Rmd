@@ -116,7 +116,7 @@ model.defs <- data.frame(ID = c(1:8),
 ```
 
 
-```{r model-definitions, echo=F, message=F, tab.cap=paste0("Definitions of eight models. Four parameters (", $P_1$, ", " $P_2$, ", ", $S_1$, ", ", $S_2$, ") were tested for time dependence. ", $P_1 = P_2 = P[Year]$, "means that there was one ", $P$, " for each year.") }
+```{r model-definitions, echo=F, message=F, tab.cap=paste0("Definitions of eight models. Four parameters ($P_1$, $P_2$, $S_1$, $S_2$) were tested for time dependence. $P_1 = P_2 = P[Year]$, means that there was one $P$ for each year.") }
 knitr::kable(model.defs, col.names = c("Model", "$P_1$", "$P_2$", "$S_1$", "$S_2$" ), escape = FALSE)
 
 ```
@@ -752,79 +752,137 @@ all.estimates %>% na.omit() %>%
   
 all.estimates.gam %>%
   filter(Method == paste0("Eguchi M", ver)) %>% 
-  filter(start.year > 2005) -> gam.estimates.Eguchi
+  filter(start.year > 2005) %>%
+  mutate(year = time - min(time)) -> gam.estimates.2006.Eguchi
+
+
+all.estimates.gam %>%
+  filter(Method == paste0("Eguchi M", ver)) %>% 
+  mutate(year = time - min(time)) -> gam.estimates.all.Eguchi
 
 all.estimates.gam %>% 
   filter(Method == "Laake") %>% 
-  filter(start.year > 2005) -> gam.estimates.Laake
+  filter(start.year > 2005) %>%
+  mutate(year = time - min(time)) -> gam.estimates.2006.Laake
+
+all.estimates.gam %>% 
+  filter(Method == "Laake") %>% 
+  mutate(year = time - min(time)) -> gam.estimates.all.Laake
 
 all.estimates.gam %>%
   filter(Method == "Durban") %>% 
-  filter(start.year > 2005)-> gam.estimates.Durban
+  filter(start.year > 2005) %>%
+  mutate(year = time - min(time)) -> gam.estimates.2006.Durban
 
-gam.Eguchi <- mgcv::gam(Nhat ~ s(time), 
+start.year.2006 <- min(gam.estimates.2006.Eguchi$start.year)
+
+gam.2006.Eguchi <- mgcv::gam(Nhat ~ s(year), 
                         method = "REML", 
-                        data = gam.estimates.Eguchi )
-gam.Laake <- mgcv::gam(Nhat ~ s(time), 
+                        data = gam.estimates.2006.Eguchi )
+
+gam.all.Eguchi <- mgcv::gam(Nhat ~ s(year), 
+                        method = "REML", 
+                        data = gam.estimates.all.Eguchi )
+
+gam.2006.Laake <- mgcv::gam(Nhat ~ s(year), 
                        method = "REML",
-                       data = gam.estimates.Laake)
-gam.Durban <- mgcv::gam(Nhat ~ s(time), 
+                       data = gam.estimates.2006.Laake)
+
+gam.all.Laake <- mgcv::gam(Nhat ~ s(year), 
+                       method = "REML",
+                       data = gam.estimates.all.Laake)
+
+gam.2006.Durban <- mgcv::gam(Nhat ~ s(year), 
                         method = "REML",
-                        data = gam.estimates.Durban)
+                        data = gam.estimates.2006.Durban)
 
-pred.data <- data.frame(time = seq(min(gam.estimates.Eguchi$time), 
-                                   max(gam.estimates.Eguchi$time), length.out = 200))
+pred.data.2006 <- data.frame(year = seq(min(gam.estimates.2006.Eguchi$year), 
+                                        max(gam.estimates.2006.Eguchi$year), length.out = 200))
 
-gam.preds.Eguchi <-predict(gam.Eguchi, newdata = pred.data, se.fit = TRUE)
-gam.preds.Durban <-predict(gam.Durban, newdata = pred.data, se.fit = TRUE)
-gam.preds.Laake <-predict(gam.Laake, newdata = pred.data, se.fit = TRUE)
+pred.data.all <- data.frame(year = seq(min(gam.estimates.all.Eguchi$year), 
+                                        max(gam.estimates.all.Eguchi$year), length.out = 1000))
+
+gam.preds.2006.Eguchi <-predict(gam.2006.Eguchi, newdata = pred.data.2006, se.fit = TRUE)
+gam.preds.all.Eguchi <-predict(gam.all.Eguchi, newdata = pred.data.all, se.fit = TRUE)
+
+gam.preds.2006.Laake <-predict(gam.2006.Laake, newdata = pred.data.2006, se.fit = TRUE)
+gam.preds.all.Laake <-predict(gam.all.Laake, newdata = pred.data.all, se.fit = TRUE)
+
+gam.preds.2006.Durban <-predict(gam.2006.Durban, newdata = pred.data.2006, se.fit = TRUE)
 
 # Combine predictions with the x values and calculate the confidence interval
-pred.data %>%
-  mutate(fit = gam.preds.Eguchi$fit,
-         SE = gam.preds.Eguchi$se.fit,
-         upper_CI = gam.preds.Eguchi$fit + (1.96 * SE),
-         lower_CI = gam.preds.Eguchi$fit - (1.96 * SE),
-         Method = paste0("Eguchi M", ver)) -> pred.Eguchi
+pred.data.2006 %>%
+  mutate(fit = gam.preds.2006.Eguchi$fit,
+         SE = gam.preds.2006.Eguchi$se.fit,
+         upper_CI = gam.preds.2006.Eguchi$fit + (1.96 * SE),
+         lower_CI = gam.preds.2006.Eguchi$fit - (1.96 * SE),
+         Method = paste0("Eguchi M", ver)) -> pred.2006.Eguchi
 
-pred.data %>%
-  mutate(fit = gam.preds.Durban$fit,
-         SE = gam.preds.Durban$se.fit,
-         upper_CI = gam.preds.Durban$fit + (1.96 * SE),
-         lower_CI = gam.preds.Durban$fit - (1.96 * SE),
-         Method = "Durban") -> pred.Durban
+pred.data.2006 %>%
+  mutate(fit = gam.preds.2006.Laake$fit,
+         SE = gam.preds.2006.Laake$se.fit,
+         upper_CI = gam.preds.2006.Laake$fit + (1.96 * SE),
+         lower_CI = gam.preds.2006.Laake$fit - (1.96 * SE),
+         Method = "Laake") -> pred.2006.Laake
 
-pred.data %>%
-  mutate(fit = gam.preds.Laake$fit,
-         SE = gam.preds.Laake$se.fit,
-         upper_CI = gam.preds.Laake$fit + (1.96 * SE),
-         lower_CI = gam.preds.Laake$fit - (1.96 * SE),
-         Method = "Laake") -> pred.Laake
+pred.data.2006 %>%
+  mutate(fit = gam.preds.2006.Durban$fit,
+         SE = gam.preds.2006.Durban$se.fit,
+         upper_CI = gam.preds.2006.Durban$fit + (1.96 * SE),
+         lower_CI = gam.preds.2006.Durban$fit - (1.96 * SE),
+         Method = "Durban") -> pred.2006.Durban
 
-pred.all <- rbind(pred.Eguchi, pred.Durban, pred.Laake) 
+pred.2006 <- rbind(pred.2006.Eguchi, pred.2006.Durban, pred.2006.Laake) 
   #mutate(method.f = as.factor(method))
 
-p.gam.fit <- ggplot() +
+pred.data.all %>%
+  mutate(fit = gam.preds.all.Eguchi$fit,
+         SE = gam.preds.all.Eguchi$se.fit,
+         upper_CI = gam.preds.all.Eguchi$fit + (1.96 * SE),
+         lower_CI = gam.preds.all.Eguchi$fit - (1.96 * SE),
+         Method = paste0("Eguchi M", ver)) -> pred.all.Eguchi
+
+pred.data.all %>%
+  mutate(fit = gam.preds.all.Laake$fit,
+         SE = gam.preds.all.Laake$se.fit,
+         upper_CI = gam.preds.all.Laake$fit + (1.96 * SE),
+         lower_CI = gam.preds.all.Laake$fit - (1.96 * SE),
+         Method = "Laake") -> pred.all.Laake
+
+pred.all <- rbind(pred.all.Eguchi, pred.all.Laake) 
+
+
+p.gam.2006.fit <- ggplot(data = pred.2006) +
   # Add the confidence interval ribbon using the new prediction data
-  geom_ribbon(data = pred.all,
-              aes(x = time, ymin = lower_CI, ymax = upper_CI, fill = Method), 
+  geom_ribbon(aes(x = year, ymin = lower_CI, ymax = upper_CI, fill = Method), 
               alpha = 0.3) +
   
   # Add the fitted line using the new prediction data
-  geom_line(data = pred.all,
-            aes(x = time, y = fit, color = Method), 
+  geom_line(aes(x = year, y = fit, color = Method), 
+            size = 1) +
+  scale_x_continuous(labels = function(breaks){ paste0(breaks + start.year.2006)}) +
+  xlab("") + ylab("Abundance") +
+  theme(legend.position = "top")
+  
+p.gam.all.fit <- ggplot(data = pred.all) +
+  # Add the confidence interval ribbon using the new prediction data
+  geom_ribbon(aes(x = year, ymin = lower_CI, ymax = upper_CI, fill = Method), 
+              alpha = 0.3) +
+  
+  # Add the fitted line using the new prediction data
+  geom_line(aes(x = year, y = fit, color = Method), 
             size = 1) +
   scale_x_continuous(labels = function(breaks){ paste0(breaks + 1967)}) +
   xlab("") + ylab("Abundance") +
   theme(legend.position = "top")
-  
+
   # geom_point(data = all.estimates.gam %>%
   #              filter(start.year > 2005),
   #            aes(x = time, y = Nhat, color = Method)) +  # Plot the raw data points from the original dataframe
   
 
 if (save.fig)
-  save.fig.fcn(fig = p.gam.fit,
+  save.fig.fcn(fig = p.gam.2006.fit,
                file.name = paste0("figures/gam_fit_", dpi.set, "dpi.png"),
                replace = T,
                height = 5, width = 7,
@@ -841,9 +899,11 @@ lm.Durban <- lm(log(Nhat) ~ time,
 
 ```
 
-GAMs fitted to the estimated abundance between the 2006/2007 and 2024/2025 seasons indicated that all three approaches provided comparable results regarding the general trend with a main difference at the beginning of the timeseries (Figure \@ref(fig:Figure-gam-fits)). For the 2006/2007 season, the abundance estimate with the new approach was notably lower than those from the other two methods (Figure \@ref(fig:Figure-N-hats)). For the linear model ($log(Nhat) = time + \epsilon$) fitted to the point estimates from the 2014/2015 season to the 2024/2025 season revealed a statistically indistinguishable annual rate of decline among the three approaches (Laake: `r signif(lm.Laake$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Laake))["time", "Std. Error"], 2)`. Durban: `r signif(lm.Durban$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Durban))["time", "Std. Error"], 2)`, Eguchi: `r signif(lm.Eguchi$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Eguchi))["time", "Std. Error"], 2)`).
+GAMs fitted to the estimated abundance between the 2006/2007 and 2024/2025 seasons indicated that all three approaches provided comparable results regarding the general trend with a main difference at the beginning of the timeseries (Figure \@ref(fig:Figure-gam-fits)). For the 2006/2007 season, the abundance estimate with the new approach was notably lower than those from the other two methods (Figure \@ref(fig:Figure-N-hats)). This difference resulted in a significant difference in estimated intercept (the average of abundance estimates) between the new (`r format(coef(gam.2006.Eguchi)["(Intercept)"], scientific = F)` $\pm$ `r signif(summary(gam.2006.Eguchi)$se["(Intercept)"], 2)`) and the other two approaches (Laake: `r format(coef(gam.2006.Laake)["(Intercept)"], scientific = F)` $\pm$ `r signif(summary(gam.2006.Laake)$se["(Intercept)"], 2)`, Durban: `r format(coef(gam.2006.Durban)["(Intercept)"], scientific = F)` $\pm$ `r signif(summary(gam.2006.Durban)$se["(Intercept)"], 2)`). 
 
-```{r Figure-gam-fits, echo=FALSE, message=FALSE, fig.cap = "Fitted generalized additive models to estimated abundance and their 95% CIs."}
+For the linear model ($log(Nhat) = time + \epsilon$) fitted to the point estimates from the 2014/2015 season to the 2024/2025 season revealed a statistically indistinguishable annual rate of decline among the three approaches (Laake: `r signif(lm.Laake$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Laake))["time", "Std. Error"], 2)`. Durban: `r signif(lm.Durban$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Durban))["time", "Std. Error"], 2)`, Eguchi: `r signif(lm.Eguchi$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Eguchi))["time", "Std. Error"], 2)`).
+
+```{r Figure-gam-fits, echo=FALSE, message=FALSE, fig.cap = "Fitted generalized additive models to estimated abundance and their approximate 95% CIs."}
 
 knitr::include_graphics(paste0("figures/gam_fit_", dpi.set, "dpi.png"))
 ```
