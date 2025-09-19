@@ -32,7 +32,7 @@ if (!dir.exists(out.dir)) dir.create(out.dir)
 # They are the end year of the season, which is the season name. For example, the 
 # 2020/2021 season is called the 2021 season.
 
-YEAR <- 2010 #10 #Enter the year of the data files
+YEAR <- 2008 #10 #Enter the year of the data files
 
 # For 2009/2010 (maybe in the previous years too but I don't have any of those files),
 # Time is entered in decimal hours, not hh:mm:ss. So, that needs to be accommodated in
@@ -51,7 +51,7 @@ min_dur <- shift_dur_min - grace_min
 
 ```{r}
 
-if (YEAR == 2023){
+if (YEAR == 2023 | YEAR == 2008){
   FILES <- list.files(path = paste0("Data/", YEAR, "/"),
                       pattern = "EditedGW")
   
@@ -80,9 +80,9 @@ all.effort.list.2 <- Data_Out.list.2 <- all.sightings.list.2 <- list()
 # defines shifts. 
 
 data.list <- list()
-ff <- 1
+ff <- 16
 for(ff in 1:length(FILES)){ 
-  #print(paste0("file = ", ff))
+  print(paste0("file = ", ff))
   data.list[[ff]] <- get.data("Data/", YEAR, FILES = FILES, ff = ff)
 }
 
@@ -109,9 +109,9 @@ data.all <- do.call("rbind", data.list)
 
 unique.dates <- unique(data.all$V3)
 n.stations <- vector(mode = "numeric", length = length(unique.dates))
-c <-2
+c <-21
 for (c in 1:length(unique.dates)){
-  #print(paste0("Date = ", c))
+  print(paste0("Date = ", c))
   data.all %>% 
     filter(V3 == unique.dates[c]) -> data  
   
@@ -129,7 +129,7 @@ for (c in 1:length(unique.dates)){
   
   all.effort.1 <- Output.list.1 <- all.sightings.1 <- list()
   
-  k <- 4
+  k <- 2
   for(k in 1:length(Shifts.1)){
     #print(paste0("Shift.p = ", k))
     out.shift.1 <- get.shift(YEAR, data.1, k)

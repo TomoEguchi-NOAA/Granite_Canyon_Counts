@@ -27,6 +27,7 @@ library(loo)
 library(bayesplot)
 library(ggridges)
 library(rstanarm)
+library(mgcv)
 
 options(mc.cores = 5)
 
@@ -69,7 +70,6 @@ Consistent with Laake et al. (2012), the model for the detection probability inc
 
 $$ logit(p_{i,d(j),t}) = logit(p_0) + I_{V} \beta_{V} V_{d(j),t} + I_{B} \beta_{B} B_{d(j),t}+ I_{O} \mathbf{\beta}^{O_{i,d(j),t} = o}_{O} $$
 
-
 where the intercept $p_0$ was the base detection probability in the absence of covariate effects, assigned a Uniform(0,1) prior distribution, and $logit(p_0) = ln(p_0/(1–p_0))$. For each fixed effect, $\beta_{B}$ and $\beta_{V}$, a Normal prior distribution with mean zero and standard deviation of 10 was used. The random effect for each observer was drawn from a Normal distribution with mean zero and standard deviation $\sigma_{O} \sim Uniform(0,10)$. Each binary indicator variable, $I$, was assigned a Bernoulli(0.5) distribution to specify equal probability of inclusion (1) or exclusion (0) of the effect in the model (Durban et al. 2015).
 
 Observation probability, then, was computed by multiplying the detection probability with an indicator function for whether or not an observer was present ($u$):
@@ -84,10 +84,11 @@ A mathematical description of the approach by Durban et al. is provided in the A
 
 Durban et al. (2015) used the "cut" function within WinBUGS to dissociate estimated parameters between the "Common" ($f_{d,t}$) and "Specific" ($g_{d,t}$) models. The function (*cut*) is unavailable in modern Bayesian computation packages (e.g., JAGS, STAN) and its use has been questioned [@plummer_cuts_2015]. In short, the "cut" function does not converge to a well-defined limiting distribution (Plummer 2015). Furthermore, the assumption that the number of migrating gray whales in front of an observation station follows a Gaussian distribution centered around the midpoint of the season is a potential limitation. The actual migration curve may not be symmetric, and the peak abundance may persist for several days rather than being instantaneous. While fitting spline functions to observed counts may alleviate some of these problems, a fitted spline can be overly flexible. A spline fit can fail to preserve the general migration assumption that the number of whales increases from the beginning of a migration season, reaches a peak, and then decreases toward the end of the season. Additionally, the Durban et al. method implicitly assumed that two observation stations operated simultaneously with identical effort. In reality, however, watch durations were not always identical between the two stations in previous years.
 
-## Methods {-}
+## Methods {.unnumbered}
 
-### Data {-}
-A series of modifications were made from the 1967/1968 to 2006/2007 seasons (Laake et al. 2012). starting in the 2010/2011 season, further modifications were employed where a computer was used to predict movements of gray whale pods, thereby increasing the chance of repeatedly observing the same pods to accurately determine the number of individuals in each pod. In Durban et al. (2015), they treated the data from previous years as not compatible in their analysis. Consequently, the subsequent analysis to estimate gray whale abundance used the data since the 2006/2007 season (e.g., Stewart and Weller 2021, Eguchi et al., 2022, 2023, 2024, 2025). Since the 2010/2011 season, no dual-observer suvey has been conducted to estimate detection probability due to the logistical and financial constraints. Consequently, the data from the two seasons (i.e., 2009/2010 and 2010/2011 seasons) are the primary source of information for estimating detection probabilities. Prior to the 2006/2007 season, two observation stations were present in several years. In those years, sightings of the same pods by two teams were used to estimated detection probabilities via the "capture-recapture" method. These sightings data can be used in the N-mixture framework by retaining the number of observed pods but disregarding the pod identity. In this paper, I used all the data from the 1967/1968 season by using statistical models that can accommodate differing survey duration.
+### Data {.unnumbered}
+
+A series of modifications were made from the 1967/1968 to 2006/2007 seasons (Laake et al. 2012). starting in the 2010/2011 season, further modifications were employed where a computer was used to predict movements of gray whale pods, thereby increasing the chance of repeatedly observing the same pods to determine the number of individuals in each pod accurately. In Durban et al. (2015), they treated the data from previous years as not compatible in their analysis. Consequently, the subsequent analysis to estimate gray whale abundance used the data since the 2006/2007 season (e.g., Stewart and Weller 2021, Eguchi et al., 2022, 2023, 2024, 2025). Since the 2010/2011 season, no dual-observer survey has been conducted to estimate detection probability due to the logistical and financial constraints. Consequently, the data from the two seasons (i.e., 2009/2010 and 2010/2011 seasons) are the primary source of information for estimating detection probabilities. Prior to the 2006/2007 season, two observation stations were present in several years. In those years, sightings of the same pods by two teams were used to estimate detection probabilities via the "capture-recapture" method. These sightings data can be used in the N-mixture framework by retaining the number of observed pods but disregarding the pod identity. In this paper, I used all the data from the 1967/1968 season by using statistical models that can accommodate differing survey durations.
 
 ### New Modeling Approach {.unnumbered}
 
@@ -101,9 +102,9 @@ $$M_2 = (1 + (2 e^K - 1) * e^{(P_2-d)/S_2}) ^ {(-1/e^K)}$$
 
 $$N = N_{min} + (N_{max} - N_{min}) * (M_1 * M_2),$$
 
-where $d > 0$ is the number of days since an arbitrary start date, $S_1 > 0$ and $S_2 > 0$ define how the slope decreases and increases, respectively, $K > 0$ defines the "flatness" at the peak of the function, $P_1$ and $P_2$ define where the peak is relative to the range of $d$, where $min(d) < P_1 <= P_2 < max(d)$, $N_{min}$ is the number of whales migrating outside of a migration season ($N_{min} = 0$), and $N_{max} >> N_{min}$. $N_{max}$ is not the maximum number of whales migrating per day but it is a parameter that may be fixed or estimated during the analysis. Effects of these parameters on the shape of the equation are described in the Appendix. Hereafter, this function will be referred to as the Richards equation. 
+where $d > 0$ is the number of days since an arbitrary start date, $S_1 > 0$ and $S_2 > 0$ define how the slope decreases and increases, respectively, $K > 0$ defines the "flatness" at the peak of the function, $P_1$ and $P_2$ define where the peak is relative to the range of $d$, where $min(d) < P_1 <= P_2 < max(d)$, $N_{min}$ is the number of whales migrating outside of a migration season ($N_{min} = 0$), and $N_{max} >> N_{min}$. $N_{max}$ is not the maximum number of whales migrating per day but it is a parameter that may be fixed or estimated during the analysis. Effects of these parameters on the shape of the equation are described in the Appendix. Hereafter, this function will be referred to as the Richards equation.
 
-I created eight versions of the Richards equation, based on how $P_1$, $P_2$, $S_1$, and $S_2$ were defined with respect to time (Table \@ref(tab:model-definitions)). The $N_{max}$ parameter was assumed to be year-specific and $K$ was assumed constant across all years. Each parameter had a hyper-distribution of either a Gaussian, uniform, or gamma distribution. Uniform distributions were used for the prior distributions of hyperparameters (Appendix Table \@ref(tab:hyperparameter-table)).
+I created eight versions of the Richards equation, based on how $P_1$, $P_2$, $S_1$, and $S_2$ were defined with respect to time (Table \@ref(tab:model-definitions)). The $N_{max}$ parameter was assumed to be year-specific and $K$ was assumed to be constant across all years. Each parameter had a hyper-distribution of either a Gaussian, uniform, or gamma distribution. Uniform distributions were used for the prior distributions of hyperparameters (Appendix Table \@ref(tab:hyperparameter-table)).
 
 ```{r model-definitions-table, echo=FALSE, message=FALSE}
 model.defs <- data.frame(ID = c(1:8),
@@ -115,13 +116,12 @@ model.defs <- data.frame(ID = c(1:8),
 
 ```
 
-
 ```{r model-definitions, echo=F, message=F, tab.cap=paste0("Definitions of eight models. Four parameters ($P_1$, $P_2$, $S_1$, $S_2$) were tested for time dependence. $P_1 = P_2 = P[Year]$, means that there was one $P$ for each year.") }
 knitr::kable(model.defs, col.names = c("Model", "$P_1$", "$P_2$", "$S_1$", "$S_2$" ), escape = FALSE)
 
 ```
 
-The Richards equation provided the daily mean number of gray whales passing through the observation point. As it was done in the Durban et al. approach, the daily number of whales passing through the observation point was modeled with a Poisson distribution:
+The Richards equation provided the daily mean number of gray whales passing through the observation point. Following the methodology of Durban et al., a Poisson distribution was used to model the daily count of whales passing the observation point:
 
 $$ N_{t, y} \sim POI(\bar{N}_{t,y}) $$
 
@@ -133,7 +133,7 @@ logit(p_{i_t, s, y}) = \beta_0 + \beta_{B} \times B_{i_t, y} + \beta_{V} \times 
 
 where the index $i_t$ is the watch period $i$ of the day $t$, $s$ is the station (1 or 2), and $y$ is the season.
 
-The binomial model was used to approximate the sampling process, as it was done in the Durban et al. approach:
+Similar to the approach taken by Durban et al., the binomial model was employed to approximate the sampling process:
 
 $$ n_{i_t,s,y} \sim BIN(N_{t, y}, p_{i_t, s, y}) $$
 
@@ -170,7 +170,7 @@ hyper.params <- data.frame(params = c("Max", "S1", "S2", "P", "K", "OBS", "BF", 
 
 In the Durban et al. analysis, the annual migration at the survey station was defined as a 90-day period starting on December 1, with the number of passing whales assumed to be zero on days 1 and 90 (February 29th or March 1st). However, in some years, observations continued beyond March 1st. To incorporate all available data, I defined the annual migration period as 100 days (ending on March 10th or 11th), assuming the number of passing whales was zero on days 1 and 100 ($max(d) = 100$).
 
-The new approach was used to analyze the entire dataset from the 1967/1968 season onward, and the results were compared to the estimates reported in Eguchi et al. (2025). In order to apply the new approach to historical data, sightings data between the 1967/1968 and 2005/2006 seasons were obtained from the ERAnalysis package (<https://github.com/jlaake/ERAnalysis>, Laake 2012). An R script was written to convert the sightings data in the package to an input object required for the new analysis. No raw data were available for the 2006/2007 season, so it was excluded from this analysis. Data from the 2007/2008 season to the 2024/2025 season were extracted from raw data files using another R script (available at the GitHub repository). All shifts of at least 60 minutes with the Beaufort sea state of \< 5 and the visibility code of \< 5 were included in the analysis. Laake et al.’s approach was applied to the entire dataset after formatting new data from the 2009/2010 season into the input object for Laake et al.’s approach. Because no data to match sightings of pods between the two stations in the 2009/2010 and 2010/2011 seasons, only "naive" estimates in the Laake's approach were computed. 
+The new approach was used to analyze the entire dataset from the 1967/1968 season onward, and the results were compared to the estimates reported in Eguchi et al. (2025). In order to apply the new approach to historical data, sighting data between the 1967/1968 and 2005/2006 seasons were obtained from the ERAnalysis package (<https://github.com/jlaake/ERAnalysis>, Laake 2012). An R script was written to convert the sightings data in the package to an input object required for the new analysis. No raw data were available for the 2006/2007 season, so it was excluded from this analysis. Data from the 2007/2008 season to the 2024/2025 season were extracted from raw data files using another R script (available at the GitHub repository). All shifts of at least 60 minutes with the Beaufort sea state of \< 5 and the visibility code of \< 5 were included in the analysis. Laake et al.’s approach was applied to the entire dataset after formatting new data from the 2009/2010 season into the input object for Laake et al.’s approach. Because no data to match sightings of pods between the two stations in the 2009/2010 and 2010/2011 seasons, only "naive" estimates in Laake et al.'s approach were computed.
 
 The new models were fitted to the data using JAGS (Plummer) in the R statistical environment, using the *jagsUI* package (Kellner 2024). For each model, five MCMC chains were run for 550,000 steps each. The first 500,000 samples of each chain were discarded as “burn-in.” The remaining posterior samples were thinned by taking every 100 samples, resulting in 2500 posterior samples for inference. The convergence of MCMC was assessed using the rank-normalized R-hat statistic [@vehtari2021]. Goodness-of-fit was determined via Pareto-k statistics [@vehtari_practical_2017] via the *loo* package (Vehtari et al. 2024). The performance of models were compared using the LOOIC statistic via the *loo* and *rstanarm* (Goodrich et al. 2024) packages.
 
@@ -273,7 +273,7 @@ out.table <- data.frame(model = model.ID,
 
 ```
 
-The eight models were fitted to the sightings data over 32 seasons. Based on LOOIC and Pareto-k statistics, Model `r out.table$model[1]` was identified as the best-fitting model (Table \@ref(tab:model-table)). Although Model `r model.ID[which(prop.big.Rhat == min(prop.big.Rhat))]` had the lowest proportion of the monitored parameters with the R-hat statistics \< 1.01 (Table \@ref(tab:model-table)), after visual inspection of trace plots for parameters with high Rhat statistics (Appendix Figures \@ref(fig:Figure-trace-1), \@ref(fig:Figure-trace-2), and \@ref(fig:Figure-trace-3)), I concluded that Model `r out.table$model[1]` was the most appropriate for inference. The model consists of year-specific $P$ ($P_1 = P_2$), $S_1$, and $S_2$ parameters (Table \@ref(tab:model-definitions)).
+The eight models were fitted to the sightings data over 32 seasons. Based on LOOIC and Pareto-k statistics, Model `r out.table$model[1]` was identified as the best-fitting model (Table \@ref(tab:model-table)). Although Model `r model.ID[which(prop.big.Rhat == min(prop.big.Rhat))]` had the lowest proportion of the monitored parameters with the R-hat statistics \> 1.01 (Table \@ref(tab:model-table)), after visual inspection of trace plots for parameters of Model 5 with high Rhat statistics (Appendix Figures \@ref(fig:Figure-trace-1), \@ref(fig:Figure-trace-2), and \@ref(fig:Figure-trace-3)), I concluded that Model `r out.table$model[1]` was the most appropriate for inference. The model consists of year-specific $P$ ($P_1 = P_2$), $S_1$, and $S_2$ parameters (Table \@ref(tab:model-definitions)).
 
 ```{r model-table, echo=F, message=F, tab.cap="Comparison of eight models."}
 knitr::kable(out.table, col.names = c("Model", "$\\Delta$LOOIC", "# monitored parameters", "# Rhat > 1.01", "% Rhat > 1.01", "# Pareto-K > 0.7", "% Pareto-K > 0.7" ), digits = 2, escape = FALSE)
@@ -499,12 +499,12 @@ Bugs.obs.prop <- WinBugs.out$BUGS.input$data$Watch.Length
 Bugs.start.year <- WinBugs.out$BUGS.input$all.years - 1
 Bugs.obs.n.df <- data.frame(start.year = rep(Bugs.start.year, 
                                              each = 90),
-                       Season = rep(paste0(Bugs.start.year, "/",
-                                           Bugs.start.year + 1),
-                                    each = 90),
-                       Day = rep(1:90, times = length(Bugs.start.year)),
-                       n = NA,
-                       Prop = NA)
+                            Season = rep(paste0(Bugs.start.year, "/",
+                                                Bugs.start.year + 1),
+                                         each = 90),
+                            Day = rep(1:90, times = length(Bugs.start.year)),
+                            n = NA,
+                            Prop = NA)
 
 k1 <- k2 <- 1
 for (k1 in 1:length(Bugs.start.year)){
@@ -736,9 +736,9 @@ if (save.fig){
 }
 ```
 
-Estimated abundances from the new approach generally followed the same trend as the previous analyses, with a few notable differences (Figure \@ref(fig:Figure-N-hats)). For many years, Laake's and the new approach provided almost identical estimates. The new and Laake et al. approaches produced lower estimates than Durban et al.’s approach in most years. For the majority of the estimates, the 95% credible and confidence intervals overlapped significantly.
+Estimated abundances from the new approach generally followed the same trend as the previous approaches, with a few notable differences (Figure \@ref(fig:Figure-N-hats)). For the Durban et al. and new approaches, medians of the posterior distributions were used as the point estimates, whereas for the Laake et al. approach, it was the maximum likelihood estimates. For the majority of estimates, the Laake et al. and the new approach provided almost identical estimates, and the 95% credible and confidence intervals overlapped significantly. The new and Laake et al. approaches produced lower estimates than the Durban et al. approach in all but one year among the 11 years when all three estimates were available.
 
-```{r Figure-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated annual abundance and their 95% CIs using Laake's method (blue), Durban's method (red), and the new approach (Eguchi M5, green). Laake's estimates prior to 2007 and Durban's estimates are found in Eguchi et al. (2025). Laake's estimates since the 2009/2010 season were computed using the scripts found in the *ERAnalysis* package."}
+```{r Figure-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated annual abundance and their 95% CIs using Laake's method (blue, MLE), Durban's method (red, median), and the new approach (Eguchi M5, green, median). Laake's estimates prior to 2007 and Durban's estimates are found in Eguchi et al. (2025). Laake's estimates since the 2009/2010 season were computed using the scripts found in the *ERAnalysis* package."}
 
 knitr::include_graphics(paste0("figures/Nhats_v", 
                                ver, "_min", min.dur, "_", dpi.set, "dpi.png"))
@@ -746,7 +746,6 @@ knitr::include_graphics(paste0("figures/Nhats_v",
 ```
 
 ```{r gam-glm-fit, echo=F,message=FALSE}
-library(mgcv)
 all.estimates %>% na.omit() %>%
   mutate(time = start.year - min(start.year)) -> all.estimates.gam
   
@@ -802,13 +801,18 @@ pred.data.2006 <- data.frame(year = seq(min(gam.estimates.2006.Eguchi$year),
 pred.data.all <- data.frame(year = seq(min(gam.estimates.all.Eguchi$year), 
                                         max(gam.estimates.all.Eguchi$year), length.out = 1000))
 
-gam.preds.2006.Eguchi <-predict(gam.2006.Eguchi, newdata = pred.data.2006, se.fit = TRUE)
-gam.preds.all.Eguchi <-predict(gam.all.Eguchi, newdata = pred.data.all, se.fit = TRUE)
+gam.preds.2006.Eguchi <-predict(gam.2006.Eguchi, 
+                                newdata = pred.data.2006, se.fit = TRUE)
+gam.preds.all.Eguchi <-predict(gam.all.Eguchi, 
+                               newdata = pred.data.all, se.fit = TRUE)
 
-gam.preds.2006.Laake <-predict(gam.2006.Laake, newdata = pred.data.2006, se.fit = TRUE)
-gam.preds.all.Laake <-predict(gam.all.Laake, newdata = pred.data.all, se.fit = TRUE)
+gam.preds.2006.Laake <-predict(gam.2006.Laake, 
+                               newdata = pred.data.2006, se.fit = TRUE)
+gam.preds.all.Laake <-predict(gam.all.Laake, 
+                              newdata = pred.data.all, se.fit = TRUE)
 
-gam.preds.2006.Durban <-predict(gam.2006.Durban, newdata = pred.data.2006, se.fit = TRUE)
+gam.preds.2006.Durban <-predict(gam.2006.Durban, 
+                                newdata = pred.data.2006, se.fit = TRUE)
 
 # Combine predictions with the x values and calculate the confidence interval
 pred.data.2006 %>%
@@ -899,11 +903,11 @@ lm.Durban <- lm(log(Nhat) ~ time,
 
 ```
 
-GAMs fitted to the estimated abundance between the 2006/2007 and 2024/2025 seasons indicated that all three approaches provided comparable results regarding the general trend with a main difference at the beginning of the timeseries (Figure \@ref(fig:Figure-gam-fits)). For the 2006/2007 season, the abundance estimate with the new approach was notably lower than those from the other two methods (Figure \@ref(fig:Figure-N-hats)). This difference resulted in a significant difference in estimated intercept (the average of abundance estimates) between the new (`r format(coef(gam.2006.Eguchi)["(Intercept)"], scientific = F)` $\pm$ `r signif(summary(gam.2006.Eguchi)$se["(Intercept)"], 2)`) and the other two approaches (Laake: `r format(coef(gam.2006.Laake)["(Intercept)"], scientific = F)` $\pm$ `r signif(summary(gam.2006.Laake)$se["(Intercept)"], 2)`, Durban: `r format(coef(gam.2006.Durban)["(Intercept)"], scientific = F)` $\pm$ `r signif(summary(gam.2006.Durban)$se["(Intercept)"], 2)`). 
+GAMs fitted to the estimated abundance between the 2006/2007 and 2024/2025 seasons indicated that all three approaches provided comparable results regarding the general trend, with a main difference at the beginning of the timeseries (Figure \@ref(fig:Figure-gam-fits)). For the 2006/2007 season, the estimated abundance with the new approach was notably lower than that from the other two methods (Figure \@ref(fig:Figure-N-hats)). Even with this difference, however, estimated intercepts (the averages of abundance estimates) between the new (`r format(coef(gam.2006.Eguchi)["(Intercept)"], scientific = F)` $\pm$ `r signif(summary.gam(gam.2006.Eguchi)$se["(Intercept)"], 4)`) and the Laake et al. approach (`r format(coef(gam.2006.Laake)["(Intercept)"], scientific = F)` $\pm$ `r signif(summary.gam(gam.2006.Laake)$se["(Intercept)"], 4)`) were not significantly different, whereas the Durban approach was significantly greater (`r format(coef(gam.2006.Durban)["(Intercept)"], scientific = F)` $\pm$ `r signif(summary.gam(gam.2006.Durban)$se["(Intercept)"], 4)`) than the other two approaches. Over the entire timeseries from the 1967/1968 season, the estimated intercepts were similar between the two approaches (Laake: `r format(coef(gam.all.Laake)["(Intercept)"], scientific = F)` $\pm$ `r signif(summary.gam(gam.all.Laake)$se["(Intercept)"], 4)`, Eguchi: `r format(coef(gam.all.Eguchi)["(Intercept)"], scientific = F)` $\pm$ `r signif(summary.gam(gam.all.Eguchi)$se["(Intercept)"], 4)`)
 
-For the linear model ($log(Nhat) = time + \epsilon$) fitted to the point estimates from the 2014/2015 season to the 2024/2025 season revealed a statistically indistinguishable annual rate of decline among the three approaches (Laake: `r signif(lm.Laake$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Laake))["time", "Std. Error"], 2)`. Durban: `r signif(lm.Durban$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Durban))["time", "Std. Error"], 2)`, Eguchi: `r signif(lm.Eguchi$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Eguchi))["time", "Std. Error"], 2)`).
+For general linear models ($log(\hat{N}) = time + \epsilon$) fitted to the point estimates from the 2014/2015 season to the 2024/2025 season revealed a statistically indistinguishable annual rate of decline among the three approaches (Laake: `r signif(lm.Laake$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Laake))["time", "Std. Error"], 2)`. Durban: `r signif(lm.Durban$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Durban))["time", "Std. Error"], 2)`, Eguchi: `r signif(lm.Eguchi$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Eguchi))["time", "Std. Error"], 2)`).
 
-```{r Figure-gam-fits, echo=FALSE, message=FALSE, fig.cap = "Fitted generalized additive models to estimated abundance and their approximate 95% CIs."}
+```{r Figure-gam-fits, echo=FALSE, message=FALSE, fig.cap = "Fitted generalized additive models (Gaussian family and the identity link function) to estimated abundance and their approximate 95% CIs."}
 
 knitr::include_graphics(paste0("figures/gam_fit_", dpi.set, "dpi.png"))
 ```
@@ -915,24 +919,34 @@ p.0.CLs <- c(exp(jm.out$jm$q2.5$mean.prob)/(1 + exp(jm.out$jm$q2.5$mean.prob)),
 
 ```
 
-
-In the new approach, the base detection probability ($\beta_0$) was significantly lower for the new approach (mean = `r signif(mean.p.0, 3)`, 95% CI = [`r signif(p.0.CLs[1], 3)` - `r signif(p.0.CLs[2], 3)`]) than in Durban et al. (0.80, 95% Highest Posterior Density Interval = 0.75-0.85). As expected, the fixed effect of the visibility code on observation probability was negative (Figure \@ref(fig:Figure-Fixed-posteriors)), indicating that less favorable conditions resulted in lower detection probabilities. Perplexingly, the fixed effect of the Beaufort sea state was positive (Figure \@ref(fig:Figure-Fixed-posteriors)) suggesting that higher Beaufort sea states corresponded with greater detection probabilities. One possible explanation is that observers may have detected more singletons at low sea states, whereas only large groups were sighted at high sea states. The observer random effects indicated significant differences among individuals, consistent with the findings of Durban et al. (Appendix Figure \@ref(fig:Figure-observers)).
-
+The base detection probability ($\beta_0$) was significantly lower for the new approach (mean = `r signif(mean.p.0, 3)`, 95% CI = [`r signif(p.0.CLs[1], 3)` - `r signif(p.0.CLs[2], 3)`]) than in Durban et al. (0.80, 95% Highest Posterior Density Interval = 0.75-0.85). As expected, the fixed effect of the visibility code on observation probability was negative (Figure \@ref(fig:Figure-Fixed-posteriors)), indicating that less favorable conditions resulted in lower detection probabilities. Perplexingly, the fixed effect of the Beaufort sea state was positive (Figure \@ref(fig:Figure-Fixed-posteriors)), suggesting that higher Beaufort sea states corresponded with greater detection probabilities. One possible explanation is that observers may have detected more singletons at low sea states, whereas only large groups were sighted at high sea states. The observer random effects indicated significant differences among individuals, consistent with the findings of Durban et al. (Appendix Figure \@ref(fig:Figure-observers)).
 
 ```{r posterior-fixed-effects-plots, echo=FALSE, message=FALSE}
 
 posteriors.Fixed <- plot.trace.dens(jm.out$jm, 
                                     var.name = ".Fixed")
 
-p.posteriors.Fixed <- ggplot(posteriors.Fixed$df) +
+posteriors.Fixed$df %>%
+  mutate(par.name.new = ifelse(par.name == "VS.Fixed", "V", "B")) %>%
+  mutate(par.name.new.f = factor(par.name.new, levels = c("V", "B"))) -> VS.BF.df
+
+custom_labels <- c(`V` = "beta[V]",
+                   `B` = "beta[B]")
+
+p.posteriors.VS.BF <- ggplot(VS.BF.df) +
   geom_density(aes(x = sample)) +
-  facet_wrap(~ par.name.ordered, scales = "free_x") +
+  facet_wrap(~ par.name.new.f, scales = "free_x", 
+             labeller = as_labeller(custom_labels, default = label_parsed)) +
   xlab("") + ylab("Density")
-  
+
+# p.posteriors.Fixed <- ggplot(posteriors.Fixed$df) +
+#   geom_density(aes(x = sample)) +
+#   facet_wrap(~ par.name.ordered, scales = "free_x") +
+#   xlab("") + ylab("Density")
 
 if (save.fig)
-  save.fig.fcn(fig = p.posteriors.Fixed,
-               file.name = paste0("figures/posterior_Fixed_", dpi.set, "dpi.png"),
+  save.fig.fcn(fig = p.posteriors.VS.BF,
+               file.name = paste0("figures/posteriors_VS_BF_", dpi.set, "dpi.png"),
                replace = T,
                height = 5, width = 7,
                dpi = dpi.set)
@@ -950,13 +964,13 @@ n.and.bf <- data.frame(n = n.mat[day.mat > 1 & day.mat < 100],
 
 ```
 
-```{r Figure-Fixed-posteriors, echo=FALSE, message=FALSE, fig.cap = "Posterior distributions of the fixed-effects coefficients for the visibility code (VS) and Beaufort sea state (BF)."}
+```{r Figure-Fixed-posteriors, echo=FALSE, message=FALSE, fig.cap = "Posterior distributions of the fixed-effects coefficients for the visibility code ($\\beta_{V}$) and Beaufort sea state ($\\beta_{B}$)."}
 
-knitr::include_graphics(paste0("figures/posterior_Fixed_", dpi.set, "dpi.png"))
+knitr::include_graphics(paste0("figures/posteriors_VS_BF_", dpi.set, "dpi.png"))
 
 ```
 
-Posterior distributions of the Richards equation parameters provided valuable insights into how annual gray whale migration varied among years. The $P$ parameters, which define the timing of the migration peak, shifted over the years (Figure \@ref(fig:Figure-P-posteriors)), a phenomenon reported in previous studies (Eguchi et al. 2023, 2024, 2025), although the significance and causes for the change are unknown. The $S_1$ and $S_2$ parameters, which define the width of the migration curve, also varied annually, indicating that the duration of migration fluctuated from year to year (Appendix Figures \@ref(fig:Figure-S1-posteriors) and \@ref(fig:Figure-S2-posteriors)).
+Posterior distributions of the Richards equation parameters provided valuable insights into how annual gray whale migration varied among years. The $P$ parameters, which define the timing of the migration peak, shifted over the years (Figure \@ref(fig:Figure-P-posteriors)), a phenomenon reported in previous studies ([@rugh_timing_2001], Eguchi et al. 2023, 2024, 2025), although the significance and causes for the change are unknown. The $S_1$ and $S_2$ parameters, which define the width of the migration curve, also varied annually, indicating that the duration of migration fluctuated from year to year (Appendix Figures \@ref(fig:Figure-S1-posteriors) and \@ref(fig:Figure-S2-posteriors)).
 
 ```{r posterior-Richards-plots, echo=FALSE, message=FALSE}
 
@@ -1039,13 +1053,13 @@ knitr::include_graphics(paste0("figures/posterior_P_", dpi.set, "dpi.png"))
 
 The new modeling approach yielded results comparable to those obtained by the methods of Laake et al. and Durban et al. Although point estimates were different in some years, the confidence and credible intervals overlapped in most of the time series, and all three methods captured similar long-term trends and the recent rate of decline.
 
-The new approach offers several advantages over the method of Durban et al. First, it eliminates the use of the “cut” function, which has been identified as statistically inappropriate (Plummer 2015). Second, the model is coded in JAGS, a more contemporary and widely used Bayesian modeling language. The new model in JAGS runs significantly faster than the Durban et al.'s model in WinBUGS. The analysis of the entire 32-year dataset took approximately `r signif(jm.out$Run_Time, 2)` hrs with the new approach, compared to `r signif(WinBugs.out$Run_Time, 3)` hours for an 11-year analysis using WinBUGS. Third, the new framework allows for formal model selection and goodness-of-fit assessment using modern criteria, such as LOOIC and the Pareto-k statistic, which were not part of the original Durban et al. analysis. Fourth, while retaining the N-mixture modeling framework, the new approach is more straightforward in its implementation.
+The new approach offers several advantages over the method of Durban et al. First, it eliminates the use of the “cut” function, which has been identified as statistically inappropriate (Plummer 2015). Second, the model is coded in JAGS, a more contemporary and widely used Bayesian modeling language. The new model in JAGS runs significantly faster than Durban et al.'s model in WinBUGS. The analysis of the entire 32-year dataset took approximately `r signif(jm.out$Run_Time, 2)` hrs per model with the new approach, compared to `r signif(WinBugs.out$Run_Time, 3)` hours for an 11-year analysis using WinBUGS. Third, the new framework allows for formal model selection and goodness-of-fit assessment using modern criteria, such as LOOIC and the Pareto-k statistic, which were not part of the original Durban et al. analysis. Fourth, while retaining the N-mixture modeling framework, the new approach is more straightforward in its implementation.
 
 Examination of Pareto-k statistics indicated that high Pareto-k values coincided with extreme data points, where counts were unusually high or low compared to adjacent shifts (Appendix Figure \@ref(fig:Figure-pareto-k)). While statistically notable, these fluctuations are consistent with the known patterns of gray whale migration. Therefore, I concluded that the model, i.e., combining the Richards equation and the N-mixture framework, was appropriate for analyzing the entire dataset.
 
-The new approach is also adaptable and can incorporate additional information as it becomes available. For example, data from uncrewed aircraft systems (UAS) are being used to estimate precision and bias in group size estimates made by visual observers. If a correction function can be derived from these UAS data, it could be integrated into the observation likelihood to adjust each sighting. Finally, this abundance estimation model could be incorporated into a more holistic population model, such as the one developed by [@stewart_boom-bust_2023].
+The new approach is also adaptable and can incorporate additional information as it becomes available. For example, data from uncrewed aircraft systems (UAS) are being used to estimate precision and bias in group size estimates made by visual observers. If correction functions can be derived from these UAS data, conditional on observed group sizes, they could be used to adjust the group size of each sighting. Finally, this abundance estimation model could be incorporated into a more comprehensive population model, such as the one developed by [@stewart_boom-bust_2023].
 
-In summary, the new approach provides a simpler, faster, and more statistically robust algorithm to estimate the abundance of gray whales from the long-term visual surveys conducted at Granite Canyon, CA, while producing results that are consistent with previous methods.
+In summary, the new approach provides a simpler, faster, and more statistically robust algorithm for estimating the abundance of gray whales from the long-term visual surveys conducted at Granite Canyon, CA, while producing results that are consistent with those of previous methods.
 
 ## Appendix {.unnumbered}
 
@@ -1358,8 +1372,8 @@ knitr::include_graphics(paste0("figures/Observer_dens.png"))
 
 ## Literature cited {.unnumbered}
 
-Goodrich B, Gabry J, Ali I & Brilleman S. (2024). rstanarm: Bayesian applied regression modeling via Stan. R package version 2.32.1 https://mc-stan.org/rstanarm.
-  
+Goodrich B, Gabry J, Ali I & Brilleman S. (2024). rstanarm: Bayesian applied regression modeling via Stan. R package version 2.32.1 <https://mc-stan.org/rstanarm>.
+
 Kellner K (2024). jagsUI: A Wrapper Around 'rjags' to Streamline 'JAGS' Analyses\_. R package version 1.6.2, <https://CRAN.R-project.org/package=jagsUI>.
 
 Vehtari A, Gabry J, Magnusson M, Yao Y, Bürkner P, Paananen T, Gelman A (2024). “loo: Efficient leave-one-out cross-validation and WAIC for Bayesian models.” R package version 2.8.0, <https://mc-stan.org/loo/>.

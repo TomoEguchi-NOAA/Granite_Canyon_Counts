@@ -2527,7 +2527,10 @@ plot.trace.dens <- function(jm, var.name){
     }
     
     # Order the facet variable numerically and create a factor variable
-    # Suggested by Gemini coding partner
+    # Suggested by Gemini coding partner. numeric index is used to order
+    # parameters with square brackets correctly. For example, without this line,
+    # 10 becomes before 2. For parameter names without brackets, numeric index
+    # is all NAs
     samples.df <- data.frame(seq = rep(1:n.samples, 
                                        times = n.chains),
                              sample = unlist(samples.list),
@@ -2741,13 +2744,13 @@ Richards_fcn_1 <- function(d, S1, S2, K1, K2, P1, P2, min, max){
 # A function to get one data file from selected directory
 # Inputs are data directory name, year of survey (2021/2022 is 2022), and
 # which file to be extracted (sequential number from 1 to length(files)).
-get.data <- function(dir, YEAR, FILES, ff){
+get.data <- function(in.dir, YEAR, FILES, ff){
   # 2023-03-02 Commented the following line and added FILES input because all data for 2023
   # were combined in one file (EditedDataAll_2023.dat), which was parsed out to day-specific
   # files so they will be the same as other years. The combined file also was stored in the
   # same folder.
   
-  all.lines <- read_lines(file = paste0(dir, "/", YEAR, "/", FILES[ff]))
+  all.lines <- read_lines(file = paste0(in.dir, "/", YEAR, "/", FILES[ff]))
   input.file.name <- FILES[ff]   # specify file name
   
   # look at the first three letters of the first line
@@ -2785,6 +2788,13 @@ get.data <- function(dir, YEAR, FILES, ff){
   # data %>% 
   #   mutate(line.num = as.numeric(V1)) -> data
   
+  # In 2008 and 2010, time was recorded as fractional hours... so, they need to be converted
+  # into HH:MM:SS. 
+  if (is.numeric(data$V4)){
+    new.time <- fractional_Hr2HMS(data$V4)
+    data$V4 <- new.time
+  }
+  
   data <- data[!is.na(as.numeric(data$V1)),]
   
   Starts <- which(data$V2=="B") #Find all start times
@@ -2798,22 +2808,19 @@ get.data <- function(dir, YEAR, FILES, ff){
                            paste0("0", as.character(row.num+1)),
                            as.character(row.num + 1))
     
-    if (YEAR != 2010){
-      tmp <- hour(hms(data[nrow(data),4])) + 
-        minute(hms(data[nrow(data),4]))/60 + 
-        (second(hms(data[nrow(data),4])) + 1)/3600 
-      
-    } else {
-      tmp <- data[nrow(data), 4]
-    }
+    # tmp is fractional hours
+    tmp <- hour(hms(data[nrow(data),4])) + 
+      minute(hms(data[nrow(data),4]))/60 + 
+      (second(hms(data[nrow(data),4])) + 1)/3600 
     
     HMS <- fractional_Hr2HMS(as.numeric(tmp))
     # h <- trunc(tmp)
     # m <- trunc((tmp - h) * 60)
     # s <- (((tmp - h) * 60) - m) * 60
-    data <- rbind(data, c(row.num.char, "E", data[nrow(data), 3],
-                          HMS,
-                          rep(NA, times = 12)))
+    data <- rbind(data, 
+                  c(row.num.char, "E", data[nrow(data), 3],
+                    HMS,
+                    rep(NA, times = 12)))
   }
   
   if(length(Starts)>0 & length(Ends)>0){
@@ -2843,12 +2850,12 @@ get.data <- function(dir, YEAR, FILES, ff){
   
   BeginDay <- mdy(data$V3) - mdy(paste0("11/30/", (YEAR - 1)))
   # Decimal hour of shift start time
-  if (YEAR != 2010){
-    BeginHr <- hour(hms(data$V4)) + minute(hms(data$V4))/60 + second(hms(data$V4))/3600    
-  } else {
-    BeginHr <- as.numeric(data$V4)
-  }
-
+  BeginHr <- hour(hms(data[, 4])) + 
+                    minute(hms(data[, 4]))/60 + 
+                    second(hms(data[, 4]))/3600 
+                  
+  #BeginHr <- as.numeric(data$V4)
+  
   data %>% 
     mutate(begin = as.numeric(BeginDay) + BeginHr/24,
            shift = cumsum(V2=="P")) -> data
@@ -2882,11 +2889,11 @@ get.data <- function(dir, YEAR, FILES, ff){
 get.shift <- function(YEAR, data, i){
   ff <- data$ff[1]   # file name
   
-  if (YEAR == 2010){
-    data$Shift <- shift.definition.2010(data$V4)
-  } else {
-    data$Shift <- shift.definition(as.Date(data$V3, format = "%m/%d/%Y"), data$V4)
-  }
+  # if (YEAR == 2010 | YEAR == 2008){
+  #   data$Shift <- shift.definition.2010(data$V4)
+  #} else {
+  data$Shift <- shift.definition(as.Date(data$V3, format = "%m/%d/%Y"), data$V4)
+  #}
 
   # Each shift always begins with "P" - change in observers
   # Note that this can happen in the middle of an official shift... 
