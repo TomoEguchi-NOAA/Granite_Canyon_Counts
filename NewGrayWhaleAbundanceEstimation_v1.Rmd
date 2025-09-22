@@ -524,6 +524,7 @@ for (k1 in 1:length(Bugs.start.year)){
 }
 
 # We don't have raw data for 2006/2007 and 2007/2008 seasons
+# Now we do. 2025-09-22
 seasons <- c("2006/2007", "2007/2008",
              jm.out$jags.input$jags.input.new$seasons)
 
@@ -620,7 +621,7 @@ if (save.fig)
 
 # Include non-survey years - no estimates for 2007/2008 because I don't have
 # raw data for that year. Only the WinBUGS inputs. 
-Laake.abundance.new <- read.csv(file = "Data/all_estimates_Laake_2025.csv") %>%
+Laake.abundance.new <- read.csv(file = "Data/all_estimates_Laake_2025_2025-09-22.csv") %>%
   mutate(LCL = CL.low,
          UCL = CL.high) %>%
   select(c(Season, Nhat, LCL, UCL)) %>%

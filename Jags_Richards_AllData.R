@@ -81,10 +81,10 @@ MCMC.params <- list(n.samples = 550000,
 #                     n.burnin = 5000,
 #                     n.chains = 5)
 # 
-# MCMC.params <- list(n.samples = 10000,
-#                     n.thin = 10,
-#                     n.burnin = 500,
-#                     n.chains = 5)
+MCMC.params <- list(n.samples = 10000,
+                    n.thin = 10,
+                    n.burnin = 500,
+                    n.chains = 5)
 
 jags.params <- c("VS.Fixed", "BF.Fixed",
                  "Max", "K", "K1", "K2", "S1", "S2", "P",
@@ -127,7 +127,6 @@ data.array[,2,which(jm.out$jags.input$jags.data$n.station == 1)] <- NA
 data.array[,2,which(jm.out$jags.input$jags.data$n.station == 1)] <- NA
 
 LOOIC.n <- compute.LOOIC(loglik.array = jm.out$jm$sims.list$log.lkhd,
-                         data.array = data.array,
                          MCMC.params = MCMC.params)
 
 # There are some (< 0.5%) bad ones. I should look at which ones are not fitting well.
@@ -407,7 +406,7 @@ p.daily.Durban <- ggplot(N.hats.day.Durban %>% group_by(Season)) +
 
 # Include non-survey years - no estimates for 2007/2008 because I don't have
 # raw data for that year. Only the WinBUGS inputs. 
-Laake.abundance.new <- read.csv(file = "Data/all_estimates_Laake_2025.csv") %>%
+Laake.abundance.new <- read.csv(file = "Data/all_estimates_Laake_2025_2025-09-22.csv") %>%
   mutate(LCL = CL.low,
          UCL = CL.high) %>%
   select(c(Season, Nhat, LCL, UCL)) %>%
