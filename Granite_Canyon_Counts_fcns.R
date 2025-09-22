@@ -127,7 +127,7 @@ create.observer.list <- function(sightings){
                                     ID = c(ARV.ID, ARV.ID), 
                                     Observer = c("ARV", "AVS"),
                                     data = "pre2009")) %>%
-    rename(obs = Observer) 
+    mutate(obs = Observer) 
     
   all.observers %>%
     distinct(obs, .keep_all = T) -> uniq.observers 
@@ -2889,6 +2889,8 @@ get.data <- function(in.dir, YEAR, FILES, ff){
 get.shift <- function(YEAR, data, i){
   ff <- data$ff[1]   # file name
   
+  # Fracitional time in 2010 and 2008 were converted to m/d/Y in the get.data
+  # function (Sept 2025). So, the if-else statement is unnecessary.
   # if (YEAR == 2010 | YEAR == 2008){
   #   data$Shift <- shift.definition.2010(data$V4)
   #} else {
@@ -2920,37 +2922,33 @@ get.shift <- function(YEAR, data, i){
   # in a 2020 data file (file 41, 2020-02-04)
   
   # Beginning hr of the shift. For 2010, time was recorded in decimal hours
-  BeginHr <- ifelse(YEAR != 2010,
-                    (hour(hms(data[shifts.begin[i], 4])) + 
-                       (minute(hms(data[shifts.begin[i], 4]))/60) 
-                     + (second(hms(data[shifts.begin[i], 4]))/3600)),
-                    as.numeric(data[shifts.begin[i], 4]))
+  # They are now converted in the m/d/Y format in the get.data function.
+  # In some rare occasions, a shift started a few seconds before the expected time
+  BeginHr <- hour(hms(data[shifts.begin[i], 4])) + 
+    minute(hms(data[shifts.begin[i], 4]))/60 + 
+    second(hms(data[shifts.begin[i], 4]))/3600
     
   # Decimal hour of next shift start time
   if (i < max.shifts){
     event.idx <- which(shifts.df$shift %in% i)
     next.event <- shifts.df[event.idx + 1,]
     if (next.event$event == "P"){
-      NextBeginHr <- ifelse(YEAR != 2010,
-                            (hour(hms(data[next.event$row, 4])) + 
-                               (minute(hms(data[next.event$row, 4]))/60)
-                             + (second(hms(data[next.event$row, 4]))/3600)),
-                            as.numeric(data[next.event$row, 4]))
+      NextBeginHr <- hour(hms(data[next.event$row, 4])) + 
+                            minute(hms(data[next.event$row, 4]))/60 + 
+                            second(hms(data[next.event$row, 4]))/3600
+                     
       
-      EndHr <- NextBeginHr - 0.00001
+      EndHr <- NextBeginHr - 0.0002
     } else {  # if the event is "E"
       next.P <- shifts.df[event.idx+2,]
-      NextBeginHr <- ifelse(YEAR != 2010, 
-                            (hour(hms(data[next.P$row, 4])) + 
-                               (minute(hms(data[next.P$row, 4]))/60) 
-                             + (second(hms(data[next.P$row, 4]))/3600)),
-                            as.numeric(data[next.P$row, 4]))
+      NextBeginHr <- hour(hms(data[next.P$row, 4])) + 
+        minute(hms(data[next.P$row, 4]))/60 + 
+        second(hms(data[next.P$row, 4]))/3600    
       
-      EndHr <- ifelse(YEAR != 2010,
-                      (hour(hms(data[next.event$row, 4])) + 
-                         (minute(hms(data[next.event$row, 4]))/60) + 
-                         (second(hms(data[next.event$row, 4]))/3600)),
-                      as.numeric(data[next.event$row, 4]))
+      EndHr <- hour(hms(data[next.event$row, 4])) + 
+        minute(hms(data[next.event$row, 4]))/60 + 
+        second(hms(data[next.event$row, 4]))/3600
+
     }
 
     # Find next end hr to find the next shift to figure out spillovers
@@ -2958,18 +2956,14 @@ get.shift <- function(YEAR, data, i){
     next.event2 <- shifts.df[event.idx2+1,]
     
     if (next.event2$event == "P"){   # if the next event is also "P"
-       NextEndHr <- ifelse(YEAR != 2010,
-                           (hour(hms(data[next.event2$row, 4])) + 
-                              (minute(hms(data[next.event2$row, 4]))/60) + 
-                              (second(hms(data[next.event2$row, 4]))/3600) ) - 0.00001,
-                           as.numeric(data[next.event2$row, 4]) - 0.00001)
+       NextEndHr <- hour(hms(data[next.event2$row, 4])) + 
+         minute(hms(data[next.event2$row, 4]))/60 + 
+         second(hms(data[next.event2$row, 4]))/3600 - 0.0002
        # 
     } else {  # if the event is "E"
-       NextEndHr <- ifelse(YEAR != 2010,
-                           (hour(hms(data[next.event2$row, 4])) + 
-                              (minute(hms(data[next.event2$row, 4]))/60) 
-                            + (second(hms(data[next.event2$row, 4]))/3600)),
-                           as.numeric(data[next.event2$row, 4]))
+       NextEndHr <- hour(hms(data[next.event2$row, 4])) + 
+         minute(hms(data[next.event2$row, 4]))/60 + 
+         second(hms(data[next.event2$row, 4]))/3600
     }
     
 
@@ -2981,11 +2975,9 @@ get.shift <- function(YEAR, data, i){
     } else {
       end.row <- next.event$row
     }
-    EndHr <-  ifelse(YEAR != 2010,
-                     (hour(hms(data[end.row, 4])) + 
-                        (minute(hms(data[end.row, 4]))/60) + 
-                        (second(hms(data[end.row, 4]))/3600)),
-                     as.numeric(data[end.row, 4]))
+    EndHr <- hour(hms(data[end.row, 4])) + 
+      minute(hms(data[end.row, 4]))/60 +
+      second(hms(data[end.row, 4]))/3600
   }
   
   # End time is just before next start time (replicating J Durban's calculations)
@@ -3160,29 +3152,29 @@ get.shift <- function(YEAR, data, i){
   # I use as the starting point. I use 2022-12-01 00:00:00
   # If the last one is not E, add an E line. 
   if (data.shift[nrow(data.shift), "V2"] != "E"){
-    if (YEAR == 2010){
-      # This Shift is the defined shift IDs - not based on changes in observers
-      Shift.End <- shift.definition.2010(data.shift$V4[nrow(data.shift)])
-      if (NextBeginHr > (BeginHr + 1.5)){
-        V4 <- shift.hrs %>% 
-          filter(shift == Shift.End) %>% 
-          select(end.hr) %>%
-          pull()        
-      } else {
-        V4 <- NextBeginHr - 0.00001
-      }
-
-    } else {
-      Shift.End <- shift.definition(as.Date(data.shift$V3[nrow(data.shift)], 
-                                            format = "%m/%d/%Y"), 
-                                    data.shift$V4[nrow(data.shift)])
-      if (NextBeginHr > (BeginHr + 1.5)){
-        V4 <- format(as.POSIXct(as.Date("2022-12-01 00:00:00") + End),
+    # if (YEAR == 2010){
+    #   # This Shift is the defined shift IDs - not based on changes in observers
+    #   Shift.End <- shift.definition.2010(data.shift$V4[nrow(data.shift)])
+    #   if (NextBeginHr > (BeginHr + 1.5)){
+    #     V4 <- shift.hrs %>% 
+    #       filter(shift == Shift.End) %>% 
+    #       select(end.hr) %>%
+    #       pull()        
+    #   } else {
+    #     V4 <- NextBeginHr - 0.00001
+    #   }
+    #   
+    # } else {
+    Shift.End <- shift.definition(as.Date(data.shift$V3[nrow(data.shift)], 
+                                          format = "%m/%d/%Y"), 
+                                  data.shift$V4[nrow(data.shift)])
+    if (NextBeginHr > (BeginHr + 1.5)){
+      V4 <- format(as.POSIXct(as.Date("2022-12-01 00:00:00") + End),
                    format = "%H:%M:%S")
-      } else {
-        V4 <- NextBeginHr - 0.00001
-      }
+    } else {
+      V4 <- fractional_Hr2HMS(NextBeginHr - 0.0002)
     }
+    #}
     
     # Add one line with "E" as the event
     data.shift <- rbind(data.shift, 

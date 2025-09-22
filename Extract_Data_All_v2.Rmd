@@ -50,7 +50,6 @@ min_dur <- shift_dur_min - grace_min
 
 
 ```{r}
-
 if (YEAR == 2023 | YEAR == 2008){
   FILES <- list.files(path = paste0("Data/", YEAR, "/"),
                       pattern = "EditedGW")
@@ -109,7 +108,7 @@ data.all <- do.call("rbind", data.list)
 
 unique.dates <- unique(data.all$V3)
 n.stations <- vector(mode = "numeric", length = length(unique.dates))
-c <-21
+c <-27
 for (c in 1:length(unique.dates)){
   print(paste0("Date = ", c))
   data.all %>% 
@@ -129,7 +128,7 @@ for (c in 1:length(unique.dates)){
   
   all.effort.1 <- Output.list.1 <- all.sightings.1 <- list()
   
-  k <- 2
+  k <- 4
   for(k in 1:length(Shifts.1)){
     #print(paste0("Shift.p = ", k))
     out.shift.1 <- get.shift(YEAR, data.1, k)
@@ -175,7 +174,12 @@ for (c in 1:length(unique.dates)){
 # For primary:
 Data_Out_1 <- do.call("rbind", Data_Out.list.1) %>%
   mutate(station = "P")
+```
 
+
+Create data for Laake's approach:
+
+```{r}
 # I think I fixed the decimal hour issues in 2010 and 2008 data files. But, keep it 
 # just in case:
 # if (YEAR == 2010){
@@ -418,6 +422,7 @@ if (exists("tmp.2")){
 ```
 
 SHIFT IDENTIFICATION IS WRONG. GO BACK TO GET.SHIFT FUNCTION AND FIX THE PROBLEM FOR 2008. 2025-09-19
+THESE ERRORS WERE DUE TO DATA ENTRY "ERRORS." THEY HAVE BEEN FIXED. SEE Extract_Data_2008.Rmd FOR DETAILS.
 
 
 ```{r}

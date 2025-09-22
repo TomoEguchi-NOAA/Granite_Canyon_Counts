@@ -45,7 +45,7 @@ ver <- "v5a" #  "v3" #"v5" # "v4" #
 # These are the ending year of each season - for example, 2022 in the following vector indicates
 # for the 2021/2022 season. These data were extracted using Extract_Data_All_v2.Rmd
 # Data prior to the 2009/2010 season are in Laake's ERAnalayis package. 
-years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025)
+years <- c(2008, 2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025)
 data.dir <- "RData/V2.1_Feb2025"
 max.day <- 100
 

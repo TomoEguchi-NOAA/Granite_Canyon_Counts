@@ -25,7 +25,11 @@ source("Laake_functions.R")
 
 save.file <- F
 # These are the second year of each season.
-years <- c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025)
+years <- c(2008, 2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025)
+
+out.file.name <- paste0("Data/all_estimates_Laake_",
+                        max(years), "_", Sys.Date(), ".csv")
+
 YEAR <- max(years)
 # For Laake's approach, I need primary effort, primary sightings, secondary effort,
 # secondary sightings, distance, podsize, and associated visibility and Beaufort 
@@ -242,42 +246,42 @@ all.observers <- create.observer.list(sightings.primary)
 
 # Rearrange sightings dataframe columns
 sightings.primary %>% 
-  left_join(all.observers, by = "Observer") %>%
+  left_join(all.observers$unique, by = "Observer") %>%
   select(-ID) %>%
   #rename(Observer = ID) %>%
   mutate(Observer = as.factor(Observer)) %>%
   relocate(Observer, .after = Sex) %>%
-  select(-station) -> sightings.primary
+  select(-c(station, ID.old, data, obs)) -> sightings.primary
 
 sightings.secondary <- do.call("rbind", sightings.list.secondary) 
 
 sightings.secondary %>% 
-  left_join(all.observers, by = "Observer") %>%
+  left_join(all.observers$unique, by = "Observer") %>%
   select(-ID) %>%
   #rename(Observer = ID) %>%
   mutate(Observer = as.factor(Observer)) %>%
   relocate(Observer, .after = Sex) %>%
-  select(-station) -> sightings.secondary
+  select(-c(station, ID.old, data, obs)) -> sightings.secondary
 
 # Effort
 effort.primary <- do.call("rbind", effort.list.primary)  
 
 effort.primary %>% 
-  left_join(all.observers, by = "Observer") %>%
+  left_join(all.observers$unique, by = "Observer") %>%
   select(-ID) %>%
   #rename(Observer = ID) %>% 
   mutate(Observer = as.factor(Observer)) %>%
-  select(-station) %>%
+  select(-c(station, ID.old, data, obs)) %>%
   relocate(Observer, .after = beaufort) -> effort.primary
 
 effort.secondary <- do.call("rbind", effort.list.secondary)  
 
 effort.secondary %>% 
-  left_join(all.observers, by = "Observer") %>%
+  left_join(all.observers$unique, by = "Observer") %>%
   select(-ID) %>%
   #rename(Observer = ID) %>%
   mutate(Observer = as.factor(Observer)) %>%
-  select(-station) %>%
+  select(-c(station, ID.old, data, obs)) %>%
   relocate(Observer, .after = beaufort) -> effort.secondary
 
 # gsS: nmax x nmax pod size calibration matrix; each row is a true pod size 
@@ -865,10 +869,8 @@ seq.years <- data.frame(Start.Year = seq(min(all.estimates$Start.Year),
 seq.years %>% left_join(all.estimates, by = "Start.Year") %>%
   relocate(Season, .after = Start.Year) -> all.estimates
 
-if (!file.exists(paste0("Data/all_estimates_Laake_",
-                        max(years), ".csv")))
-  write.csv(all.estimates, paste0("Data/all_estimates_Laake_",
-                                  max(years), ".csv"), 
+if (!file.exists(out.file.name))
+  write.csv(all.estimates, out.file.name, 
             quote = FALSE, row.names = FALSE)
 
 ggplot(all.estimates) +
