@@ -2,6 +2,7 @@
 # define some functions
 
 # Check convergence
+# This is for the rank-normalized R-hat (Vehtari et al. 2021)
 high.Rhat <- function(x){
   return(data.frame(idx = which(x > 1.01),
                     start.year = all.start.year[which(x > 1.01)],
