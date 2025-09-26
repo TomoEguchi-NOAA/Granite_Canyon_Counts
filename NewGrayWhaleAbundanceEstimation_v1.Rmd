@@ -28,6 +28,8 @@ library(bayesplot)
 library(ggridges)
 library(rstanarm)
 library(mgcv)
+library(flextable)
+library(officer)
 
 options(mc.cores = 5)
 
@@ -36,7 +38,11 @@ set_flextable_defaults(font.size = 9,
 
 min.dur <- 60
 dpi.set <- 600
-WinBUGS.Run.Date <- "2025-04-11"
+
+# This run (2025-09-19) includes posterior samples of obs.prob. It was run in
+# the GrayWhaleAbundance project. 
+# The run of 2025-04-11 is the one for the Tech Memo
+WinBUGS.Run.Date <- "2025-09-19"  
 
 save.fig.fcn <- function(fig, file.name, replace = F, 
                          dpi = dpi.set, device = "png",
@@ -68,7 +74,9 @@ To estimate the detectability of gray whales by visual observers at the field st
 
 Consistent with Laake et al. (2012), the model for the detection probability incorporated fixed effects for visibility ($VS$) and the Beaufort sea state ($BF$), whereas observers were treated as random effects ($O$). These were modeled as additive effects on a general intercept so that the direction and magnitude of the estimated effects away from zero (no effect) could be assessed. The selection for the inclusion of these effects was accomplished by using Bayesian model selection with stochastic binary indicator variables $I$ to switch each of the three possible effects (i.e., $V$, $B$, and $O$) either in or out of the model:
 
-$$ logit(p_{i,d(j),t}) = logit(p_0) + I_{V} \beta_{V} V_{d(j),t} + I_{B} \beta_{B} B_{d(j),t}+ I_{O} \mathbf{\beta}^{O_{i,d(j),t} = o}_{O} $$
+\begin{equation}
+logit(p_{i,d(j),t}) = logit(p_0) + I_{V} \beta_{V} V_{d(j),t} + I_{B} \beta_{B} B_{d(j),t}+ I_{O} \mathbf{\beta}^{O_{i,d(j),t} = o}_{O} (\#eq:detection-probability-Durban)
+\end{equation}
 
 where the intercept $p_0$ was the base detection probability in the absence of covariate effects, assigned a Uniform(0,1) prior distribution, and $logit(p_0) = ln(p_0/(1–p_0))$. For each fixed effect, $\beta_{B}$ and $\beta_{V}$, a Normal prior distribution with mean zero and standard deviation of 10 was used. The random effect for each observer was drawn from a Normal distribution with mean zero and standard deviation $\sigma_{O} \sim Uniform(0,10)$. Each binary indicator variable, $I$, was assigned a Bernoulli(0.5) distribution to specify equal probability of inclusion (1) or exclusion (0) of the effect in the model (Durban et al. 2015).
 
@@ -113,11 +121,25 @@ model.defs <- data.frame(ID = c(1:8),
                          S1 = rep(c("Year", "Constant"), 4),
                          S2 = rep(c("Year", "Constant", "Constant", "Year"), 2))
 
+ft.models <- flextable(model.defs)
+header_labels <- list(
+  ID = as_paragraph(as_chunk("Model")),
+  P1 = as_paragraph(as_chunk("P"), as_chunk("1", props = fp_text(vertical.align = "subscript"))),
+  P2 = as_paragraph(as_chunk("P"), as_chunk("2", props = fp_text(vertical.align = "subscript"))),
+  S1 = as_paragraph(as_chunk("S"), as_chunk("1", props = fp_text(vertical.align = "subscript"))),
+  S2 = as_paragraph(as_chunk("S"), as_chunk("2", props = fp_text(vertical.align = "subscript")))
+)
+
+for (nm in names(header_labels)) {
+  ft.models <- flextable::compose(ft.models, part = "header", j = nm, value = header_labels[[nm]])
+}
+
+ft.models <- autofit(ft.models)
 
 ```
 
 ```{r model-definitions, echo=F, message=F, tab.cap=paste0("Definitions of eight models. Four parameters ($P_1$, $P_2$, $S_1$, $S_2$) were tested for time dependence. $P_1 = P_2 = P[Year]$, means that there was one $P$ for each year.") }
-knitr::kable(model.defs, col.names = c("Model", "$P_1$", "$P_2$", "$S_1$", "$S_2$" ), escape = FALSE)
+print(ft.models)
 
 ```
 
@@ -131,7 +153,9 @@ where $\bar{N}_{t,y}$ is the expected number of whales that migrate through the 
 logit(p_{i_t, s, y}) = \beta_0 + \beta_{B} \times B_{i_t, y} + \beta_{V} \times V_{i_t, y} + O_{i_t, s, y} + log(L_{i_t, y}) (\#eq:detection-probability)
 \end{equation}
 
-where the index $i_t$ is the watch period $i$ of the day $t$, $s$ is the station (1 or 2), and $y$ is the season.
+where the index $i_t$ is the watch period $i$ of the day $t$, $s$ is the station (1 or 2), and $y$ is the season. The intercept ($\beta_0$) in the new approach \@ref(eq:detection-probability) can be expressed in terms of the intercept ($p_0$) of the Durban et al. approach \@ref(eq:detection-probability-Durban) via the logit function:
+
+$$ \beta_0 = ln(p_0/(1 - p_0)) $$
 
 Similar to the approach taken by Durban et al., the binomial model was employed to approximate the sampling process:
 
@@ -145,10 +169,10 @@ $$ \lambda \sim N(1.0875, 0.03625) $$ (Perryman et al. 1999).
 
 ```{r hyper-parameters, echo=FALSE, message=FALSE}
 
-hyper.params <- data.frame(params = c("Max", "S1", "S2", "P", "K", "OBS", "BF", "VS", "mean.Prob",
+hyper.params <- data.frame(Parameter = c("Max", "S1", "S2", "P", "K", "O", "BF", "VS", "mean.prob",
                                       "S1.alpha", "S1.beta", "S2.alpha", "S2.beta",
                                       "K.alpha", "K.beta", "K.unif", "sigma.Obs"),
-                           distribution = c("Normal(2000, 800)T(0,)",
+                           Distribution = c("Normal(2000, 800)T(0,)",
                                             "Gamma(S1.alpha, S1.beta)",
                                             "Gamma(S2.alpha, S2.beta",
                                             "Uniform(30, 60)",
@@ -166,17 +190,40 @@ hyper.params <- data.frame(params = c("Max", "S1", "S2", "P", "K", "OBS", "BF", 
                                             "Uniform(0, 500)",
                                             "Uniform(0, 3)"))
 
+hyper.params %>%
+  flextable() %>%
+  compose(i = 1, j = "Parameter",
+          value = as_paragraph(as_chunk("N"), 
+                               as_chunk("Max", props = fp_text(vertical.align = "subscript")))) %>%
+  compose(i = 2, j = "Parameter",
+          value = as_paragraph(as_chunk("S"), 
+                               as_chunk("1", props = fp_text(vertical.align = "subscript")))) %>%
+  compose(i = 3, j = "Parameter",
+          value = as_paragraph(as_chunk("S"), 
+                               as_chunk("2", props = fp_text(vertical.align = "subscript")))) %>%
+  compose(i = 7, j = "Parameter",
+          value = as_paragraph(as_chunk("\U03B2"), 
+                               as_chunk("B", props = fp_text(vertical.align = "subscript")))) %>%
+  compose(i = 8, j = "Parameter",
+          value = as_paragraph(as_chunk("\U03B2"), 
+                               as_chunk("V", props = fp_text(vertical.align = "subscript")))) %>%
+  compose(i = 9, j = "Parameter",
+          value = as_paragraph(as_chunk("\U03B2"), 
+                               as_chunk("0", props = fp_text(vertical.align = "subscript")))) %>%
+  autofit() -> ft.hyper.params
+  
+
 ```
 
 In the Durban et al. analysis, the annual migration at the survey station was defined as a 90-day period starting on December 1, with the number of passing whales assumed to be zero on days 1 and 90 (February 29th or March 1st). However, in some years, observations continued beyond March 1st. To incorporate all available data, I defined the annual migration period as 100 days (ending on March 10th or 11th), assuming the number of passing whales was zero on days 1 and 100 ($max(d) = 100$).
 
-The new approach was used to analyze the entire dataset from the 1967/1968 season onward, and the results were compared to the estimates reported in Eguchi et al. (2025). In order to apply the new approach to historical data, sighting data between the 1967/1968 and 2005/2006 seasons were obtained from the ERAnalysis package (<https://github.com/jlaake/ERAnalysis>, Laake 2012). An R script was written to convert the sightings data in the package to an input object required for the new analysis. No raw data were available for the 2006/2007 season, so it was excluded from this analysis. Data from the 2007/2008 season to the 2024/2025 season were extracted from raw data files using another R script (available at the GitHub repository). All shifts of at least 60 minutes with the Beaufort sea state of \< 5 and the visibility code of \< 5 were included in the analysis. Laake et al.’s approach was applied to the entire dataset after formatting new data from the 2009/2010 season into the input object for Laake et al.’s approach. Because no data to match sightings of pods between the two stations in the 2009/2010 and 2010/2011 seasons, only "naive" estimates in Laake et al.'s approach were computed.
+The new approach was used to analyze the entire dataset from the 1967/1968 season onward, and the results were compared to the estimates reported in Eguchi et al. (2025). In order to apply the new approach to historical data, sighting data between the 1967/1968 and 2006/2007 seasons were obtained from the ERAnalysis package (<https://github.com/jlaake/ERAnalysis>, Laake 2012). An R script was written to convert the sightings data in the package to an input object required for the new analysis. Data from the 2007/2008 season to the 2024/2025 season were extracted from raw data files using another R script. All shifts of at least 60 minutes with the Beaufort sea state of \< 5 and the visibility code of \< 5 were included in the analysis. Laake et al.’s approach was applied to the entire dataset after formatting new data from the 2007/2008 season into the input object for Laake et al.’s approach. Because no information was available to match sightings of pods between the two stations in the 2009/2010 and 2010/2011 seasons, only "naive" estimates in Laake et al.'s approach were computed.
 
-The new models were fitted to the data using JAGS (Plummer) in the R statistical environment, using the *jagsUI* package (Kellner 2024). For each model, five MCMC chains were run for 550,000 steps each. The first 500,000 samples of each chain were discarded as “burn-in.” The remaining posterior samples were thinned by taking every 100 samples, resulting in 2500 posterior samples for inference. The convergence of MCMC was assessed using the rank-normalized R-hat statistic [@vehtari2021]. Goodness-of-fit was determined via Pareto-k statistics [@vehtari_practical_2017] via the *loo* package (Vehtari et al. 2024). The performance of models were compared using the LOOIC statistic via the *loo* and *rstanarm* (Goodrich et al. 2024) packages.
+The new models were fitted to the data using JAGS (Plummer) in the R statistical environment, using the *jagsUI* package (Kellner 2024). For each model, five MCMC chains were run for 550,000 steps each. The first 500,000 samples of each chain were discarded as “burn-in.” The remaining posterior samples were thinned by taking every 100 samples, resulting in 2500 posterior samples for inference. The convergence of MCMC was assessed using the rank-normalized R-hat statistic [@vehtari2021]. Goodness-of-fit was determined via Pareto-k statistics [@vehtari_practical_2017] via the *loo* package (Vehtari et al. 2024). The performance of models were compared using the LOOIC (Leave-One-Out Information Criteria) statistic via the *loo* and *rstanarm* (Goodrich et al. 2024) packages.
 
 To compare the three approaches (Laake et al., Durban et al., and the new approach), I fitted generalized additive models (GAMs) to point abundance estimates between the 2006/2007 and 2024/2025 seasons. The rate of recent decline in the estimated abundance was compared by fitting linear models to the point estimates between the 2015/2016 and 2024/2025 seasons.
 
-JAGS models and R scripts to conduct the analysis, including data extraction and executing the JAGS models, are available at the GitHub repository ().
+JAGS models and R scripts to conduct the analysis, including data extraction and executing the JAGS models, and data are available at the GitHub repository ().
 
 ## Results {.unnumbered}
 
@@ -206,7 +253,7 @@ params.2 <- "^VS\\.Fixed|^BF\\.Fixed|^Max\\[|^S1|^S2|^P|^OBS\\.RF\\["
 #max.Rhat.big <- list()
 prop.big.Rhat <- n.params <- n.big.Rhat <- n.bad.Pareto <- prop.bad.Pareto <- LOOIC <- vector(mode = "numeric", length = length(model.names))
 
-# I thought using lapply would be faster but the for loop option below was slighly faster than
+# I thought using lapply would be faster but the for loop option below was slightly faster than
 # the lapply... 
 # t.1 <- Sys.time()
 # out.list <- lapply(model.names, 
@@ -271,12 +318,45 @@ out.table <- data.frame(model = model.ID,
   arrange(by = dLOOIC) %>% 
   select(model, dLOOIC, n.params, n.big.Rhat, p.big.Rhat, n.bad.Pareto, p.bad.Pareto)
 
+out.table %>% 
+  flextable() %>%
+  colformat_double(j = c("dLOOIC", "p.big.Rhat", "p.bad.Pareto"),
+                   digits = 2) %>%
+  compose(part = "header", j = "dLOOIC",
+          value = as_paragraph(as_chunk("\u0394"), as_chunk("LOOIC"))) -> ft.models.comp
+
+# ft.models.comp <- flextable(out.table)
+# 
+# ft.models.comp <- flextable::colformat_double(ft.models.comp,
+#                                            j = c("dLOOIC", "p.big.Rhat", "p.bad.Pareto"),
+#                                            digits = 2)
+# 
+# ft.models.comp <- flextable::compose(ft.models.comp, part = "header", j = "dLOOIC",
+#                           value = as_paragraph(as_chunk("\u0394"), as_chunk("LOOIC")))
+
+# Fix the column headers:
+header_labels <- list(
+  model = as_paragraph(as_chunk("Model")),
+  n.params = as_paragraph(as_chunk("# monitored parameters")),
+  n.big.Rhat = as_paragraph(as_chunk("# Rhat > 1.01")),
+  p.big.Rhat = as_paragraph(as_chunk("% Rhat > 1.01")),
+  n.bad.Pareto = as_paragraph(as_chunk("# Pareto-k > 0.7")),
+  p.bad.Pareto = as_paragraph(as_chunk("% Pareto-k > 0.7")))
+
+for (nm in names(header_labels)) {
+  ft.models.comp <- flextable::compose(ft.models.comp, 
+                                       part = "header", 
+                                       j = nm, 
+                                       value = header_labels[[nm]])
+}
+
+ft.models.comp <- autofit(ft.models.comp)
 ```
 
 The eight models were fitted to the sightings data over 32 seasons. Based on LOOIC and Pareto-k statistics, Model `r out.table$model[1]` was identified as the best-fitting model (Table \@ref(tab:model-table)). Although Model `r model.ID[which(prop.big.Rhat == min(prop.big.Rhat))]` had the lowest proportion of the monitored parameters with the R-hat statistics \> 1.01 (Table \@ref(tab:model-table)), after visual inspection of trace plots for parameters of Model 5 with high Rhat statistics (Appendix Figures \@ref(fig:Figure-trace-1), \@ref(fig:Figure-trace-2), and \@ref(fig:Figure-trace-3)), I concluded that Model `r out.table$model[1]` was the most appropriate for inference. The model consists of year-specific $P$ ($P_1 = P_2$), $S_1$, and $S_2$ parameters (Table \@ref(tab:model-definitions)).
 
 ```{r model-table, echo=F, message=F, tab.cap="Comparison of eight models."}
-knitr::kable(out.table, col.names = c("Model", "$\\Delta$LOOIC", "# monitored parameters", "# Rhat > 1.01", "% Rhat > 1.01", "# Pareto-K > 0.7", "% Pareto-K > 0.7" ), digits = 2, escape = FALSE)
+print(ft.models.comp)
 
 ```
 
@@ -344,7 +424,7 @@ p.trace.2 <- mcmc_trace(jm.out$jm$samples,
                         pars = params.Rhat.big[26:50])
 
 p.trace.3 <- mcmc_trace(jm.out$jm$samples, 
-                        pars = params.Rhat.big[51:58])
+                        pars = params.Rhat.big[51:62])
 
 if (save.fig) {
   save.fig.fcn(fig = p.trace.1, 
@@ -737,7 +817,7 @@ if (save.fig){
 }
 ```
 
-Estimated abundances from the new approach generally followed the same trend as the previous approaches, with a few notable differences (Figure \@ref(fig:Figure-N-hats)). For the Durban et al. and new approaches, medians of the posterior distributions were used as the point estimates, whereas for the Laake et al. approach, it was the maximum likelihood estimates. For the majority of estimates, the Laake et al. and the new approach provided almost identical estimates, and the 95% credible and confidence intervals overlapped significantly. The new and Laake et al. approaches produced lower estimates than the Durban et al. approach in all but one year among the 11 years when all three estimates were available.
+For the Durban et al. and new approaches, medians of the posterior distributions were used as the point estimates, whereas for the Laake et al. approach, it was the maximum likelihood estimates. Estimated abundances from the new approach generally followed the same trend as the previous approaches, with a few notable differences (Figure \@ref(fig:Figure-N-hats)). For the majority of estimates, the Laake et al. and the new approaches provided almost identical estimates, and the 95% credible and confidence intervals overlapped significantly. The new and Laake et al. approaches produced lower estimates than the Durban et al. approach in all but one year among the 11 years when all three estimates were available.
 
 ```{r Figure-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated annual abundance and their 95% CIs using Laake's method (blue, MLE), Durban's method (red, median), and the new approach (Eguchi M5, green, median). Laake's estimates prior to 2007 and Durban's estimates are found in Eguchi et al. (2025). Laake's estimates since the 2009/2010 season were computed using the scripts found in the *ERAnalysis* package."}
 
@@ -1319,7 +1399,8 @@ knitr::include_graphics(paste0("figures/P_", dpi.set, "dpi.png"))
 ### Hyperparameter definitions {.unnumbered}
 
 ```{r hyperparameter-table, echo=FALSE, message=FALSE, tab.cap="Definitions of hyperdistributions and their parameters."}
-knitr::kable(hyper.params, col.names = c("Parameter", "Distribution"), escape = FALSE)
+
+print(ft.hyper.params)
 
 ```
 
