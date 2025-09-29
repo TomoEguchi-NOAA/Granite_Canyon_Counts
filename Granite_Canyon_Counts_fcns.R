@@ -1571,7 +1571,7 @@ LaakeData2JagsInput <- function(min.dur, max.day = 100){
            obs = Observer) %>%
     select(Start.year, nwhales, effort, vis, beaufort, obs, dt) %>%
     group_by(Start.year) %>%
-    mutate(effort.hr = effort * 24,  # effort in minutes
+    mutate(effort.hr = effort * 24,  # effort in hours
            watch.prop = effort.hr/9) -> Effort.by.period
   
   # observers - rather than using entries of Observer.rda, I pull out all observers

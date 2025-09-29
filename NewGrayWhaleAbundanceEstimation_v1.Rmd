@@ -828,13 +828,6 @@ if (save.fig){
 }
 
 
-# Figure out why the 1987/1988 season has very different estimates between Laake's and my estimates
-obsd.n.df %>%
-  filter(Season == "1987/1988") -> obsd.n.1988
-
-N.hats.day %>%
-  filter(Season == "1987/1988") -> N.hats.day.1988
-
 # Daily estimates plots
 p.daily.Richards.1988 <- ggplot(N.hats.day.1988) + 
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
@@ -843,6 +836,35 @@ p.daily.Richards.1988 <- ggplot(N.hats.day.1988) +
   geom_point(aes(x = Day, y = Nhat), color = "darkgreen") 
 
 ```
+
+```{r}
+# Figure out why the 1987/1988 season has very different estimates between Laake's and my estimates
+# The recent survey data 1987 and after are stored in ERSurveyData and those data
+# are processed by the ERAbund program to produce files of sightings and effort.
+# The sightings files are split into Primary observer and Secondary observer sightings.
+# Primary observer sightings are whales that are not travelling North and are defined by
+# those when EXPERIMENT==1 (single observer) or a designated LOCATION when EXPERIMENT==2.
+#  For surveys 2000/2001 and 2001/2002, the primary observer was at LOCATION=="N"
+# and for all other years, LOCATION=="S".
+#
+# Based on the projected timing of the passage of the whale (t241) perpendicular to the 
+# watch station, the sighting was either contained in the watch (on effort) or not (off effort).
+# The dataframe Primary contains all of the on effort sightings and PrimaryOff contains all
+# of the off-effort sightings.  The code below shows that the counts of primary
+# sighting records matches the total counts of the on and off effort sightings split into
+# the 2 dataframes.
+data(ERSurveyData)
+
+obsd.n.df %>%
+  filter(Season == "1987/1988") -> obsd.n.1988
+
+N.hats.day %>%
+  filter(Season == "1987/1988") -> N.hats.day.1988
+
+LaakeData4Jags <- LaakeData2JagsInput(min.dur, max.day = 100)
+
+```
+
 
 For the Durban et al. and new approaches, medians of the posterior distributions were used as the point estimates, whereas for the Laake et al. approach, it was the maximum likelihood estimates. Estimated abundances from the new approach generally followed the same trend as the previous approaches, with a few notable differences (Figure \@ref(fig:Figure-N-hats)). For the majority of estimates, the Laake et al. and the new approaches provided almost identical estimates, and the 95% credible and confidence intervals overlapped significantly. The new and Laake et al. approaches produced lower estimates than the Durban et al. approach in all but one year among the 11 years when all three estimates were available.
 
