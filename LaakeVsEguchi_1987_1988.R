@@ -299,6 +299,10 @@ Effort %>%
 ###########################################################################
 
 # My data extraction function for Laake data
+# In the function below, add shift # to each effort line and create a cumulative
+# effort for each shift. Then filter shifts that meet the minimum shift duration
+# criteria. Currently, each line is compared to the threshold, which is not the
+# right way to do it. 2025-10-01
 Laake.data <- LaakeData2JagsInput(60, max.day = 100)
 
 # Data in the JAGS analysis is found in the saved output file. 
