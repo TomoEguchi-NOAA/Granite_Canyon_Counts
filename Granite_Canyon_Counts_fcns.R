@@ -1526,13 +1526,30 @@ LaakeData2JagsInput <- function(min.dur, max.day = 100){
   
   Laake_SecondaryEffort <- SecondaryEffort[SecondaryEffort$Use,]
   
+  # Define shifts and combine effort within each shift:
+  # Define shifts, group by date and shift, calculate cumulative effort, then
+  # find the maximum cumulative effort for each sfhit. 
+  Laake_PrimaryEffort %>%
+    mutate(Shift = shift.definition(fractional_Day2YMDhms(begin, year(Date))$YMD,
+                                    fractional_Day2YMDhms(begin, year(Date))$hms)) %>%
+    group_by(Date, Shift) %>% 
+    mutate(cumu.effort = cumsum(effort),
+           effort.per.shift = max(cumu.effort)) -> Laake_PrimaryEffort
+  
+  Laake_SecondaryEffort %>%
+    mutate(Shift = shift.definition(fractional_Day2YMDhms(begin, year(Date))$YMD,
+                                    fractional_Day2YMDhms(begin, year(Date))$hms)) %>%
+    group_by(Date, Shift) %>% 
+    mutate(cumu.effort = cumsum(effort),
+           effort.per.shift = max(cumu.effort)) -> Laake_SecondaryEffort
+  
   # Filter to minimum duration. min.dur is given in the unit of minuites, which
   # is converted to the unit of days:
   Laake_PrimaryEffort %>%
-    filter(effort >= min.dur / (60 * 24) ) -> Laake_PrimaryEffort
+    filter(effort.per.shift >= min.dur / (60 * 24) ) -> Laake_PrimaryEffort
   
   Laake_SecondaryEffort %>%
-    filter(effort >= min.dur / (60 * 24) ) -> Laake_SecondaryEffort
+    filter(effort.per.shift >= min.dur / (60 * 24) ) -> Laake_SecondaryEffort
   
   # Sightings = PrimarySightings
   # Sightings$seq = 1:nrow(Sightings)
@@ -1569,9 +1586,9 @@ LaakeData2JagsInput <- function(min.dur, max.day = 100){
     mutate(Day1 = as.Date(paste0(Start.year, "-12-01")),
            dt = as.numeric(as.Date(Date) - Day1) + 1,
            obs = Observer) %>%
-    select(Start.year, nwhales, effort, vis, beaufort, obs, dt) %>%
+    select(Start.year, nwhales, effort, vis, beaufort, obs, dt, Date, Shift, effort.per.shift) %>%
     group_by(Start.year) %>%
-    mutate(effort.hr = effort * 24,  # effort in hours
+    mutate(effort.hr = effort.per.shift * 24,  # effort in hours
            watch.prop = effort.hr/9) -> Effort.by.period
   
   # observers - rather than using entries of Observer.rda, I pull out all observers
@@ -1595,8 +1612,8 @@ LaakeData2JagsInput <- function(min.dur, max.day = 100){
             obs = Observer,
             vs = vis,
             bf = beaufort,
-            watch.length = effort,
-            watch.prop = (effort * 24)/9) -> Laake.primary.counts
+            watch.length = effort.per.shift,
+            watch.prop = (effort.per.shift * 24)/9) -> Laake.primary.counts
   
   Laake_SecondaryEffort %>% 
     group_by(Start.year) %>%
@@ -1608,8 +1625,8 @@ LaakeData2JagsInput <- function(min.dur, max.day = 100){
             obs = Observer,
             vs = vis,
             bf = beaufort,
-            watch.length = effort,
-            watch.prop = (effort * 24)/9) -> Laake.secondary.counts
+            watch.length = effort.per.shift,
+            watch.prop = (effort.per.shift * 24)/9) -> Laake.secondary.counts
   
   # Laake.primary.counts %>% 
   #   group_by(Date) %>%
@@ -2589,7 +2606,7 @@ plot.trace.dens <- function(jm, var.name){
 #               dens = p.dens))
 # }
 
-
+# Defines shift ID based on date and time. 
 shift.definition <- function(date, time){
   dur.since.midnight <- difftime(paste(date, time), paste(date, "00:00:00"), units = "hours")
   shift.id <- ifelse(dur.since.midnight <= 7.5, 0,
@@ -3460,6 +3477,7 @@ fractional_Day2YMDhms <- function(x, YEAR){
                           ifelse(s < 10, paste0("0", s), s), sep = ":")))  
 }
 
+# Converts fractional hour to the H:M:S format.
 fractional_Hr2HMS <- function(tmp){
   tmp[tmp>24] <- tmp[tmp>24] %% 24
   

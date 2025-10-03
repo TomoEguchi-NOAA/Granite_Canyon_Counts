@@ -154,13 +154,13 @@ as.data.frame(Nhat.naive) %>%
   mutate(Season = paste0(Start.year, "/", (as.numeric(Start.year) + 1))) %>%
   select(Season, Naive.estimate) -> Naive.estimates
 
-Reported.estimates <- read.csv(file = "Data/Nhats_2025.csv") %>%
-  filter(Method == "Laake") %>%
-  filter(Year0 < 2007) %>%
-  transmute(Start.year = Year0,
-            Season = Season,
-            Reported.estimate = Nhat) %>%
-  select(Season, Reported.estimate)
+# Reported.estimates <- read.csv(file = "Data/Nhats_2025.csv") %>%
+#   filter(Method == "Laake") %>%
+#   filter(Year0 < 2007) %>%
+#   transmute(Start.year = Year0,
+#             Season = Season,
+#             Reported.estimate = Nhat) %>%
+#   select(Season, Reported.estimate)
 
 # Pod size corrections"
 # Define set of models to be evaluated for detection
@@ -223,7 +223,7 @@ as.data.frame(Nhat.final) %>%
 
 Simple.estimates %>%
   left_join(Naive.estimates, by = "Season") %>%
-  left_join(Reported.estimates, by = "Season") %>%
+  #left_join(Reported.estimates, by = "Season") %>%
   left_join(Reilly.estimates, by = "Season") -> all.estimates.1
 
 ggplot(all.estimates.1) +

@@ -55,10 +55,10 @@ MCMC.params <- list(n.samples = 550000,
 #                     n.burnin = 5000,
 #                     n.chains = 5)
 # 
-# MCMC.params <- list(n.samples = 100,
-#                     n.thin = 2,
-#                     n.burnin = 50,
-#                     n.chains = 5)
+MCMC.params <- list(n.samples = 100,
+                    n.thin = 2,
+                    n.burnin = 50,
+                    n.chains = 5)
 
 # MCMC.params <- list(n.samples = 5000,
 #                     n.thin = 5,
