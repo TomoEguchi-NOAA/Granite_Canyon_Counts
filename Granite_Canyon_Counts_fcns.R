@@ -1601,7 +1601,10 @@ LaakeData2JagsInput <- function(min.dur, max.day = 100){
   
   no.obs.ID <- max(Laake.obs$ID.new)
   
-  # effort is in the unit of days
+  # effort is in the unit of days. It is "effort" and not "effort.per.shift"
+  # because a "period" is defined with Beaufort/Vis code and the "effort" goes
+  # with the pair. "effort.per.shift" was used to extract long enough "shift"
+  # for including all observations. 
   Laake_PrimaryEffort %>% 
     group_by(Start.year) %>%
     reframe(Date = Date,
@@ -1612,8 +1615,8 @@ LaakeData2JagsInput <- function(min.dur, max.day = 100){
             obs = Observer,
             vs = vis,
             bf = beaufort,
-            watch.length = effort.per.shift,
-            watch.prop = (effort.per.shift * 24)/9) -> Laake.primary.counts
+            watch.length = effort,
+            watch.prop = (effort * 24)/9) -> Laake.primary.counts
   
   Laake_SecondaryEffort %>% 
     group_by(Start.year) %>%
@@ -1625,8 +1628,8 @@ LaakeData2JagsInput <- function(min.dur, max.day = 100){
             obs = Observer,
             vs = vis,
             bf = beaufort,
-            watch.length = effort.per.shift,
-            watch.prop = (effort.per.shift * 24)/9) -> Laake.secondary.counts
+            watch.length = effort,
+            watch.prop = (effort * 24)/9) -> Laake.secondary.counts
   
   # Laake.primary.counts %>% 
   #   group_by(Date) %>%
