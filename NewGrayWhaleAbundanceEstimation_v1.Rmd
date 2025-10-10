@@ -435,7 +435,7 @@ p.trace.2 <- mcmc_trace(jm.out$jm$samples,
                         pars = params.Rhat.big[26:50])
 
 p.trace.3 <- mcmc_trace(jm.out$jm$samples, 
-                        pars = params.Rhat.big[51:62])
+                        pars = params.Rhat.big[51:65])
 
 if (save.fig) {
   save.fig.fcn(fig = p.trace.1, 
@@ -829,11 +829,11 @@ if (save.fig){
 
 
 # Daily estimates plots
-p.daily.Richards.1988 <- ggplot(N.hats.day.1988) + 
-  geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
-              fill = "blue", alpha = 0.5) +
-  geom_path(aes(x = Day, y = Mean)) + 
-  geom_point(aes(x = Day, y = Nhat), color = "darkgreen") 
+# p.daily.Richards.1988 <- ggplot(N.hats.day.1988) + 
+#   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
+#               fill = "blue", alpha = 0.5) +
+#   geom_path(aes(x = Day, y = Mean)) + 
+#   geom_point(aes(x = Day, y = Nhat), color = "darkgreen") 
 
 ```
 

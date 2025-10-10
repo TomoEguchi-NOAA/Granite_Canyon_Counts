@@ -46,13 +46,13 @@ PrimarySightings=NULL
 PrimaryEffort=NULL
 if(is.null(sightings))
 {
-   data(PrimarySightings,package="ERAnalysis",envir=environment())
+   data(PrimarySightings,envir=environment()) #,package="ERAnalysis",envir=environment())
    sightings=PrimarySightings
    PrimarySightings=NULL
 }
 if(is.null(effort))
 {
-   data(PrimaryEffort,package="ERAnalysis",envir=environment())
+   data(PrimaryEffort,envir=environment()) #,package="ERAnalysis",envir=environment())
    effort=PrimaryEffort
    PrimaryEffort=NULL
 }
@@ -140,7 +140,7 @@ abundance.models=vector("list",8)
 sightings=sightings[!(sightings$Observer=="MAS"&sightings$Start.year==1995),]
 effort=effort[!(effort$Observer=="MAS"&effort$Start.year==1995),]
 i=0
-if(is.null(gsS))data(gsS,package="ERAnalysis",envir=environment())
+if(is.null(gsS))data(gsS,envir=environment()) #,package="ERAnalysis",envir=environment())
 for (year in recent.years)
 {
    i=i+1
@@ -252,9 +252,9 @@ compute.series.var=function(results,naive.abundance,ps.results,Use=TRUE,lcut=0.2
                             fn=1.0817,se.fn=0.0338,debug=FALSE,delta=c(0.001,0.01))
 {
 # Get PrimarySightings and effort
-data(PrimarySightings,package="ERAnalysis",envir=environment())
-data(PrimaryEffort,package="ERAnalysis",envir=environment())
-data(gsS,package="ERAnalysis",envir=environment())
+data(PrimarySightings,envir=environment()) #,package="ERAnalysis",envir=environment())
+data(PrimaryEffort,envir=environment()) #,package="ERAnalysis",envir=environment())
+data(gsS,envir=environment()) #,package="ERAnalysis",envir=environment())
 # Assign day value and match up to Use field if Use=TRUE
 PrimarySightings$day=as.Date(PrimarySightings$Date)-as.Date(paste(PrimarySightings$Start.year,"-12-01",sep=""))
 PrimarySightings$seq=1:nrow(PrimarySightings)
@@ -528,15 +528,15 @@ create.match=function(lcut=0.2,mcut=1,twt=.18,dwt=3.95,pwt=0.05,crittype="ellips
   Match=NULL
   AllPrimaryEffort=NULL
   AllSecondaryEffort=NULL
-  data(Match,package="ERAnalysis",envir=environment())
+  data(Match,envir=environment()) #,package="ERAnalysis",envir=environment())
   match.names=names(Match)
   xx=subset(Matched.data,select=c(names(Matched.data)[names(Matched.data)%in%match.names],"observer"))
   xx$Date=as.character(strptime(paste(xx$Start.year,"-12-01",sep=""),format="%Y-%m-%d")+3600*24*(xx$day-1))
   xx$key=paste(xx$Date,xx$watch,sep="_")
 # get observer, beaufort, vis
 # first do Primary
-  data(AllPrimaryEffort,package="ERAnalysis",envir=environment())
-  data(AllSecondaryEffort,package="ERAnalysis",envir=environment())
+  data(AllPrimaryEffort,envir=environment()) #,package="ERAnalysis",envir=environment())
+  data(AllSecondaryEffort,envir=environment()) #,package="ERAnalysis",envir=environment())
   PrimaryEffort=AllPrimaryEffort
   xx$seq=1:nrow(xx)
   zz=merge(xx[xx$station=="P",],PrimaryEffort,by="Date")
@@ -580,7 +580,7 @@ create.match=function(lcut=0.2,mcut=1,twt=.18,dwt=3.95,pwt=0.05,crittype="ellips
   pphr=pphr/with(PrimaryEffort, tapply(effort,key,sum))
   xx=merge(xx,data.frame(key=names(pphr),pphr=pphr),by="key")
 # Finally add on the sex of the observer
-  data(Observer,package="ERAnalysis",envir=environment())
+  data(Observer,envir=environment()) #,package="ERAnalysis",envir=environment())
   Observer$key=as.character(Observer$Initials)
   Observer$key[is.na(Observer$Initials)]=Observer$Observer[is.na(Observer$Initials)]
   xx=merge(xx, subset(Observer, select = c("key", "Sex")), by.x ="observer",by.y = "key", all.x = TRUE)
@@ -596,9 +596,9 @@ CreateObserverExperience=function()
 # First extract values from early and recent data
 EarlyEffort=NULL
 ERSurveyData=NULL
-data(EarlyEffort,package="ERAnalysis",envir=environment())
+data(EarlyEffort,envir=environment()) #,package="ERAnalysis",envir=environment())
 EarlyExp=data.frame(Observer=EarlyEffort$Observer,Date=substr(EarlyEffort$key,1,10),Hours=as.vector(EarlyEffort$End.date.time-EarlyEffort$Begin.date.time))
-data(ERSurveyData,package="ERAnalysis",envir=environment())
+data(ERSurveyData,envir=environment()) #,package="ERAnalysis",envir=environment())
 EFLAG=NULL
 EXPERIMENT=NULL
 Start.watch=subset(ERSurveyData,subset=EFLAG==1&EXPERIMENT%in%c(1,2),select=c("OBSERVER","DATE","ETIME"))
@@ -764,10 +764,10 @@ extract.match.data <- function ()
 # added ret, angle, dist to sighting, dist to Azmuth
 #
     DistAzmuth <- function (sangle, sdist){return((sin(pi * (sangle - 241)/180) * sdist))}
-    data(ERSurveyData,package="ERAnalysis",envir=environment())
+    data(ERSurveyData,envir=environment()) #,package="ERAnalysis",envir=environment())
     ERSurveyData$LOCATION[ERSurveyData$LOCATION=="NP"]="N"
     Height=NULL
-    data(Height,package="ERAnalysis",envir=environment())
+    data(Height,envir=environment()) #,package="ERAnalysis",envir=environment())
 # Extract primary observer sightings in which travel direction is not North
 # Primary observers are at South location except in years 2000,2001
 # This could be used to create Primary dataframe that is in package.  Currently
@@ -795,18 +795,21 @@ extract.match.data <- function ()
 # get reticles,angles and times using South sightings if available otherwise use North
     reticles = Match.data$SRET
     reticles[floor(reticles * 1000) == 0] = Match.data$NRET[floor(reticles *
-        1000) == 0]
+                                                                    1000) == 0]
     reticles[floor(reticles * 1000) == 0] = NA
     angles = Match.data$SANGLE
     angles[floor(angles) == 0] = Match.data$NANGLE[floor(angles) == 0]
     times = Match.data$STIME
     times[floor(times) == 0] = Match.data$NTIME[floor(times) ==  0]
-# constuct key field to match into Height dataframe to get heights for
-# distance calculation from reticles
-    Match.data$key = paste(Match.data$Start.year,Match.data$LOCATION,sep = "")
+    # constuct key field to match into Height dataframe to get heights for
+    # distance calculation from reticles
+    Match.data$key = factor(paste(Match.data$Start.year,Match.data$LOCATION,sep = ""))
+    
+    #print(names(Height))
+    
     heights = merge(Match.data, Height, all.x = TRUE, by = "key")$Height
     distances = RetDistK(Height = heights, Reticles = reticles)
-# convert radial distance to perpendicular distance
+    # convert radial distance to perpendicular distance
     Match.data$sdup = RetDistK(Height = heights, Reticles = (reticles-.05))
     Match.data$sddn = RetDistK(Height = heights, Reticles = (reticles+.05))
     Match.data$sdist = distances
@@ -815,31 +818,31 @@ extract.match.data <- function ()
     Match.data$sret = reticles
     Match.data$distance = D241(angles, distances)
     Match.data$sd2A = DistAzmuth(angles, distances)
-# Compute crossing time at the line perpendicular to the coast at the shore station (abeam)
+    # Compute crossing time at the line perpendicular to the coast at the shore station (abeam)
     Match.data$t241 = T241H(times, angles, distances, Speed = 6)
-# Compute day since 1 Dec
+    # Compute day since 1 Dec
     Match.data$day = as.vector(Match.data$DATE - as.POSIXct(paste(Match.data$Start.year,
-        "-12-01", sep = ""))+1)
-# Compute watch factor variable
+                                                                  "-12-01", sep = ""))+1)
+    # Compute watch factor variable
     Match.data$watch = 1
     Match.data$watch[Match.data$t241 >= 10.5] = 2
     Match.data$watch[Match.data$t241 >= 13.5] = 3
-# Create dataframe excluding those with missing T241 or distance and modify field names
+    # Create dataframe excluding those with missing T241 or distance and modify field names
     t241=NULL
     distance=NULL
     Match.data = subset(Match.data, subset=(t241 & distance),
-              select = c("station", "day",  "watch", "t241", "distance"
-        , "PODSIZE","stime", "sret", "sdist", "sang2A", "sd2A","sdup","sddn"
-        , "OBSERVER", "VISCODE", "WINDFORCE", "WINDDIR"
-        , "Start.year"))
+                        select = c("station", "day",  "watch", "t241", "distance"
+                                   , "PODSIZE","stime", "sret", "sdist", "sang2A", "sd2A","sdup","sddn"
+                                   , "OBSERVER", "VISCODE", "WINDFORCE", "WINDDIR"
+                                   , "Start.year"))
     names(Match.data)[names(Match.data) == "PODSIZE"] = "podsize"
-   names(Match.data)[names(Match.data) == "OBSERVER"] = "observer"
-   names(Match.data)[names(Match.data) == "VISCODE"] = "vis"
+    names(Match.data)[names(Match.data) == "OBSERVER"] = "observer"
+    names(Match.data)[names(Match.data) == "VISCODE"] = "vis"
     names(Match.data)[names(Match.data) == "WINDFORCE"] = "beaufort"
     names(Match.data)[names(Match.data) == "WINDDIR"] = "wind.direction"
- # The following will spit the Match by DATE to do the matching.
+    # The following will spit the Match by DATE to do the matching.
     Match.list = split(Match.data, paste(Match.data$Start.year,
-        Match.data$day, sep = "_"))
+                                         Match.data$day, sep = "_"))
     rm(ERSurveyData)
     return(Match.list)
 }
@@ -1779,9 +1782,9 @@ process.ERdata=function(fdir="c:/gw",maxbeauf=4,maxvis=4)
   EarlyEffort=NULL
   EarlySightings=NULL
   ERSurveyData=NULL
-  data(EarlyEffort,package="ERAnalysis",envir=environment())
-  data(EarlySightings,package="ERAnalysis",envir=environment())
-  data(ERSurveyData,package="ERAnalysis",envir=environment())
+  data(EarlyEffort,envir=environment()) #,package="ERAnalysis",envir=environment())
+  data(EarlySightings,envir=environment()) #,package="ERAnalysis",envir=environment())
+  data(ERSurveyData,envir=environment()) #,package="ERAnalysis",envir=environment())
   card2=EarlyEffort
   card3=EarlySightings
   card3$original.watch=card3$Watchperiod
@@ -1914,7 +1917,7 @@ process.ERdata=function(fdir="c:/gw",maxbeauf=4,maxvis=4)
 # Create observer experience dataframe and add the experience field in hours to Match and
 # PrimarySightings
   ObserverExp=CreateObserverExperience()
-  data(Observer,package="ERAnalysis",envir=environment())
+  data(Observer,envir=environment()) #,package="ERAnalysis",envir=environment())
   PrimarySightings$Date=paste(PrimarySightings$year,"-",formatC(PrimarySightings$month,width=2,flag=0),"-",formatC(PrimarySightings$day,width=2,flag=0),sep="")
   PrimarySightings$observer=substr(PrimarySightings$observer,nchar(PrimarySightings$observer)-2,nchar(PrimarySightings$observer))
   Observer$key=as.character(Observer$Initials)
@@ -1973,7 +1976,7 @@ process.ERdata=function(fdir="c:/gw",maxbeauf=4,maxvis=4)
   zz=trunc((xx-floor(xx))*60+.5)
   return(paste(formatC(floor(x),width=2,flag=0),formatC(floor(xx),width=2,flag=0),formatC(floor(zz),width=2,flag=0),sep=":"))
   }
-  data(ERSurveyData,package="ERAnalysis",envir=environment())
+  data(ERSurveyData,envir=environment()) #,package="ERAnalysis",envir=environment())
   nn=names(PrimaryEffort)
 # 1987 surveys and beyond -- adding Observer to Primary & Secondary Effort data
 # Primary Effort EFLAG=1,2 records
@@ -2447,8 +2450,8 @@ create.podsize.calibration.matrix=function(package.dir="C:/Users/Jeff Laake/Desk
 ################################################################################
 PodsizeCalibrationData=NULL
 PodsizeCalibrationTable=NULL
-data(PodsizeCalibrationData,package="ERAnalysis",envir=environment())
-data(PodsizeCalibrationTable,package="ERAnalysis",envir=environment())
+data(PodsizeCalibrationData,envir=environment()) #,package="ERAnalysis",envir=environment())
+data(PodsizeCalibrationTable,envir=environment()) #,package="ERAnalysis",envir=environment())
 # Create Reilly additive correction factors
 # add.cf.all pools all of the data
 # add.cf.reilly only uses 1970s aerial data that was applied in Buckland et al 1992

@@ -52,14 +52,16 @@ data(PrimaryEffort)
 # The data from observer MAS in 1995 is excluded because this observer
 # did not participate in the double count in that year. 
 PrimarySightings = PrimarySightings[!(PrimarySightings$Observer=="MAS"&PrimarySightings$Start.year==1995),]
-PrimaryEffort=PrimaryEffort[!(PrimaryEffort$Observer=="MAS"&PrimaryEffort$Start.year==1995),]
-table(PrimarySightings$Start.year)
+PrimaryEffort=PrimaryEffort[!(PrimaryEffort$Observer=="MAS" & PrimaryEffort$Start.year==1995),]
+
+#table(PrimarySightings$Start.year)
 
 # Define arguments used in the analysis
 all.years = unique(PrimaryEffort$Start.year)
 recent.years = all.years[all.years>=1987]
 early.years = all.years[all.years<1987]
-final.time = sapply(tapply(floor(PrimaryEffort$time), PrimaryEffort$Start.year,max), 
+final.time = sapply(tapply(floor(PrimaryEffort$time), 
+                           PrimaryEffort$Start.year,max), 
                     function(x) ifelse(x>90,100,90))
 
 lower.time=rep(0,length(final.time))
@@ -113,7 +115,8 @@ as.data.frame(period.estimate) %>%
   rownames_to_column(var = "Start.year") %>%
   transmute(Start.year = Start.year,
             Simple.estimate = period.estimate) %>%
-  mutate(Season = paste0(Start.year, "/", (as.numeric(Start.year) + 1))) -> Simple.estimates
+  mutate(Season = paste0(Start.year, "/", 
+                         (as.numeric(Start.year) + 1))) -> Simple.estimates
 
 # Compute naive estimates of abundance for the 23 surveys. These use the uncorrected
 # counts of whales from the primary observer during watches in which neither Beaufort nor
@@ -154,13 +157,13 @@ as.data.frame(Nhat.naive) %>%
   mutate(Season = paste0(Start.year, "/", (as.numeric(Start.year) + 1))) %>%
   select(Season, Naive.estimate) -> Naive.estimates
 
-# Reported.estimates <- read.csv(file = "Data/Nhats_2025.csv") %>%
-#   filter(Method == "Laake") %>%
-#   filter(Year0 < 2007) %>%
-#   transmute(Start.year = Year0,
-#             Season = Season,
-#             Reported.estimate = Nhat) %>%
-#   select(Season, Reported.estimate)
+Reported.estimates <- read.csv(file = "Data/Nhats_2025.csv") %>%
+  filter(Method == "Laake") %>%
+  filter(Year0 < 2007) %>%
+  transmute(Start.year = Year0,
+            Season = Season,
+            Reported.estimate = Nhat) %>%
+  select(Season, Reported.estimate)
 
 # Pod size corrections"
 # Define set of models to be evaluated for detection
@@ -179,10 +182,16 @@ Sightings$corrected.podsize[Sightings$Start.year <= 1987] = reilly.cf(Sightings$
 Sightings$corrected.podsize[Sightings$Start.year>1987]=reilly.cf(Sightings$podsize[Sightings$Start.year>1987],
                                                                  add.cf.laake)
 #pdf("ReillyApproach.pdf")
-reilly.estimates=compute.series(models,
-                                naive.abundance.models,
-                                sightings=Sightings,
-                                effort=Effort,TruePS=FALSE)
+if (!file.exists("RData/Reilly_estimates.rds")){
+  reilly.estimates=compute.series(models,
+                                  naive.abundance.models,
+                                  sightings=Sightings,
+                                  effort=Effort,TruePS=FALSE)
+  saveRDS(reilly.estimates, 
+          file = "RData/Reilly_estimates.rds")
+} else {
+  reilly.estimates <- readRDS("RData/Reilly_estimates.rds")
+}
 
 Nhat.reilly=reilly.estimates$Nhat
 Nhat.reilly[1:15] = Nhat.naive[1:15]*(Nhat.reilly[16]/Nhat.naive[16])
@@ -192,26 +201,42 @@ as.data.frame(Nhat.reilly) %>%
   rownames_to_column(var = "Start.year") %>%
   transmute(Start.year = Start.year,
             Reilly.estimate = Nhat.reilly) %>%
-  mutate(Season = paste0(Start.year, "/", (as.numeric(Start.year) + 1))) -> Reilly.estimates
+  mutate(Season = paste0(Start.year, "/", 
+                         (as.numeric(Start.year) + 1))) -> Reilly.estimates
 
 # Next compute the series of abundance estimates for the most recent 8 years by
 # fitting and selecting the best detection model but not applying the pod size correction.
 # From those 8 estimates and the naive estimates, compute an average ratio and 
 # apply it to generate the estimates for the first 15 surveys prior to 1987.
 Sightings$corrected.podsize = Sightings$podsize
-abundance.estimates.nops.correction = compute.series(models, 
-                                                   naive.abundance.models,
-                                                   sightings=Sightings,
-                                                   effort=Effort,
-                                                   TruePS=FALSE)
+
+if (!file.exists("RData/Nhats_nops_correct.rds")){
+  abundance.estimates.nops.correction = compute.series(models, 
+                                                       naive.abundance.models,
+                                                       sightings=Sightings,
+                                                       effort=Effort,
+                                                       TruePS=FALSE)
+  saveRDS(abundance.estimates.nops.correction,
+          file = "RData/Nhats_nops_correct.rds")  
+} else {
+  abundance.estimates.nops.correction <- readRDS("RData/Nhats_nops_correct.rds")
+}
 
 ratio = abundance.estimates.nops.correction$Nhat/Nhat.naive/fn
 
 # the following creates the same estimates as the ones in the report (Reported.estimate):
-abundance.estimates = compute.series(models,naive.abundance.models,
-                                     sightings=Sightings,
-                                     effort=Effort,
-                                     hessian=TRUE)
+# 
+if (!file.exists("RData/Nhats_Laake.rds")){
+  abundance.estimates = compute.series(models,naive.abundance.models,
+                                       sightings=Sightings,
+                                       effort=Effort,
+                                       hessian=TRUE)
+  
+  saveRDS(abundance.estimates,
+          file = "RData/Nhats_Laake.rds")  
+} else {
+  abundance.estimates <- readRDS("RData/Nhats_Laake.rds")
+}
 
 Nhat.final <- abundance.estimates$Nhat
 
@@ -223,7 +248,7 @@ as.data.frame(Nhat.final) %>%
 
 Simple.estimates %>%
   left_join(Naive.estimates, by = "Season") %>%
-  #left_join(Reported.estimates, by = "Season") %>%
+  left_join(Reported.estimates, by = "Season") %>%
   left_join(Reilly.estimates, by = "Season") -> all.estimates.1
 
 ggplot(all.estimates.1) +
@@ -280,20 +305,22 @@ Effort %>%
             total.whales = sum(nwhales)) -> effort.summary.less.1hr
 
 ggplot(effort.summary.less.1hr) +
-  geom_point(aes(x = Start.year, y = mean.effort, size = total.whales))
+  geom_point(aes(x = Start.year, 
+                 y = mean.effort, 
+                 size = total.whales))
 
 
 Sightings %>%
-  filter(Start.year == 1987) -> Sightings.1987
+  filter(Start.year == 1987) -> Sightings.1988
 
 Effort %>%
-  filter(Start.year == 1987) -> Effort.1987
+  filter(Start.year == 1987) -> Effort.1988
 
 Sightings %>%
-  filter(Start.year == 1985) -> Sightings.1985
+  filter(Start.year == 1985) -> Sightings.1986
 
 Effort %>%
-  filter(Start.year == 1985) -> Effort.1985
+  filter(Start.year == 1985) -> Effort.1986
 
 ###########################################################################
 ###########################################################################
@@ -302,8 +329,10 @@ Effort %>%
 # In the function below, add shift # to each effort line and create a cumulative
 # effort for each shift. Then filter shifts that meet the minimum shift duration
 # criteria. Currently, each line is compared to the threshold, which is not the
-# right way to do it. 2025-10-01
-Laake.data <- LaakeData2JagsInput(60, max.day = 100)
+# right way to do it. 2025-10-01 This was completed.
+
+min.dur <- 60
+Laake.data.jags <- LaakeData2JagsInput(min.dur = min.dur, max.day = 100)
 
 # Data in the JAGS analysis is found in the saved output file. 
 ver <- 5 #out.table$model[1] #5
@@ -318,7 +347,6 @@ obs.prop <- jm.out$jags.input$jags.data$watch.length[,1,]
 obs.prop <- rbind(c(rep(0, ncol(obs.n))),
                   obs.prop,
                   c(rep(0, ncol(obs.n))))
-
 
 all.start.year <- c(jm.out$jags.input$jags.input.Laake$all.start.year,
                     jm.out$jags.input$jags.input.new$start.years)
@@ -365,11 +393,11 @@ N.hats.day <- data.frame(Season = rep(paste0(all.start.year,
                          prop = obs.n.df$prop,
                          Method = paste0("Eguchi M", ver)) %>%
   mutate(Nhat = obs.n/prop)
-obsd.n.df %>%
+
+obs.n.df %>%
   filter(Season == "1987/1988") -> obsd.n.1988
 
 N.hats.day %>%
   filter(Season == "1987/1988") -> N.hats.day.1988
 
-LaakeData4Jags <- LaakeData2JagsInput(min.dur, max.day = 100)
-
+effort.jags.1987 <- Laake.data.jags$jags.data$watch.prop[,1,16]
