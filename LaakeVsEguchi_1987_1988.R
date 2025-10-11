@@ -145,7 +145,8 @@ for (year in all.years){
                                                  final.time=final.time[i],
                                                  lower.time=lower.time[i],
                                                  gformula=~s(time),
-                                                 dformula=NULL)
+                                                 dformula=NULL,
+                                                 plotit = FALSE)
 }
 
 Nhat.naive = sapply(naive.abundance.models,function(x) x$Total)
@@ -380,7 +381,6 @@ for (k1 in 1:length(all.start.year)){
 # This is for daily estimates
 N.hats.day <- data.frame(Season = rep(paste0(all.start.year, 
                                              "/", all.start.year+1),
-                                      
                                       each = nrow(jm.out$jm$mean$N)), 
                          start.year = rep(all.start.year,
                                           each = nrow(jm.out$jm$mean$N)),
@@ -389,10 +389,17 @@ N.hats.day <- data.frame(Season = rep(paste0(all.start.year,
                          Mean = as.vector(jm.out$jm$mean$N),
                          LCL = as.vector(jm.out$jm$q2.5$N),
                          UCL = as.vector(jm.out$jm$q97.5$N),
+                         mean.N = as.vector(rbind(jm.out$jm$mean$mean.N, 
+                                                  rep(0, length(all.start.year)))),
+                         LCL.mean.N = as.vector(rbind(jm.out$jm$q2.5$mean.N, 
+                                                      rep(0, length(all.start.year)))),
+                         UCL.mean.N = as.vector(rbind(jm.out$jm$q97.5$mean.N, 
+                                                      rep(0, length(all.start.year)))),
                          obs.n = obs.n.df$n,
                          prop = obs.n.df$prop,
                          Method = paste0("Eguchi M", ver)) %>%
   mutate(Nhat = obs.n/prop)
+
 
 obs.n.df %>%
   filter(Season == "1987/1988") -> obsd.n.1988
@@ -400,4 +407,10 @@ obs.n.df %>%
 N.hats.day %>%
   filter(Season == "1987/1988") -> N.hats.day.1988
 
-effort.jags.1987 <- Laake.data.jags$jags.data$watch.prop[,1,16]
+ggplot(N.hats.day.1988) +
+  geom_line(aes(x = Day, y = mean.N)) +
+  geom_ribbon(aes(x = Day, ymin = LCL.mean.N, ymax = UCL.mean.N),
+              fill = "gold", alpha = 0.5) +
+  geom_point(aes(x = Day, y = Nhat)) 
+
+effort.jags.1988 <- Laake.data.jags$jags.data$watch.prop[,1,16]

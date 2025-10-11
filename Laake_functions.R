@@ -744,9 +744,12 @@ else
 ern=subset(effort,select=c("Start.year","key","begin","end","effort","time","vis","beaufort"))
 ern=merge(ern,est.df,by.x="key",by.y="key",all.x=TRUE)
 ern$nhat[is.na(ern$nhat)]=0
-results=fit.migration.gam(ern,years=as.numeric(years),formula=gformula,pod=pod,plotit=plotit,
-                            anchor=anchor,show.anchor=show.anchor,sp=sp,
-                            final.time=final.time,lower.time=lower.time,do.mult=do.mult,pool=pool,...)
+results=fit.migration.gam(ern,years=as.numeric(years), formula=gformula, pod=pod, 
+                          plotit=plotit,
+                          anchor=anchor,show.anchor=show.anchor,sp=sp,
+                          final.time=final.time,lower.time=lower.time,
+                          do.mult=do.mult,pool=pool,...)
+
 results$options=list(anchor=anchor,pod=pod,final.time=final.time,lower.time=lower.time,
                      gformula=gformula,dformula=dformula,spar=spar,dpar=dpar,nmax=nmax)
 cat("\nEstimated whale abundance : ",results$Total)
@@ -1018,7 +1021,7 @@ gam.d=function(shape,rate,x,nmax)
    return(num/denom)
 }
 
-fit.migration.gam=function(er.migdata,years,formula=~s(time),pod=FALSE,plotit=TRUE,anchor=TRUE,
+fit.migration.gam=function(er.migdata, years, formula=~s(time), pod=FALSE, plotit=TRUE,anchor=TRUE,
                                 show.anchor=FALSE,sp=NULL,final.time=rep(90,length(years)),
                                 lower.time=rep(0,length(years)),do.mult=TRUE,pool=TRUE,...)
 {
@@ -1074,13 +1077,39 @@ fit.migration.gam=function(er.migdata,years,formula=~s(time),pod=FALSE,plotit=TR
            final[i]=ceiling(er$end[nrow(er)])
      }
      ermod[[i]]=gam(formula,data=er,offset=offset,family=quasipoisson)
-     ppd=tapply(er$nhat,floor(er$time),sum)/tapply(er$effort,floor(er$time),sum)
+     ppd = tapply(er$nhat,
+                  floor(er$time), 
+                  sum)/tapply(er$effort, floor(er$time),sum)
+     
      if(plotit)
      {
         Eppd=predict(ermod[[i]],type="response")
         ymax=max(c(Eppd,ppd))*1.05
-        plot(er$time,Eppd, ylim=c(0,ymax),type="l",main=paste(year,"/",year+1,sep=""),xlab="Days since 1 Dec", ylab=ylabel,xlim=c(0,100))
-        points(as.numeric(names(ppd)),ppd)
+        plot(er$time, Eppd, ylim=c(0,ymax),type="l",
+             main=paste(year,"/",year+1,sep=""),
+             xlab="Days since 1 Dec", 
+             ylab=ylabel, xlim=c(0,100))
+        points(as.numeric(names(ppd)), ppd)
+        
+        # add ggplot and save them:
+        library(ggplot2)
+        pred.plot <- ggplot(data.frame(time = er$time,
+                                       gam.fit = Eppd)) +
+          geom_line(aes(x = time, y = gam.fit)) +
+          geom_point(data = data.frame(date = as.numeric(names(ppd)),
+                                       ppd = ppd),
+                     aes(x = date,
+                         y = ppd)) + 
+          xlab("Days since 1 Dec") +
+          ylab("Whales per day") +
+          labs(title = paste0(year,"/",year+1))
+               
+        ggsave(plot = pred.plot,
+               filename = paste0("figures/Laake_", 
+                                 paste0(year,"-",year+1), ".png"),
+               device = "png",
+               dpi = 600)
+        
         if(anchor & show.anchor)
         {
            if(lower.time[i] <= (er$begin[1]-1)) er=er[-1,]
@@ -1190,8 +1219,31 @@ fit.migration.gam=function(er.migdata,years,formula=~s(time),pod=FALSE,plotit=TR
         {
            Eppd=Eppd.all[ern$Start.year==year]
            ymax=max(c(Eppd,ppd))*1.05
-           plot(er$time,Eppd, ylim=c(0,ymax),type="l",main=paste(year,"/",year+1,sep=""),xlab="Days since 1 Dec", ylab=ylabel,xlim=c(0,100))
+           plot(er$time,Eppd, 
+                ylim=c(0,ymax), type="l",
+                main=paste(year,"/",year+1,sep=""),
+                xlab="Days since 1 Dec", ylab=ylabel,xlim=c(0,100))
            points(as.numeric(names(ppd)),ppd)
+           
+           # add ggplot and save them:
+           library(ggplot2)
+           pred.plot <- ggplot(data.frame(time = er$time,
+                                          gam.fit = Eppd)) +
+             geom_line(aes(x = time, y = gam.fit)) +
+             geom_point(data = data.frame(date = as.numeric(names(ppd)),
+                                          ppd = ppd),
+                        aes(x = date,
+                            y = ppd)) + 
+             xlab("Days since 1 Dec") +
+             ylab("Whales per day") +
+             labs(title = paste0(year,"/",year+1))
+           
+           ggsave(plot = pred.plot,
+                  filename = paste0("figures/Laake_", 
+                                    paste0(year,"-",year+1), ".png"),
+                  device = "png",
+                  dpi = 600)
+           
            if(anchor & show.anchor)
            {
            lines((floor(lower[i]):(final[i]-1))+.5,
