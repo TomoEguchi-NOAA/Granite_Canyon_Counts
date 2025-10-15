@@ -239,6 +239,19 @@ if (!file.exists("RData/Nhats_Laake.rds")){
   abundance.estimates <- readRDS("RData/Nhats_Laake.rds")
 }
 
+# Create a dataframe for daily estimates for 1987/1988 to 2006/2007
+GAM.fit <- lapply(abundance.estimates[[5]], 
+                  FUN = function(x) x[[1]]$pred) %>% unlist()
+
+Laake.n.days <- lapply(GAM.fit, FUN = length) %>% unlist()
+
+Laake.daily.estimates <- data.frame(Day = lapply(Laake.n.days, 
+                                                 FUN = function(x) 1:x) %>% unlist(),
+                                    Start.year = rep(abundance.estimates[[1]]$Year,
+                                                     times = Laake.n.days),
+                                    GAM.fit = GAM.fit) %>%
+  mutate(Season = paste0(Start.year, "/", (as.numeric(Start.year) + 1)))
+
 Nhat.final <- abundance.estimates$Nhat
 
 as.data.frame(Nhat.final) %>%
@@ -258,58 +271,64 @@ ggplot(all.estimates.1) +
   geom_point(aes(x = Season, y = Reported.estimate), color = "blue") +
   geom_point(aes(x = Season, y = Reilly.estimate), color = "red")
 
-# Somehow, effort in 1987/1988 contains a lot of less than 3 hrs... All thsoe
+# Somehow, effort in 1987/1988 contains a lot of less than 3 hrs... All those
 # sightings add up to more than 1000 whales, which seems to be the cause of 
-# the large differences. 
+# the large differences. This wasn't the problem. From the 1987/1988 season,
+# detailed records were kept with respect to changes in observation conditions.
+# So, the minimum effort became very small compared to the previous years. 
 
 Effort %>%
   mutate(Start.year.f = as.factor(Start.year)) %>%
   group_by(Start.year.f) %>%
+  mutate(effort.in.hrs = effort * 24) %>%
   summarize(Start.year = first(Start.year),
-            mean.effort = mean(effort),
-            min.effort = min(effort),
-            max.effort = max(effort),
+            mean.effort.in.hrs = mean(effort.in.hrs),
+            min.effort.in.hrs = min(effort.in.hrs),
+            max.effort.in.hrs = max(effort.in.hrs),
             total.whales = sum(nwhales)) -> effort.summary
 
 ggplot(effort.summary) +
-  geom_point(aes(x = Start.year, y = mean.effort, size = total.whales))
+  geom_point(aes(x = Start.year, 
+                 y = mean.effort.in.hrs, size = total.whales))
 
 ggplot(effort.summary) +
-  geom_point(aes(x = Start.year, y = min.effort, size = total.whales))
+  geom_point(aes(x = Start.year, 
+                 y = min.effort.in.hrs, size = total.whales))
 
 ggplot(Effort %>% 
-         mutate(Start.year.f = as.factor(Start.year)) %>%
+         mutate(Start.year.f = as.factor(Start.year),
+                effort.in.hrs = effort * 24) %>%
          group_by(Start.year.f)) +
-  geom_boxplot(aes(x = Start.year.f, y = effort))
+  geom_boxplot(aes(x = Start.year.f, y = effort.in.hrs))
 
-Effort %>%
-  filter(effort > 1/24) %>%
-  mutate(Start.year.f = as.factor(Start.year)) %>%
-  group_by(Start.year.f) %>%
-  summarize(Start.year = first(Start.year),
-            mean.effort = mean(effort),
-            min.effort = min(effort),
-            max.effort = max(effort),
-            total.whales = sum(nwhales)) -> effort.summary.1hr
+# Effort %>%
+#   filter(effort > 1/24) %>%
+#   mutate(Start.year.f = as.factor(Start.year)) %>%
+#   group_by(Start.year.f) %>%
+#   summarize(Start.year = first(Start.year),
+#             mean.effort = mean(effort),
+#             min.effort = min(effort),
+#             max.effort = max(effort),
+#             total.whales = sum(nwhales)) -> effort.summary.1hr
+# 
+# ggplot(effort.summary.1hr) +
+#   geom_point(aes(x = Start.year, y = mean.effort, size = total.whales))
 
-ggplot(effort.summary.1hr) +
-  geom_point(aes(x = Start.year, y = mean.effort, size = total.whales))
-
-Effort %>%
-  filter(effort < 1/24) %>%
-  mutate(Start.year.f = as.factor(Start.year)) %>%
-  group_by(Start.year.f) %>%
-  summarize(Start.year = first(Start.year),
-            mean.effort = mean(effort),
-            min.effort = min(effort),
-            max.effort = max(effort),
-            total.whales = sum(nwhales)) -> effort.summary.less.1hr
-
-ggplot(effort.summary.less.1hr) +
-  geom_point(aes(x = Start.year, 
-                 y = mean.effort, 
-                 size = total.whales))
-
+# Effort %>%
+#   filter(effort < 1/24) %>%
+#   mutate(Start.year.f = as.factor(Start.year)) %>%
+#   group_by(Start.year.f) %>%
+#   summarize(Start.year = first(Start.year),
+#             mean.effort = mean(effort),
+#             min.effort = min(effort),
+#             max.effort = max(effort),
+#             total.whales = sum(nwhales)) -> effort.summary.less.1hr
+# 
+# ggplot(effort.summary.less.1hr) +
+#   geom_point(aes(x = Start.year, 
+#                  y = mean.effort, 
+#                  size = total.whales))
+# 
 
 Sightings %>%
   filter(Start.year == 1987) -> Sightings.1988
@@ -317,11 +336,20 @@ Sightings %>%
 Effort %>%
   filter(Start.year == 1987) -> Effort.1988
 
-Sightings %>%
-  filter(Start.year == 1985) -> Sightings.1986
+# Sightings %>%
+#   filter(Start.year == 1985) -> Sightings.1986
+# 
+# Effort %>%
+#   filter(Start.year == 1985) -> Effort.1986
 
-Effort %>%
-  filter(Start.year == 1985) -> Effort.1986
+# Extract GAM fit daily abundance estimates:
+GAM.fit. <- lapply(abundance.estimates$abundance.models,
+                   FUN = function(x) x[[1]]$pred) 
+
+GAM.fit.1988 <- abundance.estimates$abundance.models[[1]][[1]]$pred
+
+# The total abundeance is sum of the GAM fit times the night time passage rate
+# of 1.0817
 
 ###########################################################################
 ###########################################################################
@@ -406,11 +434,35 @@ obs.n.df %>%
 
 N.hats.day %>%
   filter(Season == "1987/1988") -> N.hats.day.1988
+p.daily.N <- list()
+
+k <- 1
+Years <- abundance.estimates[[1]]$Year
+for (k in 1:length(Years)){
+  # Season <- paste0(Years[k], "/",
+  #                  (Years[k] + 1))
+  
+  Laake.daily.estimates.yr <- Laake.daily.estimates %>% filter(Start.year == Years[k])
+  N.hats.day %>%
+    filter(start.year == Years[k]) -> N.hats.day.yr
+  
+  p.daily.N[[k]] <- ggplot(N.hats.day.yr) +
+    geom_line(aes(x = Day, y = mean.N)) +
+    geom_ribbon(aes(x = Day, ymin = LCL.mean.N, ymax = UCL.mean.N),
+                fill = "gold", alpha = 0.5) +
+    geom_point(aes(x = Day, y = Nhat)) +
+    geom_line(data = Laake.daily.estimates.yr,
+              aes(x = Day, y = GAM.fit), color = "purple")
+  
+}
+
 
 ggplot(N.hats.day.1988) +
   geom_line(aes(x = Day, y = mean.N)) +
   geom_ribbon(aes(x = Day, ymin = LCL.mean.N, ymax = UCL.mean.N),
               fill = "gold", alpha = 0.5) +
-  geom_point(aes(x = Day, y = Nhat)) 
+  geom_point(aes(x = Day, y = Nhat)) +
+  geom_line(data = Laake.daily.estimates.1988,
+            aes(x = Day, y = GAM.fit), color = "purple")
 
 effort.jags.1988 <- Laake.data.jags$jags.data$watch.prop[,1,16]

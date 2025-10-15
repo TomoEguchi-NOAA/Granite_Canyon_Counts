@@ -21,9 +21,10 @@ integrate.gam=function(x,model,vis,beauf)
  return(predict(model,newdata=newdata,type="response"))
 }
 
-compute.series=function(models,naive.abundance,sightings=NULL,effort=NULL,
+compute.series=function(models, naive.abundance,sightings=NULL,effort=NULL,
           gsS=NULL,best=TRUE,Match=NULL,cutoff=4,final.time=c(rep(90,20),100,100,90),
-          lower.time=rep(0,23),lcut=0.2,mcut=1.0,twt=0.18,dwt=3.95,pwt=0.05,crittype="ellipse",
+          lower.time=rep(0,23), lcut=0.2, mcut=1.0, twt=0.18, dwt=3.95, pwt=0.05,
+          crittype="ellipse",
           DistBreaks=c(0,1,2,3,4,20),Use=TRUE,hessian=FALSE,debug=FALSE,TruePS=TRUE,
           recent.years=c(1987,1992,1993,1995,1997,2000,2001,2006),fn=1.0817)
 {
@@ -181,13 +182,21 @@ for (year in recent.years)
    else
    { 
       if(is.null(primary$corrected.podsize))   
-         summary.df=rbind(summary.df,data.frame(Year=year,nMatch=nrow(zz)/2,nPrimary=nrow(primary),
-                            Whales=sum(primary$podsize),MeanPS=mean(primary$podsize),
-                            HrsEffort=sum(ern$effort)*24))
+         summary.df=rbind(summary.df, 
+                          data.frame(Year=year,nMatch=nrow(zz)/2, 
+                                     nPrimary=nrow(primary),
+                                     Whales=sum(primary$podsize),
+                                     MeanPS=mean(primary$podsize),
+                                     HrsEffort=sum(ern$effort)*24))
       else
-         summary.df=rbind(summary.df,data.frame(Year=year,nMatch=nrow(zz)/2,nPrimary=nrow(primary),
-                            Whales=sum(primary$podsize),MeanPS=mean(primary$podsize),CMeanPS=mean(primary$corrected.podsize),
-                            HrsEffort=sum(ern$effort)*24))
+        summary.df=rbind(summary.df,
+                         data.frame(Year=year,
+                                    nMatch=nrow(zz)/2,
+                                    nPrimary=nrow(primary),
+                                    Whales=sum(primary$podsize),
+                                    MeanPS=mean(primary$podsize),
+                                    CMeanPS=mean(primary$corrected.podsize),
+                                    HrsEffort=sum(ern$effort)*24))
    }
    cat("\n\nSurvey year               : ", year)
    cat("\n# Match records           : ", nrow(zz)/2)   
@@ -226,11 +235,12 @@ for (year in recent.years)
      else
      {
        abundance.models[[i]][[j]]=estimate.abundance(spar=NULL,
-         dpar=detection.models[[i]][[j]]$par[3:length(detection.models[[i]][[j]]$par)],gsS=gsS,effort=ern,
+         dpar=detection.models[[i]][[j]]$par[3:length(detection.models[[i]][[j]]$par)],
+         gsS=gsS,effort=ern,
          sightings=primary, final.time=final.time[15+i],lower.time=lower.time[15+i],
          gformula=~s(time),dformula=dtformula)
      }
-     cat("\nEstimated whale abundance w/o fn: ",abundance.models[[i]][[j]]$Total)
+     cat("\nEstimated whale abundance w/o fn: ", abundance.models[[i]][[j]]$Total)
    }
 }
 # Compute ratio of naive and corrected abundances for 1987-2006 (eqn 23)
@@ -238,17 +248,29 @@ Nbest=sapply(abundance.models,function(x) x[[1]]$Total)
 Nnaive=sapply(naive.abundance[16:23],function(x)x$Total)
 ratio=sum(Nbest)/sum(Nnaive)
 # Compute series of estimates for 1967-2006 without nighttime correction factor (eqn 24)  
-Nhat=c(sapply(naive.abundance[1:15],function(x)x$Total)*ratio, sapply(abundance.models,function(x) x[[1]]$Total))
+Nhat=c(sapply(naive.abundance[1:15],
+              function(x)x$Total)*ratio,
+       sapply(abundance.models,
+              function(x) x[[1]]$Total))
+
 # Apply nighttime correction factor (eqn 29)
 Nhat=fn*Nhat
 summary.df$Nhat=Nhat[16:23]
-return(list(summary.df=summary.df,Match=Match,formulae=formulae,detection.models=detection.models,abundance.models=abundance.models,
-                    ratio=ratio,Nhat=Nhat,TruePS=TruePS))
+return(list(summary.df=summary.df,
+            Match=Match,
+            formulae=formulae,
+            detection.models=detection.models,
+            abundance.models=abundance.models,
+            ratio=ratio,
+            Nhat=Nhat,
+            TruePS=TruePS))
 }
 
-compute.series.var=function(results,naive.abundance,ps.results,Use=TRUE,lcut=0.2,twt=0.18,dwt=3.95,crittype="ellipse",
+compute.series.var=function(results,naive.abundance,ps.results,Use=TRUE,
+                            lcut=0.2,twt=0.18,dwt=3.95,crittype="ellipse",
                             final.time=c(rep(90,20),100,100,90), lower.time=rep(0,23),
-                            DistBreaks=c(0,1,2,3,4,20),recent.years=c(1987,1992,1993,1995,1997,2000,2001,2006),
+                            DistBreaks=c(0,1,2,3,4,20),
+                            recent.years=c(1987,1992,1993,1995,1997,2000,2001,2006),
                             fn=1.0817,se.fn=0.0338,debug=FALSE,delta=c(0.001,0.01))
 {
 # Get PrimarySightings and effort
@@ -260,7 +282,8 @@ PrimarySightings$day=as.Date(PrimarySightings$Date)-as.Date(paste(PrimarySightin
 PrimarySightings$seq=1:nrow(PrimarySightings)
 if(Use)
 {
-   PrimarySightings=merge(PrimarySightings,subset(PrimaryEffort,select=c("key","Use")),by="key")
+   PrimarySightings=merge(PrimarySightings,subset(PrimaryEffort,
+                                                  select=c("key","Use")),by="key")
    PrimarySightings=PrimarySightings[PrimarySightings$Use,]
    PrimarySightings=PrimarySightings[order(PrimarySightings$seq),]
 }
@@ -638,10 +661,11 @@ return(ObserverExp)
 }
 
 
-estimate.abundance <-
-function(spar,dpar,gsS,effort,sightings,dformula=~True,gformula=~s(time),nmax=20,
-          pod=FALSE,plotit=TRUE,anchor=TRUE,show.anchor=FALSE,sp=NULL,final.time=90,
-          lower.time=0,do.mult=TRUE,pool=TRUE,...)
+estimate.abundance <- function(spar, dpar, gsS, effort, sightings, 
+                               dformula=~True, gformula=~s(time),nmax=20,
+                               pod=FALSE,plotit=TRUE,anchor=TRUE,
+                               show.anchor=FALSE,sp=NULL,final.time=90,
+                               lower.time=0,do.mult=TRUE,pool=TRUE,...)
 {
 # Function to compute observation-specific detection probability
 # from formula parameters and sightings data
@@ -681,7 +705,8 @@ if(!is.null(dpar)&!is.null(dformula)&!is.null(spar))
       # Compute conditional detection probability function for true size given observed size
       fSs=t(t(fS*gsS)/colSums(fS*gsS))
       # Compute estimate of expected number of whales represented by observed whales
-      Nhat.whales=c(Nhat.whales,rowSums(t(fSs[,sightings$podsize[sightings$Start.year==year]]*(1:nmax))/ps[sightings$Start.year==year]))
+      Nhat.whales=c(Nhat.whales, 
+                    rowSums(t(fSs[,sightings$podsize[sightings$Start.year==year]]*(1:nmax))/ps[sightings$Start.year==year]))
       # Same as above for pods rather than whales
       Nhat=c(Nhat,rowSums(t(fSs[,sightings$podsize[sightings$Start.year==year]])/ps[sightings$Start.year==year]))
    }
@@ -744,7 +769,7 @@ else
 ern=subset(effort,select=c("Start.year","key","begin","end","effort","time","vis","beaufort"))
 ern=merge(ern,est.df,by.x="key",by.y="key",all.x=TRUE)
 ern$nhat[is.na(ern$nhat)]=0
-results=fit.migration.gam(ern,years=as.numeric(years), formula=gformula, pod=pod, 
+results=fit.migration.gam(ern, years=as.numeric(years), formula=gformula, pod=pod, 
                           plotit=plotit,
                           anchor=anchor,show.anchor=show.anchor,sp=sp,
                           final.time=final.time,lower.time=lower.time,
@@ -1274,7 +1299,10 @@ fit.migration.gam=function(er.migdata, years, formula=~s(time), pod=FALSE, ploti
        Xs=Xp*as.vector(exp(Xp%*%coef(ermod)))
        var.Total=c(var.Total,sum(Xs%*%ermod$Vp%*%t(Xs))+sum(Eppd.all*ermod$scale))
       }   
-     return(list(models=ermod,Total=Total,var.Total=var.Total,pred=Eppd.all))
+     return(list(models=ermod,
+                 Total=Total,
+                 var.Total=var.Total,
+                 pred=Eppd.all))
    }
 }
 
