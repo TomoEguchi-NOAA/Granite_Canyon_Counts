@@ -22,11 +22,14 @@ integrate.gam=function(x,model,vis,beauf)
 }
 
 compute.series=function(models, naive.abundance,sightings=NULL,effort=NULL,
-          gsS=NULL,best=TRUE,Match=NULL,cutoff=4,final.time=c(rep(90,20),100,100,90),
-          lower.time=rep(0,23), lcut=0.2, mcut=1.0, twt=0.18, dwt=3.95, pwt=0.05,
-          crittype="ellipse",
-          DistBreaks=c(0,1,2,3,4,20),Use=TRUE,hessian=FALSE,debug=FALSE,TruePS=TRUE,
-          recent.years=c(1987,1992,1993,1995,1997,2000,2001,2006),fn=1.0817)
+                        gsS=NULL,best=TRUE,Match=NULL,cutoff=4,
+                        final.time=c(rep(90,20),100,100,90),
+                        lower.time=rep(0,23), lcut=0.2, mcut=1.0, 
+                        twt=0.18, dwt=3.95, pwt=0.05,
+                        crittype="ellipse",
+                        DistBreaks=c(0,1,2,3,4,20),Use=TRUE,
+                        hessian=FALSE,debug=FALSE,TruePS=TRUE,
+                        recent.years=c(1987,1992,1993,1995,1997,2000,2001,2006),fn=1.0817)
 {
 # Define function to select best detection model and return list of models
 # within a cutoff delta AICc value.
@@ -1046,9 +1049,10 @@ gam.d=function(shape,rate,x,nmax)
    return(num/denom)
 }
 
-fit.migration.gam=function(er.migdata, years, formula=~s(time), pod=FALSE, plotit=TRUE,anchor=TRUE,
-                                show.anchor=FALSE,sp=NULL,final.time=rep(90,length(years)),
-                                lower.time=rep(0,length(years)),do.mult=TRUE,pool=TRUE,...)
+fit.migration.gam=function(er.migdata, years, formula=~s(time), pod=FALSE, plotit=TRUE,
+                           anchor=TRUE,
+                           show.anchor=FALSE,sp=NULL,final.time=rep(90,length(years)),
+                           lower.time=rep(0,length(years)),do.mult=TRUE,pool=TRUE,...)
 {
    final=final.time
    lower=lower.time
@@ -1056,7 +1060,7 @@ fit.migration.gam=function(er.migdata, years, formula=~s(time), pod=FALSE, ploti
    if(length(lower)!=length(years))stop("Number of elements in lower.time does not match number of years")
    require(mgcv)
    ermod=vector("list",length(years))
-   formula=as.formula(paste("nhat",paste(as.character(formula),collapse=""),sep=""))
+   formula=as.formula(paste("nhat", paste(as.character(formula),collapse=""),sep=""))
    if(pod)
      ylabel="Pods per day"
    else
@@ -1167,7 +1171,8 @@ fit.migration.gam=function(er.migdata, years, formula=~s(time), pod=FALSE, ploti
       for(year in years)
       {
         i=i+1
-        mult[i]=compute.sampling.multiplier(ermod[[i]],er.migdata[er.migdata$Start.year==year,],
+        mult[i]=compute.sampling.multiplier(ermod[[i]], 
+                                            er.migdata[er.migdata$Start.year==year,],
                 upper=final[i],lower=lower[i])
         TotalM[i]=sum(ermod[[i]]$y)*mult[i]
       }
@@ -1233,13 +1238,17 @@ fit.migration.gam=function(er.migdata, years, formula=~s(time), pod=FALSE, ploti
        ermod.na=gam(formula,data=er,offset=offset,family=quasipoisson,...)
        Eppd.all.na=predict(ermod.na,newdata=ern,type="response")
      }
+     
+     ppd.list <- list()
      i=0
      Eppd.all=predict(ermod,type="response")
      for (year in years)
      {
         i=i+1
         er=ern[ern$Start.year==year,]
-        ppd=tapply(er$nhat,floor(er$time),sum)/tapply(er$effort,floor(er$time),sum)
+        ppd=tapply(er$nhat, 
+                   floor(er$time),sum)/tapply(er$effort,floor(er$time),sum)
+        ppd.list[[i]] <- ppd
         if(plotit)
         {
            Eppd=Eppd.all[ern$Start.year==year]
@@ -1302,7 +1311,8 @@ fit.migration.gam=function(er.migdata, years, formula=~s(time), pod=FALSE, ploti
      return(list(models=ermod,
                  Total=Total,
                  var.Total=var.Total,
-                 pred=Eppd.all))
+                 pred=Eppd.all,
+                 ppd = ppd.list))
    }
 }
 
