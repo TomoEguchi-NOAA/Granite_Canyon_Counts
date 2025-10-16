@@ -439,6 +439,7 @@ N.hats.day %>%
 
 p.daily.N <- list()
 ppd.list <- list()
+ern.list <- list()
 k <- 1
 Years <- abundance.estimates[[1]]$Year
 for (k in 1:length(Years)){
@@ -453,6 +454,8 @@ for (k in 1:length(Years)){
   ppd.list[[k]] <- data.frame(ppd = as.vector(ppd),
                               Day = as.numeric(unlist(dimnames(ppd))))
   
+  ern.list[[k]] <- abundance.estimates$abundance.models[[k]][[1]]$ern
+
   p.daily.N[[k]] <- ggplot(N.hats.day.yr) +
     geom_line(aes(x = Day, y = mean.N)) +
     geom_ribbon(aes(x = Day, ymin = LCL.mean.N, ymax = UCL.mean.N),
@@ -463,6 +466,9 @@ for (k in 1:length(Years)){
     geom_point(data = ppd.list[[k]],
                aes(x = Day, y = ppd),
                color = "purple") +
+    geom_point(data = ern.list[[k]],
+               aes(x = time, y = nhat),
+               color = "green") +
     ggtitle(Season)
   
 }
@@ -482,6 +488,10 @@ ggplot() +
              aes(x = time, y = effort), color = "purple") +
   geom_point(data = effort.jags.1988.df,
              aes(x = Day, y = effort))
+
+# This plot indicates that they are quite the same... 
+
+
 # ggplot(N.hats.day.1988) +
 #   geom_line(aes(x = Day, y = mean.N)) +
 #   geom_ribbon(aes(x = Day, ymin = LCL.mean.N, ymax = UCL.mean.N),

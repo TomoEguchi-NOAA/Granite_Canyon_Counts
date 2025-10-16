@@ -71,9 +71,12 @@ if(Use)
 }
 # if lcut >0, link sightings
 if(lcut>0)
-sightings=do.call("rbind",lapply(split(sightings, paste(sightings$Start.year,
-        sightings$day, sep = "_")),
-         function(x) return(linkdf(x,lcut=lcut,twt=twt,dwt=dwt,crittype=crittype))))
+sightings=do.call("rbind", 
+                  lapply(split(sightings, 
+                               paste(sightings$Start.year,
+                                     sightings$day, sep = "_")),
+                         function(x) return(linkdf(x,lcut=lcut, twt=twt, 
+                                                   dwt=dwt, crittype=crittype))))
 # Next unless the dataframe was provided create the Match dataframe with the 
 #   specified parameters
 if(is.null(Match))
@@ -164,24 +167,33 @@ for (year in recent.years)
    Start.year=NULL
    if(Use)
    {
-      ern=subset(effort,subset=Use & as.character(Start.year)==year,
-          select=c("Start.year","key","begin","end","effort","time","vis","beaufort"))
+      ern=subset(effort,
+                 subset=Use & as.character(Start.year)==year,
+                 select=c("Start.year","key","begin","end",
+                          "effort","time","vis","beaufort"))
    } else
    {
-      ern=subset(effort, as.character(Start.year)==year,
-          select=c("Start.year","key","begin","end","effort","time","vis","beaufort"))
+      ern=subset(effort, 
+                 as.character(Start.year)==year,
+                 select=c("Start.year","key","begin","end",
+                          "effort","time","vis","beaufort"))
    }
    ern$Start.year=factor(ern$Start.year)
    if(i==1)
    {
       if(is.null(primary$corrected.podsize))   
-         summary.df=data.frame(Year=year,nMatch=nrow(zz)/2,nPrimary=nrow(primary),
-                            Whales=sum(primary$podsize),MeanPS=mean(primary$podsize),
-                            HrsEffort=sum(ern$effort)*24)
+         summary.df=data.frame(Year=year,nMatch=nrow(zz)/2,
+                               nPrimary=nrow(primary),
+                               Whales=sum(primary$podsize),
+                               MeanPS=mean(primary$podsize),
+                               HrsEffort=sum(ern$effort)*24)
       else
-         summary.df=data.frame(Year=year,nMatch=nrow(zz)/2,nPrimary=nrow(primary),
-                            Whales=sum(primary$podsize),MeanPS=mean(primary$podsize),CMeanPS=mean(primary$corrected.podsize),
-                            HrsEffort=sum(ern$effort)*24)
+         summary.df=data.frame(Year=year,nMatch=nrow(zz)/2,
+                               nPrimary=nrow(primary),
+                               Whales=sum(primary$podsize), 
+                               MeanPS=mean(primary$podsize),
+                               CMeanPS=mean(primary$corrected.podsize),
+                               HrsEffort=sum(ern$effort)*24)
    }
    else
    { 
@@ -221,28 +233,43 @@ for (year in recent.years)
 #    If TruePS then replace podsize in formula with True which represents the unknown 
 #      true podsize which is handled specifically by the code.
      if(TruePS & length(grep("podsize",as.character(dformula)))!=0)
-        dtformula=as.formula(paste(sub("podsize","True",as.character(dformula)),collapse=""))
+       dtformula=as.formula(paste(sub("podsize","True",as.character(dformula)),
+                                  collapse=""))
      else
         dtformula=dformula
 #    Fit the detection/pod size model
-     detection.models[[i]][[j]]=fit.missed.pods(formula=dtformula,pbyyear=TRUE,debug=debug,hessian=hessian,
-          data=zz,primary=primary,gsS=gsS)
+     detection.models[[i]][[j]]=fit.missed.pods(formula=dtformula,
+                                                pbyyear=TRUE,
+                                                debug=debug,
+                                                hessian=hessian,
+                                                data=zz,
+                                                primary=primary,
+                                                gsS=gsS)
 #    Compute the abundance estimate for this year; depends on whether TruePS=TRUE and
 #    whether pod size was corrected to allow use of Reilly approach
      if(is.null(primary$corrected.podsize) | TruePS)
      {
        abundance.models[[i]][[j]]=estimate.abundance(spar=detection.models[[i]][[j]]$par[1:2],
-         dpar=detection.models[[i]][[j]]$par[3:length(detection.models[[i]][[j]]$par)],gsS=gsS,effort=ern,
-         sightings=primary, final.time=final.time[15+i],lower.time=lower.time[15+i],
-         gformula=~s(time),dformula=dtformula)
+                                                     dpar=detection.models[[i]][[j]]$par[3:length(detection.models[[i]][[j]]$par)],
+                                                     gsS=gsS, 
+                                                     effort=ern,
+                                                     sightings=primary, 
+                                                     final.time=final.time[15+i],
+                                                     lower.time=lower.time[15+i],
+                                                     gformula=~s(time),
+                                                     dformula=dtformula)
      }
      else
      {
        abundance.models[[i]][[j]]=estimate.abundance(spar=NULL,
-         dpar=detection.models[[i]][[j]]$par[3:length(detection.models[[i]][[j]]$par)],
-         gsS=gsS,effort=ern,
-         sightings=primary, final.time=final.time[15+i],lower.time=lower.time[15+i],
-         gformula=~s(time),dformula=dtformula)
+                                                     dpar=detection.models[[i]][[j]]$par[3:length(detection.models[[i]][[j]]$par)],
+                                                     gsS=gsS,
+                                                     effort=ern,
+                                                     sightings=primary, 
+                                                     final.time=final.time[15+i],
+                                                     lower.time=lower.time[15+i],
+                                                     gformula=~s(time),
+                                                     dformula=dtformula)
      }
      cat("\nEstimated whale abundance w/o fn: ", abundance.models[[i]][[j]]$Total)
    }
@@ -306,6 +333,7 @@ cat("Computing var1 component\n")
 npar=0
 for (i in 1:length(recent.years))
   npar=npar+ length(results$detection.models[[i]][[1]]$par)
+
 vc.theta=matrix(0,nrow=npar,ncol=npar)
 partial=matrix(0,nrow=23,ncol=npar)
 i=0
@@ -332,13 +360,15 @@ for (year in recent.years)
    primary$Start.year=factor(primary$Start.year)
    primary$Dist=cut(primary$distance,DistBreaks)
    primary$Vis=cut(primary$vis,c(0,3,6))
-   primary$Observer=factor(primary$Observer,levels(factor(results$Match$Observer[results$Match$Start.year==year])))
+   primary$Observer = factor(primary$Observer,
+                             levels(factor(results$Match$Observer[results$Match$Start.year==year])))
    primary$seen=1
 #  Loop over each parameter for group size and detection model and 
 #  compute first derivatives of abundance estimates
    par.est=results$detection.models[[i]][[1]]$par
    vc.theta[(jpos+1):(jpos+length(par.est)),(jpos+1):(jpos+length(par.est))]=solve(results$detection.models[[i]][[1]]$model$hessian)
-   dformula=as.formula(paste("~", as.character(results$formulae[[i]][[1]])[3],sep=""))
+   dformula = as.formula(paste("~", as.character(results$formulae[[i]][[1]])[3],sep=""))
+   
    if(results$TruePS & length(grep("podsize",as.character(dformula)))!=0)
       dtformula=as.formula(paste(sub("podsize","True",as.character(dformula)),collapse=""))
    else
@@ -348,14 +378,27 @@ for (year in recent.years)
      par.values=par.est
      par.values[j]=par.est[j]*(1-delta[1])
      nlower=estimate.abundance(spar=par.values[1:2],
-       dpar=par.values[3:length(par.values)],gsS=gsS,effort=ern,
-       sightings=primary, final.time=final.time[15+i],lower.time=lower.time[15+i],
-       gformula=~s(time),dformula=dtformula,plotit=FALSE)$Total
+                               dpar=par.values[3:length(par.values)],
+                               gsS=gsS, 
+                               effort=ern,
+                               sightings=primary, 
+                               final.time=final.time[15+i],
+                               lower.time=lower.time[15+i],
+                               gformula=~s(time),
+                               dformula=dtformula,plotit=FALSE)$Total
+     
      par.values[j]=par.est[j]*(1+delta[1])
      nupper=estimate.abundance(spar=par.values[1:2],
-       dpar=par.values[3:length(par.values)],gsS=gsS,effort=ern,
-       sightings=primary, final.time=final.time[15+i],lower.time=lower.time[15+i],
-       gformula=~s(time),dformula=dtformula,plotit=FALSE)$Total
+                               dpar=par.values[3:length(par.values)],
+                               gsS=gsS,
+                               effort=ern,
+                               sightings=primary, 
+                               final.time=final.time[15+i],
+                               lower.time=lower.time[15+i],
+                               gformula=~s(time),
+                               dformula=dtformula,
+                               plotit=FALSE)$Total
+     
      partial[i+15,j+jpos]=(nupper-nlower)/(2*delta[1]*par.est[j])
      NewNs=Ns
      NewNs[i]=nlower
@@ -393,12 +436,16 @@ cat("Parameter ",j,"\n")
 #   Get effort data depending on value of Use
     if(Use)
     {
-      ern=subset(PrimaryEffort,subset=Use & as.character(Start.year)==year,
-          select=c("Start.year","key","begin","end","effort","time","vis","beaufort"))
+      ern=subset(PrimaryEffort,
+                 subset=Use & as.character(Start.year)==year,
+                 select=c("Start.year","key","begin","end",
+                          "effort","time","vis","beaufort"))
     } else
     {
-      ern=subset(PrimaryEffort, as.character(Start.year)==year,
-          select=c("Start.year","key","begin","end","effort","time","vis","beaufort"))
+      ern=subset(PrimaryEffort, 
+                 as.character(Start.year)==year,
+                 select=c("Start.year","key","begin","end",
+                          "effort","time","vis","beaufort"))
     }
     ern$Start.year=factor(ern$Start.year)
     zz=results$Match[results$Match$Start.year==year,]
@@ -417,10 +464,16 @@ cat("Parameter ",j,"\n")
       dtformula=as.formula(paste(sub("podsize","True",as.character(dformula)),collapse=""))
     else
       dtformula=dformula
+    
     dpar=results$detection.models[[i]][[1]]$par
-    ddpar=fit.missed.pods(formula=dtformula,pbyyear=TRUE,
-                          debug=FALSE,hessian=FALSE,par=dpar,
-                          data=zz,primary=primary,gsS=gsS)
+    ddpar=fit.missed.pods(formula=dtformula,
+                          pbyyear=TRUE,
+                          debug=FALSE,
+                          hessian=FALSE,
+                          par=dpar,
+                          data=zz,
+                          primary=primary,
+                          gsS=gsS)
     if(debug)
     {
        cat("\nconvergence =",ddpar$model$convergence)
@@ -431,11 +484,18 @@ cat("Parameter ",j,"\n")
     ddpar=ddpar$par
     spar=ddpar[1:2]
     ddpar=ddpar[3:length(ddpar)]
-    Nlower[i+15]=estimate.abundance(spar=spar,dpar=ddpar,gsS=gsS,effort=ern,
-       sightings=primary, final.time=final.time[15+i],lower.time=lower.time[15+i],
-       gformula=~s(time),dformula=dtformula,plotit=FALSE)$Total
+    Nlower[i+15]=estimate.abundance(spar=spar,
+                                    dpar=ddpar,
+                                    gsS=gsS,
+                                    effort=ern,
+                                    sightings=primary, 
+                                    final.time=final.time[15+i],
+                                    lower.time=lower.time[15+i],
+                                    gformula=~s(time),
+                                    dformula=dtformula,
+                                    plotit=FALSE)$Total
   }
-    if(debug)cat("\nNlower=",Nlower)
+  if(debug)cat("\nNlower=",Nlower)
     par.values=par.est
     par.values[j]=par.est[j]*(1+delta[2])
     ps.results$par=par.values
@@ -448,12 +508,16 @@ cat("Parameter ",j,"\n")
 #     Get effort data depending on value of Use
       if(Use)
       {
-        ern=subset(PrimaryEffort,subset=Use & as.character(Start.year)==year,
-          select=c("Start.year","key","begin","end","effort","time","vis","beaufort"))
+        ern=subset(PrimaryEffort,
+                   subset=Use & as.character(Start.year)==year,
+                   select=c("Start.year","key","begin","end",
+                            "effort","time","vis","beaufort"))
       } else
       {
-        ern=subset(PrimaryEffort, as.character(Start.year)==year,
-          select=c("Start.year","key","begin","end","effort","time","vis","beaufort"))
+        ern=subset(PrimaryEffort, 
+                   as.character(Start.year)==year,
+                   select=c("Start.year","key","begin","end",
+                            "effort","time","vis","beaufort"))
       }
       ern$Start.year=factor(ern$Start.year)
       zz=results$Match[results$Match$Start.year==year,]
@@ -469,12 +533,19 @@ cat("Parameter ",j,"\n")
       primary$seen=1
       dformula=as.formula(paste("~", as.character(results$formulae[[i]][[1]])[3],sep=""))
       if(results$TruePS & length(grep("podsize",as.character(dformula)))!=0)
-        dtformula=as.formula(paste(sub("podsize","True",as.character(dformula)),collapse=""))
+        dtformula=as.formula(paste(sub("podsize","True",as.character(dformula)),
+                                   collapse=""))
       else
         dtformula=dformula
       dpar=results$detection.models[[i]][[1]]$par
-      ddpar=fit.missed.pods(formula=dtformula,pbyyear=TRUE,debug=FALSE,hessian=FALSE,par=dpar,
-          data=zz,primary=primary,gsS=gsS)
+      ddpar=fit.missed.pods(formula=dtformula,
+                            pbyyear=TRUE,
+                            debug=FALSE,
+                            hessian=FALSE,
+                            par=dpar,
+                            data=zz,
+                            primary=primary,
+                            gsS=gsS)
       if(debug)
       {
          cat("\nconvergence =",ddpar$model$convergence)
@@ -485,9 +556,16 @@ cat("Parameter ",j,"\n")
       ddpar=ddpar$par
       spar=ddpar[1:2]
       ddpar=ddpar[3:length(ddpar)]
-      Nupper[i+15]=estimate.abundance(spar=spar,dpar=ddpar,gsS=gsS,effort=ern,
-         sightings=primary, final.time=final.time[15+i],lower.time=lower.time[15+i],
-         gformula=~s(time),dformula=dtformula,plotit=FALSE)$Total
+      Nupper[i+15]=estimate.abundance(spar=spar,
+                                      dpar=ddpar,
+                                      gsS=gsS,
+                                      effort=ern,
+                                      sightings=primary,
+                                      final.time=final.time[15+i],
+                                      lower.time=lower.time[15+i],
+                                      gformula=~s(time),
+                                      dformula=dtformula,
+                                      plotit=FALSE)$Total
     }
     if(debug) cat("\nNupper=",Nupper)
     partial[16:23,j]=(Nupper[16:23]-Nlower[16:23])/(2*delta[2]*par.est[j])
@@ -526,7 +604,8 @@ se=sqrt(diag(vc))
 return(list(vc=vc,var1=var1,var2=var2,var3=var3,se=se,cormat=vc/outer(se,se,"*")))
 }
 
-create.match=function(lcut=0.2,mcut=1,twt=.18,dwt=3.95,pwt=0.05,crittype="ellipse",fdir="c:/gw")
+create.match=function(lcut=0.2,mcut=1,twt=.18,dwt=3.95,pwt=0.05,
+                      crittype="ellipse",fdir="c:/gw")
 {
   Ld2Ll  <- function(Ld) 
   {
@@ -618,6 +697,7 @@ create.match=function(lcut=0.2,mcut=1,twt=.18,dwt=3.95,pwt=0.05,crittype="ellips
   row.names(xx)=NULL
   return(xx)
 }
+
 CreateObserverExperience=function()
 {
 # Create dataframe of hours of experience for each observer
@@ -735,26 +815,26 @@ if(!is.null(dpar)&!is.null(dformula)&!is.null(spar))
     # detection probability
     if(!is.null(spar))
     {
-       i=0
+      i=0
       for(year in years)
       {
-         i=i+1                                                       
-         # Compute probability function for True pod size
-         fS=gammad(spar[((i-1)*2+1):(i*2)],nmax)
-         # Compute conditional detection probability function for true size given observed size
-         fSs=t(t(fS*gsS)/colSums(fS*gsS))
-         # Compute estimate of expected number of whales represented by observed whales
-         Nhat.whales=c(Nhat.whales,rowSums(t(fSs[,sightings$podsize[sightings$Start.year==year]]*(1:nmax))))
+        i=i+1                                                       
+        # Compute probability function for True pod size
+        fS=gammad(spar[((i-1)*2+1):(i*2)],nmax)
+        # Compute conditional detection probability function for true size given observed size
+        fSs=t(t(fS*gsS)/colSums(fS*gsS))
+        # Compute estimate of expected number of whales represented by observed whales
+        Nhat.whales=c(Nhat.whales,rowSums(t(fSs[,sightings$podsize[sightings$Start.year==year]]*(1:nmax))))
       }
       Nhat=rep(1,nrow(sightings))
     } else
-    # No further corrections for either but pod size
-    # may have been corrected prior as in reilly.cf
+      # No further corrections for either but pod size
+      # may have been corrected prior as in reilly.cf
     {
       if(is.null(sightings$corrected.podsize))
-         Nhat.whales=sightings$podsize
+        Nhat.whales=sightings$podsize
       else
-         Nhat.whales=sightings$corrected.podsize
+        Nhat.whales=sightings$corrected.podsize
       Nhat=rep(1,nrow(sightings))
     }
   }
@@ -767,22 +847,46 @@ sightings$Nhat.whales=Nhat.whales
 sightings$Nhat=Nhat
 if(!pod)
   est.df=data.frame(key=unique(sightings$key),
-          nhat=sapply(split(sightings$Nhat.whales,factor(sightings$key)),sum))
+                    nhat=sapply(split(sightings$Nhat.whales,
+                                      factor(sightings$key)),sum))
 else
   est.df=data.frame(key=unique(sightings$key),
-          nhat=sapply(split(sightings$Nhat,factor(sightings$key)),sum))
-ern=subset(effort,select=c("Start.year","key","begin","end",
-                           "effort","time","vis","beaufort"))
-ern=merge(ern,est.df,by.x="key",by.y="key",all.x=TRUE)
-ern$nhat[is.na(ern$nhat)]=0
-results=fit.migration.gam(ern, years=as.numeric(years), formula=gformula, pod=pod, 
-                          plotit=plotit,
-                          anchor=anchor,show.anchor=show.anchor,sp=sp,
-                          final.time=final.time,lower.time=lower.time,
-                          do.mult=do.mult,pool=pool,...)
+                    nhat=sapply(split(sightings$Nhat,
+                                      factor(sightings$key)),sum))
 
-results$options=list(anchor=anchor,pod=pod,final.time=final.time,lower.time=lower.time,
-                     gformula=gformula,dformula=dformula,spar=spar,dpar=dpar,nmax=nmax)
+ern=subset(effort,
+           select=c("Start.year","key","begin","end",
+                    "effort","time","vis","beaufort"))
+
+ern=merge(ern,est.df,by.x="key",by.y="key",all.x=TRUE)
+
+ern$nhat[is.na(ern$nhat)]=0
+
+# Added a line to return "ern" back from fit.migration.gam function
+# October 2025
+results=fit.migration.gam(ern, 
+                          years=as.numeric(years), 
+                          formula=gformula, 
+                          pod=pod, 
+                          plotit=plotit,
+                          anchor=anchor,
+                          show.anchor=show.anchor,
+                          sp=sp,
+                          final.time=final.time,
+                          lower.time=lower.time,
+                          do.mult=do.mult,
+                          pool=pool,...)
+
+results$options=list(anchor=anchor,
+                     pod=pod,
+                     final.time=final.time,
+                     lower.time=lower.time,
+                     gformula=gformula,
+                     dformula=dformula,
+                     spar=spar,
+                     dpar=dpar,
+                     nmax=nmax)
+
 cat("\nEstimated whale abundance : ",results$Total)
 return(results)
 }
@@ -980,7 +1084,15 @@ regam.lnl=function(par,mm,rr,ss,observed.size,nmax=20,z=5)
 #    Compute negative log likelihood by integrating this portion (subset of data defined by
 #    random effects) of the likelihood over the normal distribution for the random effect
 #    and accumulate the value.
-     neglnl=neglnl-log(integrate(gam.reint,-z*sigma,z*sigma,obs=obs,xbeta=xbeta,sigma=sigma,shape=shape,nmax=nmax,stop.on.error=FALSE)$value)
+     neglnl=neglnl-log(integrate(gam.reint, 
+                                 -z*sigma, 
+                                 z*sigma,
+                                 obs=obs,
+                                 xbeta=xbeta, 
+                                 sigma=sigma, 
+                                 shape=shape, 
+                                 nmax=nmax,
+                                 stop.on.error=FALSE)$value)
   }
   cat("\npar = ",par)
   cat("\n neglnl= ",neglnl)
@@ -1315,7 +1427,8 @@ fit.migration.gam=function(er.migdata, years, formula=~s(time), pod=FALSE, ploti
                  Total=Total,
                  var.Total=var.Total,
                  pred=Eppd.all,
-                 ppd = ppd.list))
+                 ppd = ppd.list,
+                 ern = er.migdata))
    }
 }
 

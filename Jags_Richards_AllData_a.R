@@ -15,7 +15,7 @@ options(mc.cores = 5)
 Run.date <- Sys.Date() #"2025-04-21" #"2025-04-17" #
 
 # Minimum length of observation periods in minutes
-min.dur <- 60 #10 #85 #
+min.dur <- 10 #60 #85 #
 
 # These are the ending year of each season - for example, 2022 in the following vector indicates
 # for the 2021/2022 season. These data were extracted using Extract_Data_All_v2.Rmd
@@ -80,9 +80,10 @@ jags.params <- c("VS.Fixed", "BF.Fixed",
                  #"N.alpha", "N.obs",
                  "log.lkhd")
 
-ver <- "v5a"
-for (ver in c("v2a", "v15a", "v17a", "v18a", "v5a", "v16a", "v19a", "v20a")){
-#for (ver in c("v1b", "v2b", "v3b", "v4b", "v5b", "v6b", "v7b", "v8b")){
+vers <- c("v2a", "v15a", "v17a", "v18a", "v5a", "v16a", "v19a", "v20a") #"v5a"
+vers <- "v5a"
+for (ver in vers){
+
   print(paste0("Starting ", ver, " at ", Sys.time()))
   jm.out <- NoBUGS_Richards_fcn(min.dur = min.dur, 
                                 ver = ver, 

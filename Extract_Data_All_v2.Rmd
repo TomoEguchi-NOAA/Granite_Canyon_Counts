@@ -38,8 +38,8 @@ YEAR <- 2008 #10 #Enter the year of the data files
 # Time is entered in decimal hours, not hh:mm:ss. So, that needs to be accommodated in
 # data extraction code. 2022-10-05
 
-shift_dur_min <- 90   # 90 minutes
-grace_min <- 30#5 # 60 #       # this makes it minimum of shift_dur_min - grace_min
+shift_dur_min <- 15 #90   # 90 minutes or anything else. 
+grace_min <- 5 #30# 60 #       # this makes it minimum of shift_dur_min - grace_min
 
 # For Mar 2023 analysis, I changed this to minimum duration of 30 minutes
 max_dur <- shift_dur_min + 5
