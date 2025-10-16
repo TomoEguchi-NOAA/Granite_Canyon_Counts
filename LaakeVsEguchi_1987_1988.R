@@ -241,7 +241,7 @@ if (!file.exists("RData/Nhats_Laake.rds")){
 
 # Create a dataframe for daily estimates for 1987/1988 to 2006/2007
 GAM.fit <- lapply(abundance.estimates[[5]], 
-                  FUN = function(x) x[[1]]$pred) %>% unlist()
+                  FUN = function(x) x[[1]]$pred) 
 
 Laake.n.days <- lapply(GAM.fit, FUN = length) %>% unlist()
 
@@ -249,8 +249,10 @@ Laake.daily.estimates <- data.frame(Day = lapply(Laake.n.days,
                                                  FUN = function(x) 1:x) %>% unlist(),
                                     Start.year = rep(abundance.estimates[[1]]$Year,
                                                      times = Laake.n.days),
-                                    GAM.fit = GAM.fit) %>%
+                                    GAM.fit = GAM.fit %>% unlist()) %>%
   mutate(Season = paste0(Start.year, "/", (as.numeric(Start.year) + 1)))
+
+
 
 Nhat.final <- abundance.estimates$Nhat
 
@@ -331,10 +333,10 @@ ggplot(Effort %>%
 # 
 
 Sightings %>%
-  filter(Start.year == 1987) -> Sightings.1988
+  filter(Start.year == 1987) -> Laake.Sightings.1988
 
 Effort %>%
-  filter(Start.year == 1987) -> Effort.1988
+  filter(Start.year == 1987) -> Laake.Effort.1988
 
 # Sightings %>%
 #   filter(Start.year == 1985) -> Sightings.1986
@@ -342,11 +344,11 @@ Effort %>%
 # Effort %>%
 #   filter(Start.year == 1985) -> Effort.1986
 
-# Extract GAM fit daily abundance estimates:
-GAM.fit. <- lapply(abundance.estimates$abundance.models,
-                   FUN = function(x) x[[1]]$pred) 
-
-GAM.fit.1988 <- abundance.estimates$abundance.models[[1]][[1]]$pred
+# # Extract GAM fit daily abundance estimates:
+# GAM.fit. <- lapply(abundance.estimates$abundance.models,
+#                    FUN = function(x) x[[1]]$pred) 
+# 
+# GAM.fit.1988 <- abundance.estimates$abundance.models[[1]][[1]]$pred
 
 # The total abundeance is sum of the GAM fit times the night time passage rate
 # of 1.0817
@@ -434,17 +436,22 @@ obs.n.df %>%
 
 N.hats.day %>%
   filter(Season == "1987/1988") -> N.hats.day.1988
-p.daily.N <- list()
 
+p.daily.N <- list()
+ppd.list <- list()
 k <- 1
 Years <- abundance.estimates[[1]]$Year
 for (k in 1:length(Years)){
-  # Season <- paste0(Years[k], "/",
-  #                  (Years[k] + 1))
-  
+  Season <- paste0(Years[k], "/",
+                   (Years[k] + 1))
+
   Laake.daily.estimates.yr <- Laake.daily.estimates %>% filter(Start.year == Years[k])
   N.hats.day %>%
     filter(start.year == Years[k]) -> N.hats.day.yr
+  
+  ppd <- abundance.estimates$abundance.models[[k]][[1]]$ppd[[1]]
+  ppd.list[[k]] <- data.frame(ppd = as.vector(ppd),
+                              Day = as.numeric(unlist(dimnames(ppd))))
   
   p.daily.N[[k]] <- ggplot(N.hats.day.yr) +
     geom_line(aes(x = Day, y = mean.N)) +
@@ -452,17 +459,34 @@ for (k in 1:length(Years)){
                 fill = "gold", alpha = 0.5) +
     geom_point(aes(x = Day, y = Nhat)) +
     geom_line(data = Laake.daily.estimates.yr,
-              aes(x = Day, y = GAM.fit), color = "purple")
+              aes(x = Day, y = GAM.fit), color = "purple") +
+    geom_point(data = ppd.list[[k]],
+               aes(x = Day, y = ppd),
+               color = "purple") +
+    ggtitle(Season)
   
 }
 
+# For the 1987/1988 season, Laake's pods per day (ppd) are greater than my
+# numbers. Either my effort is too high (proportion of a day surveyed), or 
+# Laake's is too low. 
 
-ggplot(N.hats.day.1988) +
-  geom_line(aes(x = Day, y = mean.N)) +
-  geom_ribbon(aes(x = Day, ymin = LCL.mean.N, ymax = UCL.mean.N),
-              fill = "gold", alpha = 0.5) +
-  geom_point(aes(x = Day, y = Nhat)) +
-  geom_line(data = Laake.daily.estimates.1988,
-            aes(x = Day, y = GAM.fit), color = "purple")
+effort.jags.1988 <- c(0, Laake.data.jags$jags.data$watch.length[,1,16] %>% na.omit(), 0)
+days.jags.1988  <- Laake.data.jags$jags.data$day[,1,16] %>% na.omit()
 
-effort.jags.1988 <- Laake.data.jags$jags.data$watch.prop[,1,16]
+effort.jags.1988.df <- data.frame(Day = days.jags.1988,
+                                  effort = effort.jags.1988)
+
+ggplot() +
+  geom_point(data = Laake.Effort.1988,
+             aes(x = time, y = effort), color = "purple") +
+  geom_point(data = effort.jags.1988.df,
+             aes(x = Day, y = effort))
+# ggplot(N.hats.day.1988) +
+#   geom_line(aes(x = Day, y = mean.N)) +
+#   geom_ribbon(aes(x = Day, ymin = LCL.mean.N, ymax = UCL.mean.N),
+#               fill = "gold", alpha = 0.5) +
+#   geom_point(aes(x = Day, y = Nhat)) +
+#   geom_line(data = Laake.daily.estimates.1988,
+#             aes(x = Day, y = GAM.fit), color = "purple")
+# 

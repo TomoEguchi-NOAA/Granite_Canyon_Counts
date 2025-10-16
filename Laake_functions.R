@@ -7,6 +7,7 @@ compute.sampling.multiplier=function(model,data,lower=0,upper=90)
             beauf=as.vector(x[4]))$val)
    return(TotalArea/sum(int.areas))
 }
+
 integrate.gam=function(x,model,vis,beauf)
 {
 # Function for computing area under portions of the gam migration model
@@ -417,8 +418,9 @@ cat("Parameter ",j,"\n")
     else
       dtformula=dformula
     dpar=results$detection.models[[i]][[1]]$par
-    ddpar=fit.missed.pods(formula=dtformula,pbyyear=TRUE,debug=FALSE,hessian=FALSE,par=dpar,
-          data=zz,primary=primary,gsS=gsS)
+    ddpar=fit.missed.pods(formula=dtformula,pbyyear=TRUE,
+                          debug=FALSE,hessian=FALSE,par=dpar,
+                          data=zz,primary=primary,gsS=gsS)
     if(debug)
     {
        cat("\nconvergence =",ddpar$model$convergence)
@@ -769,7 +771,8 @@ if(!pod)
 else
   est.df=data.frame(key=unique(sightings$key),
           nhat=sapply(split(sightings$Nhat,factor(sightings$key)),sum))
-ern=subset(effort,select=c("Start.year","key","begin","end","effort","time","vis","beaufort"))
+ern=subset(effort,select=c("Start.year","key","begin","end",
+                           "effort","time","vis","beaufort"))
 ern=merge(ern,est.df,by.x="key",by.y="key",all.x=TRUE)
 ern$nhat[is.na(ern$nhat)]=0
 results=fit.migration.gam(ern, years=as.numeric(years), formula=gformula, pod=pod, 
