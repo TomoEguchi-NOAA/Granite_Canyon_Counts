@@ -362,7 +362,7 @@ Effort %>%
 # criteria. Currently, each line is compared to the threshold, which is not the
 # right way to do it. 2025-10-01 This was completed.
 
-min.dur <- 60
+min.dur <- 10 #60
 Laake.data.jags <- LaakeData2JagsInput(min.dur = min.dur, max.day = 100)
 
 # Data in the JAGS analysis is found in the saved output file. 

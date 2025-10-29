@@ -36,7 +36,7 @@ options(mc.cores = 5)
 set_flextable_defaults(font.size = 9,
                        font.family = "Cambria")
 
-min.dur <- 60
+min.dur <- 10 #60
 dpi.set <- 600
 
 # This run (2025-09-19) includes posterior samples of obs.prob. It was run in
@@ -435,7 +435,7 @@ p.trace.2 <- mcmc_trace(jm.out$jm$samples,
                         pars = params.Rhat.big[26:50])
 
 p.trace.3 <- mcmc_trace(jm.out$jm$samples, 
-                        pars = params.Rhat.big[51:65])
+                        pars = params.Rhat.big[51:length(params.Rhat.big)])
 
 if (save.fig) {
   save.fig.fcn(fig = p.trace.1, 
