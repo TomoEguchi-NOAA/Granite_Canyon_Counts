@@ -394,7 +394,7 @@ obs.n.df <- data.frame(start.year = rep(all.start.year, each = 100),
                        n = NA,
                        prop = NA)
 
-k1 <- k2 <- 1
+k1 <- k2 <- 2
 for (k1 in 1:length(all.start.year)){
   obs.day.1 <- obs.day[, k1]
   obs.n.1 <- obs.n[, k1]
