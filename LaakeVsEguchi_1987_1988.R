@@ -481,15 +481,22 @@ effort.jags.1988 <- c(0, Laake.data.jags$jags.data$watch.length[,1,16] %>% na.om
 days.jags.1988  <- Laake.data.jags$jags.data$day[,1,16] %>% na.omit()
 
 effort.jags.1988.df <- data.frame(Day = days.jags.1988,
-                                  effort = effort.jags.1988)
+                                  effort = effort.jags.1988,
+                                  Data = "jags")
 
-ggplot() +
-  geom_point(data = Laake.Effort.1988,
-             aes(x = time, y = effort), color = "purple") +
-  geom_point(data = effort.jags.1988.df,
-             aes(x = Day, y = effort))
+effort.Laake.1988.df <- data.frame(Day = floor(Laake.Effort.1988$time),
+                                   effort = Laake.Effort.1988$effort,
+                                   Data = "Laake")
+
+effort.1988.df <- rbind(effort.jags.1988.df,
+                        effort.Laake.1988.df)
+
+ggplot(effort.1988.df) +
+  geom_point(aes(x = Day, 
+                 y = effort, shape = Data))
 
 # This plot indicates that they are quite the same... 
+
 
 
 # ggplot(N.hats.day.1988) +
