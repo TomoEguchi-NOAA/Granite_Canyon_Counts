@@ -23,14 +23,14 @@ high.Rhat <- function(x){
 # with two backslashes as well. The pipe (|) indicates 'or'.  
 # 
 
-rank.normalized.R.hat <- function(samples, params){
+rank.normalized.R.hat <- function(samples, params, MCMC.params){
   library(posterior)
   library(coda)
 
   col.names <- grep(params, varnames(samples), value = TRUE, perl = TRUE)
   subset.mcmc.samples <- samples[, col.names]
 
-  subset.mcmc.array <- as_draws_array(subset.mcmc.samples, .nchains = 5)
+  subset.mcmc.array <- as_draws_array(subset.mcmc.samples, .nchains = MCMC.params$n.chains)
 
   rhat.values <- apply(subset.mcmc.array, MARGIN = 3, FUN = rhat)
   

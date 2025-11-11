@@ -292,7 +292,9 @@ for (k in 1:length(model.names)){
   .out <- readRDS(paste0("RData/JAGS_Richards_Nmixture_v", 
                          model.names[k], "a_1968to2025_min", 
                          min.dur, "_NoBUGS.rds"))
-  new.Rhat <- rank.normalized.R.hat(.out$jm$samples, params.2)
+  new.Rhat <- rank.normalized.R.hat(.out$jm$samples, 
+                                    params = params.2, 
+                                    MCMC.params = .out$MCMC.params)
   n.params[k] <- length(new.Rhat)
   #max.Rhat <- lapply(.out[[k]]$jm$Rhat, FUN = max, na.rm = T) %>%
   #  unlist()
