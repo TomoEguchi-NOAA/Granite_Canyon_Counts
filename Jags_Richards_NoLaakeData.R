@@ -30,53 +30,71 @@ library(ggplot2)
 library(loo)
 library(bayesplot)
 
+options(mc.cores = 5)
+
 source("Granite_Canyon_Counts_fcns.R")
 #source("DataSince2006_Jags_Input.R")
 
 #Run.date <- Sys.Date()
-Run.date <- "2024-12-04"
+#Run.date <- "2024-12-04"
 
 # Minimum length of observation periods in minutes
-min.dur <- 85 #30 #
+min.dur <- 60# 85 #30 #
+data.dir <- "RData/V2.1_Feb2025"
+max.day <- 100
 
-ver <- "v5"
+# This pulls out data from 2010 onward and create jags input
+years <- c(2008, 2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025)
+jags.input.new <- data2Jags_input_NoBUGS(min.dur = min.dur, 
+                                         years = years,
+                                         data.dir = data.dir,
+                                         max.day = max.day)
 
-model.name <- paste0("Richards_pois_bino_", ver) 
+ver <- "v5a"
+model.name <- paste0("Richards_Nmixture_", ver) 
 jags.model <- paste0("models/model_", model.name, ".txt")
 
-out.file.name <- paste0("RData/JAGS_", model.name,
-                        "_min", min.dur,
-                        "_Since2006_",
-                        Run.date, ".rds")
+out.file.name <- paste0("RData/JAGS_", model.name, "_",
+                        min(jags.input.new$years), "to", 
+                        max(jags.input.new$years), 
+                        "_min", min.dur, "NoBUGS.rds")
 
-jags.input<- WinBUGSinputSince2006toJagsInput(min.dur = min.dur, 
-                                              WinBUGS.out.file = "RData/WinBUGS_2007to2024_v2_min85_2021-11-23.rds",
-                                              years = c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024),
-                                              data.dir = "RData/V2.1_Nov2024")
 
-jags.params <- c("OBS.RF", "BF.Fixed",
-                 "VS.Fixed",
-                 "mean.prob", "mean.N", "Max",
-                 "Corrected.Est", "Raw.Est", "N",
-                 "K", "S1", "S2", "P",
+# jags.input<- WinBUGSinputSince2006toJagsInput(min.dur = min.dur, 
+#                                               WinBUGS.out.file = "RData/WinBUGS_2007to2024_v2_min85_2021-11-23.rds",
+#                                               years = c(2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024),
+#                                               data.dir = "RData/V2.1_Nov2024")
+
+jags.params <- c("VS.Fixed", "BF.Fixed",
+                 "Max", "K", "K1", "K2", "S1", "S2", "P",
+                 "P1", "P2",
+                 "mean.prob", "prob", "obs.prob",
+                 "mean.N", "Corrected.Est", "N", "obs.N",
+                 "OBS.RF", "sigma.Obs",
                  "Max.alpha", "Max.beta",
                  "S1.alpha", "S2.alpha",
                  "S1.beta", "S2.beta",
-                 "P.alpha", "P.beta",
+                 #"P.alpha", "P.beta",
                  "K.alpha", "K.beta",
-                 "N.alpha",
+                 #"beta.1",
+                 #"N.alpha", "N.obs",
                  "log.lkhd")
 
-MCMC.params <- list(n.samples = 250000,
+# MCMC.params <- list(n.samples = 250000,
+#                     n.thin = 100,
+#                     n.burnin = 200000,
+#                     n.chains = 5)
+
+MCMC.params <- list(n.samples = 550000,
                     n.thin = 100,
-                    n.burnin = 200000,
+                    n.burnin = 500000,
                     n.chains = 5)
 
 if (!file.exists(out.file.name)){
   
   Start_Time<-Sys.time()
   
-  jm <- jagsUI::jags(jags.input$jags.data,
+  jm <- jagsUI::jags(jags.input.new$jags.data,
                      inits = NULL,
                      parameters.to.save= jags.params,
                      model.file = jags.model,
