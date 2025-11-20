@@ -162,124 +162,28 @@ p.trace.Fixed.params <- mcmc_trace(jm.out$jm$samples, c("BF.Fixed", "VS.Fixed"))
 all.start.year <- c(jm.out$jags.input$jags.input.Laake$all.start.year,
                     jm.out$jags.input$jags.input.new$start.years)
 
-# v4 has one P and one K. S1 is always year specific
-par.idx <- c(1:jm.out$jags.input$jags.data$n.year)
+K.trace <- K.trace.plots(ver = ver, 
+                         jm = jm.out$jm, 
+                         jags.data = jm.out$jags.input$jags.data, 
+                         new.Rhat = new.Rhat, 
+                         start.year = all.start.year)
 
-# K trace plots
-if (grepl("v2(?!\\d[a-zA-Z])", ver, perl = TRUE) | 
-    grepl("v5", ver) | 
-    grepl("v15", ver) | 
-    grepl("v16", ver) |
-    grepl("v17", ver) |
-    grepl("v18", ver) |
-    grepl("v19", ver) |
-    grepl("v20", ver)){
-  p.trace.K <- mcmc_trace(jm.out$jm$samples, c("K"))
-} else if (grepl("v1(?!\\d[a-zA-Z])", ver, perl = TRUE) | 
-           grepl("v3", ver) | 
-           grepl("v12", ver) | 
-           grepl("v13", ver) | 
-           grepl("v21", ver) | 
-           grepl("v22", ver) | 
-           grepl("v23", ver) | 
-           grepl("v24", ver)){
-  p.trace.K <- mcmc_trace(jm.out$jm$samples, paste0("K[", par.idx, "]"))
-  high.Rhat.K <- high.Rhat(new.Rhat[grep("K", names(new.Rhat))])  
-} else if (grepl("v9", ver) |
-           grepl("v10", ver) |
-           grepl("v11", ver) |
-           grepl("v14", ver) |
-           grepl("v25", ver) |
-           grepl("v26", ver) |
-           grepl("v27", ver) |
-           grepl("v28", ver)){
-  p.trace.K1 <- mcmc_trace(jm.out$jm$samples, paste0("K1[", par.idx, "]"))
-  p.trace.K2 <- mcmc_trace(jm.out$jm$samples, paste0("K2[", par.idx, "]"))
-  high.Rhat.K1 <- high.Rhat(new.Rhat[grep("K1", names(new.Rhat))])  
-  high.Rhat.K2 <- high.Rhat(new.Rhat[grep("K2", names(new.Rhat))])    
-}
+P.trace <- P.trace.plots(ver = ver, 
+                         jm = jm.out$jm, 
+                         jags.data = jm.out$jags.input$jags.data, 
+                         new.Rhat = new.Rhat, 
+                         start.year = all.start.year)
 
-# P1 and P2 trace plots
-if (grepl("v1(?!\\d[a-zA-Z])", ver, perl = TRUE) | 
-    grepl("v2(?!\\d[a-zA-Z])", ver, perl = TRUE) | 
-    grepl("v10", ver) | 
-    grepl("v11", ver) | 
-    grepl("v13", ver) | 
-    grepl("v15", ver) | 
-    grepl("v17", ver) | 
-    grepl("v18", ver) | 
-    grepl("v21", ver)| 
-    grepl("v22", ver)| 
-    grepl("v25", ver)| 
-    grepl("v26", ver)){
-  p.trace.P1 <- mcmc_trace(jm.out$jm$samples, paste0("P1[", par.idx, "]"))
-  p.trace.P2 <- mcmc_trace(jm.out$jm$samples, paste0("P2[", par.idx, "]"))
-  high.Rhat.P1 <- high.Rhat(new.Rhat[grep("P1", names(new.Rhat))])
-  high.Rhat.P2 <- high.Rhat(new.Rhat[grep("P2", names(new.Rhat))])
-}
-
-# P trace plots
-if (grepl("v3", ver) | 
-    grepl("v5", ver) | 
-    grepl("v9", ver) | 
-    grepl("v12", ver)| 
-    grepl("v14", ver)| 
-    grepl("v16", ver)| 
-    grepl("v19", ver)| 
-    grepl("v20", ver)| 
-    grepl("v16", ver)| 
-    grepl("v23", ver)| 
-    grepl("v24", ver)| 
-    grepl("v27", ver)| 
-    grepl("v28", ver)){
-  p.trace.P <- mcmc_trace(jm.out$jm$samples, paste0("P[", par.idx, "]"))
-  high.Rhat.P <- high.Rhat(new.Rhat[grep("P", names(new.Rhat))])
-  
-}
 
 # Max trace plots
 p.trace.Max <- mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
-high.Rhat.Max <- high.Rhat(new.Rhat[grep("Max", names(new.Rhat))])
-
-# S1 and S2 trace plots
-if (grepl("v1(?!\\d[a-zA-Z])", ver, perl = TRUE) | 
-    grepl("v2(?!\\d[a-zA-Z])", ver, perl = TRUE) | 
-    grepl("v3", ver) | 
-    grepl("v5", ver) | 
-    grepl("v9", ver) | 
-    grepl("v10", ver)){
-  p.trace.S1 <- mcmc_trace(jm.out$jm$samples, paste0("S1[", par.idx, "]"))
-  p.trace.S2 <- mcmc_trace(jm.out$jm$samples, paste0("S2[", par.idx, "]"))
-  high.Rhat.S1 <- high.Rhat(new.Rhat[grep("S1\\[", names(new.Rhat))])
-  high.Rhat.S2 <- high.Rhat(new.Rhat[grep("S2\\[", names(new.Rhat))])
-  
-} else if (grepl("v11", ver) | 
-           grepl("v12", ver) | 
-           grepl("v13", ver) | 
-           grepl("v14", ver) | 
-           grepl("v15", ver) | 
-           grepl("v16", ver)){
-  p.trace.S1.S2 <- mcmc_trace(jm.out$jm$samples, c("S1", "S2"))
-  high.Rhat.S1 <- high.Rhat(new.Rhat[grep("S1", names(new.Rhat))])
-  high.Rhat.S2 <- high.Rhat(new.Rhat[grep("S2", names(new.Rhat))])
-  
-} else if (grepl("v17", ver) |
-           grepl("v19", ver) |
-           grepl("v21", ver) |
-           grepl("v23", ver) |
-           grepl("v25", ver) |
-           grepl("v27", ver)){
-  p.trace.S1 <- mcmc_trace(jm.out$jm$samples, paste0("S1[", par.idx, "]"))
-  p.trace.S2 <- mcmc_trace(jm.out$jm$samples, c("S2"))
-} else if (grepl("v18", ver) |
-           grepl("v20", ver) |
-           grepl("v22", ver) |
-           grepl("v24", ver) |
-           grepl("v26", ver) |
-           grepl("v28", ver)){
-  p.trace.S2 <- mcmc_trace(jm.out$jm$samples, paste0("S2[", par.idx, "]"))
-  p.trace.S1 <- mcmc_trace(jm.out$jm$samples, c("S1"))
-}
+high.Rhat.Max <- high.Rhat(new.Rhat[grep("Max", names(new.Rhat))],
+                           start.year = all.start.year)
+S.trace <- S1.S2.trace.plots(ver = ver, 
+                             jm = jm.out$jm, 
+                             jags.data = jm.out$jags.input$jags.data, 
+                             new.Rhat = new.Rhat, 
+                             start.year = all.start.year)
 
 # Create a dataframe with all years, including unsampled years.
 all.years <- data.frame(start.year = seq(min(all.start.year), max(all.start.year))) %>%

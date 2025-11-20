@@ -1,11 +1,195 @@
 
 # define some functions
 
+S1.S2.trace.plots <- function(ver, jm, jags.data, new.Rhat, start.year){
+  par.idx = c(1:jags.data$n.year)
+  
+  # S1 and S2 trace plots
+  if (grepl("v1(?!\\d[a-zA-Z])", ver, perl = TRUE) | 
+      grepl("v2(?!\\d[a-zA-Z])", ver, perl = TRUE) | 
+      grepl("v3", ver) | 
+      grepl("v5", ver) | 
+      grepl("v9", ver) | 
+      grepl("v10", ver)){
+    p.trace.S1 <- mcmc_trace(jm$samples, paste0("S1[", par.idx, "]"))
+    p.trace.S2 <- mcmc_trace(jm$samples, paste0("S2[", par.idx, "]"))
+    high.Rhat.S1 <- high.Rhat(new.Rhat[grep("S1\\[", names(new.Rhat))],
+                              start.year = start.year)
+    high.Rhat.S2 <- high.Rhat(new.Rhat[grep("S2\\[", names(new.Rhat))],
+                              start.year = start.year)
+    
+    out.list <- list(trace.plot.S1 = p.trace.S1,
+                     trace.plot.S2 = p.trace.S2,
+                     high.Rhat.S1 = high.Rhat.S1,
+                     high.Rhat.S2 = high.Rhat.S2)
+    
+  } else if (grepl("v11", ver) | 
+             grepl("v12", ver) | 
+             grepl("v13", ver) | 
+             grepl("v14", ver) | 
+             grepl("v15", ver) | 
+             grepl("v16", ver)){
+    p.trace.S1.S2 <- mcmc_trace(jm$samples, c("S1", "S2"))
+    high.Rhat.S1 <- high.Rhat(new.Rhat[grep("S1", names(new.Rhat))],
+                              start.year = start.year)
+    high.Rhat.S2 <- high.Rhat(new.Rhat[grep("S2", names(new.Rhat))],
+                              start.year = start.year)
+    out.list <- list(trace.plot = p.trace.S1.S2,
+                     high.Rhat.S1 = high.Rhat.S1,
+                     high.Rhat.S2 = high.Rhat.S2)
+    
+  } else if (grepl("v17", ver) |
+             grepl("v19", ver) |
+             grepl("v21", ver) |
+             grepl("v23", ver) |
+             grepl("v25", ver) |
+             grepl("v27", ver)){
+    p.trace.S1 <- mcmc_trace(jm.out$jm$samples, paste0("S1[", par.idx, "]"))
+    p.trace.S2 <- mcmc_trace(jm.out$jm$samples, c("S2"))
+    high.Rhat.S1 <- high.Rhat(new.Rhat[grep("S1\\[", names(new.Rhat))],
+                              start.year = start.year)
+    high.Rhat.S2 <- high.Rhat(new.Rhat[grep("S2", names(new.Rhat))],
+                              start.year = start.year)
+    out.list <- list(trace.plot.S1 = p.trace.S1,
+                     trace.plot.S2 = p.trace.S2,
+                     high.Rhat.S1 = high.Rhat.S1,
+                     high.Rhat.S2 = high.Rhat.S2)
+    
+  } else if (grepl("v18", ver) |
+             grepl("v20", ver) |
+             grepl("v22", ver) |
+             grepl("v24", ver) |
+             grepl("v26", ver) |
+             grepl("v28", ver)){
+    p.trace.S2 <- mcmc_trace(jm.out$jm$samples, paste0("S2[", par.idx, "]"))
+    p.trace.S1 <- mcmc_trace(jm.out$jm$samples, c("S1"))
+    high.Rhat.S1 <- high.Rhat(new.Rhat[grep("S1", names(new.Rhat))],
+                              start.year = start.year)
+    high.Rhat.S2 <- high.Rhat(new.Rhat[grep("S2\\[", names(new.Rhat))],
+                              start.year = start.year)
+    out.list <- list(trace.plot.S1 = p.trace.S1,
+                     trace.plot.S2 = p.trace.S2,
+                     high.Rhat.S1 = high.Rhat.S1,
+                     high.Rhat.S2 = high.Rhat.S2)
+  }
+}
+
+
+P.trace.plots <- function(ver, jm, jags.data, new.Rhat, start.year){
+  par.idx = c(1:jags.data$n.year)
+  
+  # P1 and P2 trace plots
+  if (grepl("v1(?!\\d[a-zA-Z])", ver, perl = TRUE) | 
+      grepl("v2(?!\\d[a-zA-Z])", ver, perl = TRUE) | 
+      grepl("v10", ver) | 
+      grepl("v11", ver) | 
+      grepl("v13", ver) | 
+      grepl("v15", ver) | 
+      grepl("v17", ver) | 
+      grepl("v18", ver) | 
+      grepl("v21", ver)| 
+      grepl("v22", ver)| 
+      grepl("v25", ver)| 
+      grepl("v26", ver)){
+    p.trace.P1 <- mcmc_trace(jm$samples, paste0("P1[", par.idx, "]"))
+    p.trace.P2 <- mcmc_trace(jm$samples, paste0("P2[", par.idx, "]"))
+    high.Rhat.P1 <- high.Rhat(new.Rhat[grep("P1", names(new.Rhat))],
+                              start.year = start.year)
+    high.Rhat.P2 <- high.Rhat(new.Rhat[grep("P2", names(new.Rhat))],
+                              start.year = start.year)
+    
+    out.list <- list(high.Rhat.P1 = high.Rhat.P1,
+                     high.Rhat.P2 = high.Rhat.P2,
+                     trace.plot.P1 = p.trace.P1,
+                     trace.plot.P2 = p.trace.P2)
+    
+  }
+  
+  # P trace plots
+  if (grepl("v3", ver) | 
+      grepl("v5", ver) | 
+      grepl("v9", ver) | 
+      grepl("v12", ver)| 
+      grepl("v14", ver)| 
+      grepl("v16", ver)| 
+      grepl("v19", ver)| 
+      grepl("v20", ver)| 
+      grepl("v16", ver)| 
+      grepl("v23", ver)| 
+      grepl("v24", ver)| 
+      grepl("v27", ver)| 
+      grepl("v28", ver)){
+    p.trace.P <- mcmc_trace(jm$samples, paste0("P[", par.idx, "]"))
+    high.Rhat.P <- high.Rhat(new.Rhat[grep("P", names(new.Rhat))],
+                             start.year = start.year)
+    
+    out.list <- list(high.Rhat = high.Rhat.P,
+                     trace.plot = p.trace.P)
+    
+  }
+  
+}
+
+K.trace.plots <- function(ver, jm, jags.data, new.Rhat, start.year){
+  # v4 has one P and one K. S1 is always year specific
+  par.idx <- c(1:jags.data$n.year)
+  
+  # K trace plots
+  if (grepl("v2(?!\\d[a-zA-Z])", ver, perl = TRUE) | 
+      grepl("v5", ver) | 
+      grepl("v15", ver) | 
+      grepl("v16", ver) |
+      grepl("v17", ver) |
+      grepl("v18", ver) |
+      grepl("v19", ver) |
+      grepl("v20", ver)){
+    p.trace.K <- mcmc_trace(jm$samples, c("K"))
+    high.Rhat.K <- high.Rhat(new.Rhat[grep("K", names(new.Rhat))],
+                             start.year = start.year)  
+    out.list <- list(trace.plot = p.trace.K,
+                     high.Rhat = high.Rhat.K)
+  } else if (grepl("v1(?!\\d[a-zA-Z])", ver, perl = TRUE) | 
+             grepl("v3", ver) | 
+             grepl("v12", ver) | 
+             grepl("v13", ver) | 
+             grepl("v21", ver) | 
+             grepl("v22", ver) | 
+             grepl("v23", ver) | 
+             grepl("v24", ver)){
+    p.trace.K <- mcmc_trace(jm$samples, paste0("K[", par.idx, "]"))
+    high.Rhat.K <- high.Rhat(new.Rhat[grep("K", names(new.Rhat))],
+                             start.year = start.year)  
+    out.list <- list(trace.plot = p.trace.K,
+                     high.Rhat = high.Rhat.K)
+  } else if (grepl("v9", ver) |
+             grepl("v10", ver) |
+             grepl("v11", ver) |
+             grepl("v14", ver) |
+             grepl("v25", ver) |
+             grepl("v26", ver) |
+             grepl("v27", ver) |
+             grepl("v28", ver)){
+    p.trace.K1 <- mcmc_trace(jm.out$jm$samples, paste0("K1[", par.idx, "]"))
+    p.trace.K2 <- mcmc_trace(jm.out$jm$samples, paste0("K2[", par.idx, "]"))
+    high.Rhat.K1 <- high.Rhat(new.Rhat[grep("K1", names(new.Rhat))],
+                              start.year = start.year)  
+    high.Rhat.K2 <- high.Rhat(new.Rhat[grep("K2", names(new.Rhat))],
+                              start.year = start.year)    
+    out.list <- list(trace.plot.1 = p.trace.K1,
+                     trace.plot.2 = p.trace.K2,
+                     high.Rhat.1 = high.Rhat.K1,
+                     high.Rhat.2 = high.Rhat.K2)
+  }
+  
+  return(out.list)
+  
+}
+
 # Check convergence
 # This is for the rank-normalized R-hat (Vehtari et al. 2021)
-high.Rhat <- function(x){
+high.Rhat <- function(x, start.year){
   return(data.frame(idx = which(x > 1.01),
-                    start.year = all.start.year[which(x > 1.01)],
+                    start.year = start.year[which(x > 1.01)],
                     Rhat = x[which(x > 1.01)]))
 }
 
@@ -2089,6 +2273,28 @@ data2Jags_input_NoBUGS <- function(min.dur,
   N[1,] <- 0
   N[max.day,] <- 0
 
+  # Find the maximum observed number of whales per day
+  max.n.day <- array(data = 0, dim = c(100, length(years)))
+  for (k in 1:length(years)){
+    n.days <- unique(c(day[,1,k], day[,2,k])) %>% na.omit() %>% sort()
+    n.days <- n.days[n.days > 1 & n.days < 100]
+    for (k1 in 1:length(n.days)){
+      n.1 <- n[day[,2,k] == n.days[k1], 1, k]
+      max.1 <- ifelse(sum(!is.na(n.1)) > 0,
+                      max(n.1, na.rm = T),
+                      NA)
+      
+      n.2 <- n[day[,2,k] == n.days[k1], 2, k]
+      max.2 <- ifelse(sum(!is.na(n.2)) > 0,
+                      max(n.2, na.rm = T),
+                      NA)
+      
+      max.n.day[n.days[k1], k] <- max(c(max.1, max.2, na.rm = T))
+      
+    }
+    
+  }
+  
   jags.data <- list(  n = n,
                       n.station = n.stations,
                       n.year = length(years),
@@ -2105,7 +2311,8 @@ data2Jags_input_NoBUGS <- function(min.dur,
                       watch.length = watch.length,
                       watch.prop = (watch.length * 24)/9,
                       day = day,
-                      N = N)
+                      N = N,
+                      max.n.day = max.n.day)
   
   out.list <- list(jags.data = jags.data,
                    original.obs = obs,
