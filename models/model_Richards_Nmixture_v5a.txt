@@ -60,7 +60,9 @@ model{
 			
 			# True N is station independent and partially observed
 			# N = 0 when t = 1 or t = max.day
-			N[t, y] ~ dpois(mean.N[t,y])
+			# Truncate the Poisson distribution at the maximum observed
+			# number of whales for the day, zero otherwise.
+			N[t, y] ~ dpois(mean.N[t,y])T(max.n.day[t,y],)
 			
 		}
 	}  
