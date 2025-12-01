@@ -304,22 +304,6 @@ p.Nhats <- ggplot(all.estimates) +
   ylim(2000, 40000) +
   theme(legend.position = "top")
 
-# plot.trace.dens function is in Granite_Canyon_Counts_fcns.R
-# ps.K <- plot.trace.dens(param = "K", 
-#                         jags.out = "jm.out$jm")
-# 
-# ps.P <- plot.trace.dens(param = "P", 
-#                         jags.out = "jm.out$jm")
-# 
-# 
-# ps.S1 <- plot.trace.dens(param = "S1", 
-#                          jags.out = "jm.out$jm")
-# 
-# ps.S2 <- plot.trace.dens(param = "S2", 
-#                          jags.out = "jm.out$jm")
-# 
-# ps.Max <- plot.trace.dens(param = "Max", 
-#                           jags.out = "jm.out$jm")
 
 # 
 # # Create a dataframe with all years, including unsampled years.
