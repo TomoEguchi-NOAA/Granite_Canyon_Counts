@@ -4,6 +4,7 @@ author: "Tomo Eguchi"
 date: "`r Sys.Date()`"
 output: 
   bookdown::word_document2: default
+  number_sections: true
 bibliography: reference.bib
 csl: marine-ecology-progress-series.csl
 ---
@@ -36,7 +37,10 @@ options(mc.cores = 5)
 set_flextable_defaults(font.size = 9,
                        font.family = "Cambria")
 
-min.dur <- 10 #60
+# Unicode for Rhat:
+R_hat <- "R\u0302"
+
+min.dur <- 60#10 #
 dpi.set <- 600
 
 # This run (2025-09-19) includes posterior samples of obs.prob. It was run in
@@ -78,13 +82,13 @@ Consistent with Laake et al. (2012), the model for the detection probability inc
 logit(p_{i,d(j),t}) = logit(p_0) + I_{V} \beta_{V} V_{d(j),t} + I_{B} \beta_{B} B_{d(j),t}+ I_{O} \mathbf{\beta}^{O_{i,d(j),t} = o}_{O} (\#eq:detection-probability-Durban)
 \end{equation}
 
-where the intercept $p_0$ was the base detection probability in the absence of covariate effects, assigned a Uniform(0,1) prior distribution, and $logit(p_0) = ln(p_0/(1–p_0))$. For each fixed effect, $\beta_{B}$ and $\beta_{V}$, a Normal prior distribution with mean zero and standard deviation of 10 was used. The random effect for each observer was drawn from a Normal distribution with mean zero and standard deviation $\sigma_{O} \sim Uniform(0,10)$. Each binary indicator variable, $I$, was assigned a Bernoulli(0.5) distribution to specify equal probability of inclusion (1) or exclusion (0) of the effect in the model (Durban et al. 2015).
+where the intercept $p_0$ was the base detection probability in the absence of covariate effects, assigned a Uniform(0,1) prior distribution, and $logit(p_0) = ln(p_0/(1–p_0))$. For each fixed effect, $\beta_{B}$ and $\beta_{V}$, a Gaussian prior distribution with mean zero and standard deviation of 10 was used. The random effect for each observer was drawn from a Gaussian distribution with mean zero and standard deviation $\sigma_{O} \sim Uniform(0,10)$. Each binary indicator variable, $I$, was assigned a Bernoulli(0.5) distribution to specify equal probability of inclusion (1) or exclusion (0) of the effect in the model (Durban et al. 2015).
 
 Observation probability, then, was computed by multiplying the detection probability with an indicator function for whether or not an observer was present ($u$):
 
 $$ obs.prob = u \times p $$
 
-Coefficients were computed separately for the normal and spline functions, where one or the other was selected based on which function was deemed appropriate for each day.
+Coefficients were computed separately for the Gaussian and spline functions, where one or the other was selected based on which function was deemed appropriate for each day.
 
 A mathematical description of the approach by Durban et al. is provided in the Appendix.
 
@@ -96,7 +100,7 @@ Durban et al. (2015) used the "cut" function within WinBUGS to dissociate estima
 
 ### Data {.unnumbered}
 
-A series of modifications were made from the 1967/1968 to 2006/2007 seasons (Laake et al. 2012). starting in the 2010/2011 season, further modifications were employed where a computer was used to predict movements of gray whale pods, thereby increasing the chance of repeatedly observing the same pods to determine the number of individuals in each pod accurately. In Durban et al. (2015), they treated the data from previous years as not compatible in their analysis. Consequently, the subsequent analysis to estimate gray whale abundance used the data since the 2006/2007 season (e.g., Stewart and Weller 2021, Eguchi et al., 2022, 2023, 2024, 2025). Since the 2010/2011 season, no dual-observer survey has been conducted to estimate detection probability due to the logistical and financial constraints. Consequently, the data from the two seasons (i.e., 2009/2010 and 2010/2011 seasons) are the primary source of information for estimating detection probabilities. Prior to the 2006/2007 season, two observation stations were present in several years. In those years, sightings of the same pods by two teams were used to estimate detection probabilities via the "capture-recapture" method. These sightings data can be used in the N-mixture framework by retaining the number of observed pods but disregarding the pod identity. In this paper, I used all the data from the 1967/1968 season by using statistical models that can accommodate differing survey durations.
+A series of modifications were made from the 1967/1968 to 2006/2007 seasons (Laake et al. 2012). Starting in the 2010/2011 season, further modifications were implemented, using a computer to predict movements of gray whale pods, thereby increasing the likelihood of repeatedly observing the same pods and accurately determining the number of individuals in each pod. In Durban et al. (2015), they treated the data from previous years as incompatible in their analysis. Consequently, the subsequent analysis to estimate gray whale abundance used the data since the 2006/2007 season (e.g., Stewart and Weller 2021, Eguchi et al., 2022, 2023, 2024, 2025). Since the 2010/2011 season, no dual-observer survey has been conducted to estimate detection probability due to the logistical and financial constraints. Consequently, the data from the two seasons (i.e., 2009/2010 and 2010/2011 seasons) are the primary source of information for estimating detection probabilities. Prior to the 2006/2007 season, two observation stations were present in several years. In those years, sightings of the same pods by two teams were used to estimate detection probabilities via the "capture-recapture" method. These sightings data can be used in the N-mixture framework by retaining the number of observed pods but disregarding the pod identity. In this paper, I used all the data from the 1967/1968 season by using statistical models that can accommodate differing survey durations.
 
 ### New Modeling Approach {.unnumbered}
 
@@ -139,22 +143,47 @@ for (nm in names(header_labels)) {
 
 
 
-```{r model-definition, tab:model-definition, echo=F, message=F}
+```{r model-definition, echo=F, message=F}
 
 ft.models %>%
-  set_caption(caption = as_paragraph("Definitions of eight models. Four parameters (P", as_sub("1"), ", P", as_sub("2"), ", S", as_sub("1"), ", S", as_sub("2"), ") were tested for time dependence. P", as_sub("1"), " = P", as_sub("2"), " = P[Year] means that there was one P for each year."),
-              autonum = run_autonum(seq_id = "tab",
-                                    bkm = "model-definitions"),
-              style = "Table Caption") %>%
-  autofit()
+  # 1. Use Word's native autofit instead of R's autofit()
+  # This prevents the calculation error that causes the crash
+  set_table_properties(layout = "autofit") %>%
+  
+  # 2. Set pagination
+  paginate(init = TRUE, hdr_ftr = TRUE) %>% 
+  
+  # 3. Add caption last
+  set_caption(
+    caption = as_paragraph(
+      "Definitions of eight models. Four parameters (P", as_sub("1"), 
+      ", P", as_sub("2"), ", S", as_sub("1"), ", S", as_sub("2"), 
+      ") were tested for time dependence. P", as_sub("1"), 
+      " = P", as_sub("2"), " = P[Year] means that there was one P for each year."),
+    fp_p = officer::fp_par(text.align = "left"),
+    align_with_table = FALSE,
+    autonum = run_autonum(
+      seq_id = "tab", 
+      bkm = "model-definition"
+    ),
+    style = "Table Caption"
+  )
+
+# ft.models %>%
+#   autofit() %>%
+#   paginate(init = TRUE, hdr_ftr = TRUE) %>%
+#   set_caption(caption = as_paragraph("Definitions of eight models. Four parameters (P", as_sub("1"), ", P", as_sub("2"), ", S", as_sub("1"), ", S", as_sub("2"), ") were tested for time dependence. P", as_sub("1"), " = P", as_sub("2"), " = P[Year] means that there was one P for each year."),
+#               autonum = run_autonum(seq_id = "tab",
+#                                     bkm = "model-definitions"),
+#               style = "Table Caption") 
 
 ```
 
-The Richards equation provided the daily mean number of gray whales passing through the observation point. Following the methodology of Durban et al., a Poisson distribution was used to model the daily count of whales passing the observation point:
+The Richards equation provided the daily mean number of gray whales passing through the observation point. Following the method of Durban et al., a Poisson distribution was used to model the daily count of whales passing the observation point:
 
 $$ N_{t, y} \sim POI(\bar{N}_{t,y}) $$
 
-where $\bar{N}_{t,y}$ is the expected number of whales that migrate through the sampling area on the day $t$ of the season $y$, which is modeled with the Richards equation. The observation probability ($p_{i_t, s, y}$) was a function of the viewing conditions (the Beaufort sea state ($B$) and visibility code ($V$)), the overall mean probability of detection ($\beta_0$), observer random effects ($O$), and a watch duration offset ($L$). The watch duration offset was included to accommodate differing durations of observation shifts due to changes in survey protocols and inclement conditions. For the observer random effects, individuals with fewer than 10 sightings were pooled into a single “observer” category, as their limited data were not sufficient for use as a distinct random effect.
+where $\bar{N}_{t,y}$ is the expected number of whales that migrate through the sampling area on the day $t$ of the season $y$, which is modeled with the Richards equation. The observation probability ($p_{i_t, s, y}$) was a function of the viewing conditions (the Beaufort sea state ($B$) and visibility code ($V$)), the overall mean probability of detection ($\beta_0$), observer random effects ($O$), and a watch duration offset ($L$). The watch duration offset was included to accommodate differing durations of observation shifts due to changes in survey protocols and observation conditions. For the observer random effects, individuals with fewer than 10 sightings were pooled into a single “observer” category, as their limited data were insufficient to be used as distinct random effects.
 
 \begin{equation}
 logit(p_{i_t, s, y}) = \beta_0 + \beta_{B} \times B_{i_t, y} + \beta_{V} \times V_{i_t, y} + O_{i_t, s, y} + log(L_{i_t, y}) (\#eq:detection-probability)
@@ -199,6 +228,9 @@ hyper.params <- data.frame(Parameter = c("Max", "S1", "S2", "P", "K", "O", "BF",
 
 hyper.params %>%
   flextable() %>%
+  set_table_properties(layout = "autofit") %>%
+  #autofit() %>%
+  paginate(init = TRUE, hdr_ftr = TRUE) %>%
   compose(i = 1, j = "Parameter",
           value = as_paragraph(as_chunk("N"), 
                                as_chunk("Max", props = fp_text(vertical.align = "subscript")))) %>%
@@ -216,17 +248,16 @@ hyper.params %>%
                                as_chunk("V", props = fp_text(vertical.align = "subscript")))) %>%
   compose(i = 9, j = "Parameter",
           value = as_paragraph(as_chunk("\U03B2"), 
-                               as_chunk("0", props = fp_text(vertical.align = "subscript")))) %>%
-  autofit() -> ft.hyper.params
+                               as_chunk("0", props = fp_text(vertical.align = "subscript"))))  -> ft.hyper.params
   
 
 ```
 
 In the Durban et al. analysis, the annual migration at the survey station was defined as a 90-day period starting on December 1, with the number of passing whales assumed to be zero on days 1 and 90 (February 29th or March 1st). However, in some years, observations continued beyond March 1st. To incorporate all available data, I defined the annual migration period as 100 days (ending on March 10th or 11th), assuming the number of passing whales was zero on days 1 and 100 ($max(d) = 100$).
 
-The new approach was used to analyze the entire dataset from the 1967/1968 season onward, and the results were compared to the estimates reported in Eguchi et al. (2025). In order to apply the new approach to historical data, sighting data between the 1967/1968 and 2006/2007 seasons were obtained from the ERAnalysis package (<https://github.com/jlaake/ERAnalysis>, Laake 2012). An R script was written to convert the sightings data in the package to an input object required for the new analysis. Data from the 2007/2008 season to the 2024/2025 season were extracted from raw data files using another R script. All shifts of at least 60 minutes with the Beaufort sea state of \< 5 and the visibility code of \< 5 were included in the analysis. Laake et al.’s approach was applied to the entire dataset after formatting new data from the 2007/2008 season into the input object for Laake et al.’s approach. Because no information was available to match sightings of pods between the two stations in the 2009/2010 and 2010/2011 seasons, only "naive" estimates in Laake et al.'s approach were computed (THIS SHOULD BE CONFIRMED).
+The new approach was used to analyze the entire dataset from the 1967/1968 season onward, and the results were compared to the estimates reported in Eguchi et al. (2025). In order to apply the new approach to historical data, sighting data between the 1967/1968 and 2006/2007 seasons were obtained from the ERAnalysis package (<https://github.com/jlaake/ERAnalysis>, Laake 2012). An R script was written to convert the historical sightings data in the package to an input object required for the new analysis. Data from the 2007/2008 season to the 2024/2025 season were extracted from raw data files using another R script. All shifts of at least 60 minutes with the Beaufort sea state of \< 5 and the visibility code of \< 5 were included in the analysis. Laake et al.’s approach was applied to the entire dataset after formatting new data from the 2007/2008 season into the input object for Laake et al.’s approach. Because no information was available to match sightings of pods between the two stations in the 2009/2010 and 2010/2011 seasons, a correction factor, i.e., a multiplier to convert “naïve” to “corrected,” which accounted for missed pods by the primary observer, from double-observer years, was applied. 
 
-The new models were fitted to the data using JAGS (Plummer) in the R statistical environment, using the *jagsUI* package (Kellner 2024). For each model, five MCMC chains were run for 550,000 steps each. The first 500,000 samples of each chain were discarded as “burn-in.” The remaining posterior samples were thinned by taking every 100 samples, resulting in 2500 posterior samples for inference. The convergence of MCMC was assessed using the rank-normalized R-hat statistic [@vehtari2021]. Goodness-of-fit was determined via Pareto-k statistics [@vehtari_practical_2017] via the *loo* package (Vehtari et al. 2024). The performance of models were compared using the LOOIC (Leave-One-Out Information Criteria) statistic via the *loo* and *rstanarm* (Goodrich et al. 2024) packages.
+The new models were fitted to the data using JAGS (Plummer) in the R statistical environment, using the *jagsUI* package (Kellner 2024). For each model, five MCMC chains were run for 550,000 steps each. The first 500,000 samples of each chain were discarded as “burn-in.” The remaining posterior samples were thinned by taking every 100 samples, resulting in 2500 posterior samples for inference. The convergence of MCMC was assessed using the rank-normalized `r R_hat` statistic [@vehtari2021]. Goodness-of-fit was determined via Pareto-k statistics [@vehtari_practical_2017] via the *loo* package (Vehtari et al. 2024). The performance of models were compared using the LOOIC (Leave-One-Out Information Criteria) statistic via the *loo* and *rstanarm* (Goodrich et al. 2024) packages.
 
 To compare the three approaches (Laake et al., Durban et al., and the new approach), I fitted generalized additive models (GAMs) to point abundance estimates between the 2006/2007 and 2024/2025 seasons. The rate of recent decline in the estimated abundance was compared by fitting linear models to the point estimates between the 2015/2016 and 2024/2025 seasons.
 
@@ -344,11 +375,12 @@ out.table %>%
 #                           value = as_paragraph(as_chunk("\u0394"), as_chunk("LOOIC")))
 
 # Fix the column headers:
+
 header_labels <- list(
   model = as_paragraph(as_chunk("Model")),
-  n.params = as_paragraph(as_chunk("# monitored parameters")),
-  n.big.Rhat = as_paragraph(as_chunk("# Rhat > 1.01")),
-  p.big.Rhat = as_paragraph(as_chunk("% Rhat > 1.01")),
+  n.params = as_paragraph(as_chunk("# parameters")),
+  n.big.Rhat = as_paragraph(as_chunk(paste0("# ", R_hat, " > 1.01"))),
+  p.big.Rhat = as_paragraph(as_chunk(paste0("% ", R_hat, " > 1.01"))), 
   n.bad.Pareto = as_paragraph(as_chunk("# Pareto-k > 0.7")),
   p.bad.Pareto = as_paragraph(as_chunk("% Pareto-k > 0.7")))
 
@@ -362,15 +394,19 @@ for (nm in names(header_labels)) {
 #ft.models.comp <- autofit(ft.models.comp)
 ```
 
-The eight models were fitted to the sightings data over 32 seasons. Based on LOOIC, Model `r out.table$model[1]` was identified as the best-fitting model (Table \@ref(tab:model-table)). Although Model `r model.ID[which(prop.big.Rhat == min(prop.big.Rhat))]` had the lowest proportion of the monitored parameters with the R-hat statistics \> 1.01 (Table \@ref(tab:model-table)), after visual inspection of trace plots for parameters of Model `r out.table$model[1]` with high Rhat statistics (Appendix Figures \@ref(fig:Figure-trace-1), \@ref(fig:Figure-trace-2), and \@ref(fig:Figure-trace-3)), I concluded that Model `r out.table$model[1]` was the most appropriate for inference. The model consists of year-specific $P$ ($P_1 = P_2$), $S_1$, and $S_2$ parameters (Table \@ref(tab:model-definitions)).
+The eight models were fitted to the sightings data over 32 seasons. Based on LOOIC, Model `r out.table$model[1]` was identified as the best-fitting model (Table \@ref(tab:model-table)). Although Model `r model.ID[which(prop.big.Rhat == min(prop.big.Rhat))]` had the lowest proportion of the monitored parameters with the `r R_hat` statistics \> 1.01 (Table \@ref(tab:model-table)), after visual inspection of trace plots for parameters of Model `r out.table$model[1]` with high `r R_hat` statistics (Appendix Figures \@ref(fig:Figure-trace-1), \@ref(fig:Figure-trace-2), and \@ref(fig:Figure-trace-3)), I concluded that Model `r out.table$model[1]` was the most appropriate for inference. The model consists of year-specific $P$ ($P_1 = P_2$), $S_1$, and $S_2$ parameters (Table \@ref(tab:model-definition)).
 
 ```{r model-table, echo=F, message=F}
 ft.models.comp %>%
-  set_caption(caption = as_paragraph("Comparison of eight models using the LOOIC, rank-normalized Rhat statistics, and Pareto-k statistics. LOOIC (leave-one-out information criteria) measures the predictive accuracy of each model, where smaller values indicate better predictions. ", as_chunk("\u0394"), as_chunk("LOOIC"), " is the difference between a LOOIC value and the minimum LOOIC value. The rank-normalized Rhat statistic measures the convergence of Markov chain Monte Carlo samples. Rhat > 1.01 indicates non-convergence. The Pareto-k statistic provides a measure of predictive errors for each data point. The Rhat statistic is computed for each parameter, and Pareto-k statistic is computed for each data point. "),
+  set_table_properties(layout = "autofit") %>%
+  #autofit() %>%
+  paginate(init = TRUE, hdr_ftr = TRUE) %>%
+  set_caption(caption = as_paragraph("Comparison of eight models using the LOOIC, rank-normalized ", as_chunk(R_hat), " statistics, and Pareto-k statistics. LOOIC (leave-one-out information criteria) measures the predictive accuracy of each model, where smaller values indicate better predictions. ", as_chunk("\u0394"), as_chunk("LOOIC"), " is the difference between a LOOIC value and the minimum LOOIC value. “# parameters” means the number of monitored parameters and not the total number of parameters in the model.  The rank-normalized ", as_chunk(R_hat), " statistic measures the convergence of Markov chain Monte Carlo samples. ", as_chunk(R_hat), " > 1.01 indicates non-convergence. The Pareto-k statistic provides a measure of predictive errors for each data point. The ", as_chunk(R_hat), " statistic is computed for each parameter, and Pareto-k statistic is computed for each data point. "),
+              fp_p = officer::fp_par(text.align = "left"),
+              align_with_table = FALSE,
               autonum = run_autonum(seq_id = "tab",
                                     bkm = "model-table"),
-              style = "Table Caption") %>%
-  autofit()
+              style = "Table Caption") 
 ```
 
 ```{r JAGS-results, echo=F,message=FALSE}
@@ -1156,15 +1192,15 @@ knitr::include_graphics(paste0("figures/posterior_P_", dpi.set, "dpi.png"))
 
 The new modeling approach yielded results comparable to those obtained by the methods of Laake et al. and Durban et al. Although point estimates were different in some years, the confidence and credible intervals overlapped in most of the time series, and all three methods captured similar long-term trends and the recent rate of decline.
 
-The new approach offers several advantages over the method of Durban et al. First, it eliminates the use of the “cut” function, which has been identified as statistically inappropriate (Plummer 2015). Second, the model is coded in JAGS, a more contemporary and widely used Bayesian modeling language. The new model in JAGS runs significantly faster than Durban et al.'s model in WinBUGS. The analysis of the entire 32-year dataset took approximately `r signif(jm.out$Run_Time, 2)` hrs per model with the new approach, compared to `r signif(WinBugs.out$Run_Time, 3)` hours for an 11-year analysis using WinBUGS. Third, the new framework allows for formal model selection and goodness-of-fit assessment using modern criteria, such as LOOIC and the Pareto-k statistic, which were not part of the original Durban et al. analysis. Fourth, while retaining the N-mixture modeling framework, the new approach is more straightforward in its implementation.
+The new approach offers several advantages over the method of Durban et al. First, it eliminates the use of the “cut” function, which has been identified as statistically inappropriate (Plummer 2015). Second, the model is coded in JAGS, a more contemporary and widely used Bayesian modeling language. The new model in JAGS runs significantly faster than Durban et al.'s model in WinBUGS. The analysis of the entire 32-year dataset took approximately `r signif(jm.out$Run_Time, 2)` hrs per model with the new approach, compared to `r signif(WinBugs.out$Run_Time, 3)` hours for an 11-year analysis using WinBUGS. Third, the new framework allows for formal model selection and goodness-of-fit assessment using modern criteria, such as LOOIC and the Pareto-k statistic, which were not part of the original Durban et al. analysis. Fourth, while retaining the N-mixture modeling framework, the new approach is more straightforward in its implementation. Fifth, shift durations are included in the analysis explicitly rather than eliminating shifts that were less than 85 minutes. 
 
 Examination of Pareto-k statistics indicated that high Pareto-k values coincided with extreme data points, where counts were unusually high or low compared to adjacent shifts (Appendix Figure \@ref(fig:Figure-pareto-k)). While statistically notable, these fluctuations are consistent with the known patterns of gray whale migration. Therefore, I concluded that the model, i.e., combining the Richards equation and the N-mixture framework, was appropriate for analyzing the entire dataset.
 
-The new approach is also adaptable and can incorporate additional information as it becomes available. For example, data from uncrewed aircraft systems (UAS) are being used to estimate precision and bias in group size estimates made by visual observers. If correction functions can be derived from these UAS data, conditional on observed group sizes, they could be used to adjust the group size of each sighting. Finally, this abundance estimation model could be incorporated into a more comprehensive population model, such as the one developed by [@stewart_boom-bust_2023].
+The new approach is also adaptable and can incorporate additional information as it becomes available. For example, data from uncrewed aircraft systems (UAS) are being used to estimate precision and bias in group size estimates made by visual observers. If correction functions can be derived from these UAS data, conditional on observed group sizes, they could be used to adjust the group size of each sighting, which would become a loop that goes through all sightings within each shift so that the total number of sightings per shift can be adjusted accordingly. Finally, this abundance estimation model could be incorporated into a more comprehensive population model, such as the one developed by [@stewart_boom-bust_2023].
 
 In summary, the new approach provides a simpler, faster, and more statistically robust algorithm for estimating the abundance of gray whales from the long-term visual surveys conducted at Granite Canyon, CA, while producing results that are consistent with those of previous methods.
 
-## Appendix {.unnumbered}
+## (APPENDIX) Appendix {.unnumbered}
 
 ### Mathematical description of Durban's approach {.unnumbered}
 
@@ -1423,11 +1459,17 @@ knitr::include_graphics(paste0("figures/P_", dpi.set, "dpi.png"))
 ```{r hyperparameter-table, echo=FALSE, message=FALSE}
 
 ft.hyper.params %>%
+  set_table_properties(layout = "autofit") %>%
+  #autofit() %>%
+  paginate(init = TRUE, hdr_ftr = TRUE) %>%
   set_caption(caption = as_paragraph("Definitions of hyperdistributions and their parameters. "),
+              fp_p = officer::fp_par(text.align = "left"),
+              align_with_table = FALSE,
               autonum = run_autonum(seq_id = "tab",
+                                    start_at = 1,
+                                    pre_label = "Table A",
                                     bkm = "hyperparameter-table"),
-              style = "Table Caption") %>%
-  autofit()
+              style = "Table Caption") 
 
 
 ```
