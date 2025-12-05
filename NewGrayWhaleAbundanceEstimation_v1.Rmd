@@ -3,13 +3,16 @@ title: "A new approach to gray whale abundance estimation"
 author: "Tomo Eguchi"
 date: "`r Sys.Date()`"
 output: 
-  bookdown::word_document2: default
-  number_sections: true
+  officedown::rdocx_document
 bibliography: reference.bib
 csl: marine-ecology-progress-series.csl
 ---
 
 ```{r setup, include=FALSE}
+#  bookdown::word_document2: default
+#  number_sections: true
+
+
 rm(list = ls())
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, cache = TRUE)
 save.fig <- T
@@ -31,6 +34,7 @@ library(rstanarm)
 library(mgcv)
 library(flextable)
 library(officer)
+library(officedown)
 
 options(mc.cores = 5)
 
@@ -143,7 +147,7 @@ for (nm in names(header_labels)) {
 
 
 
-```{r model-definition, echo=F, message=F}
+```{r table-model-definition, echo=F, message=F}
 
 ft.models %>%
   # 1. Use Word's native autofit instead of R's autofit()
@@ -396,7 +400,7 @@ for (nm in names(header_labels)) {
 
 The eight models were fitted to the sightings data over 32 seasons. Based on LOOIC, Model `r out.table$model[1]` was identified as the best-fitting model (Table \@ref(tab:model-table)). Although Model `r model.ID[which(prop.big.Rhat == min(prop.big.Rhat))]` had the lowest proportion of the monitored parameters with the `r R_hat` statistics \> 1.01 (Table \@ref(tab:model-table)), after visual inspection of trace plots for parameters of Model `r out.table$model[1]` with high `r R_hat` statistics (Appendix Figures \@ref(fig:Figure-trace-1), \@ref(fig:Figure-trace-2), and \@ref(fig:Figure-trace-3)), I concluded that Model `r out.table$model[1]` was the most appropriate for inference. The model consists of year-specific $P$ ($P_1 = P_2$), $S_1$, and $S_2$ parameters (Table \@ref(tab:model-definition)).
 
-```{r model-table, echo=F, message=F}
+```{r table-model, echo=F, message=F}
 ft.models.comp %>%
   set_table_properties(layout = "autofit") %>%
   #autofit() %>%
@@ -877,12 +881,19 @@ if (save.fig){
 
 For the Durban et al. and new approaches, medians of the posterior distributions were used as the point estimates, whereas for the Laake et al. approach, it was the maximum likelihood estimates. Estimated abundances from the new approach generally followed the same trend as the previous approaches, with a few notable differences (Figure \@ref(fig:Figure-N-hats)). For the majority of estimates, the Laake et al. and the new approach provided almost identical estimates, and the 95% credible and confidence intervals overlapped significantly. The new and Laake et al. approaches produced lower estimates than the Durban et al. approach in all but one year among the 11 years when all three estimates were available.
 
-```{r Figure-N-hats, echo=FALSE, message=FALSE, fig.cap = "Estimated annual abundance and their 95% CIs using Laake's method (blue, MLE), Durban's method (red, median), and the new approach (Eguchi M5, green, median). Laake's estimates prior to 2007 and Durban's estimates are found in Eguchi et al. (2025). Laake's estimates since the 2009/2010 season were computed using the scripts found in the *ERAnalysis* package."}
+```{r plot-N-hats, echo=FALSE, message=FALSE}
+
+fig.Nhats.num <- run_autonum(seq_id = "fig",
+                             pre_label = "Figure ",
+                             bkm = "figure-N-hats")
 
 knitr::include_graphics(paste0("figures/Nhats_v", 
                                ver, "_min", min.dur, "_", dpi.set, "dpi.png"))
 
 ```
+:::{custom-style="Image Caption"}
+Figure `r fig.Nhats.num`: Estimated annual abundance and their 95% CIs using Laake's method (blue, MLE), Durban's method (red, median), and the new approach (Eguchi M5, green, median). Laake's estimates prior to 2007 and Durban's estimates are found in Eguchi et al. (2025). Laake's estimates since the 2009/2010 season were computed using the scripts found in the *ERAnalysis* package."
+:::
 
 ```{r gam-glm-fit, echo=F,message=FALSE}
 all.estimates %>% na.omit() %>%
@@ -1046,10 +1057,18 @@ GAMs fitted to the estimated abundance between the 2006/2007 and 2024/2025 seaso
 
 For general linear models ($log(\hat{N}) = time + \epsilon$) fitted to the point estimates from the 2014/2015 season to the 2024/2025 season revealed a statistically indistinguishable annual rate of decline among the three approaches (Laake: `r signif(lm.Laake$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Laake))["time", "Std. Error"], 2)`. Durban: `r signif(lm.Durban$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Durban))["time", "Std. Error"], 2)`, Eguchi: `r signif(lm.Eguchi$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Eguchi))["time", "Std. Error"], 2)`).
 
-```{r Figure-gam-fits, echo=FALSE, message=FALSE, fig.cap = "Fitted generalized additive models (Gaussian family and the identity link function) to estimated abundance and their approximate 95% CIs."}
+```{r plot-gam-fits, echo=FALSE, message=FALSE}
+
+fig.GAM.num <- run_autonum(seq_id = "fig", 
+                           pre_label = "Figure ", 
+                           bkm = "Figure-gam-fits")
 
 knitr::include_graphics(paste0("figures/gam_fit_", dpi.set, "dpi.png"))
 ```
+
+::: {custom-style="Image Caption"} 
+Figure `r fig.GAM.num`: Fitted generalized additive models (Gaussian family and the identity link function) to estimated abundance and their approximate 95% CIs."
+:::
 
 ```{r detection-probabilities, echo=FALSE, message=FALSE}
 mean.p.0 <- exp(jm.out$jm$mean$mean.prob)/(1 + exp(jm.out$jm$mean$mean.prob))
@@ -1103,11 +1122,21 @@ n.and.bf <- data.frame(n = n.mat[day.mat > 1 & day.mat < 100],
 
 ```
 
-```{r Figure-Fixed-posteriors, echo=FALSE, message=FALSE, fig.cap = "Posterior distributions of the fixed-effects coefficients for the visibility code ($\\beta_{V}$) and Beaufort sea state ($\\beta_{B}$)."}
+
+```{r plot-Fixed-posteriors, echo=FALSE, message=FALSE}
+
+fig.fixed.post.num <- run_autonum(seq_id = "fig", 
+                                  pre_label = "Figure ", 
+                                  bkm = "Figure-P-posteriors")
 
 knitr::include_graphics(paste0("figures/posteriors_VS_BF_", dpi.set, "dpi.png"))
 
 ```
+
+:::{custom-style="Image Caption"} 
+Figure `r fig.fixed.post.num`: Posterior distributions of the fixed-effects coefficients for the visibility code ($\beta_{V}$) and Beaufort sea state ($\beta_{B}$).
+:::
+
 
 Posterior distributions of the Richards equation parameters provided valuable insights into how annual gray whale migration varied among years. The $P$ parameters, which define the timing of the migration peak, shifted over the years (Figure \@ref(fig:Figure-P-posteriors)), a phenomenon reported in previous studies [@rugh_timing_2001], Eguchi et al. 2023, 2024, 2025), although the significance and causes for the changes are unknown. The $S_1$ and $S_2$ parameters, which define the width of the migration curve, also varied annually, indicating that the duration of migration fluctuated from year to year (Appendix Figures \@ref(fig:Figure-S1-posteriors) and \@ref(fig:Figure-S2-posteriors)).
 
@@ -1174,10 +1203,15 @@ if (save.fig)
 
 ```
 
-```{r Figure-P-posteriors, echo=FALSE, message=FALSE, fig.cap = "Posterior distributions of year-specific P parameters."}
+```{r plot-P-posteriors, echo=FALSE, message=FALSE} 
 
 knitr::include_graphics(paste0("figures/posterior_P_", dpi.set, "dpi.png"))
 
+block_caption("Posterior distributions of year-specific P parameters.", 
+              style = "Image Caption", 
+              autonum = run_autonum(seq_id = "fig", 
+                                    pre_label = "Figure ", 
+                                    bkm = "Figure-P-posteriors"))
 ```
 
 <!-- The daily estimated mean between Durban et al's and the new approaches was similar qualitatively (Figure @ref(fig:Figure-daily-N-hats)), indicating the two approaches were similar. Credible intervals were generally narrower for the new approach than Durban et al.'s. -->
@@ -1200,7 +1234,7 @@ The new approach is also adaptable and can incorporate additional information as
 
 In summary, the new approach provides a simpler, faster, and more statistically robust algorithm for estimating the abundance of gray whales from the long-term visual surveys conducted at Granite Canyon, CA, while producing results that are consistent with those of previous methods.
 
-## (APPENDIX) Appendix {.unnumbered}
+## Appendix {.unnumbered}
 
 ### Mathematical description of Durban's approach {.unnumbered}
 
@@ -1294,15 +1328,23 @@ p.S1 <- ggplot(data = data.df) +
   ylab("")
 
 save.fig.fcn(p.S1, 
-             file.name = paste0("figures/S1_", dpi.set, "dpi.png"), 
+             file.name = paste0("figures/S1_", 
+                                dpi.set, "dpi.png"), 
              height = 5, width = 7,replace = T, dpi = dpi.set)
 
 ```
 
-```{r Figure-S1, echo=FALSE, message=FALSE, fig.cap=paste0("Effects of $S_1$ on the shape of the Richards equation. In this example, $S_2$ =", S2, ", K = ", K, ", P = ", P, ", $N_{max}$ = ", max.N, ".")}
-
+```{r plot-S1, echo=FALSE, message=FALSE}
+# fig.cap=paste0("Effects of $S_1$ on the shape of the Richards equation. In this example, $S_2$ =", S2, ", K = ", K, ", P = ", P, ", $N_{max}$ = ", max.N, ".")
+# 
 knitr::include_graphics(paste0("figures/S1_", dpi.set, "dpi.png"))
 
+block_caption(paste0("Effects of $S_1$ on the shape of the Richards equation. In this example, $S_2$ =", S2, ", K = ", K, ", P = ", P, ", $N_{max}$ = ", max.N, "."), 
+              style = "Image Caption", 
+              autonum = run_autonum(seq_id = "fig", 
+                                    pre_label = "Figure S", 
+                                    bkm = "Figure-S1",
+                                    start_at = 1))
 ```
 
 #### Effects of $S_2$ {.unnumbered}
@@ -1348,10 +1390,15 @@ save.fig.fcn(p.S2,
 
 ```
 
-```{r Figure-S2, echo=FALSE, message=FALSE, fig.cap=paste0("Effects of $S_2$ on the shape of the Richards equation. In this example, $S_1$ = ", S1, ", K = ", K, ", P = ", P, ", $N_{max}$ = ", max.N, ".")}
+```{r plot-S2, echo=FALSE, message=FALSE}
 
 knitr::include_graphics(paste0("figures/S2_", dpi.set, "dpi.png"))
 
+block_caption(paste0("Effects of $S_2$ on the shape of the Richards equation. In this example, $S_1$ = ", S1, ", K = ", K, ", P = ", P, ", $N_{max}$ = ", max.N, "."), 
+              style = "Image Caption", 
+              autonum = run_autonum(seq_id = "fig", 
+                                    pre_label = "Figure S",
+                                    bkm = "Figure-S2"))
 ```
 
 #### Effects of K {.unnumbered}
@@ -1398,9 +1445,15 @@ save.fig.fcn(p.K,
 
 ```
 
-```{r Figure-K, echo=FALSE, message=FALSE, fig.cap=paste0("Effects of $K$ on the shape of the Richards equation. In this example, $S_1$ = ", S1, ", $S_2$ = ", S2, ", $P$ = ", P, ", $N_{max}$ = ", max.N, ".")}
+```{r plot-K, echo=FALSE, message=FALSE}
 
 knitr::include_graphics(paste0("figures/K_", dpi.set, "dpi.png"))
+
+block_caption(paste0("Effects of $K$ on the shape of the Richards equation. In this example, $S_1$ = ", S1, ", $S_2$ = ", S2, ", $P$ = ", P, ", $N_{max}$ = ", max.N, "."), 
+              style = "Image Caption", 
+              autonum = run_autonum(seq_id = "fig", 
+                                    pre_label = "Figure S",
+                                    bkm = "Figure-K"))
 
 ```
 
@@ -1441,22 +1494,28 @@ p.P <- ggplot(data = data.df) +
   ylab("")
 
 save.fig.fcn(p.P, 
-             file.name = paste0("figures/P_", dpi.set, "dpi.png"), 
+             file.name = paste0("figures/P_", 
+                                dpi.set, "dpi.png"), 
              replace = T, 
              height = 5, width = 7,dpi = dpi.set)
 
 
 ```
 
-```{r Figure-P, echo=FALSE, message=FALSE, fig.cap=paste0("Effects of $P$ on the shape of the Richards equation. In this example, $S_1$ = ", S1, ", $S_2$ = ", S2, ", K = ", K, ", $N_{max}$ = ", max.N, ".")}
+```{r plot-P, echo=FALSE, message=FALSE}
 
 knitr::include_graphics(paste0("figures/P_", dpi.set, "dpi.png"))
+block_caption(paste0("Effects of $P$ on the shape of the Richards equation. In this example, $S_1$ = ", S1, ", $S_2$ = ", S2, ", K = ", K, ", $N_{max}$ = ", max.N, "."), 
+              style = "Image Caption", 
+              autonum = run_autonum(seq_id = "fig", 
+                                    pre_label = "Figure S",
+                                    bkm = "Figure-P"))
 
 ```
 
 ### Hyperparameter definitions {.unnumbered}
 
-```{r hyperparameter-table, echo=FALSE, message=FALSE}
+```{r table-hyperparameters, echo=FALSE, message=FALSE}
 
 ft.hyper.params %>%
   set_table_properties(layout = "autofit") %>%
@@ -1476,49 +1535,85 @@ ft.hyper.params %>%
 
 ### Trace plots of parameters with high rank-standardized R hat values {.unnumbered}
 
-```{r Figure-trace-1, echo=FALSE, message=FALSE, fig.cap="Trace plots of parameters with high Rhat values" }
+```{r plot-trace-1, echo=FALSE, message=FALSE}
 
 knitr::include_graphics(paste0("figures/M5_trace_1.png"))
 
+block_caption(paste0("Trace plots of parameters with high ", R_hat, " values"), 
+              style = "Image Caption", 
+              autonum = run_autonum(seq_id = "fig", 
+                                    pre_label = "Figure S",
+                                    bkm = "Figure-trace-1"))
+
 ```
 
-```{r Figure-trace-2, echo=FALSE, message=FALSE, fig.cap="Trace plots of parameters with high Rhat values" }
+```{r plot-trace-2, echo=FALSE}
 knitr::include_graphics(paste0("figures/M5_trace_2.png"))
+block_caption(paste0("Trace plots of parameters with high ", R_hat, " values"), 
+              style = "Image Caption", 
+              autonum = run_autonum(seq_id = "fig", 
+                                    pre_label = "Figure S",
+                                    bkm = "Figure-trace-2"))
 
 ```
 
-```{r Figure-trace-3, echo=FALSE, message=FALSE, fig.cap="Trace plots of parameters with high Rhat values" }
+```{r plot-trace-3, echo=FALSE, message=FALSE}
 knitr::include_graphics(paste0("figures/M5_trace_3.png"))
+block_caption(paste0("Trace plots of parameters with high ", R_hat, " values"), 
+              style = "Image Caption", 
+              autonum = run_autonum(seq_id = "fig", 
+                                    pre_label = "Figure S",
+                                    bkm = "Figure-trace-3"))
 
 ```
 
 #### Pareto-k statistics {.unnumbered}
 
-```{r Figure-pareto-k, echo=FALSE, message=FALSE, fig.cap="Good (< 0.7) and bad (>= 0.7) Pareto-k statistics for each data point. y-axis indicates the observed number of gray whales per watch period."}
+```{r plot-pareto-k, echo=FALSE, message=FALSE}
 knitr::include_graphics(paste0("figures/High_Pareto_k.png"))
 
+block_caption("Good (< 0.7) and bad (>= 0.7) Pareto-k statistics for each data point. y-axis indicates the observed number of gray whales per watch period.", 
+              style = "Image Caption", 
+              autonum = run_autonum(seq_id = "fig", 
+                                    pre_label = "Figure S",
+                                    bkm = "Figure-pareto-k"))
 
 ```
 
 #### Changes in S1 and S2 over time {.unnumbered}
 
-```{r Figure-S1-posteriors, echo=FALSE, message=FALSE, fig.cap="Changes in the $S_1$ parameter of the Richards equation over time. $S_1$ defines the wideness of the right side of the curve."}
+```{r plot-S1-posteriors, echo=FALSE, message=FALSE}
 
 knitr::include_graphics(paste0("figures/posteriors_S1_", dpi.set, "dpi.png"))
 
+block_caption("Changes in the $S_1$ parameter of the Richards equation over time. $S_1$ defines the wideness of the right side of the curve.",
+              style = "Image Caption",
+              autonum = run_autonum(seq_id = "fig",
+                                    pre_label = "Figure S",
+                                    bkm = "Figure-S1-posteriors"))
 ```
 
-```{r Figure-S2-posteriors, echo=FALSE, message=FALSE, fig.cap="Changes in the $S_2$ parameter of the Richards equation over time. $S_2$ defines the wideness of the left side of the curve." }
+```{r plot-S2-posteriors, echo=FALSE, message=FALSE}
 
 knitr::include_graphics(paste0("figures/posteriors_S2_", dpi.set, "dpi.png"))
+block_caption("Changes in the $S_2$ parameter of the Richards equation over time. $S_1$ defines the wideness of the left side of the curve.",
+              style = "Image Caption",
+              autonum = run_autonum(seq_id = "fig",
+                                    pre_label = "Figure S",
+                                    bkm = "Figure-S2-posteriors"))
 
 ```
 
 #### Observer random effects {.unnumbered}
 
-```{r Figure-observers, echo=FALSE, message=FALSE, fig.cap="Posterior density distributions of observer random effects. Observers with less than 10 sightings were pooled as one observer. "}
+```{r plot-observers, echo=FALSE, message=FALSE}
 
 knitr::include_graphics(paste0("figures/Observer_dens.png"))
+block_caption("Posterior density distributions of observer random effects. Observers with less than 10 sightings were pooled as one observer. ",
+              style = "Image Caption",
+              autonum = run_autonum(seq_id = "fig",
+                                    pre_label = "Figure S",
+                                    bkm = "Figure-observers"))
 
 ```
 
