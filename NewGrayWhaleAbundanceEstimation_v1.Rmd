@@ -3,7 +3,7 @@ title: "A new approach to gray whale abundance estimation"
 author: "Tomo Eguchi"
 date: "`r Sys.Date()`"
 output: 
-  officedown::rdocx_document
+  bookdown::word_document2:
 bibliography: reference.bib
 csl: marine-ecology-progress-series.csl
 ---
@@ -11,10 +11,12 @@ csl: marine-ecology-progress-series.csl
 ```{r setup, include=FALSE}
 #  bookdown::word_document2: default
 #  number_sections: true
+#  reference_docx: style_reference.docx
+#    base_format: "bookdown::word_document2"
 
 
 rm(list = ls())
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, cache = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, cache = FALSE)
 save.fig <- T
 
 source("Granite_Canyon_Counts_fcns.R")
@@ -82,10 +84,9 @@ To estimate the detectability of gray whales by visual observers at the field st
 
 Consistent with Laake et al. (2012), the model for the detection probability incorporated fixed effects for visibility ($VS$) and the Beaufort sea state ($BF$), whereas observers were treated as random effects ($O$). These were modeled as additive effects on a general intercept so that the direction and magnitude of the estimated effects away from zero (no effect) could be assessed. The selection for the inclusion of these effects was accomplished by using Bayesian model selection with stochastic binary indicator variables $I$ to switch each of the three possible effects (i.e., $V$, $B$, and $O$) either in or out of the model:
 
-\begin{equation}
+$$
 logit(p_{i,d(j),t}) = logit(p_0) + I_{V} \beta_{V} V_{d(j),t} + I_{B} \beta_{B} B_{d(j),t}+ I_{O} \mathbf{\beta}^{O_{i,d(j),t} = o}_{O} (\#eq:detection-probability-Durban)
-\end{equation}
-
+$$
 where the intercept $p_0$ was the base detection probability in the absence of covariate effects, assigned a Uniform(0,1) prior distribution, and $logit(p_0) = ln(p_0/(1–p_0))$. For each fixed effect, $\beta_{B}$ and $\beta_{V}$, a Gaussian prior distribution with mean zero and standard deviation of 10 was used. The random effect for each observer was drawn from a Gaussian distribution with mean zero and standard deviation $\sigma_{O} \sim Uniform(0,10)$. Each binary indicator variable, $I$, was assigned a Bernoulli(0.5) distribution to specify equal probability of inclusion (1) or exclusion (0) of the effect in the model (Durban et al. 2015).
 
 Observation probability, then, was computed by multiplying the detection probability with an indicator function for whether or not an observer was present ($u$):
@@ -189,11 +190,12 @@ $$ N_{t, y} \sim POI(\bar{N}_{t,y}) $$
 
 where $\bar{N}_{t,y}$ is the expected number of whales that migrate through the sampling area on the day $t$ of the season $y$, which is modeled with the Richards equation. The observation probability ($p_{i_t, s, y}$) was a function of the viewing conditions (the Beaufort sea state ($B$) and visibility code ($V$)), the overall mean probability of detection ($\beta_0$), observer random effects ($O$), and a watch duration offset ($L$). The watch duration offset was included to accommodate differing durations of observation shifts due to changes in survey protocols and observation conditions. For the observer random effects, individuals with fewer than 10 sightings were pooled into a single “observer” category, as their limited data were insufficient to be used as distinct random effects.
 
-\begin{equation}
-logit(p_{i_t, s, y}) = \beta_0 + \beta_{B} \times B_{i_t, y} + \beta_{V} \times V_{i_t, y} + O_{i_t, s, y} + log(L_{i_t, y}) (\#eq:detection-probability)
-\end{equation}
 
-where the index $i_t$ is the watch period $i$ of the day $t$, $s$ is the station (1 or 2), and $y$ is the season. The intercept ($\beta_0$) in the new approach \@ref(eq:detection-probability) can be expressed in terms of the intercept ($p_0$) of the Durban et al. approach \@ref(eq:detection-probability-Durban) via the logit function:
+$$
+logit(p_{i_t, s, y}) = \beta_0 + \beta_{B} \times B_{i_t, y} + \beta_{V} \times V_{i_t, y} + O_{i_t, s, y} + log(L_{i_t, y}) (\#eq:detection-probability)
+$$
+
+where the index $i_t$ is the watch period $i$ of the day $t$, $s$ is the station (1 or 2), and $y$ is the season. The intercept ($\beta_0$) in the new approach Equation \@ref(eq:detection-probability) can be expressed in terms of the intercept ($p_0$) of the Durban et al. approach \@ref(eq:detection-probability-Durban) via the logit function:
 
 $$ \beta_0 = ln(p_0/(1 - p_0)) $$
 
@@ -398,9 +400,9 @@ for (nm in names(header_labels)) {
 #ft.models.comp <- autofit(ft.models.comp)
 ```
 
-The eight models were fitted to the sightings data over 32 seasons. Based on LOOIC, Model `r out.table$model[1]` was identified as the best-fitting model (Table \@ref(tab:model-table)). Although Model `r model.ID[which(prop.big.Rhat == min(prop.big.Rhat))]` had the lowest proportion of the monitored parameters with the `r R_hat` statistics \> 1.01 (Table \@ref(tab:model-table)), after visual inspection of trace plots for parameters of Model `r out.table$model[1]` with high `r R_hat` statistics (Appendix Figures \@ref(fig:Figure-trace-1), \@ref(fig:Figure-trace-2), and \@ref(fig:Figure-trace-3)), I concluded that Model `r out.table$model[1]` was the most appropriate for inference. The model consists of year-specific $P$ ($P_1 = P_2$), $S_1$, and $S_2$ parameters (Table \@ref(tab:model-definition)).
+The eight models were fitted to the sightings data over 32 seasons. Based on LOOIC, Model `r out.table$model[1]` was identified as the best-fitting model (Table \@ref(tab:model-table)). Although Model `r model.ID[which(prop.big.Rhat == min(prop.big.Rhat))]` had the lowest proportion of the monitored parameters with the `r R_hat` statistics \> 1.01 (Table \@ref(tab:model-table)), after visual inspection of trace plots for parameters of Model `r out.table$model[1]` with high `r R_hat` statistics (Appendix Figures `r officer::run_word_field("REF Figure-trace-1 \\h")`, `r officer::run_word_field("REF Figure-trace-2 \\h")`, and `r officer::run_word_field("REF Figure-trace-3 \\h")`), I concluded that Model `r out.table$model[1]` was the most appropriate for inference. The model consists of year-specific $P$ ($P_1 = P_2$), $S_1$, and $S_2$ parameters (Table \@ref(tab:model-definition)).
 
-```{r table-model, echo=F, message=F}
+```{r table-models, echo=F, message=F}
 ft.models.comp %>%
   set_table_properties(layout = "autofit") %>%
   #autofit() %>%
@@ -879,7 +881,7 @@ if (save.fig){
 
 ```
 
-For the Durban et al. and new approaches, medians of the posterior distributions were used as the point estimates, whereas for the Laake et al. approach, it was the maximum likelihood estimates. Estimated abundances from the new approach generally followed the same trend as the previous approaches, with a few notable differences (Figure \@ref(fig:Figure-N-hats)). For the majority of estimates, the Laake et al. and the new approach provided almost identical estimates, and the 95% credible and confidence intervals overlapped significantly. The new and Laake et al. approaches produced lower estimates than the Durban et al. approach in all but one year among the 11 years when all three estimates were available.
+For the Durban et al. and new approaches, medians of the posterior distributions were used as the point estimates, whereas for the Laake et al. approach, it was the maximum likelihood estimates. Estimated abundances from the new approach generally followed the same trend as the previous approaches, with a few notable differences (Figure `r officer::run_word_field("REF Figure-N-hats \\h")`. For the majority of estimates, the Laake et al. and the new approach provided almost identical estimates, and the 95% credible and confidence intervals overlapped significantly. The new and Laake et al. approaches produced lower estimates than the Durban et al. approach in all but one year among the 11 years when all three estimates were available.
 
 ```{r plot-N-hats, echo=FALSE, message=FALSE}
 
@@ -891,8 +893,9 @@ knitr::include_graphics(paste0("figures/Nhats_v",
                                ver, "_min", min.dur, "_", dpi.set, "dpi.png"))
 
 ```
+
 :::{custom-style="Image Caption"}
-Figure `r fig.Nhats.num`: Estimated annual abundance and their 95% CIs using Laake's method (blue, MLE), Durban's method (red, median), and the new approach (Eguchi M5, green, median). Laake's estimates prior to 2007 and Durban's estimates are found in Eguchi et al. (2025). Laake's estimates since the 2009/2010 season were computed using the scripts found in the *ERAnalysis* package."
+`r fig.Nhats.num` Estimated annual abundance and their 95% CIs using Laake's method (blue, MLE), Durban's method (red, median), and the new approach (Eguchi M5, green, median). Laake's estimates prior to 2007 and Durban's estimates are found in Eguchi et al. (2025). Laake's estimates since the 2009/2010 season were computed using the scripts found in the *ERAnalysis* package."
 :::
 
 ```{r gam-glm-fit, echo=F,message=FALSE}
@@ -1053,7 +1056,7 @@ lm.Durban <- lm(log(Nhat) ~ time,
 
 ```
 
-GAMs fitted to the estimated abundance between the 2006/2007 and 2024/2025 seasons indicated that all three approaches provided comparable results regarding the general trend, with a main difference at the beginning of the timeseries (Figure \@ref(fig:Figure-gam-fits)). For the 2006/2007 season, the estimated abundance with the new approach was notably lower than that from the other two methods (Figure \@ref(fig:Figure-N-hats)). Even with this difference, however, estimated intercepts (the average of abundance estimates) between the new (`r format(coef(gam.2006.Eguchi)["(Intercept)"], scientific = F)` $\pm$ `r signif(summary.gam(gam.2006.Eguchi)$se["(Intercept)"], 4)`) and the Laake et al. approach (`r format(coef(gam.2006.Laake)["(Intercept)"], scientific = F)` $\pm$ `r signif(summary.gam(gam.2006.Laake)$se["(Intercept)"], 4)`) were not significantly different, whereas the Durban approach was significantly greater (`r format(coef(gam.2006.Durban)["(Intercept)"], scientific = F)` $\pm$ `r signif(summary.gam(gam.2006.Durban)$se["(Intercept)"], 4)`) than the other two approaches. Over the entire timeseries from the 1967/1968 season, the estimated intercepts were similar between the two approaches (Laake: `r format(coef(gam.all.Laake)["(Intercept)"], scientific = F)` $\pm$ `r signif(summary.gam(gam.all.Laake)$se["(Intercept)"], 4)`, Eguchi: `r format(coef(gam.all.Eguchi)["(Intercept)"], scientific = F)` $\pm$ `r signif(summary.gam(gam.all.Eguchi)$se["(Intercept)"], 4)`)
+GAMs fitted to the estimated abundance between the 2006/2007 and 2024/2025 seasons indicated that all three approaches provided comparable results regarding the general trend, with a main difference at the beginning of the timeseries (Figure `r officer::run_word_field("REF Figure-gam-fits \\h")`. For the 2006/2007 season, the estimated abundance with the new approach was notably lower than that from the other two methods (Figure `r officer::run_word_field("REF Figure-N-hats \\h")`). Even with this difference, however, estimated intercepts (the average of abundance estimates) between the new (`r format(coef(gam.2006.Eguchi)["(Intercept)"], scientific = F)` $\pm$ `r signif(summary.gam(gam.2006.Eguchi)$se["(Intercept)"], 4)`) and the Laake et al. approach (`r format(coef(gam.2006.Laake)["(Intercept)"], scientific = F)` $\pm$ `r signif(summary.gam(gam.2006.Laake)$se["(Intercept)"], 4)`) were not significantly different, whereas the Durban approach was significantly greater (`r format(coef(gam.2006.Durban)["(Intercept)"], scientific = F)` $\pm$ `r signif(summary.gam(gam.2006.Durban)$se["(Intercept)"], 4)`) than the other two approaches. Over the entire timeseries from the 1967/1968 season, the estimated intercepts were similar between the two approaches (Laake: `r format(coef(gam.all.Laake)["(Intercept)"], scientific = F)` $\pm$ `r signif(summary.gam(gam.all.Laake)$se["(Intercept)"], 4)`, Eguchi: `r format(coef(gam.all.Eguchi)["(Intercept)"], scientific = F)` $\pm$ `r signif(summary.gam(gam.all.Eguchi)$se["(Intercept)"], 4)`)
 
 For general linear models ($log(\hat{N}) = time + \epsilon$) fitted to the point estimates from the 2014/2015 season to the 2024/2025 season revealed a statistically indistinguishable annual rate of decline among the three approaches (Laake: `r signif(lm.Laake$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Laake))["time", "Std. Error"], 2)`. Durban: `r signif(lm.Durban$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Durban))["time", "Std. Error"], 2)`, Eguchi: `r signif(lm.Eguchi$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Eguchi))["time", "Std. Error"], 2)`).
 
@@ -1067,7 +1070,7 @@ knitr::include_graphics(paste0("figures/gam_fit_", dpi.set, "dpi.png"))
 ```
 
 ::: {custom-style="Image Caption"} 
-Figure `r fig.GAM.num`: Fitted generalized additive models (Gaussian family and the identity link function) to estimated abundance and their approximate 95% CIs."
+`r fig.GAM.num` Fitted generalized additive models (Gaussian family and the identity link function) to estimated abundance and their approximate 95% CIs."
 :::
 
 ```{r detection-probabilities, echo=FALSE, message=FALSE}
@@ -1077,7 +1080,7 @@ p.0.CLs <- c(exp(jm.out$jm$q2.5$mean.prob)/(1 + exp(jm.out$jm$q2.5$mean.prob)),
 
 ```
 
-The base detection probability ($\beta_0$) was significantly lower for the new approach (mean = `r signif(mean.p.0, 3)`, 95% CI = [`r signif(p.0.CLs[1], 3)` - `r signif(p.0.CLs[2], 3)`]) than in Durban et al. (0.80, 95% Highest Posterior Density Interval = 0.75-0.85). As expected, the fixed effect of the visibility code on observation probability was negative (Figure \@ref(fig:Figure-Fixed-posteriors)), indicating that less favorable conditions resulted in lower detection probabilities. Perplexingly, the fixed effect of the Beaufort sea state was positive (Figure \@ref(fig:Figure-Fixed-posteriors)), suggesting that higher Beaufort sea states corresponded with greater detection probabilities. One possible explanation is that observers may have detected more singletons at low sea states, whereas only large groups were sighted at high sea states. The observer random effects indicated significant differences among individuals, consistent with the findings of Durban et al. (Appendix Figure \@ref(fig:Figure-observers)).
+The base detection probability ($\beta_0$) was significantly lower for the new approach (mean = `r signif(mean.p.0, 3)`, 95% CI = [`r signif(p.0.CLs[1], 3)` - `r signif(p.0.CLs[2], 3)`]) than in Durban et al. (0.80, 95% Highest Posterior Density Interval = 0.75-0.85). As expected, the fixed effect of the visibility code on observation probability was negative (Figure `r officer::run_word_field("REF Figure-Fixed-posteriors \\h")`), indicating that less favorable conditions resulted in lower detection probabilities. Perplexingly, the fixed effect of the Beaufort sea state was positive (Figure `r officer::run_word_field("REF Figure-Fixed-posteriors \\h")`), suggesting that higher Beaufort sea states corresponded with greater detection probabilities. One possible explanation is that observers may have detected more singletons at low sea states, whereas only large groups were sighted at high sea states. The observer random effects indicated significant differences among individuals, consistent with the findings of Durban et al. (Appendix Figure `r officer::run_word_field("REF Figure-observers \\h")`).
 
 ```{r posterior-fixed-effects-plots, echo=FALSE, message=FALSE}
 
@@ -1127,18 +1130,17 @@ n.and.bf <- data.frame(n = n.mat[day.mat > 1 & day.mat < 100],
 
 fig.fixed.post.num <- run_autonum(seq_id = "fig", 
                                   pre_label = "Figure ", 
-                                  bkm = "Figure-P-posteriors")
+                                  bkm = "Figure-Fixed-posteriors")
 
 knitr::include_graphics(paste0("figures/posteriors_VS_BF_", dpi.set, "dpi.png"))
 
 ```
 
 :::{custom-style="Image Caption"} 
-Figure `r fig.fixed.post.num`: Posterior distributions of the fixed-effects coefficients for the visibility code ($\beta_{V}$) and Beaufort sea state ($\beta_{B}$).
+`r fig.fixed.post.num` Posterior distributions of the fixed-effects coefficients for the visibility code ($\beta_{V}$) and Beaufort sea state ($\beta_{B}$).
 :::
 
-
-Posterior distributions of the Richards equation parameters provided valuable insights into how annual gray whale migration varied among years. The $P$ parameters, which define the timing of the migration peak, shifted over the years (Figure \@ref(fig:Figure-P-posteriors)), a phenomenon reported in previous studies [@rugh_timing_2001], Eguchi et al. 2023, 2024, 2025), although the significance and causes for the changes are unknown. The $S_1$ and $S_2$ parameters, which define the width of the migration curve, also varied annually, indicating that the duration of migration fluctuated from year to year (Appendix Figures \@ref(fig:Figure-S1-posteriors) and \@ref(fig:Figure-S2-posteriors)).
+Posterior distributions of the Richards equation parameters provided valuable insights into how annual gray whale migration varied among years. The $P$ parameters, which define the timing of the migration peak, shifted over the years (Figure `r officer::run_word_field("REF Figure-P-posteriors \\h")`), a phenomenon reported in previous studies [@rugh_timing_2001], Eguchi et al. 2023, 2024, 2025), although the significance and causes for the changes are unknown. The $S_1$ and $S_2$ parameters, which define the width of the migration curve, also varied annually, indicating that the duration of migration fluctuated from year to year (Appendix Figures `r officer::run_word_field("REF Figure-S1-posteriors \\h")` and `r officer::run_word_field("REF Figure-S2-posteriors \\h")`).
 
 ```{r posterior-Richards-plots, echo=FALSE, message=FALSE}
 
@@ -1205,14 +1207,18 @@ if (save.fig)
 
 ```{r plot-P-posteriors, echo=FALSE, message=FALSE} 
 
+fig.P.num <- run_autonum(seq_id = "fig", 
+                         pre_label = "Figure ", 
+                         bkm = "Figure-P-posteriors")
+
 knitr::include_graphics(paste0("figures/posterior_P_", dpi.set, "dpi.png"))
 
-block_caption("Posterior distributions of year-specific P parameters.", 
-              style = "Image Caption", 
-              autonum = run_autonum(seq_id = "fig", 
-                                    pre_label = "Figure ", 
-                                    bkm = "Figure-P-posteriors"))
+
 ```
+
+:::{custom-style="Image Caption"} 
+`r fig.P.num` Posterior distributions of year-specific P parameters.
+:::
 
 <!-- The daily estimated mean between Durban et al's and the new approaches was similar qualitatively (Figure @ref(fig:Figure-daily-N-hats)), indicating the two approaches were similar. Credible intervals were generally narrower for the new approach than Durban et al.'s. -->
 
@@ -1228,7 +1234,7 @@ The new modeling approach yielded results comparable to those obtained by the me
 
 The new approach offers several advantages over the method of Durban et al. First, it eliminates the use of the “cut” function, which has been identified as statistically inappropriate (Plummer 2015). Second, the model is coded in JAGS, a more contemporary and widely used Bayesian modeling language. The new model in JAGS runs significantly faster than Durban et al.'s model in WinBUGS. The analysis of the entire 32-year dataset took approximately `r signif(jm.out$Run_Time, 2)` hrs per model with the new approach, compared to `r signif(WinBugs.out$Run_Time, 3)` hours for an 11-year analysis using WinBUGS. Third, the new framework allows for formal model selection and goodness-of-fit assessment using modern criteria, such as LOOIC and the Pareto-k statistic, which were not part of the original Durban et al. analysis. Fourth, while retaining the N-mixture modeling framework, the new approach is more straightforward in its implementation. Fifth, shift durations are included in the analysis explicitly rather than eliminating shifts that were less than 85 minutes. 
 
-Examination of Pareto-k statistics indicated that high Pareto-k values coincided with extreme data points, where counts were unusually high or low compared to adjacent shifts (Appendix Figure \@ref(fig:Figure-pareto-k)). While statistically notable, these fluctuations are consistent with the known patterns of gray whale migration. Therefore, I concluded that the model, i.e., combining the Richards equation and the N-mixture framework, was appropriate for analyzing the entire dataset.
+Examination of Pareto-k statistics indicated that high Pareto-k values coincided with extreme data points, where counts were unusually high or low compared to adjacent shifts (Appendix Figure `r officer::run_word_field("REF Figure-pareto-k \\h")`). While statistically notable, these fluctuations are consistent with the known patterns of gray whale migration. Therefore, I concluded that the model, i.e., combining the Richards equation and the N-mixture framework, was appropriate for analyzing the entire dataset.
 
 The new approach is also adaptable and can incorporate additional information as it becomes available. For example, data from uncrewed aircraft systems (UAS) are being used to estimate precision and bias in group size estimates made by visual observers. If correction functions can be derived from these UAS data, conditional on observed group sizes, they could be used to adjust the group size of each sighting, which would become a loop that goes through all sightings within each shift so that the total number of sightings per shift can be adjusted accordingly. Finally, this abundance estimation model could be incorporated into a more comprehensive population model, such as the one developed by [@stewart_boom-bust_2023].
 
@@ -1292,7 +1298,7 @@ $$ g_{d,t} = S_{0,t} + S_{1,t} * d_t + \sum_{k=1}^{m} \lambda_{k,t} (d_t – \ka
 
 #### Effects of $S_1$ {.unnumbered}
 
-The parameter $S_1$ defines how the curve decreases from its peak. The rate of decline slows down as $S_1$ becomes greater (Figure \@ref(fig:Figure-S1)). Because we make an assumption that there are no whales migrating after day 100 (or any other assumed "end" day), the lower bound of $S_1$ can be restricted to a certain value, (e.g., $0 < S_1 < 5$).
+The parameter $S_1$ defines how the curve decreases from its peak. The rate of decline slows down as $S_1$ becomes greater (Figure `r officer::run_word_field("REF Figure-S1 \\h")`). Because we make an assumption that there are no whales migrating after day 100 (or any other assumed "end" day), the lower bound of $S_1$ can be restricted to a certain value, (e.g., $0 < S_1 < 5$).
 
 ```{r S1, echo=FALSE, message=FALSE}
 S1 <- c(10, 5, 2.5, 1.2, 0.6, 0.3)
@@ -1337,19 +1343,22 @@ save.fig.fcn(p.S1,
 ```{r plot-S1, echo=FALSE, message=FALSE}
 # fig.cap=paste0("Effects of $S_1$ on the shape of the Richards equation. In this example, $S_2$ =", S2, ", K = ", K, ", P = ", P, ", $N_{max}$ = ", max.N, ".")
 # 
+fig.S1.num <- run_autonum(seq_id = "fig", 
+                         pre_label = "Figure S", 
+                         bkm = "Figure-S1",
+                         start_at = 1)
+
 knitr::include_graphics(paste0("figures/S1_", dpi.set, "dpi.png"))
 
-block_caption(paste0("Effects of $S_1$ on the shape of the Richards equation. In this example, $S_2$ =", S2, ", K = ", K, ", P = ", P, ", $N_{max}$ = ", max.N, "."), 
-              style = "Image Caption", 
-              autonum = run_autonum(seq_id = "fig", 
-                                    pre_label = "Figure S", 
-                                    bkm = "Figure-S1",
-                                    start_at = 1))
 ```
+
+:::{custom-style="Image Caption"}
+`r fig.S1.num` Effects of $S_1$ on the shape of the Richards equation. In this example, $S_2$ = `r S2`, K = `r K`, P = `r P`, $N_{max}$ = `r max.N`.
+:::
 
 #### Effects of $S_2$ {.unnumbered}
 
-The parameter $S_20$ defines how the curve increases to its peak. The rate of increase slows down as $S_2$ becomes larger (Figure \@ref(fig:Figure-S2)). Because we make an assumption that there are no whales migrating before day 1, the upper bound of $S_2$ can be restricted to a certain value (e.g., $0 < S_2 < 5$).
+The parameter $S_20$ defines how the curve increases to its peak. The rate of increase slows down as $S_2$ becomes larger (Figure `r officer::run_word_field("REF Figure-S2 \\h")`). Because we make an assumption that there are no whales migrating before day 1, the upper bound of $S_2$ can be restricted to a certain value (e.g., $0 < S_2 < 5$).
 
 ```{r S2, echo=FALSE, message=FALSE}
 S1 <- 1.5
@@ -1392,18 +1401,21 @@ save.fig.fcn(p.S2,
 
 ```{r plot-S2, echo=FALSE, message=FALSE}
 
+fig.S2.num <- run_autonum(seq_id = "fig", 
+                         pre_label = "Figure S", 
+                         bkm = "Figure-S2")
+
 knitr::include_graphics(paste0("figures/S2_", dpi.set, "dpi.png"))
 
-block_caption(paste0("Effects of $S_2$ on the shape of the Richards equation. In this example, $S_1$ = ", S1, ", K = ", K, ", P = ", P, ", $N_{max}$ = ", max.N, "."), 
-              style = "Image Caption", 
-              autonum = run_autonum(seq_id = "fig", 
-                                    pre_label = "Figure S",
-                                    bkm = "Figure-S2"))
 ```
+
+:::{custom-style="Image Caption"}
+`r fig.S2.num` Effects of $S_2$ on the shape of the Richards equation. In this example, $S_1$ = `r S1`, K = `r K`, P = `r P`, $N_{max}$ = `r max.N`.
+:::
 
 #### Effects of K {.unnumbered}
 
-The parameter $K > 0$ defines the flatness of the curve at its peak. Greater $K$ values correspond to flatter peaks (Figure \@ref(fig:Figure-K)). Similarly to $S_1$ and $S_2$, the upper bound of $K$ may be defined based on the assumption that the numbers of migrating gray whales are zero at day 1 and 100 (e.g., $0 < K < max(K)$). The upper bound ($max(K)$) may change when other parameters change, such as $S_1$ and $S_2$.
+The parameter $K > 0$ defines the flatness of the curve at its peak. Greater $K$ values correspond to flatter peaks (Figure `r officer::run_word_field("REF Figure-K \\h")`). Similarly to $S_1$ and $S_2$, the upper bound of $K$ may be defined based on the assumption that the numbers of migrating gray whales are zero at day 1 and 100 (e.g., $0 < K < max(K)$). The upper bound ($max(K)$) may change when other parameters change, such as $S_1$ and $S_2$.
 
 ```{r K, echo=FALSE, message=FALSE}
 S1 <- 2.5
@@ -1447,19 +1459,22 @@ save.fig.fcn(p.K,
 
 ```{r plot-K, echo=FALSE, message=FALSE}
 
+fig.K.num <- run_autonum(seq_id = "fig", 
+                                    pre_label = "Figure S",
+                                    bkm = "Figure-K")
+
 knitr::include_graphics(paste0("figures/K_", dpi.set, "dpi.png"))
 
-block_caption(paste0("Effects of $K$ on the shape of the Richards equation. In this example, $S_1$ = ", S1, ", $S_2$ = ", S2, ", $P$ = ", P, ", $N_{max}$ = ", max.N, "."), 
-              style = "Image Caption", 
-              autonum = run_autonum(seq_id = "fig", 
-                                    pre_label = "Figure S",
-                                    bkm = "Figure-K"))
 
 ```
 
+:::{custom-style="Image Caption"}
+`r fig.K.num` Effects of $K$ on the shape of the Richards equation. In this example, $S_1$ = `r S1`, $S_2$ = `r S2`, P = `r P`, $N_{max}$ = `r max.N`.
+:::
+
 #### Effects of P {.unnumbered}
 
-The parameter $P$ defines the location of its peak (Figure \@ref(fig:Figure-P)).
+The parameter $P$ defines the location of its peak (Figure `r officer::run_word_field("REF Figure-P \\h")`).
 
 ```{r P, echo=FALSE, message=FALSE}
 S1 <- 2.5
@@ -1504,14 +1519,18 @@ save.fig.fcn(p.P,
 
 ```{r plot-P, echo=FALSE, message=FALSE}
 
-knitr::include_graphics(paste0("figures/P_", dpi.set, "dpi.png"))
-block_caption(paste0("Effects of $P$ on the shape of the Richards equation. In this example, $S_1$ = ", S1, ", $S_2$ = ", S2, ", K = ", K, ", $N_{max}$ = ", max.N, "."), 
-              style = "Image Caption", 
-              autonum = run_autonum(seq_id = "fig", 
+fig.P.num <- run_autonum(seq_id = "fig", 
                                     pre_label = "Figure S",
-                                    bkm = "Figure-P"))
+                                    bkm = "Figure-P")
+
+knitr::include_graphics(paste0("figures/P_", dpi.set, "dpi.png"))
 
 ```
+
+:::{custom-style="Image Cpation"}
+`r fig.P.num`: Effects of $P$ on the shape of the Richards equation. In this example, $S_1$ = `r S1`, $S_2$ = `r S2`, K = `r K`, $N_{max}$ = `r max.N`.
+:::
+
 
 ### Hyperparameter definitions {.unnumbered}
 
@@ -1537,85 +1556,99 @@ ft.hyper.params %>%
 
 ```{r plot-trace-1, echo=FALSE, message=FALSE}
 
+fig.trace.1.num <- run_autonum(seq_id = "fig", 
+                                    pre_label = "Figure S",
+                                    bkm = "Figure-trace-1")
+
 knitr::include_graphics(paste0("figures/M5_trace_1.png"))
 
-block_caption(paste0("Trace plots of parameters with high ", R_hat, " values"), 
-              style = "Image Caption", 
-              autonum = run_autonum(seq_id = "fig", 
-                                    pre_label = "Figure S",
-                                    bkm = "Figure-trace-1"))
 
 ```
+:::{custom-style="Image Caption"}
+`r fig.trace.1.num` Trace plots of parameters with high `r R_hat` values.
+:::
 
 ```{r plot-trace-2, echo=FALSE}
-knitr::include_graphics(paste0("figures/M5_trace_2.png"))
-block_caption(paste0("Trace plots of parameters with high ", R_hat, " values"), 
-              style = "Image Caption", 
-              autonum = run_autonum(seq_id = "fig", 
+fig.trace.2.num <- run_autonum(seq_id = "fig", 
                                     pre_label = "Figure S",
-                                    bkm = "Figure-trace-2"))
+                                    bkm = "Figure-trace-2")
+
+knitr::include_graphics(paste0("figures/M5_trace_2.png"))
 
 ```
+
+:::{custom-style="Image Caption"}
+`r fig.trace.2.num` Trace plots of parameters with high `r R_hat` values.
+:::
 
 ```{r plot-trace-3, echo=FALSE, message=FALSE}
-knitr::include_graphics(paste0("figures/M5_trace_3.png"))
-block_caption(paste0("Trace plots of parameters with high ", R_hat, " values"), 
-              style = "Image Caption", 
-              autonum = run_autonum(seq_id = "fig", 
+fig.trace.3.num <- run_autonum(seq_id = "fig", 
                                     pre_label = "Figure S",
-                                    bkm = "Figure-trace-3"))
+                                    bkm = "Figure-trace-3")
+
+knitr::include_graphics(paste0("figures/M5_trace_3.png"))
 
 ```
+
+:::{custom-style="Image Caption"}
+`r fig.trace.3.num` Trace plots of parameters with high `r R_hat` values.
+:::
 
 #### Pareto-k statistics {.unnumbered}
 
 ```{r plot-pareto-k, echo=FALSE, message=FALSE}
+fig.pareto.num <- run_autonum(seq_id = "fig", 
+                                    pre_label = "Figure S",
+                                    bkm = "Figure-pareto-k")
+
 knitr::include_graphics(paste0("figures/High_Pareto_k.png"))
 
-block_caption("Good (< 0.7) and bad (>= 0.7) Pareto-k statistics for each data point. y-axis indicates the observed number of gray whales per watch period.", 
-              style = "Image Caption", 
-              autonum = run_autonum(seq_id = "fig", 
-                                    pre_label = "Figure S",
-                                    bkm = "Figure-pareto-k"))
 
 ```
+:::{custom-style="Image Caption"}
+`r fig.pareto.num` Good (< 0.7) and bad (>= 0.7) Pareto-k statistics for each data point. y-axis indicates the observed number of gray whales per watch period.
+:::
 
 #### Changes in S1 and S2 over time {.unnumbered}
 
 ```{r plot-S1-posteriors, echo=FALSE, message=FALSE}
 
+fig.S1.num <- run_autonum(seq_id = "fig",
+                                    pre_label = "Figure S",
+                                    bkm = "Figure-S1-posteriors")
+
 knitr::include_graphics(paste0("figures/posteriors_S1_", dpi.set, "dpi.png"))
 
-block_caption("Changes in the $S_1$ parameter of the Richards equation over time. $S_1$ defines the wideness of the right side of the curve.",
-              style = "Image Caption",
-              autonum = run_autonum(seq_id = "fig",
-                                    pre_label = "Figure S",
-                                    bkm = "Figure-S1-posteriors"))
 ```
+:::{custom-style="Image Caption"}
+`r fig.S1.num` Changes in the $S_1$ parameter of the Richards equation over time. $S_1$ defines the wideness of the right side of the curve.
+:::
 
 ```{r plot-S2-posteriors, echo=FALSE, message=FALSE}
+fig.S2.num <- run_autonum(seq_id = "fig",
+                                    pre_label = "Figure S",
+                                    bkm = "Figure-S2-posteriors")
 
 knitr::include_graphics(paste0("figures/posteriors_S2_", dpi.set, "dpi.png"))
-block_caption("Changes in the $S_2$ parameter of the Richards equation over time. $S_1$ defines the wideness of the left side of the curve.",
-              style = "Image Caption",
-              autonum = run_autonum(seq_id = "fig",
-                                    pre_label = "Figure S",
-                                    bkm = "Figure-S2-posteriors"))
 
 ```
+:::{custom-style="Image Caption"}
+`r fig.S2.num` Changes in the $S_2$ parameter of the Richards equation over time. $S_2$ defines the wideness of the left side of the curve.
+:::
 
 #### Observer random effects {.unnumbered}
 
 ```{r plot-observers, echo=FALSE, message=FALSE}
+fig.OBS.num <- run_autonum(seq_id = "fig",
+                                    pre_label = "Figure S",
+                                    bkm = "Figure-observers")
 
 knitr::include_graphics(paste0("figures/Observer_dens.png"))
-block_caption("Posterior density distributions of observer random effects. Observers with less than 10 sightings were pooled as one observer. ",
-              style = "Image Caption",
-              autonum = run_autonum(seq_id = "fig",
-                                    pre_label = "Figure S",
-                                    bkm = "Figure-observers"))
 
 ```
+:::{custom-style="Image Caption"}
+`r fig.OBS.num` Marginal posterior density distributions of observer random effects. Observers with less than 10 sightings were pooled as one observer.
+:::
 
 ## Literature cited {.unnumbered}
 
