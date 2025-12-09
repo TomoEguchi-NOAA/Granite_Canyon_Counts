@@ -3,7 +3,7 @@ title: "A new approach to gray whale abundance estimation"
 author: "Tomo Eguchi"
 date: "`r Sys.Date()`"
 output: 
-  bookdown::word_document2:
+  bookdown::word_document2: default
 bibliography: reference.bib
 csl: marine-ecology-progress-series.csl
 ---
@@ -16,7 +16,10 @@ csl: marine-ecology-progress-series.csl
 
 
 rm(list = ls())
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, cache = FALSE)
+knitr::opts_chunk$set(echo = TRUE, 
+                      warning = FALSE, 
+                      message = FALSE, 
+                      cache = TRUE)
 save.fig <- T
 
 source("Granite_Canyon_Counts_fcns.R")
@@ -26,11 +29,10 @@ library(flextable)
 library(jagsUI)
 library(bayesplot)
 library(ggpubr)
-library(R2WinBUGS)
+#library(R2WinBUGS)
 library(abind)
 library(rmarkdown)
 library(loo)
-library(bayesplot)
 library(ggridges)
 library(rstanarm)
 library(mgcv)
@@ -40,8 +42,8 @@ library(officedown)
 
 options(mc.cores = 5)
 
-set_flextable_defaults(font.size = 9,
-                       font.family = "Cambria")
+set_flextable_defaults(font.size = 12,
+                       font.family = "Aptos")
 
 # Unicode for Rhat:
 R_hat <- "R\u0302"
@@ -84,9 +86,10 @@ To estimate the detectability of gray whales by visual observers at the field st
 
 Consistent with Laake et al. (2012), the model for the detection probability incorporated fixed effects for visibility ($VS$) and the Beaufort sea state ($BF$), whereas observers were treated as random effects ($O$). These were modeled as additive effects on a general intercept so that the direction and magnitude of the estimated effects away from zero (no effect) could be assessed. The selection for the inclusion of these effects was accomplished by using Bayesian model selection with stochastic binary indicator variables $I$ to switch each of the three possible effects (i.e., $V$, $B$, and $O$) either in or out of the model:
 
-$$
+\begin{equation}
 logit(p_{i,d(j),t}) = logit(p_0) + I_{V} \beta_{V} V_{d(j),t} + I_{B} \beta_{B} B_{d(j),t}+ I_{O} \mathbf{\beta}^{O_{i,d(j),t} = o}_{O} (\#eq:detection-probability-Durban)
-$$
+\end{equation}
+
 where the intercept $p_0$ was the base detection probability in the absence of covariate effects, assigned a Uniform(0,1) prior distribution, and $logit(p_0) = ln(p_0/(1–p_0))$. For each fixed effect, $\beta_{B}$ and $\beta_{V}$, a Gaussian prior distribution with mean zero and standard deviation of 10 was used. The random effect for each observer was drawn from a Gaussian distribution with mean zero and standard deviation $\sigma_{O} \sim Uniform(0,10)$. Each binary indicator variable, $I$, was assigned a Bernoulli(0.5) distribution to specify equal probability of inclusion (1) or exclusion (0) of the effect in the model (Durban et al. 2015).
 
 Observation probability, then, was computed by multiplying the detection probability with an indicator function for whether or not an observer was present ($u$):
@@ -117,7 +120,7 @@ $$M_1 = (1 + (2 e^K - 1) * e^{(P_1-d)/(-S_1)}) ^ {(-1/e^K)}$$
 
 $$M_2 = (1 + (2 e^K - 1) * e^{(P_2-d)/S_2}) ^ {(-1/e^K)}$$
 
-$$N = N_{min} + (N_{max} - N_{min}) * (M_1 * M_2),$$
+$$N = N_{min} + (N_{max} - N_{min}) * (M_1 * M_2)$$
 
 where $d > 0$ is the number of days since an arbitrary start date, $S_1 > 0$ and $S_2 > 0$ define how the slope decreases and increases, respectively, $K > 0$ defines the "flatness" at the peak of the function, $P_1$ and $P_2$ define where the peak is relative to the range of $d$, where $min(d) < P_1 <= P_2 < max(d)$, $N_{min}$ is the number of whales migrating outside of a migration season ($N_{min} = 0$), and $N_{max} >> N_{min}$. $N_{max}$ is not the maximum number of whales migrating per day, but it is a parameter that may be fixed or estimated during the analysis. Effects of these parameters on the shape of the equation are described in the Appendix. Hereafter, this function will be referred to as the Richards equation.
 
@@ -191,11 +194,12 @@ $$ N_{t, y} \sim POI(\bar{N}_{t,y}) $$
 where $\bar{N}_{t,y}$ is the expected number of whales that migrate through the sampling area on the day $t$ of the season $y$, which is modeled with the Richards equation. The observation probability ($p_{i_t, s, y}$) was a function of the viewing conditions (the Beaufort sea state ($B$) and visibility code ($V$)), the overall mean probability of detection ($\beta_0$), observer random effects ($O$), and a watch duration offset ($L$). The watch duration offset was included to accommodate differing durations of observation shifts due to changes in survey protocols and observation conditions. For the observer random effects, individuals with fewer than 10 sightings were pooled into a single “observer” category, as their limited data were insufficient to be used as distinct random effects.
 
 
-$$
-logit(p_{i_t, s, y}) = \beta_0 + \beta_{B} \times B_{i_t, y} + \beta_{V} \times V_{i_t, y} + O_{i_t, s, y} + log(L_{i_t, y}) (\#eq:detection-probability)
-$$
+\begin{equation}
+logit(p_{i_t, s, y}) = \beta_0 + \beta_{B} \times B_{i_t, y} + \beta_{V} \times V_{i_t, y} + O_{i_t, s, y} + log(L_{i_t, y})
+(\#eq:detection-probability)
+\end{equation}
 
-where the index $i_t$ is the watch period $i$ of the day $t$, $s$ is the station (1 or 2), and $y$ is the season. The intercept ($\beta_0$) in the new approach Equation \@ref(eq:detection-probability) can be expressed in terms of the intercept ($p_0$) of the Durban et al. approach \@ref(eq:detection-probability-Durban) via the logit function:
+where the index $i_t$ is the watch period $i$ of the day $t$, $s$ is the station (1 or 2), and $y$ is the season. The intercept ($\beta_0$) in the new approach, equation \@ref(eq:detection-probability) can be expressed in terms of the intercept ($p_0$) of the Durban et al. approach \@ref(eq:detection-probability-Durban) via the logit function:
 
 $$ \beta_0 = ln(p_0/(1 - p_0)) $$
 
