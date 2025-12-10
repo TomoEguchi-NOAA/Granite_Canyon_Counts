@@ -109,7 +109,7 @@ Durban et al. (2015) used the "cut" function within WinBUGS to dissociate estima
 
 ### Data {.unnumbered}
 
-A series of modifications to data colleciton methods was implemented from the 1967/1968 to 2006/2007 seasons (Laake et al. 2012). Starting in the 2010/2011 season, further modifications were implemented, using a computer to predict movements of gray whale pods, thereby increasing the likelihood of repeatedly observing the same pods and accurately determining the number of individuals in each pod. In Durban et al. (2015), they treated the data from previous years as incompatible in their analysis. Consequently, the subsequent analysis to estimate gray whale abundance used the data since the 2006/2007 season (e.g., Stewart and Weller 2021, Eguchi et al., 2022, 2023, 2024, 2025). Since the 2010/2011 season, no dual-observer survey has been conducted to estimate detection probability due to the logistical and financial constraints. Consequently, the data from the two seasons (i.e., 2009/2010 and 2010/2011 seasons) are the primary source of information for estimating detection probabilities. During several years before the 2006/2007 season, two observation stations were present. In those years, sightings of the same pods by two teams were used to estimate detection probabilities via the "capture-recapture" method. These sightings data can be used in the N-mixture framework by retaining the number of observed pods but disregarding the pod identity. In this paper, I used all the data from the 1967/1968 season by using statistical models that can accommodate differing survey durations.
+A series of modifications to data colleciton methods was implemented from the 1967/1968 to 2006/2007 seasons (Laake et al. 2012). Starting in the 2010/2011 season, further modifications were implemented, using a computer to predict movements of gray whale pods, thereby increasing the likelihood of repeatedly observing the same pods and accurately determining the number of individuals in each pod. In Durban et al. (2015), they treated the data from previous years as incompatible in their analysis. Consequently, the subsequent analysis to estimate gray whale abundance used the data since the 2006/2007 season (e.g., Stewart and Weller 2021, Eguchi et al., 2022, 2023, 2024, 2025). Since the 2010/2011 season, no dual-observer survey has been conducted to estimate detection probability due to the logistical and financial constraints. Consequently, the data from the two seasons (i.e., 2009/2010 and 2010/2011 seasons) are the primary source of information for estimating detection probabilities. During several years before the 2006/2007 season, two observation stations were present. In those years, sightings of the same pods by two teams were used to estimate detection probabilities via the "capture-recapture" method. These sightings data can be used in the N-mixture framework by retaining the number of observed pods but disregarding the pod identity. In this paper, I used all the data from the 1967/1968 season by using flexible statistical models.
 
 ### New Modeling Approach {.unnumbered}
 
@@ -221,7 +221,7 @@ hyper.params <- data.frame(Parameter = c("Max", "S1", "S2", "P", "K", "O", "BF",
                                       "K.alpha", "K.beta", "K.unif", "sigma.Obs"),
                            Distribution = c("Normal(2000, 800)T(0,)",
                                             "Gamma(S1.alpha, S1.beta)",
-                                            "Gamma(S2.alpha, S2.beta",
+                                            "Gamma(S2.alpha, S2.beta)",
                                             "Uniform(30, 60)",
                                             "Gamma(K.alpha, K.beta)", 
                                             "Normal(0, sigma.obs)",
@@ -1237,7 +1237,7 @@ knitr::include_graphics(paste0("figures/posterior_P_", dpi.set, "dpi.png"))
 
 The new modeling approach yielded results comparable to those obtained by the methods of Laake et al. and Durban et al. Although point estimates were different in some years, the confidence and credible intervals overlapped in most of the time series, and all three methods captured similar long-term trends and the recent rate of decline.
 
-The new approach offers several advantages over the method of Durban et al. First, it eliminates the use of the “cut” function, which has been identified as statistically inappropriate (Plummer 2015). Second, the model is coded in JAGS, a more contemporary and widely used Bayesian modeling language. The new model in JAGS runs significantly faster than Durban et al.'s model in WinBUGS. The analysis of the entire 32-year dataset took approximately `r signif(jm.out$Run_Time, 2)` hrs per model with the new approach, compared to `r signif(WinBugs.out$Run_Time, 3)` hours for an 11-year analysis using WinBUGS. Third, the new framework allows for formal model selection and goodness-of-fit assessment using modern criteria, such as LOOIC and the Pareto-k statistic, which were not part of the original Durban et al. analysis. Fourth, while retaining the N-mixture modeling framework, the new approach is more straightforward in its implementation. Fifth, shift durations are included in the analysis explicitly rather than eliminating shifts that were less than 85 minutes. 
+The new approach offers several advantages over the method of Durban et al. First, it eliminates the use of the “cut” function, which has been identified as statistically inappropriate (Plummer 2015). Second, the model is coded in JAGS, a more contemporary and widely used Bayesian modeling language. The new model in JAGS runs significantly faster than Durban et al.'s model in WinBUGS. The analysis of the entire 32-year dataset took approximately `r signif(jm.out$Run_Time, 2)` hrs per model with the new approach, compared to `r signif(WinBugs.out$Run_Time, 3)` hours for an 11-year analysis using WinBUGS. Third, the new framework allows for formal model selection and goodness-of-fit assessment using modern criteria, such as LOOIC and the Pareto-k statistic, which were not part of the original Durban et al. analysis. Fourth, while retaining the N-mixture modeling framework, the new approach is more straightforward in its implementation. In the Durban et al.'s approach, effort (i.e., watch duration) was used to adjust the available number of whales during the shift. This approach implicitly makes an assumption that the number of whales per unit time is constant throughout the day. In the new approach, effort was used to offset the detection probability, which does not require the assumption of a constant passage rate.  
 
 Examination of Pareto-k statistics indicated that high Pareto-k values coincided with extreme data points, where counts were unusually high or low compared to adjacent shifts (Appendix Figure `r officer::run_word_field("REF Figure-pareto-k \\h")`). While statistically notable, these fluctuations are consistent with the known patterns of gray whale migration. Therefore, I concluded that the model, i.e., combining the Richards equation and the N-mixture framework, was appropriate for analyzing the entire dataset.
 
@@ -1261,7 +1261,7 @@ The detection probability was modeled as a function of visibility (V), Beaufort 
 
 $$ logit(p_{i,d(j),t}) = logit(p_0) + I_{V} \beta_{V} V_{d(j),t} + I_{B} \beta_{B} B_{d(j),t}+ I_{O} \mathbf{\beta}^{O_{i,d(j),t} = o}_{O} $$
 
-where the intercept $p_0$ was the base detection probability in the absence of covariate effects, assigned a Uniform(0,1) prior distribution, and $logit(p_0) = ln(p_0/(1–p_0))$. For each fixed effect, $\beta_{B}$ and $\beta_{V}$, a Normal prior distribution with mean zero and standard deviation of 10 was used. The random effect for each observer was drawn from a Normal distribution with mean zero and standard deviation $\sigma_{O} \sim Uniform(0,10)$. Each binary indicator variable, I, was assigned a Bernoulli(0.5) distribution to specify equal probability of inclusion (1) or exclusion (0) of the effect in the model (Durban et al. 2015).
+where the intercept $p_0$ was the base detection probability in the absence of covariate effects, assigned a Uniform(0,1) prior distribution, and $logit(p_0) = ln(p_0/(1–p_0))$. For each fixed effect, $\beta_{B}$ and $\beta_{V}$, a Normal prior distribution with mean zero and standard deviation of 10 was used. The random effect for each observer was drawn from a Normal distribution with mean zero and standard deviation $\sigma_{O} \sim Uniform(0,10)$. Each binary indicator variable, $I$, was assigned a Bernoulli(0.5) distribution to specify equal probability of inclusion (1) or exclusion (0) of the effect in the model (Durban et al. 2015).
 
 A Poisson distribution ($N_{d(j),t} \sim Poisson(\lambda_{d(j),t})$) was used as a hierarchical prior for the distribution of abundances, and specified a model for the Poisson mean ($\lambda$) in terms of the number of whales passing each day ($d$), with an offset for the effort duration of each watch period, $E_{d(j),t}$ in decimal days (Laake et al., 2012):
 
@@ -1271,9 +1271,9 @@ $$ model_{d,t} = z_{d,t} f_{d,t} + (1 – z_{d,t}) g_{d,t} $$
 
 where $z_{d,t}$ is an indicator function (see below). $f_{d,t}$ and $g_{d,t}$ are also explained below.
 
-Days were specified as d = 0 to 90, where days were counted from 12:00 a.m. on 1 December, and we added an abundance of 0 whales passing for day 0 and 90 to anchor the fitted model when we assumed whales did not pass (Buckland et al. 1993).
+Days were specified as d = 0 to 90, where days were counted from 12:00 a.m. on 1 December, and we added an abundance of 0 whales passing for day 0 and 90 to anchor the fitted model (Buckland et al. 1993).
 
-Estimates were derived from either of two competing models ['Common' ($f$) and 'Specific' ($g$), e.g., [@li_baystdetect_2012] describing changes in abundance across each annual migration. The model contributing each daily estimate was indicated using stochastic binary indicator variables $z_{d,t}$, each assigned a Bernoulli(0.5) prior distribution. As such, the posterior distribution of each $z_{d,t}$ indicated the probability of a daily estimate conforming to the common trend, allowing flexibility for departures from this trend that may only exist on certain days in certain years to be identified and modeled (rather than assuming all counts from an entire year conform to or depart from a common trend). The total number of whales passing at the survey location during each migration was then estimated by summing the expected value from the model averaged number of whales passing each day ($d$) from 0 to 90 (Laake et al., 2012).
+Estimates were derived from either of two competing models ('Common' ($f$) and 'Specific' ($g$), e.g., [@li_baystdetect_2012]), describing changes in abundance across each annual migration. The model contributing each daily estimate was indicated using stochastic binary indicator variables $z_{d,t}$, each assigned a Bernoulli(0.5) prior distribution. As such, the posterior distribution of each $z_{d,t}$ indicated the probability of a daily estimate conforming to the common trend, allowing flexibility for departures from this trend that may only exist on certain days in certain years to be identified and modeled (rather than assuming all counts from an entire year conform to or depart from a common trend). The total number of whales passing at the survey location during each migration was then estimated by summing the expected value from the model averaged number of whales passing each day ($d$) from 0 to 90 (Laake et al., 2012).
 
 These estimates were then rescaled to account for the differential passage rate at night [@perryman_diel_1999], based on the nine hour day multiplicative correction factor [@rugh_estimates_2005]. Specifically, we applied a constant night time correction factor that was assumed to be a Normally distributed fixed effect with mean of 1.0875 and standard deviation of 0.037 [@perryman_diel_1999].
 
@@ -1303,7 +1303,7 @@ $$ g_{d,t} = S_{0,t} + S_{1,t} * d_t + \sum_{k=1}^{m} \lambda_{k,t} (d_t – \ka
 
 #### Effects of $S_1$ {.unnumbered}
 
-The parameter $S_1$ defines how the curve decreases from its peak. The rate of decline slows down as $S_1$ becomes greater (Figure `r officer::run_word_field("REF Figure-S1 \\h")`). Because we make an assumption that there are no whales migrating after day 100 (or any other assumed "end" day), the lower bound of $S_1$ can be restricted to a certain value, (e.g., $0 < S_1 < 5$).
+The parameter $S_1$ defines how the curve decreases from its peak. The rate of decline slows down as $S_1$ becomes greater (Figure A`r officer::run_word_field("REF Figure-S1 \\h")`). Because we make an assumption that there are no whales migrating after day 100 (or any other assumed "end" day), the lower bound of $S_1$ can be restricted to a certain value, (e.g., $0 < S_1 < 5$).
 
 ```{r S1, echo=FALSE, message=FALSE}
 S1 <- c(10, 5, 2.5, 1.2, 0.6, 0.3)
@@ -1363,7 +1363,7 @@ knitr::include_graphics(paste0("figures/S1_", dpi.set, "dpi.png"))
 
 #### Effects of $S_2$ {.unnumbered}
 
-The parameter $S_20$ defines how the curve increases to its peak. The rate of increase slows down as $S_2$ becomes larger (Figure `r officer::run_word_field("REF Figure-S2 \\h")`). Because we make an assumption that there are no whales migrating before day 1, the upper bound of $S_2$ can be restricted to a certain value (e.g., $0 < S_2 < 5$).
+The parameter $S_20$ defines how the curve increases to its peak. The rate of increase slows down as $S_2$ becomes larger (Figure A`r officer::run_word_field("REF Figure-S2 \\h")`). Because we make an assumption that there are no whales migrating before day 1, the upper bound of $S_2$ can be restricted to a certain value (e.g., $0 < S_2 < 5$).
 
 ```{r S2, echo=FALSE, message=FALSE}
 S1 <- 1.5
@@ -1420,7 +1420,7 @@ knitr::include_graphics(paste0("figures/S2_", dpi.set, "dpi.png"))
 
 #### Effects of K {.unnumbered}
 
-The parameter $K > 0$ defines the flatness of the curve at its peak. Greater $K$ values correspond to flatter peaks (Figure `r officer::run_word_field("REF Figure-K \\h")`). Similarly to $S_1$ and $S_2$, the upper bound of $K$ may be defined based on the assumption that the numbers of migrating gray whales are zero at day 1 and 100 (e.g., $0 < K < max(K)$). The upper bound ($max(K)$) may change when other parameters change, such as $S_1$ and $S_2$.
+The parameter $K > 0$ defines the flatness of the curve at its peak. Greater $K$ values correspond to flatter peaks (Figure A`r officer::run_word_field("REF Figure-K \\h")`). Similarly to $S_1$ and $S_2$, the upper bound of $K$ may be defined based on the assumption that the numbers of migrating gray whales are zero at day 1 and 100 (e.g., $0 < K < max(K)$). The upper bound ($max(K)$) may change when other parameters change, such as $S_1$ and $S_2$.
 
 ```{r K, echo=FALSE, message=FALSE}
 S1 <- 2.5
@@ -1478,7 +1478,7 @@ knitr::include_graphics(paste0("figures/K_", dpi.set, "dpi.png"))
 
 #### Effects of P {.unnumbered}
 
-The parameter $P$ defines the location of its peak (Figure `r officer::run_word_field("REF Figure-P \\h")`).
+The parameter $P$ defines the location of its peak (Figure A`r officer::run_word_field("REF Figure-P \\h")`).
 
 ```{r P, echo=FALSE, message=FALSE}
 S1 <- 2.5
@@ -1554,6 +1554,7 @@ ft.hyper.params %>%
   paginate(init = TRUE, hdr_ftr = TRUE) 
 
 ```
+
 
 ### Trace plots of parameters with high rank-standardized `r R_hat` values {.unnumbered}
 
