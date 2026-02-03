@@ -40,7 +40,7 @@ Run.date <- "2025-06-24" #Sys.Date() #"2025-04-21" #"2025-04-17" #
 # Minimum length of observation periods in minutes
 min.dur <- 60 #10 #85 #
 
-ver <- "v5a" #  "v3" #"v5" # "v4" # 
+ver <- "v5a" #"v2a" # "v15a" # "v16a" # "v17a" # "v18a" # "v19a" # "v20a" #
 
 # These are the ending year of each season - for example, 2022 in the following vector indicates
 # for the 2021/2022 season. These data were extracted using Extract_Data_All_v2.Rmd
@@ -50,10 +50,10 @@ data.dir <- "RData/V2.1_Feb2025"
 max.day <- 100
 
 
-MCMC.params <- list(n.samples = 550000,
-                    n.thin = 100,
-                    n.burnin = 500000,
-                    n.chains = 5)
+# MCMC.params <- list(n.samples = 550000,
+#                     n.thin = 100,
+#                     n.burnin = 500000,
+#                     n.chains = 5)
 
 # MCMC.params <- list(n.samples = 200000,
 #                     n.thin = 100,
@@ -121,13 +121,22 @@ if (!jm.out$new.run){
   MCMC.params <- jm.out$MCMC.params
 }
 
-# need to turn zeros into NAs when there were no second station:
-data.array <- jm.out$jags.input$jags.data$n
-data.array[,2,which(jm.out$jags.input$jags.data$n.station == 1)] <- NA
-data.array[,2,which(jm.out$jags.input$jags.data$n.station == 1)] <- NA
-
+# LOOIC and Pareto-k stats
 LOOIC.n <- compute.LOOIC(loglik.array = jm.out$jm$sims.list$log.lkhd,
-                         MCMC.params = MCMC.params)
+                         MCMC.params = jm.out$MCMC.params)
+
+# better ESS computations:
+ESS.bulk <- ess_bulk(as_draws(jm.out$jm$samples))
+ESS.tail <- ess_tail(as_draws(jm.out$jm$samples))
+
+
+# # need to turn zeros into NAs when there were no second station:
+# data.array <- jm.out$jags.input$jags.data$n
+# data.array[,2,which(jm.out$jags.input$jags.data$n.station == 1)] <- NA
+# data.array[,2,which(jm.out$jags.input$jags.data$n.station == 1)] <- NA
+# 
+# LOOIC.n <- compute.LOOIC(loglik.array = jm.out$jm$sims.list$log.lkhd,
+#                          MCMC.params = MCMC.params)
 
 # There are some (< 0.5%) bad ones. I should look at which ones are not fitting well.
 
@@ -151,9 +160,9 @@ if (grepl("a", ver)){
   # P.alpha and P.beta seem to be not behaving well - the right tails are not 
   # captured. 
   p.trace.hyper.params <- mcmc_trace(jm.out$jm$samples, c("S1.alpha", "S1.beta",
-                                                          "S2.alpha", "S2.beta",
+                                                          "S2.alpha", "S2.beta"))
                                                           #"P.alpha", "P.beta",
-                                                          "K.alpha", "K.beta"))
+                                                          #"K.alpha", "K.beta"))
   
 }
 

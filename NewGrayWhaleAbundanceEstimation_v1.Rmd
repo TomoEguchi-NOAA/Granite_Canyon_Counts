@@ -109,7 +109,7 @@ Durban et al. (2015) used the "cut" function within WinBUGS to dissociate estima
 
 ### Data {.unnumbered}
 
-A series of modifications to data colleciton methods was implemented from the 1967/1968 to 2006/2007 seasons (Laake et al. 2012). Starting in the 2010/2011 season, further modifications were implemented, using a computer to predict movements of gray whale pods, thereby increasing the likelihood of repeatedly observing the same pods and accurately determining the number of individuals in each pod. In Durban et al. (2015), they treated the data from previous years as incompatible in their analysis. Consequently, the subsequent analysis to estimate gray whale abundance used the data since the 2006/2007 season (e.g., Stewart and Weller 2021, Eguchi et al., 2022, 2023, 2024, 2025). Since the 2010/2011 season, no dual-observer survey has been conducted to estimate detection probability due to the logistical and financial constraints. Consequently, the data from the two seasons (i.e., 2009/2010 and 2010/2011 seasons) are the primary source of information for estimating detection probabilities. During several years before the 2006/2007 season, two observation stations were present. In those years, sightings of the same pods by two teams were used to estimate detection probabilities via the "capture-recapture" method. These sightings data can be used in the N-mixture framework by retaining the number of observed pods but disregarding the pod identity. In this paper, I used all the data from the 1967/1968 season by using flexible statistical models.
+A series of modifications to data colleciton methods was implemented from the 1967/1968 to 2006/2007 seasons (Laake et al. 2012). Starting in the 2010/2011 season, further modifications were implemented, using a computer to predict movements of gray whale groups, thereby increasing the likelihood of repeatedly observing the same groups and accurately determining the number of individuals in each group. In Durban et al. (2015), they treated the data from previous years as incompatible in their analysis. Consequently, the subsequent analysis to estimate gray whale abundance used the data since the 2006/2007 season (e.g., Stewart and Weller 2021, Eguchi et al., 2022, 2023, 2024, 2025). Since the 2010/2011 season, no dual-observer survey has been conducted to estimate detection probability due to the logistical and financial constraints. Consequently, the data from the two seasons (i.e., 2009/2010 and 2010/2011 seasons) are the primary source of information for estimating detection probabilities. During several years before the 2006/2007 season, two observation stations were present. In those years, sightings of the same groups by two teams were used to estimate detection probabilities via the "capture-recapture" method. These sightings data can be used in the N-mixture framework by retaining the number of observed groups but disregarding the group identity. In this paper, I used all the data from the 1967/1968 season by using flexible statistical models.
 
 ### New Modeling Approach {.unnumbered}
 
@@ -125,14 +125,14 @@ $$N = N_{min} + (N_{max} - N_{min}) * (M_1 * M_2)$$
 
 where $d > 0$ is the number of days since an arbitrary start date, $S_1 > 0$ and $S_2 > 0$ define how the slope decreases and increases, respectively, $K > 0$ defines the "flatness" at the peak of the function, $P_1$ and $P_2$ define where the peak is relative to the range of $d$, where $min(d) < P_1 <= P_2 < max(d)$, $N_{min}$ is the number of whales migrating outside of a migration season ($N_{min} = 0$), and $N_{max} >> N_{min}$. $N_{max}$ is not the maximum number of whales migrating per day, but it is a parameter that may be fixed or estimated during the analysis. Effects of these parameters on the shape of the equation are described in the Appendix. Hereafter, this function will be referred to as the Richards equation.
 
-I created eight versions of the Richards equation, based on how $P_1$, $P_2$, $S_1$, and $S_2$ were defined with respect to time (Table \@ref(tab:model-definition)). The $N_{max}$ parameter was assumed to be year-specific and $K$ was assumed to be constant across all years. Each parameter had a hyper-distribution of either a Gaussian, uniform, or gamma distribution. Uniform distributions were used for the prior distributions of hyperparameters (Appendix Table A`r run_reference("hyperparameter-table")`).
+I created eight versions of the Richards equation, based on how $P_1$, $P_2$, $S_1$, and $S_2$ were defined with respect to time (Table \@ref(tab:model-definition)). The $N_{max}$ parameter was assumed to be season-specific and $K$ was assumed to be constant across all seasons. Each parameter had a hyper-distribution of either a Gaussian, uniform, or gamma distribution. Uniform distributions were used for the prior distributions of hyperparameters (Appendix Table A`r run_reference("hyperparameter-table")`).
 
 ```{r model-definitions-table, echo=FALSE, message=FALSE}
 model.defs <- data.frame(ID = c(1:8),
-                         P1 = c(rep("Year", 4), rep("P[Year]", 4)),
-                         P2 = c(rep("Year", 4), rep("P[Year]", 4)),
-                         S1 = rep(c("Year", "Constant"), 4),
-                         S2 = rep(c("Year", "Constant", "Constant", "Year"), 2))
+                         P1 = c(rep("Season", 4), rep("P[Season]", 4)),
+                         P2 = c(rep("Season", 4), rep("P[Season]", 4)),
+                         S1 = rep(c("Season", "Constant"), 4),
+                         S2 = rep(c("Season", "Constant", "Constant", "Season"), 2))
 
 ft.models <- flextable(model.defs)
 header_labels <- list(
@@ -168,7 +168,7 @@ ft.models %>%
       "Definitions of eight models. Four parameters (P", as_sub("1"), 
       ", P", as_sub("2"), ", S", as_sub("1"), ", S", as_sub("2"), 
       ") were tested for time dependence. P", as_sub("1"), 
-      " = P", as_sub("2"), " = P[Year] means that there was one P for each year."),
+      " = P", as_sub("2"), " = P[Season] means that there was one P for each season."),
     fp_p = officer::fp_par(text.align = "left"),
     align_with_table = FALSE,
     autonum = run_autonum(
@@ -266,7 +266,7 @@ hyper.params %>%
 
 In the Durban et al. analysis, the annual migration at the survey station was defined as a 90-day period starting on December 1, with the number of passing whales assumed to be zero on days 1 and 90 (February 29th or March 1st). However, in some years, observations continued beyond March 1st. To incorporate all available data, I defined the annual migration period as 100 days (ending on March 10th or 11th), assuming the number of passing whales was zero on days 1 and 100 ($max(d) = 100$).
 
-The new approach was used to analyze the entire dataset from the 1967/1968 season onward, and the results were compared to the estimates reported in Eguchi et al. (2025). In order to apply the new approach to historical data, sighting data between the 1967/1968 and 2006/2007 seasons were obtained from the *ERAnalysis* package (<https://github.com/jlaake/ERAnalysis>, Laake 2012). An R script was written to convert the historical sightings data in the package to an input object required for the new analysis. Data from the 2007/2008 season to the 2024/2025 season were extracted from raw data files using another R script. All shifts of at least 60 minutes with the Beaufort sea state of \< 5 and the visibility code of \< 5 were included in the analysis. Laake et al.’s approach was applied to the entire dataset after formatting new data from the 2007/2008 season into the input object. Because no information was available to match sightings of pods between the two stations in the 2009/2010 and 2010/2011 seasons, a correction factor, i.e., a multiplier to convert “naïve” to “corrected,” which accounted for missed pods by the primary observer, from double-observer years, was applied. 
+The new approach was used to analyze the entire dataset from the 1967/1968 season onward, and the results were compared to the estimates reported in Eguchi et al. (2025). In order to apply the new approach to historical data, sighting data between the 1967/1968 and 2006/2007 seasons were obtained from the *ERAnalysis* package (<https://github.com/jlaake/ERAnalysis>, Laake 2012). An R script was written to convert the historical sightings data in the package to an input object required for the new analysis. Data from the 2007/2008 season to the 2024/2025 season were extracted from raw data files using another R script. All shifts of at least 60 minutes with the Beaufort sea state of \< 5 and the visibility code of \< 5 were included in the analysis. Laake et al.’s approach was applied to the entire dataset after formatting new data from the 2007/2008 season into the input object. Because no information was available to match sightings of groups between the two stations in the 2009/2010 and 2010/2011 seasons, a correction factor, i.e., a multiplier to convert “naïve” to “corrected,” which accounted for missed groups by the primary observer, from double-observer years, was applied. 
 
 The new models were fitted to the data using JAGS (Plummer) in the R statistical environment, using the *jagsUI* package (Kellner 2024). For each model, five MCMC chains were run for 550,000 steps each. The first 500,000 samples of each chain were discarded as “burn-in.” The remaining posterior samples were thinned by taking every 100 samples, resulting in 2500 posterior samples for inference. The convergence of MCMC was assessed using the rank-normalized `r R_hat` statistic [@vehtari2021]. Goodness-of-fit was determined via Pareto-k statistics [@vehtari_practical_2017] implemented in the *loo* package (Vehtari et al. 2024). The performance of models was compared using the LOOIC (Leave-One-Out Information Criteria) statistic via the *loo* and *rstanarm* (Goodrich et al. 2024) packages.
 
@@ -330,6 +330,7 @@ prop.big.Rhat <- n.params <- n.big.Rhat <- n.bad.Pareto <- prop.bad.Pareto <- LO
 # d.t <- Sys.time() - t.1  # 1.70 min
 
 #t.2 <- Sys.time()
+k <- 5
 for (k in 1:length(model.names)){
   .out <- readRDS(paste0("RData/JAGS_Richards_Nmixture_v", 
                          model.names[k], "a_1968to2025_min", 
@@ -432,6 +433,13 @@ jm.out <- readRDS(paste0("RData/JAGS_Richards_Nmixture_v",
 LOOIC.n <- compute.LOOIC(loglik.array = jm.out$jm$sims.list$log.lkhd,
                          MCMC.params = jm.out$MCMC.params)
 
+# Determine effective sample sizes
+ESS <- coda::effectiveSize(jm.out$jm$samples)
+
+# better ESS computations:
+ESS.bulk <- ess_bulk(as_draws(jm.out$jm$samples))
+ESS.tail <- ess_tail(as_draws(jm.out$jm$samples))
+
 # Match Pareto-k and data. Note that days 1 and 100 should be removed.
 n.array <- jm.out$jags.input$jags.data$n
 days <- jm.out$jags.input$jags.data$day
@@ -476,6 +484,10 @@ p.Pareto.k <- ggplot(Pareto.df ) +
 new.Rhat <- rank.normalized.R.hat(jm.out$jm$samples, params.2)
 max.Rhat.big <- new.Rhat[which(new.Rhat > 1.01)]
 params.Rhat.big <- names(max.Rhat.big)
+ESS.Rhat.big <- ESS[params.Rhat.big]
+
+ESS.small <- ESS[ESS < 400]
+Rhat.ESS.small <- new.Rhat[names(ESS.small)]
 
 p.trace.1 <- mcmc_trace(jm.out$jm$samples, 
                         pars = params.Rhat.big[1:25])
@@ -488,34 +500,41 @@ p.trace.3 <- mcmc_trace(jm.out$jm$samples,
 
 if (save.fig) {
   save.fig.fcn(fig = p.trace.1, 
-               file.name = "figures/M5_trace_1.png", 
+               file.name = paste0("figures/M", ver, "_trace_1.png"), 
                replace = T, 
                dpi = dpi.set, device = "png",
                height = 10, width = 10, units = "in",
                bg = "white")
   
   save.fig.fcn(fig = p.trace.2, 
-               file.name = "figures/M5_trace_2.png", 
+               file.name = paste0("figures/M", ver, "_trace_2.png"), 
                replace = T, 
                dpi = dpi.set, device = "png",
                height = 10, width = 10, units = "in",
                bg = "white")
 
   save.fig.fcn(fig = p.trace.3, 
-               file.name = "figures/M5_trace_3.png", 
+               file.name = paste0("figures/M", ver, "_trace_3.png"), 
                replace = T, 
                dpi = dpi.set, device = "png",
                height = 10, width = 10, units = "in",
                bg = "white")
   
   save.fig.fcn(fig = p.Pareto.k, 
-               file.name = "figures/High_Pareto_k.png", 
+               file.name = paste0("figures/High_Pareto_k_M", ver, ".png"), 
                replace = T, 
                dpi = dpi.set, device = "png",
                height = 10, width = 10, units = "in",
                bg = "white")
   
 }
+
+# Look at correlations between B0 and other coefficients:
+mean.prob.col <- grep("mean.prob", dimnames(jm.out$jm$samples[[1]]))
+mean.prob.samples <- lapply(jm.out$jm$samples, FUN = function(x){x[, mean.prob.col]})
+mean.prob.p.samples <- lapply(mean.prob.samples, FUN = function(x){1/(1 + exp(-x))})
+
+
 
 all.start.year <- c(jm.out$jags.input$jags.input.Laake$all.start.year,
                     jm.out$jags.input$jags.input.new$start.years)
@@ -606,6 +625,9 @@ Reported.estimates <- read.csv(file = "Data/Nhats_2025.csv") %>%
   arrange(start.year) %>%
   relocate(Method, .after = start.year)
 ```
+
+Effective sample sizes (ESS) for the best model (Model `r ver`) with large rank-normalized Rhat statistics ranged from `r min(ESS.Rhat.big)` to `r max(ESS.Rhat.big)`, with the mean of `r mean(ESS.Rhat.big` and SD of `r sqrt(var(ESS.Rhat.big))`. Although `r length(ESS.Rhat.big < 400)` ESS were small (ESS < 400), visual inspections of trace plots indicated acceptable convergence of posterior samples (Appendix Figures `r officer::run_word_field("REF Figure-trace-1 \\h")`, `r officer::run_word_field("REF Figure-trace-2 \\h")`, and `r officer::run_word_field("REF Figure-trace-3 \\h")`). High Rhat statistics were found for Max (n = `r length(grep("Max", names(ESS.Rhat.big)))`), S1 (n = `r length(grep("S1", names(ESS.Rhat.big)))`), S2 (n = `r length(grep("S2", names(ESS.Rhat.big)))`), P (n = `r length(grep("P\\[", names(ESS.Rhat.big)))`), and the observer random effects (n = `r length(grep("OBS.RF", names(ESS.Rhat.big)))`). 
+
 
 ```{r Winbugs-results, echo=F,message=FALSE}
 #WinBugs.run.date <- "2025-04-11"
@@ -789,8 +811,13 @@ tmp.1[grep("NA", tmp.1$Method1) & tmp.1$start.year > 2007, "Method1"] <- "Durban
 tmp.1 %>%
   select(Season, Nhat, LCL, UCL, start.year, Method1) %>%
   rename(Method = Method1) %>% #-> tmp.2
-  rbind(Laake.abundance.new %>% filter(start.year > 2006)) %>%
-  rbind(Nhat.) -> all.estimates
+  rbind(Laake.abundance.new %>% 
+          filter(start.year > 2006)) %>%
+  rbind(Nhat.) %>%
+  mutate(Method2 = factor(Method, levels = c("Laake", "Durban", "Eguchi M5"))) %>%
+  select(Season, Nhat, LCL, UCL, start.year, Method2) %>%
+  rename(Method = Method2) -> all.estimates
+
 #  rbind(spline.Nhat) 
   #rbind(Reported.estimates %>% na.omit()) -> all.estimates
 
@@ -994,7 +1021,9 @@ pred.data.2006 %>%
          lower_CI = gam.preds.2006.Durban$fit - (1.96 * SE),
          Method = "Durban") -> pred.2006.Durban
 
-pred.2006 <- rbind(pred.2006.Eguchi, pred.2006.Durban, pred.2006.Laake) 
+pred.2006 <- rbind(pred.2006.Eguchi, pred.2006.Durban, pred.2006.Laake) %>%
+  rename(Method1 = Method) %>%
+  mutate(Method = factor(Method1, levels = c("Laake", "Durban", paste0("Eguchi M", ver))))
   #mutate(method.f = as.factor(method))
 
 pred.data.all %>%
@@ -1011,7 +1040,9 @@ pred.data.all %>%
          lower_CI = gam.preds.all.Laake$fit - (1.96 * SE),
          Method = "Laake") -> pred.all.Laake
 
-pred.all <- rbind(pred.all.Eguchi, pred.all.Laake) 
+pred.all <- rbind(pred.all.Eguchi, pred.all.Laake) %>%
+  rename(Method1 = Method) %>%
+  mutate(Method = factor(Method1, levels = c("Laake", paste0("Eguchi M", ver))))
 
 
 p.gam.2006.fit <- ggplot(data = pred.2006) +

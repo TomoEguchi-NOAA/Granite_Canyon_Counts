@@ -109,7 +109,8 @@ model{
 	# becomes large. 
 	
 	# It doesn't make sense to make it [0,1]...
-	mean.prob ~ dunif(-1.5, 3) 
+	# changed to dnorm following suggestions by Gemini 2026-02-03
+	mean.prob ~ dnorm(0.5, 1)  #dunif(-1.5, 3) 
 	
 	# priors for Richards function parameters. 
 	for (y in 1:n.year){
@@ -121,25 +122,34 @@ model{
 
 	# Uniform distributions were adjusted to capture entire posterior 
 	# distributions of the hyper-parameters. 
+	S1.alpha ~ dnorm(10, 0.1)  #dunif(0.1, 50)
+	S1.beta ~ dgamma(1, 1)   #dunif(0.01, 5)
+	
+	S2.alpha ~ dnorm(10, 0.1)  #dunif(0.1, 50)
+	S2.beta ~ dgamma(1, 1)     #dunif(0.01, 10)
+	
 	S1 ~ dgamma(S1.alpha, S1.beta)  
 	S2 ~ dgamma(S2.alpha, S2.beta)  
 	
-	S1.alpha ~ dunif(0.1, 50)
-	S1.beta ~ dunif(0.01, 5)
+	#S1.alpha ~ dunif(0.1, 50)
+	#S1.beta ~ dunif(0.01, 5)
 	
-	S2.alpha ~ dunif(0.1, 50)
-	S2.beta ~ dunif(0.01, 10)
+	#S2.alpha ~ dunif(0.1, 50)
+	#S2.beta ~ dunif(0.01, 10)
 	
 	#P.alpha ~ dunif(1, 10000)
 	#P.beta ~ dunif(0.01, 250)
 	
-	K ~ dgamma(K.alpha, K.beta) 
+	# Change in the K parameter prior 2026-02-03
+	K ~ dgamma(2, 1)   # or dlnorm(0, 1)
+	
+	#K ~ dgamma(K.alpha, K.beta) 
 	
 	# K.beta <= K.alpha seems to work better with the gamma distribution for K
 	# So, I add a random number to K.beta to create K.alpha
-	K.beta ~ dunif(0, 5000)
-	K.unif ~ dunif(0, 500)
-	K.alpha <- K.beta + K.unif
+	#K.beta ~ dunif(0, 5000)
+	#K.unif ~ dunif(0, 500)
+	#K.alpha <- K.beta + K.unif
 	     
 	## Observer random effects
 	for(o in 1:n.obs){
@@ -150,8 +160,11 @@ model{
 	tau.Obs <- pow(sigma.Obs,-2)
      
 	## Beaufort and visibility	
-	BF.Fixed ~ dnorm(0,0.001) 
-	VS.Fixed ~ dnorm(0,0.001) 
+	## The precision parameters were changed from 0.001 to 0.25 2026-02-03
+	BF.Fixed ~ dnorm(0,0.25) 
+	VS.Fixed ~ dnorm(0,0.25) 
+	#BF.Fixed ~ dnorm(0,0.001) 
+	#VS.Fixed ~ dnorm(0,0.001) 
   
 	### Summaries, Abundance Estimates, and Other Derived Quantities 
 	for(t in 1:n.year){
