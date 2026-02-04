@@ -30,11 +30,13 @@
 # Bayes approach. Biometrika 75:223-228), I use a Poisson distribution as the prior
 # for N. 
 #
-# This version (v18) has year spcific S2, P1 and P2 parameters with hyperparameters.
-# S1 and K are shared among years.
+# This version (v17) has year spcific S1, P1 and P2 parameters with hyperparameters.
+# S2, and K are shared among years.
 #
-# This v18a version uses watch.length as an offset in the logit(obs.prob) and eliminated
+# This v17a version uses watch.length as an offset in the logit(obs.prob) and eliminated
 # the intermediate prob[(d-1), s, y].
+#
+# v17a1 uses suggestions from Gemini and Claude to improve mixing and convergence. 
 #
 # 2024-07-09: It allows different numbers of sampling periods between primary
 # and secondary sampling stations. 
@@ -54,8 +56,8 @@ model{
 		for (t in 2:(n.days-1)){
 			# year-specific K - results in conversion issues. 2022-11-09 
 			# This was fixed by adding hyperparameters. 2024
-			M1[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/(-S1)) * (P1[y] - t))) ^ (-1/exp(K))
-			M2[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/S2[y]) * (P2[y] - t))) ^ (-1/exp(K))
+			M1[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/(-S1[y])) * (P1[y] - t))) ^ (-1/exp(K))
+			M2[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/S2) * (P2[y] - t))) ^ (-1/exp(K))
 			
 			mean.N[t, y] <- (Max[y]) * (M1[t, y] * M2[t, y]) 
 			
@@ -100,7 +102,7 @@ model{
 			}
 		}
 	}
-	
+		
 	# one mean.prob for the entire time series may not make sense.  
 	# Year-specific mean.prob (intercept) doesn't work so well probably because some years
 	# don't have enough data points. It becomes so small and the estimated abundance
@@ -113,8 +115,8 @@ model{
 	# priors for Richards function parameters. 
 	for (y in 1:n.year){
 		Max[y] ~ dnorm(2000, 1/(800^2))T(0,)
-		S2[y] ~ dgamma(S2.alpha, S2.beta)  
-
+		S1[y] ~ dgamma(S1.alpha, S1.beta)  
+		
 		P1[y] ~ dunif(30, 60) #dgamma(P.alpha, P.beta) 	
 		P2.U[y] ~ dunif(0.001, 5)
 		P2[y] <- P1[y] + P2.U[y]		
@@ -122,8 +124,7 @@ model{
 
 	# Uniform distributions were adjusted to capture entire posterior 
 	# distributions of the hyper-parameters. 
-
-	S1 ~ dgamma(S1.alpha, S1.beta)  
+	S2 ~ dgamma(S2.alpha, S2.beta)  
 	
 	# Hyper parameters for S1 and S2 were changed following suggestions by Gemini 2026-02-03
 	S1.alpha ~ dnorm(10, 0.1)  #dunif(0.1, 50)
@@ -132,24 +133,25 @@ model{
 	S2.alpha ~ dnorm(10, 0.1)  #dunif(0.1, 50)
 	S2.beta ~ dgamma(1, 1)     #dunif(0.01, 10)
 		
-	# Change in the K parameter prior 2026-02-03
+	# Gemini: Change in the K parameter prior 2026-02-03
 	K ~ dgamma(2, 1)   # or dlnorm(0, 1)
-	#K ~ dgamma(K.alpha, K.beta) 
-		     
+	     
 	## Observer random effects
 	for(o in 1:n.obs){
-		OBS.RF[o] ~ dnorm(0,tau.Obs)
+		#OBS.RF[o] ~ dnorm(0,tau.Obs)
+		## Claude 
+		OBS.RF.raw[o] ~ dnorm(0, 1)  
+		OBS.RF[o] <- OBS.RF.raw[o] * sigma.Obs
+		## Claude
 	}#o
   
 	sigma.Obs ~ dunif(0, 3) #dgamma(1, 0.1)
 	tau.Obs <- pow(sigma.Obs,-2)
      
 	## Beaufort and visibility	
-	## The precision parameters were changed from 0.001 to 0.25 2026-02-03
+	## Gemini: The precision parameters were changed from 0.001 to 0.25 2026-02-03
 	BF.Fixed ~ dnorm(0,0.25) 
 	VS.Fixed ~ dnorm(0,0.25) 
-	#BF.Fixed ~ dnorm(0,0.001) 
-	#VS.Fixed ~ dnorm(0,0.001) 
   
 	### Summaries, Abundance Estimates, and Other Derived Quantities 
 	for(t in 1:n.year){

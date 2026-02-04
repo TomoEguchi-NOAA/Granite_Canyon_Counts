@@ -36,6 +36,8 @@
 # This v18a version uses watch.length as an offset in the logit(obs.prob) and eliminated
 # the intermediate prob[(d-1), s, y].
 #
+# v18a1 uses suggestions from Gemini and Claude to improve mixing and convergence. 
+#
 # 2024-07-09: It allows different numbers of sampling periods between primary
 # and secondary sampling stations. 
 #
@@ -138,7 +140,11 @@ model{
 		     
 	## Observer random effects
 	for(o in 1:n.obs){
-		OBS.RF[o] ~ dnorm(0,tau.Obs)
+		#OBS.RF[o] ~ dnorm(0,tau.Obs)
+		## Claude 
+		OBS.RF.raw[o] ~ dnorm(0, 1)  
+		OBS.RF[o] <- OBS.RF.raw[o] * sigma.Obs
+		## Claude
 	}#o
   
 	sigma.Obs ~ dunif(0, 3) #dgamma(1, 0.1)

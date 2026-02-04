@@ -44,7 +44,7 @@ jags.params <- c("VS.Fixed", "BF.Fixed",
                  "S1.alpha", "S2.alpha",
                  "S1.beta", "S2.beta",
                  #"P.alpha", "P.beta",
-                 "K.alpha", "K.beta",
+                 #"K.alpha", "K.beta",
                  #"beta.1",
                  #"N.alpha", "N.obs",
                  "log.lkhd")

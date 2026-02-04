@@ -7,15 +7,14 @@
 #
 # The function has the following form:
 # 
-# M1 <- (1 + (2 * exp(K) - 1) * exp((1/S1) * (P1 - d))) ^ (-1/exp(K))
-# M2 <- (1 + (2 * exp(K) - 1) * exp((1/S2) * (P2 - d))) ^ (-1/exp(K))
+# M1 <- (1 + (2 * exp(K) - 1) * exp((1/S1) * (P - d))) ^ (-1/exp(K))
+# M2 <- (1 + (2 * exp(K) - 1) * exp((1/S2) * (P - d))) ^ (-1/exp(K))
 # N <- min + (max - min) * (M1 * M2)
 #
 # d is the number of days from the beginning of migration season
 # S1 < 0 and S2 > 0 define the "fatness" of the function
 # K > 0 defines the "flatness" at the peak of the function
-# P1 and P2 define where the peak is relatvie to the range of d min(d) < P < max(d),
-# where P1 < P2
+# P defines where the peak is relatvie to the range of d min(d) < P < max(d)
 # min is "the basal level of the number of whales outside the migration season"
 # max > min
 #
@@ -30,11 +29,13 @@
 # Bayes approach. Biometrika 75:223-228), I use a Poisson distribution as the prior
 # for N. 
 #
-# This version (v18) has year spcific S2, P1 and P2 parameters with hyperparameters.
+# This version (v20) has year spcific P and S2 parameters with hyperparameters.
 # S1 and K are shared among years.
 #
-# This v18a version uses watch.length as an offset in the logit(obs.prob) and eliminated
+# This v20a version uses watch.length as an offset in the logit(obs.prob) and eliminated
 # the intermediate prob[(d-1), s, y].
+#
+# v20a1 uses suggestions from Gemini and Claude to improve mixing and convergence. 
 #
 # 2024-07-09: It allows different numbers of sampling periods between primary
 # and secondary sampling stations. 
@@ -54,8 +55,8 @@ model{
 		for (t in 2:(n.days-1)){
 			# year-specific K - results in conversion issues. 2022-11-09 
 			# This was fixed by adding hyperparameters. 2024
-			M1[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/(-S1)) * (P1[y] - t))) ^ (-1/exp(K))
-			M2[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/S2[y]) * (P2[y] - t))) ^ (-1/exp(K))
+			M1[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/(-S1)) * (P[y] - t))) ^ (-1/exp(K))
+			M2[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K))
 			
 			mean.N[t, y] <- (Max[y]) * (M1[t, y] * M2[t, y]) 
 			
@@ -65,7 +66,7 @@ model{
 			
 		}
 	}  
-	
+
 	# observations are from the realized abundance: N-mixture part with 
 	# binomial sampling
 	
@@ -88,8 +89,6 @@ model{
 				n[d, s, y] ~ dbin(obs.prob[d,s,y], N[day[d,s,y], y])
 				log.lkhd[(d-1),s,y] <- logdensity.bin(n[d,s,y], obs.prob[d, s, y], N[day[d,s,y], y])
 				
-				# probability is discounted by the length of each watch period
-				# obs.prob[d, s, y] <- prob[(d-1), s, y] * watch.length[(d-1), s, y]
 				# probability is mean + covariate effects and watch.length as an offset
 				logit(obs.prob[d,s,y]) <- mean.prob +
 								(BF.Fixed * bf[(d-1),s,y]) +
@@ -100,7 +99,7 @@ model{
 			}
 		}
 	}
-	
+		
 	# one mean.prob for the entire time series may not make sense.  
 	# Year-specific mean.prob (intercept) doesn't work so well probably because some years
 	# don't have enough data points. It becomes so small and the estimated abundance
@@ -113,16 +112,13 @@ model{
 	# priors for Richards function parameters. 
 	for (y in 1:n.year){
 		Max[y] ~ dnorm(2000, 1/(800^2))T(0,)
+		P[y] ~ dunif(30, 60) #dgamma(P.alpha, P.beta) 	
 		S2[y] ~ dgamma(S2.alpha, S2.beta)  
-
-		P1[y] ~ dunif(30, 60) #dgamma(P.alpha, P.beta) 	
-		P2.U[y] ~ dunif(0.001, 5)
-		P2[y] <- P1[y] + P2.U[y]		
+	
 	}
 
 	# Uniform distributions were adjusted to capture entire posterior 
 	# distributions of the hyper-parameters. 
-
 	S1 ~ dgamma(S1.alpha, S1.beta)  
 	
 	# Hyper parameters for S1 and S2 were changed following suggestions by Gemini 2026-02-03
@@ -131,14 +127,18 @@ model{
 	
 	S2.alpha ~ dnorm(10, 0.1)  #dunif(0.1, 50)
 	S2.beta ~ dgamma(1, 1)     #dunif(0.01, 10)
-		
+	
 	# Change in the K parameter prior 2026-02-03
 	K ~ dgamma(2, 1)   # or dlnorm(0, 1)
 	#K ~ dgamma(K.alpha, K.beta) 
-		     
+	
 	## Observer random effects
 	for(o in 1:n.obs){
-		OBS.RF[o] ~ dnorm(0,tau.Obs)
+		#OBS.RF[o] ~ dnorm(0,tau.Obs)
+		## Claude 
+		OBS.RF.raw[o] ~ dnorm(0, 1)  
+		OBS.RF[o] <- OBS.RF.raw[o] * sigma.Obs
+		## Claude
 	}#o
   
 	sigma.Obs ~ dunif(0, 3) #dgamma(1, 0.1)
