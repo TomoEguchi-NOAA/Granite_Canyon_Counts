@@ -559,10 +559,11 @@ Jags_Richards_Since2010_fcn <- function(min.dur, max.day = 90, ver, years, data.
 #                     obs.n.min = 10)     
 #                     
 NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC.params, max.day = 100, obs.n.min = 10, Run.date = Sys.Date()){
-  print("Starting NoBUGS_Richards_fcn")
   
   #Run.date <- Sys.Date()
   model.name <- paste0("Richards_Nmixture_", ver) 
+  print(paste0("Starting NoBUGS_Richards_fcn at ", Sys.time(), " for Model: ", model.name))
+  
   jags.model <- paste0("models/model_", model.name, ".txt")
   
   out.file.name <- paste0("RData/JAGS_", model.name, 
@@ -610,6 +611,24 @@ NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC
     #jags.data$scaled.day <- jags.data$day-(max.day/2)
     #jags.data["N"] <- NULL
     ###  ###  ###
+    
+    # center and scale VS and BF
+    vs.std <- jags.data$vs
+    for (k in 1:dim(vs.std)[3]){
+      vs.std[,1,k] <- (vs.std[,1,k] - mean(vs.std[,1,k], na.rm = T))/sqrt(var(vs.std[,1,k], na.rm = T))
+      vs.std[,2,k] <- (vs.std[,2,k] - mean(vs.std[,2,k], na.rm = T))/sqrt(var(vs.std[,2,k], na.rm = T))
+    }
+    
+    bf.std <- jags.data$bf
+    for (k in 1:dim(bf.std)[3]){
+      bf.std[,1,k] <- (bf.std[,1,k] - mean(bf.std[,1,k], na.rm = T))/sqrt(var(bf.std[,1,k], na.rm = T))
+      bf.std[,2,k] <- (bf.std[,2,k] - mean(bf.std[,2,k], na.rm = T))/sqrt(var(bf.std[,2,k], na.rm = T))
+    }
+    
+    jags.data$bf.1 <- jags.data$bf
+    jags.data$bf <- bf.std
+    jags.data$vs.1 <- jags.data$vs
+    jags.data$vs <- vs.std
     
     jags.input <- list(jags.data = jags.data,
                        min.dur = min.dur, 

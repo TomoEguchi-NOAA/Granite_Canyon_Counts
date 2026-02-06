@@ -93,8 +93,14 @@ model{
 				logit(obs.prob[d,s,y]) <- mean.prob +
 								(BF.Fixed * bf[(d-1),s,y]) +
 								(VS.Fixed * vs[(d-1),s,y]) +
-								(OBS.RF[obs[d,s,y]]) +
+				#				(OBS.RF[obs[d,s,y]]) +
 								log(watch.length[(d-1), s, y])
+								
+				# REMOVE 'mean.prob' from here because it's already inside 'beta.obs'
+				#logit(obs.prob[d,s,y]) <- beta.obs[obs[d,s,y]] + 
+                #        (BF.Fixed * bf[(d-1),s,y]) +
+                #        (VS.Fixed * vs[(d-1),s,y]) +
+                #        log(watch.length[(d-1), s, y])
 
 			}
 		}
@@ -107,21 +113,41 @@ model{
 	
 	# It doesn't make sense to make it [0,1]...
 	# changed to dnorm following suggestions by Gemini 2026-02-03
-	mean.prob ~ dnorm(0.5, 1)  #dunif(-1.5, 3)  
+	#mean.prob ~ dnorm(0.5, 1)  #dunif(-1.5, 3)  
 	
 	# priors for Richards function parameters. 
-	for (y in 1:n.year){
-		Max[y] ~ dnorm(2000, 1/(800^2))T(0,)
-		P[y] ~ dunif(30, 60) #dgamma(P.alpha, P.beta) 	
+	# Max is an AR(1) parameter 2026-02-06
+	mu.log.Max ~ dnorm(7.6, 0.25) # Centered on ~2000
+    rho.Max ~ dunif(-1, 1)
+    sd.proc.Max ~ dnorm(0, 1)T(0,)
+    tau.proc.Max <- pow(sd.proc.Max, -2)
+
+    log.Max[1] ~ dnorm(mu.log.Max, tau.proc.Max)
+    Max[1] <- exp(log.Max[1])
+	
+	# Peak for the first year:
+	mu.P ~ dunif(30, 60)
+	rho.P ~ dunif(-1,1)
+	sd.proc.P ~ dnorm(0, 1)T(0,)
+	tau.proc.P <- pow(sd.proc.P, -2)
+	
+	P[1] ~ dnorm(mu.P, tau.proc.P) #dunif(30, 60) #dgamma(P.alpha, P.beta) 	
+	for (y in 2:n.year){
+		P.mean[y] <- mu.P + rho.P * (P[y-1] - mu.P)
+		P[y] ~ dnorm(P.mean[y], tau.proc.P)
+		
+		log.Max.mean[y] <- mu.log.Max + rho.Max * (log.Max[y-1] - mu.log.Max)
+        log.Max[y] ~ dnorm(log.Max.mean[y], tau.proc.Max)
+        Max[y] <- exp(log.Max[y]) 
 	}
 
 	# Uniform distributions were adjusted to capture entire posterior 
 	# distributions of the hyper-parameters. 
 	# Hyper parameters for S1 and S2 were changed following suggestions by Gemini 2026-02-03
-	S1.alpha ~ dnorm(10, 0.1)  #dunif(0.1, 50)
+	S1.alpha ~ dnorm(10, 0.1)T(0,)  #dunif(0.1, 50)
 	S1.beta ~ dgamma(1, 1)   #dunif(0.01, 5)
 	
-	S2.alpha ~ dnorm(10, 0.1)  #dunif(0.1, 50)
+	S2.alpha ~ dnorm(10, 0.1)T(0,)  #dunif(0.1, 50)
 	S2.beta ~ dgamma(1, 1)     #dunif(0.01, 10)
 	
 	S1 ~ dgamma(S1.alpha, S1.beta)  
@@ -129,18 +155,20 @@ model{
 		
 	# Change in the K parameter prior 2026-02-03
 	K ~ dgamma(2, 1)   # or dlnorm(0, 1)
-	     
-	## Observer random effects
+
+	# Hierarchical centering option by Gemini:
+	# 1. Priors
+	# Precision 0.1 = Variance 10 = SD 3.16
+	# comfortably covers the range -6 to +6
+	mean.prob ~ dnorm(0, 0.1)
+	sigma.Obs ~ dnorm(0, 1) T(0,)
+	tau.Obs <- pow(sigma.Obs, -2)
+
+	# 2. Observer Effects drawn directly from the Mean
 	for(o in 1:n.obs){
-		#OBS.RF[o] ~ dnorm(0,tau.Obs)
-		## Claude 
-		OBS.RF.raw[o] ~ dnorm(0, 1)  
-		OBS.RF[o] <- OBS.RF.raw[o] * sigma.Obs
-		## Claude
-	}#o
-  
-	sigma.Obs ~ dunif(0, 3) #dgamma(1, 0.1)
-	tau.Obs <- pow(sigma.Obs,-2)
+		# Each observer is a draw from the global population
+		beta.obs[o] ~ dnorm(mean.prob, tau.Obs) 
+	}
      
 	## Beaufort and visibility	
 	## Gemini: The precision parameters were changed from 0.001 to 0.25 2026-02-03
@@ -149,9 +177,6 @@ model{
   
 	### Summaries, Abundance Estimates, and Other Derived Quantities 
 	for(t in 1:n.year){
-		#N is Poisson deviates so they should be integers
-		#raw.unrounded[t] <- sum(N[1:n.days,t])
-		#Raw.Est[t] <- round(raw.unrounded[t])
 		
 		Raw.Est[t] <- sum(N[1:n.days, t])
 		# multiply raw estimates by correction factor for nighttime passage rates (below)

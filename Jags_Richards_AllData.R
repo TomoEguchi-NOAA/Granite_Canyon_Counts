@@ -27,6 +27,7 @@ library(tidyverse)
 library(ggplot2)
 library(loo)
 library(bayesplot)
+library(posterior)
 
 source("Granite_Canyon_Counts_fcns.R")
 options(mc.cores = 5)
@@ -40,7 +41,7 @@ Run.date <- "2025-06-24" #Sys.Date() #"2025-04-21" #"2025-04-17" #
 # Minimum length of observation periods in minutes
 min.dur <- 60 #10 #85 #
 
-ver <- "v5a" #"v2a" # "v15a" # "v16a" # "v17a" # "v18a" # "v19a" # "v20a" #
+ver <- "v16a1"  #"v5a1" #"v2a" # "v15a" # "v16a" # "v17a" # "v18a" # "v19a" # "v20a" #
 
 # These are the ending year of each season - for example, 2022 in the following vector indicates
 # for the 2021/2022 season. These data were extracted using Extract_Data_All_v2.Rmd
@@ -83,8 +84,13 @@ max.day <- 100
 # 
 MCMC.params <- list(n.samples = 10000,
                     n.thin = 10,
-                    n.burnin = 500,
+                    n.burnin = 5000,
                     n.chains = 5)
+
+# MCMC.params <- list(n.samples = 100,
+#                     n.thin = 2,
+#                     n.burnin = 50,
+#                     n.chains = 5)
 
 jags.params <- c("VS.Fixed", "BF.Fixed",
                  "Max", "K", "K1", "K2", "S1", "S2", "P",
@@ -95,8 +101,11 @@ jags.params <- c("VS.Fixed", "BF.Fixed",
                  "Max.alpha", "Max.beta",
                  "S1.alpha", "S2.alpha",
                  "S1.beta", "S2.beta",
+                 "mu.P", "raw.P", "sd.proc.P",
+                 "mu.log.Max", "rho.Max", "sd.proc.Max",
+                 "Raw.Est",
                  #"P.alpha", "P.beta",
-                 "K.alpha", "K.beta",
+                 #"K.alpha", "K.beta",
                  #"beta.1",
                  #"N.alpha", "N.obs",
                  "log.lkhd")
@@ -126,9 +135,53 @@ LOOIC.n <- compute.LOOIC(loglik.array = jm.out$jm$sims.list$log.lkhd,
                          MCMC.params = jm.out$MCMC.params)
 
 # better ESS computations:
-ESS.bulk <- ess_bulk(as_draws(jm.out$jm$samples))
-ESS.tail <- ess_tail(as_draws(jm.out$jm$samples))
+post <- as_draws(jm.out$jm$samples)
+summary.posterior <- summarise_draws(post)
 
+summary.posterior %>%
+  select(variable, ess_bulk) %>%
+  na.omit() %>%
+  arrange(ess_bulk) -> ESS.bulk
+
+summary.posterior %>%
+  select(variable, ess_tail) %>%
+  na.omit() %>%
+  arrange(ess_tail) -> ESS.tail
+
+mcmc_pairs(jm.out$jm$samples, pars = c("S1", "S2", "P[1]", "K", "Max[1]"))
+mcmc_pairs(jm.out$jm$samples, pars = c("S1[1]", "S2[1]", "P[1]", "K", "Max[1]"))
+
+# Turns out, Ns and mean.Ns are the problems. 
+# According to Claude:
+# 1. High-dimensional (n.days × n.years = potentially thousands of parameters)
+# 2. Constrained by both the Richards curve (mean.N) AND the observations (n)
+# 3. Only partially observed through binomial sampling
+
+# When obs.prob is low or observations are sparse, N can be poorly identified and mix slowly.
+# Check pattern in ESS
+summ <- summarise_draws(post)
+
+# Filter for N parameters
+n_params <- summ[grepl("^N\\[", summ$variable), ]
+n_params_sorted <- n_params[order(n_params$ess_bulk), ]
+
+# Look at worst 20
+print(n_params_sorted[1:30, c("variable", "ess_bulk", "ess_tail")])
+
+# Are they clustered at certain days or years?
+
+# Check S1, S2, P, K, Max
+richards_params <- summ[grepl("^(S1|S2|P|K|Max)\\[", summ$variable), ]
+summary(richards_params$ess_bulk)
+
+# They are both not very good. But, N[,30] are worse than others:
+n.30 <- jm.out$jags.input$jags.data$n[,,30]
+day.30 <- jm.out$jags.input$jags.data$day[,,30]
+
+n.by.year <- colSums(as.matrix(jm.out$jags.input$jags.data$n[,1,]), na.rm = T)
+
+effort.30 <- jm.out$jags.input$jags.data$watch.length[,,30]
+effort.by.year <- colSums(as.matrix(jm.out$jags.input$jags.data$watch.length[,1,]), na.rm = T)
 
 # # need to turn zeros into NAs when there were no second station:
 # data.array <- jm.out$jags.input$jags.data$n
@@ -185,6 +238,7 @@ P.trace <- P.trace.plots(ver = ver,
 
 
 # Max trace plots
+par.idx = c(1:jm.out$jags.input$jags.data$n.year)
 p.trace.Max <- mcmc_trace(jm.out$jm$samples, paste0("Max[", par.idx, "]"))
 high.Rhat.Max <- high.Rhat(new.Rhat[grep("Max", names(new.Rhat))],
                            start.year = all.start.year)
@@ -227,196 +281,196 @@ p.daily.Richards <- ggplot(N.hats.day %>% group_by(Season)) +
 # were collected. I should use the output from the most recent WinBUGS run for 
 # the last x years.
 #Reported.estimates <- read.csv(file = "Data/all_estimates_2024.csv") %>%
-Reported.estimates <- read.csv(file = "Data/Nhats_2025.csv") %>%  
-  transmute(Season = Season,
-            Nhat = Nhat,
-            LCL = LCL,
-            UCL = UCL,
-            Method = paste0(Method, "-Reported")) %>%
-  right_join(all.years, by = "Season") %>%
-  arrange(start.year) %>%
-  relocate(Method, .after = start.year)
-
+# Reported.estimates <- read.csv(file = "Data/Nhats_2025.csv") %>%  
+#   transmute(Season = Season,
+#             Nhat = Nhat,
+#             LCL = LCL,
+#             UCL = UCL,
+#             Method = paste0(Method, "-Reported")) %>%
+#   right_join(all.years, by = "Season") %>%
+#   arrange(start.year) %>%
+#   relocate(Method, .after = start.year)
+# 
 #WinBugs.run.date <- "2025-04-11"
-WinBugs.out <- readRDS(file = paste0("RData/WinBUGS_2007to2025_v2_min", min.dur,
-                                     "_100000_",
-                                     WinBUGS.Run.Date, ".rds"))
-
-# Compute rank-normalized Rhat for WinBUGS output
-BUGS.params <- "^lambda|^beta|^OBS.RF"
-BUGS.samples <- WinBugs.out$BUGS.out$sims.array
-BUGS.col.names <- grep(BUGS.params, dimnames(BUGS.samples)[[3]], 
-                  value = T, perl = T)
-subset.BUGS.samples <- BUGS.samples[,,BUGS.col.names]
-subset.BUGS.mcmc.array <- as_draws_array(subset.BUGS.samples, .nchains = 5)
-BUGS.Rhat <- apply(subset.BUGS.mcmc.array, MARGIN = 3, FUN = rhat)
-
-#max.Rhat <- lapply(.out[[k]]$jm$Rhat, FUN = max, na.rm = T) %>%
-#  unlist()
-BUGS.Rhat.big <- BUGS.Rhat[which(BUGS.Rhat > 1.01)]
-
-# WinBugs.out <- readRDS(file = paste0("RData/WinBUGS_1968to2025_v2_min", min.dur, 
-#                                      "_85000_",
+# WinBugs.out <- readRDS(file = paste0("RData/WinBUGS_2007to2025_v2_min", min.dur,
+#                                      "_100000_",
 #                                      WinBUGS.Run.Date, ".rds"))
-
-Corrected.Est <- WinBugs.out$BUGS.out$sims.list$Corrected.Est
-
-# We don't have raw data for 2006/2007 and 2007/2008 seasons
-seasons <- c("2006/2007", "2007/2008", jm.out$jags.input$jags.input.new$seasons)
-
-all.season <- paste0(all.start.year, "/", all.start.year+1)
-Durban.abundance.df <- data.frame(Season = WinBugs.out$BUGS.input$seasons,
-                                  Nhat = apply(Corrected.Est,
-                                               FUN = mean,
-                                               MARGIN = 2),
-                                  # CV = apply(Corrected.Est,
-                                  #            FUN = function(x) 100*sqrt(var(x))/mean(x),
-                                  #            MARGIN = 2),
-                                  # median = apply(Corrected.Est, 
-                                  #                FUN = median, 
-                                  #                MARGIN = 2),
-                                  LCL = apply(Corrected.Est, 
-                                              MARGIN = 2, 
-                                              FUN = quantile, 0.025),
-                                  UCL = apply(Corrected.Est, 
-                                              MARGIN = 2, 
-                                              FUN = quantile, 0.975)) %>%
-  right_join(all.years, by = "Season") %>%
-  arrange(start.year) %>%
-  mutate(Method = "Durban")
-
-# Create a dataframe for daily estimates:
-daily.estim <- WinBugs.out$BUGS.out$sims.list$Daily.Est
-
-# get stats:
-mean.mat <- LCL.mat <- UCL.mat <- matrix(data = NA, 
-                                         nrow = dim(daily.estim)[2], 
-                                         ncol = dim(daily.estim)[3])
-
-for (k1 in 1:dim(daily.estim)[2]){
-  for (k2 in 1:dim(daily.estim)[3]){
-    mean.mat[k1, k2] <- mean(daily.estim[,k1,k2])
-    LCL.mat[k1, k2] <- quantile(daily.estim[,k1,k2], 0.025)
-    UCL.mat[k1, k2] <- quantile(daily.estim[,k1,k2], 0.975)
-  }
-  
-}
-
-N.hats.day.Durban <- data.frame(Season = rep(WinBugs.out$BUGS.input$seasons, 
-                                             each = dim(daily.estim)[2]),
-                                Day = rep(1:dim(daily.estim)[2], 
-                                          length(WinBugs.out$BUGS.input$seasons)),
-                                Mean = as.vector(mean.mat),
-                                LCL = as.vector(LCL.mat),
-                                UCL = as.vector(UCL.mat))
-
-# Daily estimates plots
-p.daily.Durban <- ggplot(N.hats.day.Durban %>% group_by(Season)) + 
-  geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
-              fill = "blue", alpha = 0.5) +
-  geom_path(aes(x = Day, y = Mean)) + 
-  facet_wrap(~ Season)
-
-# Include non-survey years - no estimates for 2007/2008 because I don't have
-# raw data for that year. Only the WinBUGS inputs. 
-Laake.abundance.new <- read.csv(file = "Data/all_estimates_Laake_2025_2025-09-22.csv") %>%
-  mutate(LCL = CL.low,
-         UCL = CL.high) %>%
-  select(c(Season, Nhat, LCL, UCL)) %>%
-  right_join(all.years, by = "Season") %>%
-  arrange(start.year) %>%
-  mutate(Method = "Laake")
-
-#Laake.output <- read_rds(file = "RData/Laake_abundance_estimates_2024.rds")
-
-# In reported estimates, there are two 2006/2007.
-Reported.estimates %>%
-  na.omit() %>%
-  select(Season) %>% 
-  unique() -> sampled.seasons 
-
-# Reported estimates are identical to the reanalysis so remove. 
-Laake.abundance.new %>%
-  rbind(Durban.abundance.df) %>%
-  rbind(Nhat.) -> all.estimates
-#  rbind(spline.Nhat) 
-  #rbind(Reported.estimates %>% na.omit()) -> all.estimates
-
-p.Nhats <- ggplot(all.estimates) +
-  geom_point(aes(x = start.year, y = Nhat,
-                 color = Method),
-             alpha = 0.5) +
-  geom_errorbar(aes(x = start.year, ymin = LCL, ymax = UCL,
-                    color = Method)) +
-  ylim(2000, 40000) +
-  theme(legend.position = "top")
-
-if (save.plot)
-  ggsave(plot = p.Nhats,
-         filename = paste0("figures/Nhats_", ver, "_", min.dur, "min.png"),
-         device = "png",
-         dpi = 600)
-
-Nhat. %>% 
-  select(Season, start.year, Nhat, LCL, UCL) %>%
-  rename(Nhat.Eguchi = Nhat,
-         LCL.Eguchi = LCL,
-         UCL.Eguchi = UCL) %>%
-  cbind(Laake.abundance.new %>%
-          select(Nhat, LCL, UCL) %>%
-          rename(Nhat.Laake = Nhat,
-                 LCL.Laake = LCL,
-                 UCL.Laake = UCL)) %>%
-  cbind(Durban.abundance.df %>%
-          select(Nhat, LCL, UCL) %>%
-          rename(Nhat.Durban = Nhat,
-                 LCL.Durban = LCL,
-                 UCL.Durban = UCL)) %>%
-  mutate(d.Laake.Eguchi = Nhat.Laake - Nhat.Eguchi,
-         d.Durban.Eguchi = Nhat.Durban - Nhat.Eguchi) -> Nhat.all.wide
-
-
-# Compare how daily sums among years
-obsd.periods.primary <- jm.out$jags.input$jags.data$periods[,1]
-watch.prop.primary <- jm.out$jags.input$jags.data$watch.prop[,1,]
-obsd.effort.primary <- rbind(rep(0, times = dim(watch.prop.primary)[2]), 
-                             watch.prop.primary, 
-                             rep(0, times = dim(watch.prop.primary)[2]))
-
-obsd.n.primary <- jm.out$jags.input$jags.data$n[,1,]
-obsd.day.primary <- jm.out$jags.input$jags.data$day[,1,]
-obsd.n.prop <- obsd.n.primary[,] * obsd.effort.primary
-
-obsd.n.df <- data.frame(Season = rep(all.season, each = dim(obsd.n.prop)[1]),
-                        obsd.n = as.vector(obsd.n.prop),
-                        day = as.vector(obsd.day.primary),
-                        effort = as.vector(obsd.effort.primary)) %>%
-  na.omit()
-
-# ggplot(obsd.n.df) +
-#   geom_point(aes(x = day, y = obsd.n)) +
+# 
+# # Compute rank-normalized Rhat for WinBUGS output
+# BUGS.params <- "^lambda|^beta|^OBS.RF"
+# BUGS.samples <- WinBugs.out$BUGS.out$sims.array
+# BUGS.col.names <- grep(BUGS.params, dimnames(BUGS.samples)[[3]], 
+#                   value = T, perl = T)
+# subset.BUGS.samples <- BUGS.samples[,,BUGS.col.names]
+# subset.BUGS.mcmc.array <- as_draws_array(subset.BUGS.samples, .nchains = 5)
+# BUGS.Rhat <- apply(subset.BUGS.mcmc.array, MARGIN = 3, FUN = rhat)
+# 
+# #max.Rhat <- lapply(.out[[k]]$jm$Rhat, FUN = max, na.rm = T) %>%
+# #  unlist()
+# BUGS.Rhat.big <- BUGS.Rhat[which(BUGS.Rhat > 1.01)]
+# 
+# # WinBugs.out <- readRDS(file = paste0("RData/WinBUGS_1968to2025_v2_min", min.dur, 
+# #                                      "_85000_",
+# #                                      WinBUGS.Run.Date, ".rds"))
+# 
+# Corrected.Est <- WinBugs.out$BUGS.out$sims.list$Corrected.Est
+# 
+# # We don't have raw data for 2006/2007 and 2007/2008 seasons
+# seasons <- c("2006/2007", "2007/2008", jm.out$jags.input$jags.input.new$seasons)
+# 
+# all.season <- paste0(all.start.year, "/", all.start.year+1)
+# Durban.abundance.df <- data.frame(Season = WinBugs.out$BUGS.input$seasons,
+#                                   Nhat = apply(Corrected.Est,
+#                                                FUN = mean,
+#                                                MARGIN = 2),
+#                                   # CV = apply(Corrected.Est,
+#                                   #            FUN = function(x) 100*sqrt(var(x))/mean(x),
+#                                   #            MARGIN = 2),
+#                                   # median = apply(Corrected.Est, 
+#                                   #                FUN = median, 
+#                                   #                MARGIN = 2),
+#                                   LCL = apply(Corrected.Est, 
+#                                               MARGIN = 2, 
+#                                               FUN = quantile, 0.025),
+#                                   UCL = apply(Corrected.Est, 
+#                                               MARGIN = 2, 
+#                                               FUN = quantile, 0.975)) %>%
+#   right_join(all.years, by = "Season") %>%
+#   arrange(start.year) %>%
+#   mutate(Method = "Durban")
+# 
+# # Create a dataframe for daily estimates:
+# daily.estim <- WinBugs.out$BUGS.out$sims.list$Daily.Est
+# 
+# # get stats:
+# mean.mat <- LCL.mat <- UCL.mat <- matrix(data = NA, 
+#                                          nrow = dim(daily.estim)[2], 
+#                                          ncol = dim(daily.estim)[3])
+# 
+# for (k1 in 1:dim(daily.estim)[2]){
+#   for (k2 in 1:dim(daily.estim)[3]){
+#     mean.mat[k1, k2] <- mean(daily.estim[,k1,k2])
+#     LCL.mat[k1, k2] <- quantile(daily.estim[,k1,k2], 0.025)
+#     UCL.mat[k1, k2] <- quantile(daily.estim[,k1,k2], 0.975)
+#   }
+#   
+# }
+# 
+# N.hats.day.Durban <- data.frame(Season = rep(WinBugs.out$BUGS.input$seasons, 
+#                                              each = dim(daily.estim)[2]),
+#                                 Day = rep(1:dim(daily.estim)[2], 
+#                                           length(WinBugs.out$BUGS.input$seasons)),
+#                                 Mean = as.vector(mean.mat),
+#                                 LCL = as.vector(LCL.mat),
+#                                 UCL = as.vector(UCL.mat))
+# 
+# # Daily estimates plots
+# p.daily.Durban <- ggplot(N.hats.day.Durban %>% group_by(Season)) + 
+#   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
+#               fill = "blue", alpha = 0.5) +
+#   geom_path(aes(x = Day, y = Mean)) + 
 #   facet_wrap(~ Season)
 # 
-# ggplot(obsd.n.df) +
-#   geom_point(aes(x = day, y = effort)) +
-#   facet_wrap(~ Season)
-
-p.RF.Obs <- plot.trace.dens(jm.out$jm, "OBS.RF")
-
-# Simple comparison between observed counts per hour vs. estimated abundance
-# obsd.n.prop.sum <- data.frame(Season = all.season,
-#                               n.sum = colSums(obsd.n.prop, na.rm = T))
+# # Include non-survey years - no estimates for 2007/2008 because I don't have
+# # raw data for that year. Only the WinBUGS inputs. 
+# Laake.abundance.new <- read.csv(file = "Data/all_estimates_Laake_2025_2025-09-22.csv") %>%
+#   mutate(LCL = CL.low,
+#          UCL = CL.high) %>%
+#   select(c(Season, Nhat, LCL, UCL)) %>%
+#   right_join(all.years, by = "Season") %>%
+#   arrange(start.year) %>%
+#   mutate(Method = "Laake")
 # 
-# Nhat.all.wide %>% 
-#   left_join(obsd.n.prop.sum, by = "Season") -> Nhat.all.wide 
+# #Laake.output <- read_rds(file = "RData/Laake_abundance_estimates_2024.rds")
 # 
-# ggplot(Nhat.all.wide) +
-#   geom_point(aes(y = Nhat.Laake, x = n.sum), color = "blue") +
-#   geom_point(aes(y = Nhat.Eguchi, x = n.sum), color = "red")
+# # In reported estimates, there are two 2006/2007.
+# Reported.estimates %>%
+#   na.omit() %>%
+#   select(Season) %>% 
+#   unique() -> sampled.seasons 
 # 
-# Nhat.all.wide %>%
-#   filter(n.sum < 1000) -> Nhat.all.wide.1000
+# # Reported estimates are identical to the reanalysis so remove. 
+# Laake.abundance.new %>%
+#   rbind(Durban.abundance.df) %>%
+#   rbind(Nhat.) -> all.estimates
+# #  rbind(spline.Nhat) 
+#   #rbind(Reported.estimates %>% na.omit()) -> all.estimates
 # 
-# ggplot(Nhat.all.wide.1000) +
-#   geom_point(aes(y = Nhat.Laake, x = n.sum), color = "blue") +
-#   geom_point(aes(y = Nhat.Eguchi, x = n.sum), color = "red")
+# p.Nhats <- ggplot(all.estimates) +
+#   geom_point(aes(x = start.year, y = Nhat,
+#                  color = Method),
+#              alpha = 0.5) +
+#   geom_errorbar(aes(x = start.year, ymin = LCL, ymax = UCL,
+#                     color = Method)) +
+#   ylim(2000, 40000) +
+#   theme(legend.position = "top")
+# 
+# if (save.plot)
+#   ggsave(plot = p.Nhats,
+#          filename = paste0("figures/Nhats_", ver, "_", min.dur, "min.png"),
+#          device = "png",
+#          dpi = 600)
+# 
+# Nhat. %>% 
+#   select(Season, start.year, Nhat, LCL, UCL) %>%
+#   rename(Nhat.Eguchi = Nhat,
+#          LCL.Eguchi = LCL,
+#          UCL.Eguchi = UCL) %>%
+#   cbind(Laake.abundance.new %>%
+#           select(Nhat, LCL, UCL) %>%
+#           rename(Nhat.Laake = Nhat,
+#                  LCL.Laake = LCL,
+#                  UCL.Laake = UCL)) %>%
+#   cbind(Durban.abundance.df %>%
+#           select(Nhat, LCL, UCL) %>%
+#           rename(Nhat.Durban = Nhat,
+#                  LCL.Durban = LCL,
+#                  UCL.Durban = UCL)) %>%
+#   mutate(d.Laake.Eguchi = Nhat.Laake - Nhat.Eguchi,
+#          d.Durban.Eguchi = Nhat.Durban - Nhat.Eguchi) -> Nhat.all.wide
+# 
+# 
+# # Compare how daily sums among years
+# obsd.periods.primary <- jm.out$jags.input$jags.data$periods[,1]
+# watch.prop.primary <- jm.out$jags.input$jags.data$watch.prop[,1,]
+# obsd.effort.primary <- rbind(rep(0, times = dim(watch.prop.primary)[2]), 
+#                              watch.prop.primary, 
+#                              rep(0, times = dim(watch.prop.primary)[2]))
+# 
+# obsd.n.primary <- jm.out$jags.input$jags.data$n[,1,]
+# obsd.day.primary <- jm.out$jags.input$jags.data$day[,1,]
+# obsd.n.prop <- obsd.n.primary[,] * obsd.effort.primary
+# 
+# obsd.n.df <- data.frame(Season = rep(all.season, each = dim(obsd.n.prop)[1]),
+#                         obsd.n = as.vector(obsd.n.prop),
+#                         day = as.vector(obsd.day.primary),
+#                         effort = as.vector(obsd.effort.primary)) %>%
+#   na.omit()
+# 
+# # ggplot(obsd.n.df) +
+# #   geom_point(aes(x = day, y = obsd.n)) +
+# #   facet_wrap(~ Season)
+# # 
+# # ggplot(obsd.n.df) +
+# #   geom_point(aes(x = day, y = effort)) +
+# #   facet_wrap(~ Season)
+# 
+# p.RF.Obs <- plot.trace.dens(jm.out$jm, "OBS.RF")
+# 
+# # Simple comparison between observed counts per hour vs. estimated abundance
+# # obsd.n.prop.sum <- data.frame(Season = all.season,
+# #                               n.sum = colSums(obsd.n.prop, na.rm = T))
+# # 
+# # Nhat.all.wide %>% 
+# #   left_join(obsd.n.prop.sum, by = "Season") -> Nhat.all.wide 
+# # 
+# # ggplot(Nhat.all.wide) +
+# #   geom_point(aes(y = Nhat.Laake, x = n.sum), color = "blue") +
+# #   geom_point(aes(y = Nhat.Eguchi, x = n.sum), color = "red")
+# # 
+# # Nhat.all.wide %>%
+# #   filter(n.sum < 1000) -> Nhat.all.wide.1000
+# # 
+# # ggplot(Nhat.all.wide.1000) +
+# #   geom_point(aes(y = Nhat.Laake, x = n.sum), color = "blue") +
+# #   geom_point(aes(y = Nhat.Eguchi, x = n.sum), color = "red")

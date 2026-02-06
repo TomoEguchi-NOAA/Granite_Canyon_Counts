@@ -14,7 +14,7 @@ options(mc.cores = 5)
 # Minimum length of observation periods in minutes
 min.dur <- 60 #10 #85 #
 
-ver <- c("v5a", "v2a", "v15a", "v16a", "v17a", "v18a", "v19a", "v20a" )
+ver <- c("v5a1", "v2a1", "v15a1", "v16a1", "v17a1", "v18a1", "v19a1", "v20a1" )
 Run.date <- Sys.Date()
 
 # These are the ending year of each season - for example, 2022 in the following vector indicates
@@ -24,15 +24,15 @@ years <- c(2008, 2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025)
 data.dir <- "RData/V2.1_Feb2025"
 max.day <- 100
 
-MCMC.params <- list(n.samples = 550000,
-                    n.thin = 100,
-                    n.burnin = 500000,
-                    n.chains = 5)
-# 
-# MCMC.params <- list(n.samples = 1000,
-#                     n.thin = 10,
-#                     n.burnin = 500,
+# MCMC.params <- list(n.samples = 550000,
+#                     n.thin = 100,
+#                     n.burnin = 500000,
 #                     n.chains = 5)
+
+MCMC.params <- list(n.samples = 10000,
+                    n.thin = 10,
+                    n.burnin = 5000,
+                    n.chains = 5)
 
 jags.params <- c("VS.Fixed", "BF.Fixed",
                  "Max", "K", "K1", "K2", "S1", "S2", "P",
@@ -43,6 +43,7 @@ jags.params <- c("VS.Fixed", "BF.Fixed",
                  "Max.alpha", "Max.beta",
                  "S1.alpha", "S2.alpha",
                  "S1.beta", "S2.beta",
+                 "sigma.P", "sigma.Max",
                  #"P.alpha", "P.beta",
                  #"K.alpha", "K.beta",
                  #"beta.1",

@@ -111,11 +111,26 @@ model{
 	
 	# priors for Richards function parameters. 
 	for (y in 1:n.year){
-		Max[y] ~ dnorm(2000, 1/(800^2))T(0,)
-		P[y] ~ dunif(30, 60) #dgamma(P.alpha, P.beta) 	
+		#Max[y] ~ dnorm(2000, 1/(800^2))T(0,)
+		#P[y] ~ dunif(30, 60) #dgamma(P.alpha, P.beta) 	
 		S1[y] ~ dgamma(S1.alpha, S1.beta)  
 	}
 
+	# Max is an AR(1) parameter 2026-02-06
+	Max[1] ~ dnorm(2000, 1/(800^2))T(0,)
+	
+	# Peak for the first year:
+	P[1] ~ dnorm(38, 1/25) #dunif(30, 60) #dgamma(P.alpha, P.beta) 	
+	for (y in 2:n.year){
+		P[y] ~ dnorm(P[y-1], tau.P)
+		Max[y] ~ dnorm(Max[y-1], tau.Max)T(0,)
+	}
+	sigma.P ~ dexp(1)
+	tau.P <- 1/(sigma.P^2)
+	
+	sigma.Max ~ dexp(0.01)
+	tau.Max <- 1/(sigma.Max^2)
+	
 	# Uniform distributions were adjusted to capture entire posterior 
 	# distributions of the hyper-parameters. 
 	S2 ~ dgamma(S2.alpha, S2.beta)  

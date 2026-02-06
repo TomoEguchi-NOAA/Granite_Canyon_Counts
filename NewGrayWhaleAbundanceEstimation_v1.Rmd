@@ -330,10 +330,10 @@ prop.big.Rhat <- n.params <- n.big.Rhat <- n.bad.Pareto <- prop.bad.Pareto <- LO
 # d.t <- Sys.time() - t.1  # 1.70 min
 
 #t.2 <- Sys.time()
-k <- 5
+k <- 6
 for (k in 1:length(model.names)){
   .out <- readRDS(paste0("RData/JAGS_Richards_Nmixture_v", 
-                         model.names[k], "a_1968to2025_min", 
+                         model.names[k], "a1_1968to2025_min", 
                          min.dur, "_NoBUGS.rds"))
   new.Rhat <- rank.normalized.R.hat(.out$jm$samples, 
                                     params = params.2, 
@@ -423,10 +423,10 @@ ft.models.comp %>%
 
 ```{r JAGS-results, echo=F,message=FALSE}
 rm(list = c(".out"))
-ver <- 5 #out.table$model[1] #5
+ver <- 16 #5 #out.table$model[1] #5
 jm.out <- readRDS(paste0("RData/JAGS_Richards_Nmixture_v",
                          ver,
-                         "a_1968to2025_min", min.dur,
+                         "a1_1968to2025_min", min.dur,
                          "_NoBUGS.rds"))
 
 # LOOIC and Pareto-k stats
@@ -437,8 +437,52 @@ LOOIC.n <- compute.LOOIC(loglik.array = jm.out$jm$sims.list$log.lkhd,
 ESS <- coda::effectiveSize(jm.out$jm$samples)
 
 # better ESS computations:
-ESS.bulk <- ess_bulk(as_draws(jm.out$jm$samples))
-ESS.tail <- ess_tail(as_draws(jm.out$jm$samples))
+post <- as_draws(jm.out$jm$samples)
+summary.posterior <- summarise_draws(post)
+
+ESS.bulk <- summary.posterior %>%
+  select(variable, ess_bulk) %>%
+  na.omit() %>%
+  arrange(ess_bulk)
+
+ESS.tail <- summary.posterior %>%
+  select(variable, ess_tail) %>%
+  na.omit() %>%
+  arrange(ess_tail)
+
+ESS.bulk.all[order(ESS.bulk.all$ess_bulk),] %>% data.frame -> tmp.1
+ESS.tail.all[order(ESS.tail.all$ess_tail),] %>% data.frame -> tmp.2
+
+# mcmc_pairs(jm.out$jm$samples, pars = c("S1", "S2", "P[1]", "K", "Max[1]"))
+# mcmc_pairs(jm.out$jm$samples, pars = c("S1[1]", "S2[1]", "P[1]", "K", "Max[1]"))
+
+# Low ESS.bulk and ESS.tail were found so Claude recommended to look at 
+# correlations among Richareds function parameters.
+# mcmc_pairs(jm.out$jm$samples, pars = c("S1[1]", "S2[1]", "P[1]", "K", "Max[1]"))
+# posterior.matrix <- as.matrix(jm.out$jm$samples)
+# param.S1 <- posterior.matrix[,"S1[1]"]
+# param.S2 <- posterior.matrix[,"S2[1]"]
+# cor(param.S1, param.S2)
+# param.P1 <- posterior.matrix[,"P[1]"]
+# cor(param.S1, param.P1)
+# cor(param.S2, param.P1)
+
+posterior <- jm.out$jm$sims.list
+N_samples <- posterior$Corrected.Est[,1]
+logit_p_samples <- posterior$mean.prob
+p_samples <- exp(logit_p_samples)/(1 + exp(logit_p_samples))
+p.N.df <- data.frame(p = p_samples,
+                     N = N_samples)
+
+ggplot(p.N.df) + 
+  geom_point(aes(x = p, y = N))
+
+#plot(p_samples, N_samples)
+
+# The plot looks fine, no strong p-N relationship. 
+
+# High correlations between S1[1] and P[1] and between S2[1] and P[1] were found (abs(r) > 0.9)
+# So Claude suggested to make the prior for P narrower. 
 
 # Match Pareto-k and data. Note that days 1 and 100 should be removed.
 n.array <- jm.out$jags.input$jags.data$n
