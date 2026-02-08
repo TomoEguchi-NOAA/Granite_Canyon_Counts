@@ -103,7 +103,7 @@ jags.params <- c("VS.Fixed", "BF.Fixed",
                  "S1.beta", "S2.beta",
                  "mu.P", "raw.P", "sd.proc.P",
                  "mu.log.Max", "rho.Max", "sd.proc.Max",
-                 "Raw.Est",
+                 "Raw.Est", "beta.obs",
                  #"P.alpha", "P.beta",
                  #"K.alpha", "K.beta",
                  #"beta.1",
@@ -122,17 +122,8 @@ jm.out <- NoBUGS_Richards_fcn(min.dur = min.dur,
                               jags.params = jags.params, 
                               MCMC.params = MCMC.params,
                               Run.date = Run.date,
-                              obs.n.min = 10,
+                              obs.n.min = 50,
                               max.day = 100)
-
-if (!jm.out$new.run){
-  jags.params <- jm.out$jags.params
-  MCMC.params <- jm.out$MCMC.params
-}
-
-# LOOIC and Pareto-k stats
-LOOIC.n <- compute.LOOIC(loglik.array = jm.out$jm$sims.list$log.lkhd,
-                         MCMC.params = jm.out$MCMC.params)
 
 # better ESS computations:
 post <- as_draws(jm.out$jm$samples)
@@ -147,6 +138,16 @@ summary.posterior %>%
   select(variable, ess_tail) %>%
   na.omit() %>%
   arrange(ess_tail) -> ESS.tail
+
+if (!jm.out$new.run){
+  jags.params <- jm.out$jags.params
+  MCMC.params <- jm.out$MCMC.params
+}
+
+# LOOIC and Pareto-k stats
+LOOIC.n <- compute.LOOIC(loglik.array = jm.out$jm$sims.list$log.lkhd,
+                         MCMC.params = jm.out$MCMC.params)
+
 
 mcmc_pairs(jm.out$jm$samples, pars = c("S1", "S2", "P[1]", "K", "Max[1]"))
 mcmc_pairs(jm.out$jm$samples, pars = c("S1[1]", "S2[1]", "P[1]", "K", "Max[1]"))

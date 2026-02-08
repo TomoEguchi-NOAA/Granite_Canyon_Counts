@@ -51,7 +51,16 @@ model{
 	# Define Richards function - this is the mean of "true" daily abundance
 	# The realization is a Poisson deviate. 
 	for (y in 1:n.year){
-				
+		# --- 1. Force Endpoints to Zero ---
+		# In the latent model you did N[1,y] ~ dbin(0,0). 
+		# Here, we just set the expected rate to a tiny number or zero.
+    
+		# Fix Day 1
+		mean.N[1, y] <- 0.0001 # Use small epsilon to avoid log(0) errors if used in log-likelihood
+    
+		# Fix Last Day
+		mean.N[n.days, y] <- 0.0001
+	
 		for (t in 2:(n.days-1)){
 			# year-specific K - results in conversion issues. 2022-11-09 
 			# This was fixed by adding hyperparameters. 2024
@@ -62,7 +71,7 @@ model{
 			
 			# True N is station independent and partially observed
 			# N = 0 when t = 1 or t = max.day
-			N[t, y] ~ dpois(mean.N[t,y])
+			#N[t, y] ~ dpois(mean.N[t,y])
 			
 		}
 	}  
@@ -85,21 +94,35 @@ model{
 	for (y in 1:n.year){
 		for (s in 1:n.station[y]){
 			for (d in 2:(periods[y,s]+1)){
+				# 1. Calculate 'Available Whales' based on effort (watch length)
+				# watch.length must be in days (which you have: 0.04 to 0.4)
+				whales.available[d,s,y] <- mean.N[day[d,s,y], y] * watch.length[(d-1),s,y]
+				
 				# observation per period d								
-				n[d, s, y] ~ dbin(obs.prob[d,s,y], N[day[d,s,y], y])
-				log.lkhd[(d-1),s,y] <- logdensity.bin(n[d,s,y], obs.prob[d, s, y], N[day[d,s,y], y])
+				#n[d, s, y] ~ dbin(obs.prob[d,s,y], N[day[d,s,y], y])
+				
+				# 3. Final Poisson Rate
+				lambda[d, s, y] <- whales.available[d,s,y] * obs.prob[d,s,y]
+            
+				n[d, s, y] ~ dpois(lambda[d,s,y])
+			
+				log.lkhd[(d-1),s,y] <- logdensity.pois(n[d,s,y], lambda[d,s,y])
+				
+				#log.lkhd[(d-1),s,y] <- logdensity.bin(n[d,s,y], obs.prob[d, s, y], N[day[d,s,y], y])
 				
 				# probability is mean + covariate effects and watch.length as an offset
 				logit(obs.prob[d,s,y]) <- mean.prob +
+								beta.obs[obs.fixed[d,s,y]] +  # Uses the new 1..11 ID
 								(BF.Fixed * bf[(d-1),s,y]) +
-								(VS.Fixed * vs[(d-1),s,y]) +
-				#				(OBS.RF[obs[d,s,y]]) +
-								log(watch.length[(d-1), s, y])
+								(VS.Fixed * vs[(d-1),s,y])
+				#				(OBS.RF[obs[d,s,y]]) 
+				#				log(watch.length[(d-1), s, y]) - mean.log.watch
 								
 				# REMOVE 'mean.prob' from here because it's already inside 'beta.obs'
 				#logit(obs.prob[d,s,y]) <- beta.obs[obs[d,s,y]] + 
-                #        (BF.Fixed * bf[(d-1),s,y]) +
-                #        (VS.Fixed * vs[(d-1),s,y]) +
+				#
+                #       (BF.Fixed * bf[(d-1),s,y]) +
+                #       (VS.Fixed * vs[(d-1),s,y])
                 #        log(watch.length[(d-1), s, y])
 
 			}
@@ -113,7 +136,26 @@ model{
 	
 	# It doesn't make sense to make it [0,1]...
 	# changed to dnorm following suggestions by Gemini 2026-02-03
-	#mean.prob ~ dnorm(0.5, 1)  #dunif(-1.5, 3)  
+	#mean.prob ~ dnorm(0, 1)  #dunif(-1.5, 3)  
+	
+	# observer fixed effects:
+	# --- Observer Fixed Effects (Corner Constraint) ---
+    
+    # 1. Fix the Baseline (Most frequent observer) to 0
+    # This anchors the model. mean.prob is now this observer's prob.
+    beta.obs[1] <- 0
+    
+    # 2. Estimate deviations for the others (Top K and "Other")
+    # n.obs.fixed is passed from R (e.g., 11)
+    for (o in 2:n.obs.fixed){
+        # Normal prior centered at 0
+        # Precision 4 = SD 0.5 (allows shifts of +/- 1.0 on logit scale)
+        beta.obs[o] ~ dnorm(0, 4) 
+    }
+    
+    # Global Intercept (Base Detection for Obs #1)
+    mean.prob ~ dnorm(0, 1)
+	
 	
 	# priors for Richards function parameters. 
 	# Max is an AR(1) parameter 2026-02-06
@@ -141,6 +183,16 @@ model{
         Max[y] <- exp(log.Max[y]) 
 	}
 
+	#for (y in 1:n.year){
+	
+		# Independent priors for each year
+	#	P[y] ~ dunif(40, 60)
+    
+		# Independent Max per year (Log-normal)
+	#	log.Max[y] ~ dnorm(5.8, 0.5) 
+	#	Max[y] <- exp(log.Max[y])
+	#}
+	
 	# Uniform distributions were adjusted to capture entire posterior 
 	# distributions of the hyper-parameters. 
 	# Hyper parameters for S1 and S2 were changed following suggestions by Gemini 2026-02-03
@@ -154,21 +206,21 @@ model{
 	S2 ~ dgamma(S2.alpha, S2.beta)  
 		
 	# Change in the K parameter prior 2026-02-03
-	K ~ dgamma(2, 1)   # or dlnorm(0, 1)
+	K <- 0.01  #~ dgamma(2, 1)   # or dlnorm(0, 1)
 
 	# Hierarchical centering option by Gemini:
 	# 1. Priors
 	# Precision 0.1 = Variance 10 = SD 3.16
 	# comfortably covers the range -6 to +6
-	mean.prob ~ dnorm(0, 0.1)
-	sigma.Obs ~ dnorm(0, 1) T(0,)
-	tau.Obs <- pow(sigma.Obs, -2)
+	#mean.prob ~ dnorm(0, 1)
+	#sigma.Obs ~ dnorm(0, 1) T(0,)
+	#tau.Obs <- pow(sigma.Obs, -2)
 
 	# 2. Observer Effects drawn directly from the Mean
-	for(o in 1:n.obs){
-		# Each observer is a draw from the global population
-		beta.obs[o] ~ dnorm(mean.prob, tau.Obs) 
-	}
+	#for(o in 1:n.obs){
+	#	# Each observer is a draw from the global population
+	#	beta.obs[o] ~ dnorm(mean.prob, tau.Obs) 
+	#}
      
 	## Beaufort and visibility	
 	## Gemini: The precision parameters were changed from 0.001 to 0.25 2026-02-03
@@ -178,7 +230,8 @@ model{
 	### Summaries, Abundance Estimates, and Other Derived Quantities 
 	for(t in 1:n.year){
 		
-		Raw.Est[t] <- sum(N[1:n.days, t])
+		#Raw.Est[t] <- sum(N[1:n.days, t])
+		Raw.Est[t] <- sum(mean.N[1:n.days, t])
 		# multiply raw estimates by correction factor for nighttime passage rates (below)
 		Corrected.Est[t] <- Raw.Est[t] * corr.factor 
 	}#t
