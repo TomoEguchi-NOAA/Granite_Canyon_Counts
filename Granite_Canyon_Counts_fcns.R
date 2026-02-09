@@ -216,7 +216,9 @@ rank.normalized.R.hat <- function(samples, params, MCMC.params){
 
   subset.mcmc.array <- as_draws_array(subset.mcmc.samples, .nchains = MCMC.params$n.chains)
 
-  rhat.values <- apply(subset.mcmc.array, MARGIN = 3, FUN = rhat)
+  rhat.values <- apply(subset.mcmc.array, 
+                       MARGIN = 3, 
+                       FUN = posterior::rhat)
   
   return(rhat.values)
 }
@@ -558,8 +560,10 @@ Jags_Richards_Since2010_fcn <- function(min.dur, max.day = 90, ver, years, data.
 #                     max.day = 100,
 #                     obs.n.min = 10)     
 #                     
-NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC.params, max.day = 100, obs.n.min = 10, Run.date = Sys.Date()){
+NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC.params, max.day = 100, obs.n.min = 10, N.obs = 10,Run.date = Sys.Date()){
   
+  # N.obs is the number of "top" observers who sighted the most whales among
+  # all observers. 
   #Run.date <- Sys.Date()
   model.name <- paste0("Richards_Nmixture_", ver) 
   print(paste0("Starting NoBUGS_Richards_fcn at ", Sys.time(), " for Model: ", model.name))
@@ -608,6 +612,33 @@ NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC
     jags.data$obs <- obs
     jags.data$n.obs <- max(obs) - 1
     
+    # Create a fixed observer effect input
+    obs_counts <- table(obs.vec)
+    top_obs_names.df <- data.frame(old.ID = names(sort(obs_counts, 
+                                                       decreasing = TRUE))[1:N.obs],
+                                   new.ID = c(1:N.obs))
+                                   
+    # Initialize the array with NAs or 0
+    # Dimensions: Max Days, Max Stations, Total Years
+    n_days_max <- dim(obs)[1] # or however you defined 'd'
+    n_stations_max <- dim(obs)[2]
+    n_years <- dim(obs)[3]
+    
+    obs_array <- array((N.obs+1), 
+                       dim = c(n_days_max, 
+                               n_stations_max, 
+                               n_years))
+    
+    # Fill the array
+    # Assuming your dataframe 'data' has columns: year_index, station_index, day_index _ this doesn't work
+    #START HERE 2026-02-08!!
+    for (i in 1:nrow(top_obs_names.df)){
+      obs_array[obs == top_obs_names.df[i,"old.ID"]] <- top_obs_names.df[i, "new.ID"]
+    }
+      
+    jags.data$obs.fixed <- obs_array
+    jags.data$n.obs.fixed <- (max(top_obs_names.df$new.ID)) + 1
+    
     #jags.data$scaled.day <- jags.data$day-(max.day/2)
     #jags.data["N"] <- NULL
     ###  ###  ###
@@ -652,12 +683,17 @@ NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC
                        parallel=T)
     
     Run_Time <- Sys.time() - Start_Time
+    
+    post <- posterior::as_draws(jm$samples)
+    summary.posterior <- posterior::summarise_draws(post)
+    
     jm.out <- list(jm = jm,
                    jags.input = jags.input,
                    #start.year = all.start.year,
                    jags.params = jags.params,
                    jags.model = jags.model,
                    MCMC.params = MCMC.params,
+                   posterior.summary = summary.posterior,
                    Run_Time = Run_Time,
                    Run_Date = Run.date,
                    out.file.name = out.file.name,
@@ -673,6 +709,8 @@ NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC
     jm.out$new.run <- FALSE
   }
   
+  print(paste0("Finishing NoBUGS_Richards_fcn at ", Sys.time(), 
+               " for Model: ", model.name))
   return(jm.out)
   
 }
@@ -1746,7 +1784,7 @@ LaakeData2JagsInput <- function(min.dur, max.day = 100){
     mutate(cumu.effort = cumsum(effort),
            effort.per.shift = max(cumu.effort)) -> Laake_SecondaryEffort
   
-  # Filter to minimum duration. min.dur is given in the unit of minuites, which
+  # Filter to minimum duration. min.dur is given in the unit of minutes, which
   # is converted to the unit of days:
   Laake_PrimaryEffort %>%
     filter(effort.per.shift >= min.dur / (60 * 24) ) -> Laake_PrimaryEffort
@@ -1818,8 +1856,8 @@ LaakeData2JagsInput <- function(min.dur, max.day = 100){
             obs = Observer,
             vs = vis,
             bf = beaufort,
-            watch.length = effort,
-            watch.prop = (effort * 24)/9) -> Laake.primary.counts
+            watch.length = effort.per.shift,
+            watch.prop = (effort.per.shift * 24)/9) -> Laake.primary.counts
   
   Laake_SecondaryEffort %>% 
     group_by(Start.year) %>%
@@ -1831,8 +1869,8 @@ LaakeData2JagsInput <- function(min.dur, max.day = 100){
             obs = Observer,
             vs = vis,
             bf = beaufort,
-            watch.length = effort,
-            watch.prop = (effort * 24)/9) -> Laake.secondary.counts
+            watch.length = effort.per.shift,
+            watch.prop = (effort.per.shift * 24)/9) -> Laake.secondary.counts
   
   # Laake.primary.counts %>% 
   #   group_by(Date) %>%
@@ -2656,6 +2694,10 @@ AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir, max.day = 90){
   N <- matrix(data = NA, nrow = max.day, ncol = dim(jags.n.all)[3])
   N[1,] <- 0
   N[max.day,] <- 0
+  
+  log_watch <- log(jags.watch.length.all)
+  mean_log_watch <- mean(log_watch, na.rm = TRUE)
+  
   jags.data <- list(  n = labelled::remove_attributes(jags.n.all, "dimnames"),
                       n.station = c(jags.input.Laake$jags.data$n.station,
                                     jags.input.new$jags.data$n.station),
@@ -2670,6 +2712,7 @@ AllData2JagsInput_NoBUGS <- function(min.dur, years, data.dir, max.day = 90){
                       bf = labelled::remove_attributes(jags.bf.all, "dimnames"),
                       watch.prop = labelled::remove_attributes(jags.watch.prop.all, "dimnames"),
                       watch.length = labelled::remove_attributes(jags.watch.length.all, "dimnames"),
+                      mean.log.watch = mean_log_watch,
                       day = labelled::remove_attributes(jags.day.all, "dimnames"),
                       N = N)
   

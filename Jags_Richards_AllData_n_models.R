@@ -29,9 +29,14 @@ max.day <- 100
 #                     n.burnin = 500000,
 #                     n.chains = 5)
 
-MCMC.params <- list(n.samples = 10000,
-                    n.thin = 10,
-                    n.burnin = 5000,
+# MCMC.params <- list(n.samples = 250000,
+#                     n.thin = 200,
+#                     n.burnin = 50000,
+#                     n.chains = 5)
+
+MCMC.params <- list(n.samples = 100,
+                    n.thin = 2,
+                    n.burnin = 10,
                     n.chains = 5)
 
 jags.params <- c("VS.Fixed", "BF.Fixed",
@@ -39,16 +44,35 @@ jags.params <- c("VS.Fixed", "BF.Fixed",
                  "P1", "P2",
                  "mean.prob", "prob", "obs.prob",
                  "mean.N", "Corrected.Est", "N", "obs.N",
-                 "OBS.RF", "sigma.Obs",
+                 #"OBS.RF", "sigma.Obs",
                  "Max.alpha", "Max.beta",
                  "S1.alpha", "S2.alpha",
                  "S1.beta", "S2.beta",
-                 "sigma.P", "sigma.Max",
+                 "mu.P", "rho.P", "sd.proc.P",
+                 "mu.log.Max", "rho.Max", "sd.proc.Max",
+                 "Raw.Est", "beta.obs",
+                 "alpha",
                  #"P.alpha", "P.beta",
                  #"K.alpha", "K.beta",
                  #"beta.1",
                  #"N.alpha", "N.obs",
                  "log.lkhd")
+# 
+# jags.params <- c("VS.Fixed", "BF.Fixed",
+#                  "Max", "K", "K1", "K2", "S1", "S2", "P",
+#                  "P1", "P2",
+#                  "mean.prob", "prob", "obs.prob",
+#                  "mean.N", "Corrected.Est", "N", "obs.N",
+#                  "OBS.RF", "sigma.Obs",
+#                  "Max.alpha", "Max.beta",
+#                  "S1.alpha", "S2.alpha",
+#                  "S1.beta", "S2.beta",
+#                  "sigma.P", "sigma.Max",
+#                  #"P.alpha", "P.beta",
+#                  #"K.alpha", "K.beta",
+#                  #"beta.1",
+#                  #"N.alpha", "N.obs",
+#                  "log.lkhd")
 
 
 # The following function uses "new" data since 2010 as well as those from Laake's 
