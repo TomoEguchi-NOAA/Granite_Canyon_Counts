@@ -299,46 +299,20 @@ params.1 <- "^VS\\.Fixed|^BF\\.Fixed|^Max|^S1\\[|^S2\\[|^P\\b(?!\\.\\w*)|^OBS\\.
 # including hyperparameters and year-specific Max (all models except 7 and 8.
 params.2 <- "^VS\\.Fixed|^BF\\.Fixed|^Max\\[|^S1|^S2|^P|^OBS\\.RF\\["
 
+params.a1 <- "^VS\\.Fixed|^BF\\.Fixed|^Max\\[|^S1|^S2|^P|^alpha\\["
+
 #max.Rhat.big <- list()
 prop.big.Rhat <- n.params <- n.big.Rhat <- n.bad.Pareto <- prop.bad.Pareto <- LOOIC <- vector(mode = "numeric", length = length(model.names))
 
 min.ESS.bulk <- min.ESS.tail <- vector(mode = "numeric", length = length(model.names))
 
-# I thought using lapply would be faster but the for loop option below was slightly faster than
-# the lapply... 
-# t.1 <- Sys.time()
-# out.list <- lapply(model.names, 
-#                    FUN = function(x){
-#                      .out <- readRDS(paste0("RData/JAGS_Richards_Nmixture_v", 
-#                                             x, "a_1968to2025_min", 
-#                                             min.dur, "_NoBUGS.rds"))
-#                      new.Rhat <- rank.normalized.R.hat(.out$jm$samples, params.2)
-#                      max.Rhat.big <- new.Rhat[which(new.Rhat > 1.01)]
-#                      
-#                      LOOIC.n <- compute.LOOIC(loglik.array = .out$jm$sims.list$log.lkhd,
-#                                               #data.array = data.array,
-#                                               MCMC.params = .out$MCMC.params)
-#                      n.big.Rhat <- length(max.Rhat.big)
-#                      LOOIC <- LOOIC.n$loo.out$estimates["looic", "Estimate"]
-#                      n.bad.Pareto <- sum(LOOIC.n$loo.out$pointwise[,5] > 0.7)
-#                      prop.bad.Pareto <- 100 * (n.bad.Pareto/nrow(LOOIC.n$loo.out$pointwise))                     
-#                      
-#                      out.list <- list(LOOIC = LOOIC,
-#                                       n.big.Rhat = n.big.Rhat,
-#                                       n.bad.Pareto = n.bad.Pareto,
-#                                       prop.bad.Pareto = prop.bad.Pareto)
-#                      return(out.list)
-#                    })
-# d.t <- Sys.time() - t.1  # 1.70 min
-
-#t.2 <- Sys.time()
 k <- 6
 for (k in 1:length(model.names)){
   .out <- readRDS(paste0("RData/JAGS_Richards_Nmixture_v", 
                          model.names[k], "a1_1968to2025_min", 
                          min.dur, "_NoBUGS.rds"))
   new.Rhat <- rank.normalized.R.hat(.out$jm$samples, 
-                                    params = params.2, 
+                                    params = params.a1, 
                                     MCMC.params = .out$MCMC.params)
   n.params[k] <- length(new.Rhat)
   #max.Rhat <- lapply(.out[[k]]$jm$Rhat, FUN = max, na.rm = T) %>%
@@ -394,7 +368,8 @@ out.table <- data.frame(model = model.ID,
 
 out.table %>% 
   flextable() %>%
-  colformat_double(j = c("dLOOIC", "p.big.Rhat", "p.bad.Pareto"),
+  colformat_double(j = c("dLOOIC", "p.big.Rhat", "p.bad.Pareto",
+                         "min.ESS.bulk", "min.ESS.tail"),
                    digits = 2) %>%
   compose(part = "header", j = "dLOOIC",
           value = as_paragraph(as_chunk("\u0394"), as_chunk("LOOIC"))) -> ft.models.comp
@@ -447,7 +422,7 @@ ft.models.comp %>%
 
 ```{r JAGS-results, echo=F,message=FALSE}
 rm(list = c(".out"))
-ver <- 16 #5 #out.table$model[1] #5
+ver <- 20 #5 #out.table$model[1] #5
 jm.out <- readRDS(paste0("RData/JAGS_Richards_Nmixture_v",
                          ver,
                          "a1_1968to2025_min", min.dur,
@@ -461,8 +436,7 @@ LOOIC.n <- compute.LOOIC(loglik.array = jm.out$jm$sims.list$log.lkhd,
 ESS <- coda::effectiveSize(jm.out$jm$samples)
 
 # better ESS computations:
-post <- as_draws(jm.out$jm$samples)
-summary.posterior <- summarise_draws(post)
+summary.posterior <- jm.out$posterior.summary
 
 ESS.bulk <- summary.posterior %>%
   select(variable, ess_bulk) %>%
@@ -474,8 +448,8 @@ ESS.tail <- summary.posterior %>%
   na.omit() %>%
   arrange(ess_tail)
 
-ESS.bulk.all[order(ESS.bulk.all$ess_bulk),] %>% data.frame -> tmp.1
-ESS.tail.all[order(ESS.tail.all$ess_tail),] %>% data.frame -> tmp.2
+# ESS.bulk.all[order(ESS.bulk.all$ess_bulk),] %>% data.frame -> tmp.1
+# ESS.tail.all[order(ESS.tail.all$ess_tail),] %>% data.frame -> tmp.2
 
 # mcmc_pairs(jm.out$jm$samples, pars = c("S1", "S2", "P[1]", "K", "Max[1]"))
 # mcmc_pairs(jm.out$jm$samples, pars = c("S1[1]", "S2[1]", "P[1]", "K", "Max[1]"))
@@ -491,15 +465,15 @@ ESS.tail.all[order(ESS.tail.all$ess_tail),] %>% data.frame -> tmp.2
 # cor(param.S1, param.P1)
 # cor(param.S2, param.P1)
 
-posterior <- jm.out$jm$sims.list
-N_samples <- posterior$Corrected.Est[,1]
-logit_p_samples <- posterior$mean.prob
-p_samples <- exp(logit_p_samples)/(1 + exp(logit_p_samples))
-p.N.df <- data.frame(p = p_samples,
-                     N = N_samples)
-
-ggplot(p.N.df) + 
-  geom_point(aes(x = p, y = N))
+# posterior <- jm.out$jm$sims.list
+# N_samples <- posterior$Corrected.Est[,1]
+# logit_p_samples <- posterior$mean.prob
+# p_samples <- exp(logit_p_samples)/(1 + exp(logit_p_samples))
+# p.N.df <- data.frame(p = p_samples,
+#                      N = N_samples)
+# 
+# ggplot(p.N.df) + 
+#   geom_point(aes(x = p, y = N))
 
 #plot(p_samples, N_samples)
 
@@ -549,60 +523,59 @@ p.Pareto.k <- ggplot(Pareto.df ) +
   facet_wrap(~season)
 
 # trace plots of parameters with high Rhat values:
-new.Rhat <- rank.normalized.R.hat(jm.out$jm$samples, params.2)
+new.Rhat <- rank.normalized.R.hat(jm.out$jm$samples, params.a1)
 max.Rhat.big <- new.Rhat[which(new.Rhat > 1.01)]
-params.Rhat.big <- names(max.Rhat.big)
-ESS.Rhat.big <- ESS[params.Rhat.big]
-
-ESS.small <- ESS[ESS < 400]
-Rhat.ESS.small <- new.Rhat[names(ESS.small)]
-
-p.trace.1 <- mcmc_trace(jm.out$jm$samples, 
-                        pars = params.Rhat.big[1:25])
-
-p.trace.2 <- mcmc_trace(jm.out$jm$samples, 
-                        pars = params.Rhat.big[26:50])
-
-p.trace.3 <- mcmc_trace(jm.out$jm$samples, 
-                        pars = params.Rhat.big[51:length(params.Rhat.big)])
-
-if (save.fig) {
-  save.fig.fcn(fig = p.trace.1, 
-               file.name = paste0("figures/M", ver, "_trace_1.png"), 
-               replace = T, 
-               dpi = dpi.set, device = "png",
-               height = 10, width = 10, units = "in",
-               bg = "white")
-  
-  save.fig.fcn(fig = p.trace.2, 
-               file.name = paste0("figures/M", ver, "_trace_2.png"), 
-               replace = T, 
-               dpi = dpi.set, device = "png",
-               height = 10, width = 10, units = "in",
-               bg = "white")
-
-  save.fig.fcn(fig = p.trace.3, 
-               file.name = paste0("figures/M", ver, "_trace_3.png"), 
-               replace = T, 
-               dpi = dpi.set, device = "png",
-               height = 10, width = 10, units = "in",
-               bg = "white")
-  
-  save.fig.fcn(fig = p.Pareto.k, 
-               file.name = paste0("figures/High_Pareto_k_M", ver, ".png"), 
-               replace = T, 
-               dpi = dpi.set, device = "png",
-               height = 10, width = 10, units = "in",
-               bg = "white")
-  
-}
+# params.Rhat.big <- names(max.Rhat.big)
+# ESS.Rhat.big <- ESS[params.Rhat.big]
+# 
+# ESS.small <- ESS[ESS < 400]
+# Rhat.ESS.small <- new.Rhat[names(ESS.small)]
+# 
+# p.trace.1 <- mcmc_trace(jm.out$jm$samples, 
+#                         pars = params.Rhat.big[1:25])
+# 
+# p.trace.2 <- mcmc_trace(jm.out$jm$samples, 
+#                         pars = params.Rhat.big[26:50])
+# 
+# p.trace.3 <- mcmc_trace(jm.out$jm$samples, 
+#                         pars = params.Rhat.big[51:length(params.Rhat.big)])
+# 
+# if (save.fig) {
+#   save.fig.fcn(fig = p.trace.1, 
+#                file.name = paste0("figures/M", ver, "_trace_1.png"), 
+#                replace = T, 
+#                dpi = dpi.set, device = "png",
+#                height = 10, width = 10, units = "in",
+#                bg = "white")
+#   
+#   save.fig.fcn(fig = p.trace.2, 
+#                file.name = paste0("figures/M", ver, "_trace_2.png"), 
+#                replace = T, 
+#                dpi = dpi.set, device = "png",
+#                height = 10, width = 10, units = "in",
+#                bg = "white")
+# 
+#   save.fig.fcn(fig = p.trace.3, 
+#                file.name = paste0("figures/M", ver, "_trace_3.png"), 
+#                replace = T, 
+#                dpi = dpi.set, device = "png",
+#                height = 10, width = 10, units = "in",
+#                bg = "white")
+#   
+#   save.fig.fcn(fig = p.Pareto.k, 
+#                file.name = paste0("figures/High_Pareto_k_M", ver, ".png"), 
+#                replace = T, 
+#                dpi = dpi.set, device = "png",
+#                height = 10, width = 10, units = "in",
+#                bg = "white")
+#   
+# }
 
 # Look at correlations between B0 and other coefficients:
-mean.prob.col <- grep("mean.prob", dimnames(jm.out$jm$samples[[1]]))
-mean.prob.samples <- lapply(jm.out$jm$samples, FUN = function(x){x[, mean.prob.col]})
-mean.prob.p.samples <- lapply(mean.prob.samples, FUN = function(x){1/(1 + exp(-x))})
-
-
+# mean.prob.col <- grep("mean.prob", dimnames(jm.out$jm$samples[[1]]))
+# mean.prob.samples <- lapply(jm.out$jm$samples, FUN = function(x){x[, mean.prob.col]})
+# mean.prob.p.samples <- lapply(mean.prob.samples, 
+#                               FUN = function(x){1/(1 + exp(-x))})
 
 all.start.year <- c(jm.out$jags.input$jags.input.Laake$all.start.year,
                     jm.out$jags.input$jags.input.new$start.years)
@@ -655,21 +628,23 @@ for (k1 in 1:length(all.start.year)){
 N.hats.day <- data.frame(Season = rep(paste0(all.start.year, 
                                              "/", all.start.year+1),
                                       
-                                      each = nrow(jm.out$jm$mean$N)), 
+                                      each = nrow(jm.out$jm$mean$mean.N)), 
                          start.year = rep(all.start.year,
-                                          each = nrow(jm.out$jm$mean$N)),
-                         Day = rep(1:nrow(jm.out$jm$mean$N), 
+                                          each = nrow(jm.out$jm$mean$mean.N)),
+                         Day = rep(1:nrow(jm.out$jm$mean$mean.N), 
                                    times = length(all.start.year)),
-                         Mean = as.vector(jm.out$jm$mean$N),
-                         LCL = as.vector(jm.out$jm$q2.5$N),
-                         UCL = as.vector(jm.out$jm$q97.5$N),
+                         Mean = as.vector(jm.out$jm$mean$mean.N),
+                         LCL = as.vector(jm.out$jm$q2.5$mean.N),
+                         UCL = as.vector(jm.out$jm$q97.5$mean.N),
                          obs.n = obs.n.df$n,
                          prop = obs.n.df$prop,
                          Method = paste0("Eguchi M", ver)) %>%
   mutate(Nhat = obs.n/prop)
 
 # Daily estimates plots
-p.daily.Richards <- ggplot(N.hats.day %>% group_by(Season)) + 
+p.daily.Richards <- ggplot(N.hats.day %>% 
+                             group_by(Season) %>%
+                             arrange(by = Day)) + 
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
               fill = "blue", alpha = 0.5) +
   geom_path(aes(x = Day, y = Mean)) + 
@@ -712,11 +687,22 @@ BUGS.col.names <- grep(BUGS.params, dimnames(BUGS.samples)[[3]],
 subset.BUGS.samples <- BUGS.samples[,,BUGS.col.names]
 subset.BUGS.mcmc.array <- as_draws_array(subset.BUGS.samples,
                                          .nchains = 5)
-BUGS.Rhat <- apply(subset.BUGS.mcmc.array, MARGIN = 3, FUN = rhat)
 
-#max.Rhat <- lapply(.out[[k]]$jm$Rhat, FUN = max, na.rm = T) %>%
-#  unlist()
+BUGS.Rhat <- apply(subset.BUGS.mcmc.array, MARGIN = 3, 
+                   FUN = posterior::rhat)
 BUGS.Rhat.big <- BUGS.Rhat[which(BUGS.Rhat > 1.01)]
+
+BUGS.post <- posterior::as_draws(BUGS.samples)
+summary.posterior.BUGS <- posterior::summarise_draws(BUGS.post)
+summary.posterior.BUGS %>%
+  select(variable, ess_bulk) %>%
+  na.omit() %>%
+  arrange(ess_bulk) -> ESS.bulk.BUGS
+
+summary.posterior.BUGS %>%
+  select(variable, ess_tail) %>%
+  na.omit() %>%
+  arrange(ess_tail) -> ESS.tail.BUGS
 
 Corrected.Est <- WinBugs.out$BUGS.out$sims.list$Corrected.Est
 
@@ -882,7 +868,9 @@ tmp.1 %>%
   rbind(Laake.abundance.new %>% 
           filter(start.year > 2006)) %>%
   rbind(Nhat.) %>%
-  mutate(Method2 = factor(Method, levels = c("Laake", "Durban", "Eguchi M5"))) %>%
+  mutate(Method2 = factor(Method, levels = c("Laake", 
+                                             "Durban", 
+                                             paste0("Eguchi M", ver)))) %>%
   select(Season, Nhat, LCL, UCL, start.year, Method2) %>%
   rename(Method = Method2) -> all.estimates
 
@@ -952,24 +940,24 @@ obsd.n.df <- data.frame(Season = rep(all.season, each = dim(obsd.n.prop)[1]),
 #   geom_point(aes(x = day, y = effort)) +
 #   facet_wrap(~ Season)
 
-p.RF.Obs <- plot.trace.dens(jm.out$jm, "OBS.RF")
+#p.RF.Obs <- plot.trace.dens(jm.out$jm, "OBS.RF")
 
-if (save.fig){  
-  save.fig.fcn(fig = p.RF.Obs$p.trace, 
-               file.name = "figures/Observer_trace.png", 
-               replace = T, 
-               dpi = dpi.set, device = "png",
-               height = 10, width = 10, units = "in",
-               bg = "white")
-  
-  save.fig.fcn(fig = p.RF.Obs$p.dens, 
-               file.name = "figures/Observer_dens.png", 
-               replace = T, 
-               dpi = dpi.set, device = "png",
-               height = 10, width = 10, units = "in",
-               bg = "white")
-  
-}
+# if (save.fig){  
+#   save.fig.fcn(fig = p.RF.Obs$p.trace, 
+#                file.name = "figures/Observer_trace.png", 
+#                replace = T, 
+#                dpi = dpi.set, device = "png",
+#                height = 10, width = 10, units = "in",
+#                bg = "white")
+#   
+#   save.fig.fcn(fig = p.RF.Obs$p.dens, 
+#                file.name = "figures/Observer_dens.png", 
+#                replace = T, 
+#                dpi = dpi.set, device = "png",
+#                height = 10, width = 10, units = "in",
+#                bg = "white")
+#   
+# }
 
 
 # Daily estimates plots

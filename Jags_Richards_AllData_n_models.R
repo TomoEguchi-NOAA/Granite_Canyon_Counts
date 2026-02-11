@@ -14,7 +14,7 @@ options(mc.cores = 5)
 # Minimum length of observation periods in minutes
 min.dur <- 60 #10 #85 #
 
-ver <- c("v5a1", "v2a1", "v15a1", "v16a1", "v17a1", "v18a1", "v19a1", "v20a1" )
+ver <- c("v1a1", "v2a1", "v3a1", "v4a1", "v5a1", "v6a1", "v7a1", "v8a1" )
 Run.date <- Sys.Date()
 
 # These are the ending year of each season - for example, 2022 in the following vector indicates
@@ -29,10 +29,10 @@ max.day <- 100
 #                     n.burnin = 500000,
 #                     n.chains = 5)
 
-# MCMC.params <- list(n.samples = 250000,
-#                     n.thin = 200,
-#                     n.burnin = 50000,
-#                     n.chains = 5)
+MCMC.params <- list(n.samples = 250000,
+                    n.thin = 200,
+                    n.burnin = 50000,
+                    n.chains = 5)
 
 MCMC.params <- list(n.samples = 100,
                     n.thin = 2,
@@ -75,10 +75,6 @@ jags.params <- c("VS.Fixed", "BF.Fixed",
 #                  "log.lkhd")
 
 
-# The following function uses "new" data since 2010 as well as those from Laake's 
-# analysis to compute abundance since the 1967/1968 season. There were two seasons
-# where the survey continued beyond the 90th day. So, max.day needs to be increased
-# from 90. I used 100. 
 for (k in 1:length(ver)){
   jm.out <- NoBUGS_Richards_fcn(min.dur = min.dur, 
                                 ver = ver[k], 
@@ -88,6 +84,8 @@ for (k in 1:length(ver)){
                                 MCMC.params = MCMC.params,
                                 Run.date = Run.date,
                                 obs.n.min = 10,
-                                max.day = 100)
+                                max.day = 100,
+                                N.obs = 10,
+                                model.name.root = "Richards_HSSM_")
   
 }

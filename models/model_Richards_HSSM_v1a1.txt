@@ -20,38 +20,19 @@
 #
 # I set min = 0. 
 #
-# N is the number of whales passing through the study area during the 9-hr sampling period.
+# N is the mean number of whales passing through the study area during the 9-hr sampling period.
 # 
-# Observed counts are assumed to be binomial distribution from this function and
-# sighting probability, which is a function of visibility, Beaufort, and observer.
+# The number of available whales is computed by N x watch.length (in days)
 #
-# Following Raftery (1988, Infererence for the binomial N parameter: A hierarchical 
-# Bayes approach. Biometrika 75:223-228), I use a Poisson distribution as the prior
-# for N. 
+# Observed counts are assumed to be Poisson distribution with its mean = 
+# available whales x sighting probability, 
+# where sighting probability is a function of visibility, Beaufort, and observers.
+# Ten observers were selected for the number of sightings. All others were pooled 
+# as an "other" observer. They are treated as fixed effects with independent intercepts.
 #
-# This version (v16) has year spcific P parameters with hyperparameters.
-# S1, S2, and K are shared among years.
+# This version (v1a1) has year spcific P1, P2, Max, S1 and S2 parameters with hyperparameters.
+# K is shared among years.
 #
-# This v16a version uses watch.length as an offset in the logit(obs.prob) and eliminated
-# the intermediate prob[(d-1), s, y].
-#
-# v16a1 uses suggestions from Gemini and Claude to improve mixing and convergence. 
-# Watch length was incorporated into the number of available whales, rather than 
-# used as the offset to detection probability. The N-mixture approach was dropped
-# due to a difficulty in convergence of MCMC. The observed number of whales is now
-# a Poisson deviate with the mean = the number of available whales x detection probability.
-# The number of available whales is modeled with Richards function. Detection probability
-# is a function of fixed effects of Beaufort, Visibility, and observers. Ten observers were
-# selected for the number of sightings. All others were pooled as an "other" observer. 
-#
-# 2024-07-09: It allows different numbers of sampling periods between primary
-# and secondary sampling stations. 
-#
-# 2025-06-04: Made N[] to be partially observed. N[1,t] = N[max.day,t] = 0 for all t.
-# This is the same set up as Durban's approach. This results in an error when compiling.
-# "Current value is inconsistent with data" on the final year and last sampling day of data 
-# for N. This error does not occur when obs.prob is computed from the mean. When prob is
-# directly used in dbin(), the error returns.  
 
 model{
 
@@ -67,29 +48,16 @@ model{
 		for (t in 2:(n.days-1)){
 			# year-specific K - results in conversion issues. 2022-11-09 
 			# This was fixed by adding hyperparameters. 2024
-			M1[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/(-S1)) * (P[y] - t))) ^ (-1/exp(K))
-			M2[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/S2) * (P[y] - t))) ^ (-1/exp(K))
+			M1[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/(-S1[y])) * (P1[y] - t))) ^ (-1/exp(K))
+			M2[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/S2[y]) * (P2[y] - t))) ^ (-1/exp(K))
 			
 			mean.N[t, y] <- (Max[y]) * (M1[t, y] * M2[t, y]) 
 						
 		}
 	}  
 
-	# observations are from the realized abundance: N-mixture part with 
-	# binomial sampling
-	
-	# force n = 0 for t = 1 and t = max.day
-	# The index for n[100] is periods[y,s]+2 because the first entry for each year
-	# is day 1 (n = 0) and periods are counted as the number of data points for 
-	# that year. Day 100 is added to the number of periods plus day 1. 
-
-	#for (y in 1:n.year){
-	#	for (s in 1:n.station[y]){
-	#		n[1, s, y] ~ dbin(0, 0)
-	#		n[(periods[y,s]+2), s, y] ~ dbin(0,0)
-	#	}
-	#}
-		
+	# observations are from the realized abundance: 
+			
 	for (y in 1:n.year){
 		for (s in 1:n.station[y]){
 			for (d in 2:(periods[y,s]+1)){
@@ -114,8 +82,7 @@ model{
 	}
 		
 	# OBSERVERS: Independent Intercepts
-    # We estimate 12 separate intercepts (or however many groups you have).
-    # No 'mean.prob', no 'beta.obs'. Just 'alpha'.
+    # We estimate 11 separate intercepts (or however many groups you have).
     
     for (o in 1:n.obs.fixed){
         # Each observer gets their own detection baseline.
@@ -134,16 +101,28 @@ model{
     Max[1] <- exp(log.Max[1])
 	
 	# Peak for the first year:
-	mu.P ~ dunif(30, 60)
-	rho.P ~ dunif(-1,1)
-	sd.proc.P ~ dnorm(0, 1)T(0,)
-	tau.proc.P <- pow(sd.proc.P, -2)
+	mu.P1 ~ dunif(30, 60)
+	rho.P1 ~ dunif(-1,1)
+	sd.proc.P1 ~ dnorm(0, 1)T(0,)
+	tau.proc.P1 <- pow(sd.proc.P1, -2)
 	
-	P[1] ~ dnorm(mu.P, tau.proc.P) #dunif(30, 60) #dgamma(P.alpha, P.beta) 	
+	P1[1] ~ dnorm(mu.P1, tau.proc.P1) #dunif(30, 60) #dgamma(P.alpha, P.beta) 	
+	
+	# Peak for the first year:
+	mu.P2 ~ dunif(30, 60)
+	rho.P2 ~ dunif(-1,1)
+	sd.proc.P2 ~ dnorm(0, 1)T(0,)
+	tau.proc.P2 <- pow(sd.proc.P2, -2)
+	
+	P2[1] ~ dnorm(mu.P2, tau.proc.P2) #dunif(30, 60) #dgamma(P.alpha, P.beta) 	
+	
 	for (y in 2:n.year){
-		P.mean[y] <- mu.P + rho.P * (P[y-1] - mu.P)
-		P[y] ~ dnorm(P.mean[y], tau.proc.P)
+		P1.mean[y] <- mu.P1 + rho.P1 * (P1[y-1] - mu.P1)
+		P1[y] ~ dnorm(P1.mean[y], tau.proc.P1)
 		
+		P2.mean[y] <- mu.P2 + rho.P2 * (P2[y-1] - mu.P2)
+		P2[y] ~ dnorm(P2.mean[y], tau.proc.P2)
+
 		log.Max.mean[y] <- mu.log.Max + rho.Max * (log.Max[y-1] - mu.log.Max)
         log.Max[y] ~ dnorm(log.Max.mean[y], tau.proc.Max)
         Max[y] <- exp(log.Max[y]) 
@@ -157,11 +136,13 @@ model{
 	
 	S2.alpha ~ dnorm(10, 0.1)T(0,)  #dunif(0.1, 50)
 	S2.beta ~ dgamma(1, 1)     #dunif(0.01, 10)
-	
-	S1 ~ dgamma(S1.alpha, S1.beta)  
-	S2 ~ dgamma(S2.alpha, S2.beta)  
 		
-	# Change in the K parameter prior 2026-02-03
+	for (y in 1:n.year){
+		S1[y] ~ dgamma(S1.alpha, S1.beta)  
+		S2[y] ~ dgamma(S2.alpha, S2.beta)  
+	}
+	
+	# K is fixed. 
 	K <- 0.01  #~ dgamma(2, 1)   # or dlnorm(0, 1)
      
 	## Beaufort and visibility	

@@ -558,17 +558,20 @@ Jags_Richards_Since2010_fcn <- function(min.dur, max.day = 90, ver, years, data.
 #                     jags.params = jags.params, 
 #                     MCMC.params = MCMC.params,
 #                     max.day = 100,
-#                     obs.n.min = 10)     
+#                     obs.n.min = 10,
+#                     N.obs = 10)     
 #                     
-NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC.params, max.day = 100, obs.n.min = 10, N.obs = 10,Run.date = Sys.Date()){
+NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC.params, max.day = 100, obs.n.min = 10, N.obs = 10,Run.date = Sys.Date(), model.name.root){
   
   # N.obs is the number of "top" observers who sighted the most whales among
   # all observers. 
   #Run.date <- Sys.Date()
-  model.name <- paste0("Richards_Nmixture_", ver) 
+  model.name <- paste0(model.name.root, ver) 
   print(paste0("Starting NoBUGS_Richards_fcn at ", Sys.time(), " for Model: ", model.name))
   
   jags.model <- paste0("models/model_", model.name, ".txt")
+  
+  
   
   out.file.name <- paste0("RData/JAGS_", model.name, 
                           "_1968to", max(years), 
