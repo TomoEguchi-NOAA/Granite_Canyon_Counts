@@ -427,8 +427,8 @@ ft.models.comp %>%
 ```
 
 ```{r JAGS-results, echo=F,message=FALSE}
-rm(list = c(".out"))
-ver <- 8 #5 #out.table$model[1] #5
+#rm(list = c(".out"))
+ver <- 7 #5 #out.table$model[1] #5
 jm.out <- readRDS(paste0("RData/JAGS_Richards_HSSM_v",
                          ver,
                          "a1_1968to2025_min", min.dur,

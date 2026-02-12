@@ -114,6 +114,12 @@ jags.params <- c("VS.Fixed", "BF.Fixed",
 # analysis to compute abundance since the 1967/1968 season. There were two seasons
 # where the survey continued beyond the 90th day. So, max.day needs to be increased
 # from 90. I used 100. 
+# obs.n.min is not used for the fixed observer effects. N.obs is used in
+# fixed observer effects. HSSM uses fixed effects. 
+jags.input.list <- AllData2JagsInput_NoBUGS(min.dur, 
+                                            years = years, 
+                                            data.dir, max.day) 
+
 jm.out <- NoBUGS_Richards_fcn(min.dur = min.dur, 
                               ver = ver, 
                               years = years, 
