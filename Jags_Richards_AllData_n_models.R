@@ -36,10 +36,10 @@ MCMC.params <- list(n.samples = 250000,
                     n.chains = 5)
 
 # 2500 samples
-MCMC.params <- list(n.samples = 125000,
-                    n.thin = 100,
-                    n.burnin = 75000,
-                    n.chains = 5)
+# MCMC.params <- list(n.samples = 125000,
+#                     n.thin = 100,
+#                     n.burnin = 75000,
+#                     n.chains = 5)
 
 # 225 samples
 # MCMC.params <- list(n.samples = 100,
@@ -65,23 +65,6 @@ jags.params <- c("VS.Fixed", "BF.Fixed",
                  #"beta.1",
                  #"N.alpha", "N.obs",
                  "log.lkhd")
-# 
-# jags.params <- c("VS.Fixed", "BF.Fixed",
-#                  "Max", "K", "K1", "K2", "S1", "S2", "P",
-#                  "P1", "P2",
-#                  "mean.prob", "prob", "obs.prob",
-#                  "mean.N", "Corrected.Est", "N", "obs.N",
-#                  "OBS.RF", "sigma.Obs",
-#                  "Max.alpha", "Max.beta",
-#                  "S1.alpha", "S2.alpha",
-#                  "S1.beta", "S2.beta",
-#                  "sigma.P", "sigma.Max",
-#                  #"P.alpha", "P.beta",
-#                  #"K.alpha", "K.beta",
-#                  #"beta.1",
-#                  #"N.alpha", "N.obs",
-#                  "log.lkhd")
-
 
 for (k in 1:length(ver)){
   jm.out <- NoBUGS_Richards_fcn(min.dur = min.dur, 

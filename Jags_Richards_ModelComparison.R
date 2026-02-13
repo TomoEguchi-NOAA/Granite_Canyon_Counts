@@ -31,13 +31,14 @@ model.ID <- c(1:length(model.names))
 # \\[ means a literal bracket
 # \\b is a word boundary
 # (?!...) is a negative look ahead, which requires the perl = TRUE argument in R's grep.
-params <- "^VS\\.Fixed|^BF\\.Fixed|^Max\\[|^S1\\[|^S2\\[|^P\\b(?!\\.\\w*)|^OBS\\.RF\\["
+# params <- "^VS\\.Fixed|^BF\\.Fixed|^Max\\[|^S1\\[|^S2\\[|^P\\b(?!\\.\\w*)|^OBS\\.RF\\["
 
 # For constant Max models (Model 7 and Model 8)
-params.1 <- "^VS\\.Fixed|^BF\\.Fixed|^Max|^S1\\[|^S2\\[|^P\\b(?!\\.\\w*)|^OBS\\.RF\\["
+# params.1 <- "^VS\\.Fixed|^BF\\.Fixed|^Max|^S1\\[|^S2\\[|^P\\b(?!\\.\\w*)|^OBS\\.RF\\["
 
 # including hyperparameters and year-specific Max (all models except 7 and 8.
-params.2 <- "^VS\\.Fixed|^BF\\.Fixed|^Max\\[|^S1|^S2|^P|^OBS\\.RF\\["
+#params.2 <- "^VS\\.Fixed|^BF\\.Fixed|^Max\\[|^S1|^S2|^P|^OBS\\.RF\\["
+params.a1 <- "^VS\\.Fixed|^BF\\.Fixed|^Max\\[|^S1|^S2|^P|^alpha\\["
 
 #max.Rhat.big <- list()
 prop.big.Rhat <- n.params <- n.big.Rhat <- n.bad.Pareto <- prop.bad.Pareto <- LOOIC <- vector(mode = "numeric", length = length(model.names))
@@ -51,7 +52,7 @@ for (k in 1:length(model.names)){
                          min.dur, "_NoBUGS.rds"))
   
   new.Rhat <- rank.normalized.R.hat(.out$jm$samples, 
-                                    params = params.2, 
+                                    params = params.a1, 
                                     MCMC.params = .out$MCMC.params)
   
   n.params[k] <- length(new.Rhat)
@@ -104,10 +105,15 @@ out.table <- data.frame(model = model.ID,
                         n.bad.Pareto = n.bad.Pareto,
                         p.bad.Pareto = prop.bad.Pareto,
                         min.ESS.bulk = min.ESS.bulk,
-                        min.ESS.tail = min.ESS.tail) %>% 
-  mutate(dLOOIC = LOOIC - min(LOOIC)) %>%
-  arrange(by = dLOOIC) %>% 
-  select(model, dLOOIC, n.params, n.big.Rhat, p.big.Rhat, n.bad.Pareto, p.bad.Pareto, min.ESS.bulk, min.ESS.tail)
+                        min.ESS.tail = min.ESS.tail) %>%  
+  arrange(desc(min.ESS.bulk))  %>%
+  mutate(dLOOIC = LOOIC - min(LOOIC[min.ESS.bulk == max(min.ESS.bulk)])) %>%
+  
+  select(model, dLOOIC, n.params, n.big.Rhat, 
+         p.big.Rhat, n.bad.Pareto, p.bad.Pareto, 
+         min.ESS.bulk, min.ESS.tail, LOOIC)
 
+saveRDS(out.table,
+        file = "RData/Richards_ModelComparison.rds")
 #d.t.2 <- Sys.time() - t.2 # 1.68 min
 
