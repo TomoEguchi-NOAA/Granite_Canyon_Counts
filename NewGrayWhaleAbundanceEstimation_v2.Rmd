@@ -103,7 +103,7 @@ A mathematical description of the approach by Durban et al. is provided in the A
 
 ### Limitations of the Durban et al method {.unnumbered}
 
-Durban et al. (2015) used the "cut" function within WinBUGS to dissociate estimated parameters between the "Common" ($f_{d,t}$) and "Specific" ($g_{d,t}$) models. The function (*cut*) is unavailable in modern Bayesian computation packages (e.g., JAGS, STAN) and its use has been questioned [@plummer_cuts_2015]. In short, the "cut" function does not converge to a well-defined limiting distribution (Plummer 2015). Furthermore, the assumption that the number of migrating gray whales in front of an observation station follows a Gaussian distribution centered around the midpoint of the season is a potential limitation. The actual migration curve may not be symmetric, and the peak abundance may persist for several days rather than being instantaneous. While fitting spline functions to observed counts may alleviate some of these problems, a fitted spline can be overly flexible. A spline fit can fail to preserve the general migration assumption that the number of whales increases from the beginning of a migration season, reaches a peak, and then decreases toward the end of the season. Additionally, the Durban et al. method implicitly assumed that two observation stations operated simultaneously with identical effort. In reality, however, watch durations were not always identical between the two stations in previous years.
+Durban et al. (2015) used the "cut" function within WinBUGS to dissociate estimated parameters between the "Common" ($f_{d,t}$) and "Specific" ($g_{d,t}$) models. The function (*cut*) is unavailable in modern Bayesian computation packages (e.g., JAGS, STAN) and its use has been questioned [@plummer_cuts_2015]. In short, the "cut" function does not converge to a well-defined limiting distribution (Plummer 2015). Furthermore, the assumption that the number of migrating gray whales in front of an observation station follows a Gaussian distribution centered around the midpoint of the season is a potential limitation. The actual migration curve may not be symmetric, and the peak abundance may persist for several days rather than being instantaneous. While fitting spline functions to observed counts may alleviate some of these problems, a fitted spline can be overly flexible. A spline fit can fail to preserve the general migration assumption that the number of whales increases from the beginning of a migration season, reaches a peak, and then decreases toward the end of the season. Additionally, the Durban et al. method implicitly assumed that two observation stations operated simultaneously with identical effort. In reality, however, watch durations were not always identical between the two stations in previous years. Lastly, the N-mixture approach performs better if there were at least two independent counts of the same process to estimate detection probabilities. Financial and logistical constraints have made using two independent observers impossible. Consequently, the model has to be changed to accommodate this limitation. 
 
 In their analysis, convergence of the WinBUGS analysis was not thoroughly determined. Since the study was published in 2015, new tools were developed to more comprehensively evaluate convergence of MCMC samples. The new tools (rank-normalized Rhat statistic and bulk and tail effective sample sizes; Vehtari et al. 2020?) indicated that Durban's model did not converge well for all parameters. 
 
@@ -111,13 +111,13 @@ In their analysis, convergence of the WinBUGS analysis was not thoroughly determ
 
 ### Data {.unnumbered}
 
-A series of modifications to data colleciton methods was implemented from the 1967/1968 to 2006/2007 seasons (Laake et al. 2012). Starting in the 2010/2011 season, further modifications were implemented, using a computer to predict movements of gray whale groups, thereby increasing the likelihood of repeatedly observing the same groups and accurately determining the number of individuals in each group. In Durban et al. (2015), they treated the data from previous years as incompatible in their analysis. Consequently, the subsequent analysis to estimate gray whale abundance used the data since the 2006/2007 season (e.g., Stewart and Weller 2021, Eguchi et al., 2022, 2023, 2024, 2025). Since the 2010/2011 season, no dual-observer survey has been conducted to estimate detection probability due to the logistical and financial constraints. Consequently, the data from the two seasons (i.e., 2009/2010 and 2010/2011 seasons) are the primary source of information for estimating detection probabilities. During several years before the 2006/2007 season, two observation stations were present. In those years, sightings of the same groups by two teams were used to estimate detection probabilities via the "capture-recapture" method. These sightings data can be used in the N-mixture framework by retaining the number of observed groups but disregarding the group identity. In this paper, I used all the data from the 1967/1968 season by using flexible statistical models.
+A series of modifications to data collection methods was implemented from the 1967/1968 to 2006/2007 seasons (Laake et al. 2012). Starting in the 2010/2011 season, further modifications were implemented, using a computer to predict movements of gray whale groups, thereby increasing the likelihood of repeatedly observing the same groups and more precicely  determining the number of individuals in each group. In Durban et al. (2015), they treated the data from previous years as incompatible in their analysis. Consequently, the subsequent analysis to estimate gray whale abundance used the data since the 2006/2007 season (e.g., Stewart and Weller 2021, Eguchi et al., 2022, 2023, 2024, 2025). Since the 2010/2011 season, no dual-observer survey has been conducted to estimate detection due to the logistical and financial constraints. Consequently, the data from the two seasons (i.e., 2009/2010 and 2010/2011 seasons) are the primary source of information for estimating detection probabilities. During several years before the 2006/2007 season, two observation stations were present. In those years, sightings of the same groups by two teams were used to estimate detection probabilities via the "capture-recapture" method. These sightings data can be used by retaining the number of observed groups but disregarding the group identity. In this paper, I developed a new model to accommodate the constraints on data collection, while allowing to use all the data from the 1967/1968 season by using flexible statistical models.
 
 ### New Modeling Approach {.unnumbered}
 
 A primary limitation of the Durban et al. approach was the difficulty of handling missing data points (e.g., weekends, seasons with fewer than 90 observation days, and short survey shifts due to inclement conditions). To address this and other limitations, I propose a new approach that replaces the Gaussian distribution and spline functions with a single flexible function.
 
-This new approach uses a function that can accommodate an asymmetrical shape around the peak, while reflecting the general pattern of increase, peak, and decrease in whale counts. This pattern can be modeled with the product of two sigmoid equations or mathematical functions that have a peak that is not necessarily centered. A similar pattern is often found in nesting marine turtles. For instance, a model derived from a modified Verhulst equation was used to describe the number of leatherback turtles in French Guiana and Suriname [@girondot_modeling_2007]. The equation is similar to the Richards growth function [@richards1959] and has the following form.
+This new approach uses a function that can accommodate an asymmetrical shape around the peak, while reflecting the general pattern of increase, peak, and decrease in whale counts. This pattern can be modeled with the product of two sigmoid equations or mathematical functions that have a peak that is not necessarily centered. A similar pattern is often found in the number of nesting marine turtles. For instance, a model derived from a modified Verhulst equation was used to describe the number of nesting leatherback turtles in French Guiana and Suriname [@girondot_modeling_2007]. The equation is similar to the Richards growth function [@richards1959] and has the following form.
 
 $$M_1 = (1 + (2 e^K - 1) * e^{(P_1-d)/(-S_1)}) ^ {(-1/e^K)}$$
 
@@ -168,7 +168,7 @@ for (nm in names(header_labels)) {
 
 ```
 
-
+Using the observation that some parameters are temporary auto-correlated, I defined some parameters to be auto-correlated (Table). This decreased the number of parameters to be inferred from the data. 
 
 ```{r table-model-definition, echo=F, message=F}
 
@@ -753,7 +753,7 @@ for (k1 in 1:dim(daily.estim)[2]){
   
 }
 
-N.hats.day.Durban <- data.frame(Season = rep(WinBugs.out$BUGS.input$seasons, 
+N.hats.day.Durban <- data.frame(Season = rep(WinBugs.out$BUGS.input$seasons,
                                              each = dim(daily.estim)[2]),
                                 start.year = rep(WinBugs.out$BUGS.input$all.years - 1,
                                                  each = dim(daily.estim)[2]),
@@ -767,6 +767,9 @@ N.hats.day.Durban <- data.frame(Season = rep(WinBugs.out$BUGS.input$seasons,
                                 Method = "Durban") %>%
   mutate(Nhat = obs.n/prop)
 ```
+
+Since the method of Durban's was published, various numerical tools were developed to assess convergence of MCMC. I applied the same tools to WinBUGS output from Durban et al.'s model. I found that the minimum bulk and tail ESS were too low (min(bulk ESS) = `r signif(min(ESS.bulk.BUGS$ess_bulk, digits = 2))`, min(tail ESS) = `r signif(min(ESS.tail.BUGS$ess_tail, digits = 2))`) to assume successful convergence of Markov chains. Consequently, the inference from this model are questionable. The rank-normalized Rhat statistics also indicated that convergence was not reached in `r length(BUGS.Rhat.big)` of `r dim(WinBUGS.out$BUGS.out$sims.array)[3]` monitored parameters (rank-normalized Rhat \> 1.01). 
+
 
 ```{r all-results, message=FALSE, echo=FALSE}
 
@@ -828,8 +831,10 @@ Reported.estimates %>%
 #   rbind(Durban.abundance.df) %>%
 Reported.estimates %>%
   mutate(Method1 = sub("-.*", "", Method)) -> tmp.1
-tmp.1[grep("NA", tmp.1$Method1) & tmp.1$start.year < 2006, "Method1"] <- "Laake"
-tmp.1[grep("NA", tmp.1$Method1) & tmp.1$start.year > 2007, "Method1"] <- "Durban"
+tmp.1[grep("NA", tmp.1$Method1) & tmp.1$start.year < 2006, 
+      "Method1"] <- "Laake"
+tmp.1[grep("NA", tmp.1$Method1) & tmp.1$start.year > 2007, 
+      "Method1"] <- "Durban"
 
 tmp.1 %>%
   select(Season, Nhat, LCL, UCL, start.year, Method1) %>%
@@ -939,7 +944,7 @@ obsd.n.df <- data.frame(Season = rep(all.season, each = dim(obsd.n.prop)[1]),
 
 ```
 
-For the Durban et al. and new approaches, medians of the posterior distributions were used as the point estimates, whereas for the Laake et al. approach, it was the maximum likelihood estimates. Estimated abundances from the new approach generally followed the same trend as the previous approaches, with a few notable differences (Figure `r officer::run_word_field("REF Figure-N-hats \\h")`). For the majority of estimates, the Laake et al. and the new approach provided almost identical estimates, and the 95% credible and confidence intervals overlapped significantly. The new and Laake et al. approaches produced lower estimates than the Durban et al. approach in all but one year among the 11 years when all three estimates were available.
+For the Durban et al. and new approaches, medians of the posterior distributions were used as the point estimates, whereas for the Laake et al. approach, it was the maximum likelihood estimates. Estimated abundances from the new approach generally followed the same trend as the previous approaches, with a few notable differences (Figure `r officer::run_word_field("REF Figure-N-hats \\h")`). For the majority of estimates, the Laake et al. and the new approach provided comparable  estimates, and the 95% credible and confidence intervals overlapped significantly. The new and Laake et al. approaches produced lower estimates than the Durban et al. approach in all but one year among the 11 years when all three estimates were available.
 
 ```{r plot-N-hats, echo=FALSE, message=FALSE}
 
@@ -1006,11 +1011,13 @@ gam.2006.Durban <- mgcv::gam(Nhat ~ s(year),
                         method = "REML",
                         data = gam.estimates.2006.Durban)
 
-pred.data.2006 <- data.frame(year = seq(min(gam.estimates.2006.Eguchi$year), 
-                                        max(gam.estimates.2006.Eguchi$year), length.out = 200))
+pred.data.2006 <- data.frame(year = seq(min(gam.estimates.2006.Eguchi$year),
+                                        max(gam.estimates.2006.Eguchi$year),
+                                        length.out = 200))
 
 pred.data.all <- data.frame(year = seq(min(gam.estimates.all.Eguchi$year), 
-                                        max(gam.estimates.all.Eguchi$year), length.out = 1000))
+                                        max(gam.estimates.all.Eguchi$year),
+                                       length.out = 1000))
 
 gam.preds.2006.Eguchi <-predict(gam.2006.Eguchi, 
                                 newdata = pred.data.2006, se.fit = TRUE)
@@ -1049,7 +1056,10 @@ pred.data.2006 %>%
 
 pred.2006 <- rbind(pred.2006.Eguchi, pred.2006.Durban, pred.2006.Laake) %>%
   rename(Method1 = Method) %>%
-  mutate(Method = factor(Method1, levels = c("Laake", "Durban", paste0("Eguchi M", ver))))
+  mutate(Method = factor(Method1, 
+                         levels = c("Laake", 
+                                    "Durban",
+                                    paste0("Eguchi M", ver))))
   #mutate(method.f = as.factor(method))
 
 pred.data.all %>%
@@ -1068,12 +1078,16 @@ pred.data.all %>%
 
 pred.all <- rbind(pred.all.Eguchi, pred.all.Laake) %>%
   rename(Method1 = Method) %>%
-  mutate(Method = factor(Method1, levels = c("Laake", paste0("Eguchi M", ver))))
+  mutate(Method = factor(Method1, 
+                         levels = c("Laake", paste0("Eguchi M", ver))))
 
 
 p.gam.2006.fit <- ggplot(data = pred.2006) +
   # Add the confidence interval ribbon using the new prediction data
-  geom_ribbon(aes(x = year, ymin = lower_CI, ymax = upper_CI, fill = Method), 
+  geom_ribbon(aes(x = year, 
+                  ymin = lower_CI,
+                  ymax = upper_CI, 
+                  fill = Method), 
               alpha = 0.3) +
   
   # Add the fitted line using the new prediction data
@@ -1108,13 +1122,19 @@ if (save.fig)
                dpi = dpi.set)
 
 lm.Eguchi <- lm(log(Nhat) ~ time, 
-                data = all.estimates.gam %>% filter(start.year > 2013, Method == paste0("Eguchi M", ver)))
+                data = all.estimates.gam %>% 
+                  filter(start.year > 2013, 
+                         Method == paste0("Eguchi M", ver)))
 
 lm.Laake <- lm(log(Nhat) ~ time, 
-               data = all.estimates.gam %>% filter(start.year > 2013, Method == "Laake"))
+               data = all.estimates.gam %>% 
+                 filter(start.year > 2013, 
+                        Method == "Laake"))
 
 lm.Durban <- lm(log(Nhat) ~ time, 
-                data = all.estimates.gam %>% filter(start.year > 2013, Method == "Durban"))
+                data = all.estimates.gam %>%
+                  filter(start.year > 2013, 
+                         Method == "Durban"))
 
 ```
 
@@ -1135,14 +1155,7 @@ knitr::include_graphics(paste0("figures/gam_fit_", dpi.set, "dpi.png"))
 `r fig.GAM.num` Fitted generalized additive models (Gaussian family and the identity link function) to estimated abundance and their approximate 95% CIs."
 :::
 
-```{r detection-probabilities, echo=FALSE, message=FALSE}
-mean.p.0 <- exp(jm.out$jm$mean$mean.prob)/(1 + exp(jm.out$jm$mean$mean.prob))
-p.0.CLs <- c(exp(jm.out$jm$q2.5$mean.prob)/(1 + exp(jm.out$jm$q2.5$mean.prob)),
-             exp(jm.out$jm$q97.5$mean.prob)/(1 + exp(jm.out$jm$q97.5$mean.prob)))
-
-```
-
-The base detection probability ($\beta_0$) was significantly lower for the new approach (mean = `r signif(mean.p.0, 3)`, 95% CI = [`r signif(p.0.CLs[1], 3)` - `r signif(p.0.CLs[2], 3)`]) than in Durban et al. (0.80, 95% Highest Posterior Density Interval = 0.75-0.85). As expected, the fixed effect of the visibility code on observation probability was negative (Figure `r officer::run_word_field("REF Figure-Fixed-posteriors \\h")`), indicating that less favorable conditions resulted in lower detection probabilities. Perplexingly, the fixed effect of the Beaufort sea state was positive (Figure `r officer::run_word_field("REF Figure-Fixed-posteriors \\h")`), suggesting that higher Beaufort sea states corresponded with greater detection probabilities. One possible explanation is that observers may have detected more singletons at low sea states, whereas only large groups were sighted at high sea states. The observer random effects indicated significant differences among individuals, consistent with the findings of Durban et al. (Appendix Figure `r officer::run_word_field("REF Figure-observers \\h")`).
+In this new approach, I did not have the mean detection probability as in the Durban's approach. Instead, the detection probability was estimated as a function of the fixed observer effect, Beaufort sea state, and visibility condition. As expected, the fixed effect of the visibility code on observation probability was negative (Figure `r officer::run_word_field("REF Figure-Fixed-posteriors \\h")`), indicating that less favorable conditions resulted in lower detection probabilities. Perplexingly, the fixed effect of the Beaufort sea state was positive (Figure `r officer::run_word_field("REF Figure-Fixed-posteriors \\h")`), suggesting that higher Beaufort sea states corresponded with greater detection probabilities. One possible explanation is that observers may have detected more singletons at low sea states, whereas only large groups were sighted at high sea states. The observer fixed effects indicated significant differences among individuals, consistent with the findings of Durban et al. (Appendix Figure `r officer::run_word_field("REF Figure-observers \\h")`).
 
 ```{r posterior-fixed-effects-plots, echo=FALSE, message=FALSE}
 
@@ -1151,7 +1164,8 @@ posteriors.Fixed <- plot.trace.dens(jm.out$jm,
 
 posteriors.Fixed$df %>%
   mutate(par.name.new = ifelse(par.name == "VS.Fixed", "V", "B")) %>%
-  mutate(par.name.new.f = factor(par.name.new, levels = c("V", "B"))) -> VS.BF.df
+  mutate(par.name.new.f = factor(par.name.new, 
+                                 levels = c("V", "B"))) -> VS.BF.df
 
 custom_labels <- c(`V` = "beta[V]",
                    `B` = "beta[B]")
@@ -1202,12 +1216,12 @@ knitr::include_graphics(paste0("figures/posteriors_VS_BF_", dpi.set, "dpi.png"))
 `r fig.fixed.post.num` Posterior distributions of the fixed-effects coefficients for the visibility code ($\beta_{V}$) and Beaufort sea state ($\beta_{B}$).
 :::
 
-Posterior distributions of the Richards equation parameters provided valuable insights into how annual gray whale migration varied among years. The $P$ parameters, which define the timing of the migration peak, shifted over the years (Figure `r officer::run_word_field("REF Figure-P-posteriors \\h")`), a phenomenon reported in previous studies [@rugh_timing_2001], Eguchi et al. 2023, 2024, 2025), although the significance and causes for the changes are unknown. The $S_1$ and $S_2$ parameters, which define the width of the migration curve, also varied annually, indicating that the duration of migration fluctuated from year to year (Appendix Figures `r officer::run_word_field("REF Figure-S1-posteriors \\h")` and `r officer::run_word_field("REF Figure-S2-posteriors \\h")`).
+Posterior distributions of the Richards equation parameters provided valuable insights into how annual gray whale migration varied among years. The $P$ parameters, which define the timing of the migration peak, shifted over the years (Figure `r officer::run_word_field("REF Figure-P-posteriors \\h")`), a phenomenon reported in previous studies [@rugh_timing_2001], Eguchi et al. 2023, 2024, 2025), although the significance and causes for the changes are unknown. The $S_1$ parameter, which define the increasing part of the migration curve, also varied annually, indicating that the way the number of migrating whales increased over time fluctuated from year to year (Appendix Figure `r officer::run_word_field("REF Figure-S1-posteriors \\h")`. On the other hand, the best model included only one common $S_2$ parameter, indicating the decline of the number of migrating whales was similar among years `r officer::run_word_field("REF Figure-S2-posteriors \\h")`).
 
 ```{r posterior-Richards-plots, echo=FALSE, message=FALSE}
 
 posteriors.P <- plot.trace.dens(jm.out$jm, 
-                                var.name = "P")
+                                var.name = "^P\\[")
 
 posteriors.P$df %>%
   mutate(start.year = all.start.year[numeric.index],
@@ -1216,7 +1230,7 @@ posteriors.P$df %>%
 
 p.posteriors.P <- ggplot(P.df, aes(x = P, y = start.year.f)) +
   geom_density_ridges() +
-  ylab("")
+  ylab("Start year")
 
 if (save.fig)
   save.fig.fcn(fig = p.posteriors.P,
@@ -1236,7 +1250,8 @@ posteriors.S1$df %>%
 
 p.posteriors.S1 <- ggplot(S1.df, aes(x = S1, y = start.year.f)) +
   geom_density_ridges() +
-  ylab("")
+  xlim(c(4, 25)) +
+  ylab("Start year")
 
 if (save.fig)
   save.fig.fcn(fig = p.posteriors.S1,
@@ -1245,20 +1260,24 @@ if (save.fig)
                height = 5, width = 7,
                dpi = dpi.set)
  
-posteriors.S2 <- plot.trace.dens(jm.out$jm,
-                                 var.name = "S2\\[")
+p.posterior.S2 <- mcmc_dens(jm.out$jm$samples, "S2")
 
-posteriors.S2$df %>%
-  mutate(start.year = all.start.year[numeric.index],
-         start.year.f = as.factor(start.year)) %>% 
-  rename(S2 = sample)-> S2.df
+#mcmc_trace(jm.out$jm$samples, "S2")
 
-p.posteriors.S2 <- ggplot(S2.df, aes(x = S2, y = start.year.f)) +
-  geom_density_ridges() +
-  ylab("")
+# posteriors.S2 <- plot.trace.dens(jm.out$jm,
+#                                  var.name = "^S2\\b(?!\\.\\w*)")
+# 
+# posteriors.S2$df %>%
+#   mutate(start.year = all.start.year[numeric.index],
+#          start.year.f = as.factor(start.year)) %>% 
+#   rename(S2 = sample)-> S2.df
+# 
+# p.posteriors.S2 <- ggplot(S2.df, aes(x = S2, y = start.year.f)) +
+#   geom_density_ridges() +
+#   ylab("")
 
 if (save.fig)
-  save.fig.fcn(fig = p.posteriors.S2,
+  save.fig.fcn(fig = p.posterior.S2,
                file.name = paste0("figures/posteriors_S2_", dpi.set, "dpi.png"),
                replace = T,
                height = 5, width = 7,
@@ -1294,13 +1313,13 @@ knitr::include_graphics(paste0("figures/posterior_P_", dpi.set, "dpi.png"))
 
 The new modeling approach yielded results comparable to those obtained by the methods of Laake et al. and Durban et al. Although point estimates were different in some years, the confidence and credible intervals overlapped in most of the time series, and all three methods captured similar long-term trends and the recent rate of decline.
 
-The new approach offers several advantages over the method of Durban et al. First, it eliminates the use of the “cut” function, which has been identified as statistically inappropriate (Plummer 2015). Second, the model is coded in JAGS, a more contemporary and widely used Bayesian modeling language. The new model in JAGS runs significantly faster than Durban et al.'s model in WinBUGS. The analysis of the entire 32-year dataset took approximately `r signif(jm.out$Run_Time, 2)` hrs per model with the new approach, compared to `r signif(WinBugs.out$Run_Time, 3)` hours for an 11-year analysis using WinBUGS. Third, the new framework allows for formal model selection and goodness-of-fit assessment using modern criteria, such as LOOIC and the Pareto-k statistic, which were not part of the original Durban et al. analysis. Fourth, while retaining the N-mixture modeling framework, the new approach is more straightforward in its implementation. In the Durban et al.'s approach, effort (i.e., watch duration) was used to adjust the available number of whales during the shift. This approach implicitly makes an assumption that the number of whales per unit time is constant throughout the day. In the new approach, effort was used to offset the detection probability, which does not require the assumption of a constant passage rate.  
+The new approach offers several advantages over the method of Durban et al. First, it eliminates the use of the “cut” function, which has been identified as statistically inappropriate (Plummer 2015). Second, the model is coded in JAGS, a more contemporary and widely used Bayesian modeling language. The new model in JAGS runs significantly faster than Durban et al.'s model in WinBUGS. The analysis of the entire 32-year dataset took approximately `r signif(jm.out$Run_Time, 2)` hrs per model with the new approach using longer chains (`r jm.out$MCMC.params$n.samples` samples), compared to `r signif(WinBugs.out$Run_Time, 3)` hours for an 11-year analysis using WinBUGS (100000 samples). Third, the new framework allows for formal model selection and goodness-of-fit assessment using modern criteria, such as LOOIC and the Pareto-k statistic, which were not part of the original Durban et al. analysis. Fourth, the metrics that measure convergence of MCMC indicated that the Durban et al's approach did not converge well, whereas the new method did.  
 
-Examination of Pareto-k statistics indicated that high Pareto-k values coincided with extreme data points, where counts were unusually high or low compared to adjacent shifts (Appendix Figure `r officer::run_word_field("REF Figure-pareto-k \\h")`). While statistically notable, these fluctuations are consistent with the known patterns of gray whale migration. Therefore, I concluded that the model, i.e., combining the Richards equation and the N-mixture framework, was appropriate for analyzing the entire dataset.
+No data point was flagged using the new method as lack-of-fit based on Pareto-k statistics indicated that all data points fit well to the model. This indicated that the model, i.e., combining the Richards equation and the hierarchical state-space modeling framework, was appropriate for analyzing the entire dataset.
 
 The new approach is also adaptable and can incorporate additional information as it becomes available. For example, data from uncrewed aircraft systems (UAS) are being used to estimate precision and bias in group size estimates made by visual observers. If correction functions can be derived from these UAS data, conditional on observed group sizes, they could be used to adjust the group size of each sighting, which would become a loop that goes through all sightings within each shift so that the total number of sightings per shift can be adjusted accordingly. Finally, this abundance estimation model could be incorporated into a more comprehensive population model, such as the one developed by [@stewart_boom-bust_2023].
 
-In summary, the new approach provides a simpler, faster, and more statistically robust algorithm for estimating the abundance of gray whales from the long-term visual surveys conducted at Granite Canyon, CA, while producing results that are consistent with those of previous methods.
+In summary, the new approach provides a simpler, faster, and more statistically robust algorithm for estimating the abundance of gray whales from the long-term visual surveys conducted at Granite Canyon, CA, while producing results that are consistent with those of previous methods. I think the new method should be used for future abundance estimation of the Eastern Pacific gray whales. 
 
 ## Appendix {.unnumbered}
 
