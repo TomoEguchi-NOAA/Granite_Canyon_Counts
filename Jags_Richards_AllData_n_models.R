@@ -14,14 +14,15 @@ options(mc.cores = 5)
 # Minimum length of observation periods in minutes
 min.dur <- 60 #10 #85 #
 
-ver <- c("v1a1", "v2a1", "v3a1", "v4a1", "v5a1", "v6a1", "v7a1", "v8a1" )
+#ver <- c("v1a1", "v2a1", "v3a1", "v4a1", "v5a1", "v6a1", "v7a1", "v8a1" )
+ver <- c("v6a1", "v7a1", "v8a1" )
 Run.date <- Sys.Date()
 
 # These are the ending year of each season - for example, 2022 in the following vector indicates
 # for the 2021/2022 season. These data were extracted using Extract_Data_All_v2.Rmd
 # Data prior to the 2009/2010 season are in Laake's ERAnalayis package. 
-years <- c(2008, 2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025)
-data.dir <- "RData/V2.1_Feb2025"
+years <- c(2008, 2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025, 2026)
+data.dir <- "RData/V2.1_Feb2026"
 max.day <- 100
 
 # MCMC.params <- list(n.samples = 550000,
@@ -70,7 +71,7 @@ for (k in 1:length(ver)){
   jm.out <- NoBUGS_Richards_fcn(min.dur = min.dur, 
                                 ver = ver[k], 
                                 years = years, 
-                                data.dir = "RData/V2.1_Feb2025", 
+                                data.dir = data.dir, 
                                 jags.params = jags.params, 
                                 MCMC.params = MCMC.params,
                                 Run.date = Run.date,

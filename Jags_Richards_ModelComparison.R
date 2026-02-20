@@ -14,10 +14,13 @@ library(loo)
 library(rstanarm)
 
 min.dur <- 60
+YEAR <- 2026
 
 # Model name IDs
-model.names <- c("1", "2", "3", "4",
-                 "5", "6", "7", "8")
+# model.names <- c("1", "2", "3", "4",
+#                  "5", "6", "7", "8")
+
+model.names <- c( "6", "7", "8")
 
 # model IDs in the manuscript is in the same order as above but the numbers are
 # different:
@@ -48,7 +51,7 @@ min.ESS.bulk <- min.ESS.tail <- vector(mode = "numeric", length = length(model.n
 k <- 6
 for (k in 1:length(model.names)){
   .out <- readRDS(paste0("RData/JAGS_Richards_HSSM_v", 
-                         model.names[k], "a1_1968to2025_min", 
+                         model.names[k], "a1_1968to", YEAR, "_min", 
                          min.dur, "_NoBUGS.rds"))
   
   new.Rhat <- rank.normalized.R.hat(.out$jm$samples, 
@@ -114,6 +117,6 @@ out.table <- data.frame(model = model.ID,
          min.ESS.bulk, min.ESS.tail, LOOIC)
 
 saveRDS(out.table,
-        file = "RData/Richards_ModelComparison.rds")
+        file = paste0("RData/Richards_ModelComparison_", YEAR, ".rds"))
 #d.t.2 <- Sys.time() - t.2 # 1.68 min
 
