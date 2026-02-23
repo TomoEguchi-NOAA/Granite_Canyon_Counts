@@ -56,7 +56,7 @@ dpi.set <- 600
 # This run (2025-09-19) includes posterior samples of obs.prob. It was run in
 # the GrayWhaleAbundance project. 
 # The run of 2025-04-11 is the one for the Tech Memo
-WinBUGS.Run.Date <- "2025-09-19"  
+WinBUGS.Run.Date <- "2026-02-20"  
 
 save.fig.fcn <- function(fig, file.name, replace = F, 
                          dpi = dpi.set, device = "png",
@@ -350,65 +350,60 @@ ft.models.comp %>%
 ver <- 7 #5 #out.table$model[1] #5
 jm.out <- readRDS(paste0("RData/JAGS_Richards_HSSM_v",
                          ver,
-                         "a1_1968to2025_min", min.dur,
+                         "a1_1968to", YEAR, "_min", min.dur,
                          "_NoBUGS.rds"))
 
+# bring in the convergence statistics:
+list.convergence <- readRDS(paste0("RData/Richards_Convergence_", YEAR, ".rds"))
+
 # LOOIC and Pareto-k stats
-LOOIC.n <- compute.LOOIC(loglik.array = jm.out$jm$sims.list$log.lkhd,
-                         MCMC.params = jm.out$MCMC.params)
+LOOIC.n <- list.convergence$LOOIC[ver] 
 
 # better ESS computations:
 summary.posterior <- jm.out$posterior.summary
 
-ESS.bulk <- summary.posterior %>%
-  select(variable, ess_bulk) %>%
-  na.omit() %>%
-  arrange(ess_bulk)
-
-ESS.tail <- summary.posterior %>%
-  select(variable, ess_tail) %>%
-  na.omit() %>%
-  arrange(ess_tail)
+ESS.bulk <- list.convergence$ESS.bulk[[ver]]
+ESS.tail <- list.convergence$ESS.tail[[ver]]
 
 # Match Pareto-k and data. Note that days 1 and 100 should be removed.
 n.array <- jm.out$jags.input$jags.data$n
 days <- jm.out$jags.input$jags.data$day
 watch.length <- jm.out$jags.input$jags.data$watch.length
 
-# Create an array with corresponding years in non-NA elements
-year.array <- array(dim = dim(n.array))
-all.start.years <- c(jm.out$jags.input$jags.input.Laake$all.start.year,
-                     jm.out$jags.input$jags.input.new$start.years)
-
-for (k in 1:length(all.start.years)){
-    year.array[, , k] <- all.start.years[k]
-}
-
-n.vec <- n.array[days > 1 & days < 100] %>% na.omit()
-day.vec <- days[days > 1 & days < 100] %>% na.omit()
-year.vec <- year.array[days > 1 & days < 100] %>% na.omit()
-
-# watch.length does not have day 1 and day 100.
-# To use the same selection using days, add zero rows:
-zero.rows <- array(data = 0, dim = c(1, 2, dim(n.array)[3]))
-watch.length <- abind(zero.rows, watch.length, along = 1)
-watch.length <- abind(watch.length, zero.rows, along = 1)
-
-watch.length.vec <- watch.length[days > 1 & days < 100]  %>% na.omit()
-
-Pareto.df <- data.frame(start.year = year.vec,
-                        season = paste0(year.vec, "/", (year.vec+1)),
-                        day = day.vec,
-                        n = n.vec,
-                        watch.length = watch.length.vec,
-                        Pareto.k = LOOIC.n$loo.out$diagnostics$pareto_k) %>%
-  mutate(Pareto.group = ifelse(Pareto.k < 0.7, "good", "bad"),
-         N.hat = n/watch.length)
-
-
-p.Pareto.k <- ggplot(Pareto.df ) +
-  geom_point(aes(x = day, y = n, color = Pareto.group)) +
-  facet_wrap(~season)
+# # Create an array with corresponding years in non-NA elements
+# year.array <- array(dim = dim(n.array))
+# all.start.years <- c(jm.out$jags.input$jags.input.Laake$all.start.year,
+#                      jm.out$jags.input$jags.input.new$start.years)
+# 
+# for (k in 1:length(all.start.years)){
+#     year.array[, , k] <- all.start.years[k]
+# }
+# 
+# n.vec <- n.array[days > 1 & days < 100] %>% na.omit()
+# day.vec <- days[days > 1 & days < 100] %>% na.omit()
+# year.vec <- year.array[days > 1 & days < 100] %>% na.omit()
+# 
+# # watch.length does not have day 1 and day 100.
+# # To use the same selection using days, add zero rows:
+# zero.rows <- array(data = 0, dim = c(1, 2, dim(n.array)[3]))
+# watch.length <- abind(zero.rows, watch.length, along = 1)
+# watch.length <- abind(watch.length, zero.rows, along = 1)
+# 
+# watch.length.vec <- watch.length[days > 1 & days < 100]  %>% na.omit()
+# 
+# Pareto.df <- data.frame(start.year = year.vec,
+#                         season = paste0(year.vec, "/", (year.vec+1)),
+#                         day = day.vec,
+#                         n = n.vec,
+#                         watch.length = watch.length.vec,
+#                         Pareto.k = LOOIC.n$loo.out$diagnostics$pareto_k) %>%
+#   mutate(Pareto.group = ifelse(Pareto.k < 0.7, "good", "bad"),
+#          N.hat = n/watch.length)
+# 
+# 
+# p.Pareto.k <- ggplot(Pareto.df ) +
+#   geom_point(aes(x = day, y = n, color = Pareto.group)) +
+#   facet_wrap(~season)
 
 all.start.year <- c(jm.out$jags.input$jags.input.Laake$all.start.year,
                     jm.out$jags.input$jags.input.new$start.years)
@@ -491,7 +486,7 @@ save.fig.fcn(fig = p.daily.Richards,
                height = 10, width = 10, units = "in",
                bg = "white")
 
-Reported.estimates <- read.csv(file = "Data/Nhats_2025.csv") %>%  
+Reported.estimates <- read.csv(file = paste0("Data/Nhats_", YEAR, ".csv")) %>%  
   transmute(Season = Season,
             Nhat = Nhat,
             LCL = LCL,
@@ -506,7 +501,7 @@ According to the bulk and tail ESS, and rank-normalized Rhat values, the MCMC fo
 
 ```{r Winbugs-results, echo=F,message=FALSE}
 #WinBugs.run.date <- "2025-04-11"
-WinBugs.out <- readRDS(file = paste0("RData/WinBUGS_2007to2025_v2_min", 
+WinBugs.out <- readRDS(file = paste0("RData/WinBUGS_2007to", YEAR, "_v2_min", 
                                      min.dur,
                                      "_100000_",
                                      WinBUGS.Run.Date, ".rds"))
@@ -672,7 +667,10 @@ if (save.fig)
 
 # Include non-survey years - no estimates for 2007/2008 because I don't have
 # raw data for that year. Only the WinBUGS inputs. 
-Laake.abundance.new <- read.csv(file = "Data/all_estimates_Laake_2025_2025-09-22.csv") %>%
+# The following needs output from LaakeAnalysis_NewData.R
+Laake.Run.Date <- "2026-02-23"
+Laake.abundance.new <- read.csv(file = paste0("Data/all_estimates_Laake_", 
+                                              YEAR, "_", Laake.Run.Date, ".csv")) %>%
   mutate(LCL = CL.low,
          UCL = CL.high) %>%
   select(c(Season, Nhat, LCL, UCL)) %>%
@@ -821,7 +819,7 @@ knitr::include_graphics(paste0("figures/Nhats_v",
 ```
 
 :::{custom-style="Image Caption"}
-`r fig.Nhats.num` Estimated annual abundance and their 95% CIs using Laake's method (blue, MLE), Durban's method (red, median), and the new approach (Eguchi M5, green, median). Laake's estimates prior to 2007 and Durban's estimates are found in Eguchi et al. (2025). Laake's estimates since the 2009/2010 season were computed using the scripts found in the *ERAnalysis* package."
+`r fig.Nhats.num` Estimated annual abundance and their 95% CIs using Laake's method (red, MLE), Durban's method (green, median), and the new approach (Eguchi M5, blue, median). Laake's estimates prior to 2007 and Durban's estimates are found in Eguchi et al. (2025). Laake's estimates since the 2009/2010 season were computed using the scripts found in the *ERAnalysis* package."
 :::
 
 ```{r gam-glm-fit, echo=F,message=FALSE}
