@@ -1598,7 +1598,7 @@ knitr::include_graphics(paste0("figures/Observer_dens.png"))
 ```
 
 :::{custom-style="Image Caption"}
-`r fig.OBS.num` Marginal posterior density distributions of observer random effects. Observers with less than 10 sightings were pooled as one observer.
+`r fig.OBS.num` Marginal posterior density distributions of observer fixed effects. Observers with less than 10 sightings were pooled as one observer.
 :::
 
 ## Literature cited {.unnumbered}
