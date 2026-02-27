@@ -78,9 +78,9 @@ save.fig.fcn <- function(fig, file.name, replace = F,
 
 The Eastern North Pacific (ENP) gray whale (*Eschrichtius robustus*) population undertakes one of the longest annual migrations of any mammal, traveling between its Arctic feeding grounds and the warm-water lagoons of Baja California, Mexico, where they calve and breed. This iconic population has been the subject of extensive research due to its remarkable recovery from historic whaling and its continued vulnerability to environmental changes and anthropogenic impacts. Understanding the dynamics of the ENP gray whale population, including its abundance, distribution, and migratory patterns, is crucial for effective conservation and management.
 
-Analytical methods to estimate the abundance of gray whales from visual surveys at Granite Canyon, CA, have evolved over the years [@laake_gray_2012; @durban_estimating_2015]. Laake et al. (2012) used the distance sampling approach with generalized additive models (GAMs). Durban et al. (2015) developed a new method using a Bayesian N-mixture approach, which was approved by the International Whaling Commission (IWC), and it has been used for the analysis since the 2015/2016 season. In their approach, Durban et al. used the observed changes in migrating gray whales at a single location along the migration corridor. The general trend of migration is that the number of gray whale sightings increases over time, reaches a peak, and then decreases. Durban et al.’s method used the Gaussian function to capture this general trend, while deviations from the Gaussian function were modeled via fitting a spline function to the observed counts. Observations, then, were modeled with binomial distributions (i.e., N-mixture model). The approach required double-observer protocols so that detection probabilities (i.e., probabilities in the binomial distributions) can be estimated. In recent years, however, financial and logistical constraints prohibited from having two independent simultaneous observation teams. Furthermore, the analysis was conducted using WinBUGS, which had become largely obsolete over the past decade.
+Analytical methods to estimate the abundance of gray whales from visual surveys at Granite Canyon, CA, have evolved over the years [@laake_gray_2012; @durban_estimating_2015]. Laake et al. (2012) used the distance sampling approach with generalized additive models (GAMs). Durban et al. (2015) developed a new method using a Bayesian N-mixture approach, which was approved by the International Whaling Commission (IWC), and it has been used for the analysis since the 2015/2016 season. In their approach, Durban et al. used the observed changes in migrating gray whales at a single location along the migration corridor. The general trend of ENP gray whale migration is that the number of gray whale sightings increases over time, peaks, and then decreases. Durban et al.’s method used a Gaussian function to capture the general trend, while deviations from the Gaussian function were modeled by fitting a spline to the observed counts. Observations, then, were modeled with binomial distributions. The approach required double-observer protocols to estimate detection probabilities (i.e., probabilities in binomial distributions). In recent years, however, financial and logistical constraints prohibited having two independent simultaneous observation teams. 
 
-This report presents improvements to the method developed by Durban et al. by replacing the binomial sampling model with the Poisson sampling model so that data from single observer team can be used to estimate abundance. I  developed this analysis using JAGS, which is another MCMC sampler but more contemporary. I will first briefly describe the method by Durban et al. and identify its underlying assumptions. Then, I will introduce a new approach that is consistent with the foundational concepts of the Durban et al. method but improves upon it. Finally, I reanalyze the data from Granite Canyon, CA, to compare abundance estimates among the three approaches: Laake et al. (2012), Durban et al. (2015), and the new approach presented here.
+This report presents improvements to the method developed by Durban et al. by replacing the binomial sampling model with the Poisson sampling model so that data from a single observer team can be used to estimate abundance. I  developed this analysis using JAGS, which is another MCMC sampler, but more contemporary than WinBUGS. I will first briefly describe the method by Durban et al. and identify its underlying assumptions. Then, I will introduce a new approach that is consistent with the foundational concepts of the Durban et al. method but improves upon it. Finally, I reanalyze the data from Granite Canyon, CA, to compare abundance estimates among the three approaches: Laake et al. (2012), Durban et al. (2015), and the new approach presented here.
 
 ### Method by Durban et al. (2015) {.unnumbered}
 
@@ -102,7 +102,7 @@ Coefficients were computed separately for the Gaussian and spline functions, whe
 
 A mathematical description of the approach by Durban et al. is provided in the Appendix.
 
-### Limitations of the Durban et al method {.unnumbered}
+### Limitations of the Durban et al. method {.unnumbered}
 
 Durban et al. (2015) used the "cut" function within WinBUGS to dissociate estimated parameters between the "Common" ($f_{d,t}$) and "Specific" ($g_{d,t}$) models. The function (*cut*) is unavailable in modern Bayesian computation packages (e.g., JAGS, STAN) and its use has been questioned [@plummer_cuts_2015]. In short, the "cut" function does not converge to a well-defined limiting distribution (Plummer 2015). Furthermore, the assumption that the number of migrating gray whales in front of an observation station follows a Gaussian distribution centered around the midpoint of the season is a potential limitation. The actual migration curve may not be symmetric, and the peak abundance may persist for several days rather than being instantaneous. While fitting spline functions to observed counts may alleviate some of these problems, a fitted spline can be overly flexible. A spline fit can fail to preserve the general migration assumption that the number of whales increases from the beginning of a migration season, reaches a peak, and then decreases toward the end of the season. Additionally, the Durban et al. method implicitly assumed that two observation stations operated simultaneously with identical effort. In reality, however, watch durations were not always identical between the two stations in previous years. Lastly, the N-mixture approach performs better if there were at least two independent counts of the same process to estimate detection probabilities. Financial and logistical constraints have made using two independent observers impossible. Consequently, the model has to be changed to accommodate this limitation. 
 
@@ -212,16 +212,15 @@ The Richards equation provided the daily mean number of gray whales ($\bar{N}$) 
 
 $$ A_{t,s,y} = \bar{N} \times L(i_t,s,y)$$
 
-The observed number of whales is a Poisson deviate with the mean ($\lambda$), where $\kappa$ is a function of $\A_{t,s,y}$ and the sighting probability ($p_{i_t, s, y}$):
+The observed number of whales is a Poisson deviate with the mean ($\lambda$), where $\kappa$ is a function of $A_{t,s,y}$ and the sighting probability ($p_{i_t, s, y}$):
 
 $$ n_{i_t, s, y} \sim POI(\kappa_{i_t, s, y})  $$
 
 where the index $i_t$ is the watch period $i$ of the day $t$, $s$ is the station (1 or 2), and $y$ is the season.
 
-\begin{equation} logit(p_{i_t, s, y}) = \alpha[O_{i_t, s, y}] + \beta_{B} \times B_{i_t, y} + \beta_{V} \times V_{i_t, y} 
-(\#eq:detection-probability)
+\begin{equation}
+ logit(p_{i_t, s, y}) = \alpha[O_{i_t, s, y}] + \beta_{B} \times B_{i_t, y} + \beta_{V} \times V_{i_t, y} (\#eq:detection-probability-Eguchi) 
 \end{equation}
-
 
 where the observation probability ($p_{i_t, s, y}$) was a function of the viewing conditions (the Beaufort sea state ($B$) and visibility code ($V$)), the overall mean probability of detection ($\beta_0$), and observer effects ($O$). For the observer effects ($\alpha[O_{i_t, s, y}]$), individuals with 10 most sightings were selected, whereas the rest of observers were pooled as one observer. 
 
@@ -286,7 +285,7 @@ JAGS models, R scripts to conduct the analysis, including data extraction and ex
 
 ## Results {.unnumbered}
 
-```{r model-comparison, echo=FALSE, message=FALSE, warning=FALSE}
+```{r model-comparison, echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE}
 # Model comparison was completed in Jags_Richards_ModelComparison.R and
 # results saved in a .rds file. To change that, run the script again.
 # 
@@ -297,7 +296,7 @@ out.table %>%
                          "min.ESS.bulk", "min.ESS.tail"),
                    digits = 2) %>%
   compose(part = "header", j = "dLOOIC",
-          value = as_paragraph(as_chunk("\u0394"), as_chunk("LOOIC"))) -> ft.models.comp
+          value = as_paragraph(as_chunk("\u0394"))) -> ft.models.comp
 
 # ft.models.comp <- flextable(out.table)
 # 
@@ -317,8 +316,8 @@ header_labels <- list(
   p.big.Rhat = as_paragraph(as_chunk(paste0("% ", R_hat, " > 1.01"))), 
   n.bad.Pareto = as_paragraph(as_chunk("# Pareto-k > 0.7")),
   p.bad.Pareto = as_paragraph(as_chunk("% Pareto-k > 0.7")),
-  min.ESS.bulk = as_paragraph(as_chunk("Minimum bulk ESS")),
-  min.ESS.tail = as_paragraph(as_chunk("Minimum tail ESS")))
+  min.ESS.bulk = as_paragraph(as_chunk("Min bulk ESS")),
+  min.ESS.tail = as_paragraph(as_chunk("Min tail ESS")))
 
 for (nm in names(header_labels)) {
   ft.models.comp <- flextable::compose(ft.models.comp, 
@@ -345,7 +344,17 @@ ft.models.comp %>%
               style = "Table Caption") 
 ```
 
-```{r JAGS-results, echo=F,message=FALSE}
+```{r JAGS-results, echo=F,message=FALSE,cache=FALSE}
+# Although I set cache to be TRUE at the beginning, there is a limit to how big 
+# cache can be. According to Gemini... 
+# By default, knitr tries to save cached objects into a "lazy-load database" 
+# so they don't consume your RAM until you actually need them. However, R's 
+# lazy-load database has a hard limit: it cannot store objects larger than 2GB 
+# (which R refers to internally as "long vectors").
+
+# Because your jm.out MCMC array is massive, R crashes when knitr attempts to 
+# cache it at the end of the chunk.
+
 #rm(list = c(".out"))
 ver <- 7 #5 #out.table$model[1] #5
 jm.out <- readRDS(paste0("RData/JAGS_Richards_HSSM_v",
@@ -369,41 +378,6 @@ ESS.tail <- list.convergence$ESS.tail[[ver]]
 n.array <- jm.out$jags.input$jags.data$n
 days <- jm.out$jags.input$jags.data$day
 watch.length <- jm.out$jags.input$jags.data$watch.length
-
-# # Create an array with corresponding years in non-NA elements
-# year.array <- array(dim = dim(n.array))
-# all.start.years <- c(jm.out$jags.input$jags.input.Laake$all.start.year,
-#                      jm.out$jags.input$jags.input.new$start.years)
-# 
-# for (k in 1:length(all.start.years)){
-#     year.array[, , k] <- all.start.years[k]
-# }
-# 
-# n.vec <- n.array[days > 1 & days < 100] %>% na.omit()
-# day.vec <- days[days > 1 & days < 100] %>% na.omit()
-# year.vec <- year.array[days > 1 & days < 100] %>% na.omit()
-# 
-# # watch.length does not have day 1 and day 100.
-# # To use the same selection using days, add zero rows:
-# zero.rows <- array(data = 0, dim = c(1, 2, dim(n.array)[3]))
-# watch.length <- abind(zero.rows, watch.length, along = 1)
-# watch.length <- abind(watch.length, zero.rows, along = 1)
-# 
-# watch.length.vec <- watch.length[days > 1 & days < 100]  %>% na.omit()
-# 
-# Pareto.df <- data.frame(start.year = year.vec,
-#                         season = paste0(year.vec, "/", (year.vec+1)),
-#                         day = day.vec,
-#                         n = n.vec,
-#                         watch.length = watch.length.vec,
-#                         Pareto.k = LOOIC.n$loo.out$diagnostics$pareto_k) %>%
-#   mutate(Pareto.group = ifelse(Pareto.k < 0.7, "good", "bad"),
-#          N.hat = n/watch.length)
-# 
-# 
-# p.Pareto.k <- ggplot(Pareto.df ) +
-#   geom_point(aes(x = day, y = n, color = Pareto.group)) +
-#   facet_wrap(~season)
 
 all.start.year <- c(jm.out$jags.input$jags.input.Laake$all.start.year,
                     jm.out$jags.input$jags.input.new$start.years)
@@ -497,9 +471,9 @@ Reported.estimates <- read.csv(file = paste0("Data/Nhats_", YEAR, ".csv")) %>%
   relocate(Method, .after = start.year)
 ```
 
-According to the bulk and tail ESS, and rank-normalized Rhat values, the MCMC for the best model converged well (Table x). Pareto-k statistics indicated that the model fit well to the data (Table x). Consequently, the posterior distributions of the parameters from the model `r ver` should be reliable. 
+According to the bulk and tail ESS, and rank-normalized Rhat values, the MCMC for the best model converged well (Table \@ref(tab:table-models)). Pareto-k statistics indicated that the model fit well to the data (Table \@ref(tab:table-models)). Consequently, the posterior distributions of the parameters from the model `r ver` should be reliable. 
 
-```{r Winbugs-results, echo=F,message=FALSE}
+```{r Winbugs-results, echo=F,message=FALSE,cache=FALSE}
 #WinBugs.run.date <- "2025-04-11"
 WinBugs.out <- readRDS(file = paste0("RData/WinBUGS_2007to", YEAR, "_v2_min", 
                                      min.dur,
@@ -626,7 +600,7 @@ N.hats.day.Durban <- data.frame(Season = rep(WinBugs.out$BUGS.input$seasons,
   mutate(Nhat = obs.n/prop)
 ```
 
-For the Durban et al's method, I found that the minimum bulk and tail ESS were too low (min(bulk ESS) = `r signif(min(ESS.bulk.BUGS$ess_bulk, digits = 2))`, min(tail ESS) = `r signif(min(ESS.tail.BUGS$ess_tail, digits = 2))`) to assume successful convergence of Markov chains. The rank-normalized Rhat statistics also indicated that convergence was not reached in `r length(BUGS.Rhat.big)` of `r dim(WinBUGS.out$BUGS.out$sims.array)[3]` monitored parameters (rank-normalized Rhat \> 1.01). Consequently, the inference from this model are questionable. 
+For the Durban et al's method, I found that the minimum bulk and tail ESS were too low (min(bulk ESS) = `r signif(min(ESS.bulk.BUGS$ess_bulk), digits = 2)`, min(tail ESS) = `r signif(min(ESS.tail.BUGS$ess_tail), digits = 2)`) to assume successful convergence of Markov chains. The rank-normalized Rhat statistics also indicated that convergence was not reached in `r length(BUGS.Rhat.big)` of `r dim(WinBugs.out$BUGS.out$sims.array)[3]` monitored parameters (i.e., rank-normalized Rhat \> 1.01). Consequently, the inference from this model are questionable. 
 
 
 ```{r all-results, message=FALSE, echo=FALSE}
@@ -1023,7 +997,7 @@ knitr::include_graphics(paste0("figures/gam_fit_", dpi.set, "dpi.png"))
 
 In this new approach, I did not have the mean detection probability as in the Durban's approach. Instead, the detection probability was estimated as a function of the fixed observer effect, Beaufort sea state, and visibility condition. As expected, the fixed effect of the visibility code on observation probability was negative (Figure `r officer::run_word_field("REF Figure-Fixed-posteriors \\h")`), indicating that less favorable conditions resulted in lower detection probabilities. Perplexingly, the fixed effect of the Beaufort sea state was positive (Figure `r officer::run_word_field("REF Figure-Fixed-posteriors \\h")`), suggesting that higher Beaufort sea states corresponded with greater detection probabilities. One possible explanation is that observers may have detected more singletons at low sea states, whereas only large groups were sighted at high sea states. The observer fixed effects indicated significant differences among individuals, consistent with the findings of Durban et al. (Appendix Figure `r officer::run_word_field("REF Figure-observers \\h")`).
 
-```{r posterior-fixed-effects-plots, echo=FALSE, message=FALSE}
+```{r posterior-fixed-effects-plots, echo=FALSE, message=FALSE, cache=FALSE}
 
 posteriors.Fixed <- plot.trace.dens(jm.out$jm, 
                                     var.name = ".Fixed")
@@ -1084,7 +1058,7 @@ knitr::include_graphics(paste0("figures/posteriors_VS_BF_", dpi.set, "dpi.png"))
 
 Posterior distributions of the Richards equation parameters provided valuable insights into how annual gray whale migration varied among years. The $P$ parameters, which define the timing of the migration peak, shifted over the years (Figure `r officer::run_word_field("REF Figure-P-posteriors \\h")`), a phenomenon reported in previous studies [@rugh_timing_2001], Eguchi et al. 2023, 2024, 2025), although the significance and causes for the changes are unknown. The $S_1$ parameter, which define the increasing part of the migration curve, also varied annually, indicating that the way the number of migrating whales increased over time fluctuated from year to year (Appendix Figure `r officer::run_word_field("REF Figure-S1-posteriors \\h")`. On the other hand, the best model included only one common $S_2$ parameter among all seasons, indicating the decline of the number of migrating whales was similar among years `r officer::run_word_field("REF Figure-S2-posteriors \\h")`), or insufficient counts were available towards the latter half of migration.
 
-```{r posterior-Richards-plots, echo=FALSE, message=FALSE}
+```{r posterior-Richards-plots, echo=FALSE, message=FALSE, cache=FALSE}
 
 posteriors.P <- plot.trace.dens(jm.out$jm, 
                                 var.name = "^P\\[")
