@@ -46,7 +46,7 @@ params.a1 <- "^VS\\.Fixed|^BF\\.Fixed|^Max\\[|^S1|^S2|^P|^alpha\\["
 #max.Rhat.big <- list()
 prop.big.Rhat <- n.params <- n.big.Rhat <- n.bad.Pareto <- prop.bad.Pareto <- LOOIC <- vector(mode = "numeric", length = length(model.names))
 
-min.ESS.bulk <- min.ESS.tail <- vector(mode = "numeric", length = length(model.names))
+min.ESS.bulk <- min.ESS.tail <- min.ESS <- vector(mode = "numeric", length = length(model.names))
 new.Rhat <- LOOIC.n <- ESS.bulk <- ESS.tail <- list()
 k <- 6
 for (k in 1:length(model.names)){
@@ -75,8 +75,6 @@ for (k in 1:length(model.names)){
   
   prop.big.Rhat[k] <- 100 * (length(max.Rhat.big)/n.params[k])
   
-  LOOIC[k] <- LOOIC.n[[k]]$loo.out$estimates["looic", "Estimate"]
-  
   n.bad.Pareto[k] <- sum(LOOIC.n[[k]]$loo.out$pointwise[,5] > 0.7)
   
   prop.bad.Pareto[k] <- 100 * (n.bad.Pareto[k]/nrow(LOOIC.n[[k]]$loo.out$pointwise))
@@ -97,6 +95,12 @@ for (k in 1:length(model.names)){
   
   min.ESS.tail[k] <- min(ESS.tail[[k]]$ess_tail)
   
+  min.ESS[k] <- min(min.ESS.tail[k], min.ESS.bulk[k])
+  
+  LOOIC[k] <- ifelse(min.ESS[k] > 400,
+                     LOOIC.n[[k]]$loo.out$estimates["looic", "Estimate"],
+                     NA)
+  
 }
 
 out.list <- list(LOOIC = LOOIC.n,
@@ -116,9 +120,9 @@ out.table <- data.frame(model = model.ID,
                         p.bad.Pareto = prop.bad.Pareto,
                         min.ESS.bulk = min.ESS.bulk,
                         min.ESS.tail = min.ESS.tail) %>%  
-  arrange(desc(min.ESS.bulk))  %>%
-  mutate(dLOOIC = LOOIC - min(LOOIC[min.ESS.bulk == max(min.ESS.bulk)])) %>%
   
+  mutate(dLOOIC = LOOIC - min(LOOIC, na.rm = T)) %>%
+  arrange(dLOOIC)  %>%
   select(model, dLOOIC, n.params, n.big.Rhat, 
          p.big.Rhat, n.bad.Pareto, p.bad.Pareto, 
          min.ESS.bulk, min.ESS.tail, LOOIC)
