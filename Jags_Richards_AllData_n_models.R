@@ -14,8 +14,10 @@ options(mc.cores = 5)
 # Minimum length of observation periods in minutes
 min.dur <- 60 #10 #85 #
 
-#ver <- c("v1a1", "v2a1", "v3a1", "v4a1", "v5a1", "v6a1", "v7a1", "v8a1" )
-ver <- c("v6a1", "v7a1", "v8a1" )
+ver <- c( "M5a1", "M6a1", "M7a1", "M8a1" ,
+          "M5a2", "M6a2", "M7a2", "M8a2")
+#ver <- c("v6a1", "v7a1", "v8a1" )
+#ver <- c("M5a2")
 Run.date <- Sys.Date()
 
 # These are the ending year of each season - for example, 2022 in the following vector indicates
@@ -48,19 +50,23 @@ MCMC.params <- list(n.samples = 250000,
 #                     n.burnin = 10,
 #                     n.chains = 5)
 
+# MCMC.params <- list(n.samples = 500,
+#                     n.thin = 2,
+#                     n.burnin = 10,
+#                     n.chains = 5)
+
 jags.params <- c("VS.Fixed", "BF.Fixed",
                  "Max", "K", "K1", "K2", "S1", "S2", "P",
-                 "P1", "P2",
                  "mean.prob", "prob", "obs.prob",
                  "mean.N", "Corrected.Est", "N", "obs.N",
                  #"OBS.RF", "sigma.Obs",
                  "Max.alpha", "Max.beta",
                  "S1.alpha", "S2.alpha",
                  "S1.beta", "S2.beta",
-                 "mu.P", "rho.P", "sd.proc.P",
-                 "mu.log.Max", "rho.Max", "sd.proc.Max",
+                 "beta0.P", "beta1.P", "sd.proc.P",
+                 "beta0.Max", "beta1.Max", "sd.proc.Max",
                  "Raw.Est", "beta.obs",
-                 "alpha",
+                 "alpha", "r",
                  #"P.alpha", "P.beta",
                  #"K.alpha", "K.beta",
                  #"beta.1",

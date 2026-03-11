@@ -28,7 +28,7 @@
 # Ten observers were selected for the number of sightings. All others were pooled 
 # as an "other" observer. They are treated as fixed effects with independent intercepts.
 #
-# This (v6a1) version has season specific P and Max, whereas S1, S2, and K are shared among seasons.
+# This (M6a1) version has season specific P and Max, whereas S1, S2, and K are shared among seasons.
 #
 
 model{
@@ -71,8 +71,8 @@ model{
 								
 				# probability is mean + covariate effects and watch.length as an offset
 				logit(obs.prob[d,s,y]) <- alpha[obs.fixed[d,s,y]] +
-								(BF.Fixed * bf[(d-1),s,y]) +
-								(VS.Fixed * vs[(d-1),s,y])
+								(BF.Fixed * bf.1[(d-1),s,y]) +
+								(VS.Fixed * vs.1[(d-1),s,y])
 															
 			}
 		}
@@ -89,31 +89,36 @@ model{
     }
 	    	
 	# priors for Richards function parameters. 
-	# Max is an AR(1) parameter 2026-02-06
-	mu.log.Max ~ dnorm(7.6, 0.25) # Centered on ~2000
-    rho.Max ~ dunif(-1, 1)
-    sd.proc.Max ~ dnorm(0, 1)T(0,)
-    tau.proc.Max <- pow(sd.proc.Max, -2)
-
-    log.Max[1] ~ dnorm(mu.log.Max, tau.proc.Max)
-    Max[1] <- exp(log.Max[1])
+		# --- Priors for the Peak (P) Trend Model ---
+	beta0.P ~ dunif(30, 60)       # Global Intercept (Average peak day across all years)
+	beta1.P ~ dnorm(0, 0.25)      # Global Slope (How many days the peak shifts per year)
 	
-	# Peak for the first year:
-	mu.P ~ dunif(30, 60)
-	rho.P ~ dunif(-1,1)
-	sd.proc.P ~ dnorm(0, 1)T(0,)
+	sd.proc.P ~ dnorm(0, 1)T(0,)  # Standard deviation of the random year effects
 	tau.proc.P <- pow(sd.proc.P, -2)
 	
-	P[1] ~ dnorm(mu.P, tau.proc.P) #dunif(30, 60) #dgamma(P.alpha, P.beta) 	
-	for (y in 2:n.year){
-		P.mean[y] <- mu.P + rho.P * (P[y-1] - mu.P)
-		P[y] ~ dnorm(P.mean[y], tau.proc.P)
+	# --- Apply the trend and random effect to each year ---
+	for (y in 1:n.year){
+		# 1. Calculate the expected mean peak for this specific year based on the trend
+		mu.P[y] <- beta0.P + (beta1.P * year.index[y])
 		
-		log.Max.mean[y] <- mu.log.Max + rho.Max * (log.Max[y-1] - mu.log.Max)
-        log.Max[y] ~ dnorm(log.Max.mean[y], tau.proc.Max)
-        Max[y] <- exp(log.Max[y]) 
+		# 2. Estimate the actual year's peak, allowing it to randomly deviate from the trend line
+		P[y] ~ dnorm(mu.P[y], tau.proc.P)
 	}
+
+	# --- Priors for the Abundance (Max) Trend Model ---
+	beta0.Max ~ dnorm(7.6, 0.25)  # Global Intercept for log(Max)
+	beta1.Max ~ dnorm(0, 0.25)    # Global Slope (Rate of increase/decrease in Max per year)
 	
+	sd.proc.Max ~ dnorm(0, 1)T(0,)
+	tau.proc.Max <- pow(sd.proc.Max, -2)
+
+	# --- Apply the trend and random effect ---
+	for (y in 1:n.year){
+		mu.log.Max[y] <- beta0.Max + (beta1.Max * year.index[y])
+		log.Max[y] ~ dnorm(mu.log.Max[y], tau.proc.Max)
+		Max[y] <- exp(log.Max[y])
+	}
+		
 	# Uniform distributions were adjusted to capture entire posterior 
 	# distributions of the hyper-parameters. 
 	# Hyper parameters for S1 and S2 were changed following suggestions by Gemini 2026-02-03
@@ -127,7 +132,7 @@ model{
 	S2 ~ dgamma(S2.alpha, S2.beta)  
 		
 	# Change in the K parameter prior 2026-02-03
-	K <- 0.01  #~ dgamma(2, 1)   # or dlnorm(0, 1)
+	K <- 1  #~ dgamma(2, 1)   # or dlnorm(0, 1)
      
 	## Beaufort and visibility	
 	## Gemini: The precision parameters were changed from 0.001 to 0.25 2026-02-03

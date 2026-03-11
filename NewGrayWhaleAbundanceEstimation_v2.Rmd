@@ -405,7 +405,8 @@ p.daily.Richards <- ggplot(N.hats.day %>%
               fill = "blue", alpha = 0.5) +
   geom_path(aes(x = Day, y = Mean)) + 
   geom_point(aes(x = Day, y = Nhat), color = "darkgreen") +
-  facet_wrap(~ Season)
+  facet_wrap(~ Season) +
+  theme_bw()
 
 save.fig.fcn(fig = p.daily.Richards, 
                file.name = "figures/Daily_Eguchi.png", 
@@ -567,7 +568,8 @@ p.daily.Durban <- ggplot(N.hats.day.Durban %>% group_by(Season)) +
               fill = "blue", alpha = 0.5) +
   geom_path(aes(x = Day, y = Mean)) + 
   geom_point(aes(x = Day, y = Nhat), color = "darkgreen") +
-  facet_wrap(~ Season)
+  facet_wrap(~ Season) +
+  theme_bw()
 
 if (save.fig)
   save.fig.fcn(fig = p.daily.Durban, 
@@ -582,7 +584,8 @@ p.daily. <- ggplot(N.hats.day.all %>% group_by(Season)) +
               alpha = 0.5) +
   geom_path(aes(x = Day, y = Mean, color = Method), size = 1) + 
   geom_point(aes(x = Day, y = Nhat, color = Method)) +
-  facet_wrap(~ Season)
+  facet_wrap(~ Season) +
+  theme_bw()
 
 if (save.fig)
   save.fig.fcn(fig = p.daily., 
@@ -648,7 +651,8 @@ p.Nhats <- ggplot(all.estimates) +
                     color = Method)) +
   ylim(5000, 35000) +
   xlab("") + ylab("Abundance") +
-  theme(legend.position = "top")
+  theme(legend.position = "top") +
+  theme_bw()
 
 if (save.fig)
   save.fig.fcn(fig = p.Nhats,
@@ -840,7 +844,8 @@ p.gam.2006.fit <- ggplot(data = pred.2006) +
             size = 1) +
   scale_x_continuous(labels = function(breaks){ paste0(breaks + start.year.2006)}) +
   xlab("") + ylab("Abundance") +
-  theme(legend.position = "top")
+  theme(legend.position = "top") +
+  theme_bw()
   
 p.gam.all.fit <- ggplot(data = pred.all) +
   # Add the confidence interval ribbon using the new prediction data
@@ -852,7 +857,8 @@ p.gam.all.fit <- ggplot(data = pred.all) +
             size = 1) +
   scale_x_continuous(labels = function(breaks){ paste0(breaks + 1967)}) +
   xlab("") + ylab("Abundance") +
-  theme(legend.position = "top")
+  theme(legend.position = "top") +
+  theme_bw()
 
   # geom_point(data = all.estimates.gam %>%
   #              filter(start.year > 2005),
@@ -906,7 +912,8 @@ p.posteriors.VS.BF <- ggplot(VS.BF.df) +
   geom_density(aes(x = sample)) +
   facet_wrap(~ par.name.new.f, scales = "free_x", 
              labeller = as_labeller(custom_labels, default = label_parsed)) +
-  xlab("") + ylab("Density")
+  xlab("") + ylab("Density") +
+  theme_bw()
 
 # p.posteriors.Fixed <- ggplot(posteriors.Fixed$df) +
 #   geom_density(aes(x = sample)) +
@@ -966,7 +973,9 @@ posteriors.P$df %>%
 
 p.posteriors.P <- ggplot(P.df, aes(x = P, y = start.year.f)) +
   geom_density_ridges() +
-  ylab("Start year")
+  xlab("Ordinal Day of Season") +
+  ylab("Start year") +
+  theme_bw()
 
 if (save.fig)
   save.fig.fcn(fig = p.posteriors.P,
@@ -987,7 +996,9 @@ if (ver %% 2 == 1 ){
   p.posteriors.S1 <- ggplot(S1.df, aes(x = S1, y = start.year.f)) +
     geom_density_ridges() +
     xlim(c(4, 25)) +
-    ylab("Start year")
+    xlab("Ordinal Day of Season") +
+    ylab("Start year") +
+  theme_bw()
   
 } else {
   posteriors.S1 <- plot.trace.dens(jm.out$jm,
@@ -1015,7 +1026,9 @@ if (ver == 2 | ver == 3 | ver == 6 | ver == 7){
   p.posteriors.S2 <- ggplot(S2.df, aes(x = S2, y = start.year.f)) +
     geom_density_ridges() +
     xlim(c(4, 20)) +
-    ylab("Start year")
+    xlab("Ordinal Day of Season") +
+    ylab("Start year") +
+  theme_bw()
   
 } 
 
@@ -1324,7 +1337,9 @@ data.df <- data.frame(Day = rep(1:90, times = length(S1)),
 p.S1 <- ggplot(data = data.df) +
   geom_path(aes(x = Day, y = mean.N), color = "red") +
   facet_wrap(~ S1) +
-  ylab("")
+  xlab("Ordinal Day of Season") +
+  ylab("") +
+  theme_bw()
 
 save.fig.fcn(p.S1, 
              file.name = paste0("figures/S1_", 
@@ -1379,7 +1394,9 @@ data.df <- data.frame(Day = rep(1:90, times = length(S2)),
 p.S2 <- ggplot(data = data.df) +
   geom_path(aes(x = Day, y = mean.N), color = "red") +
   facet_wrap(~ S2) +
-  ylab("")
+  xlab("Ordinal Day of Season") +
+  ylab("") +
+  theme_bw()
 
 save.fig.fcn(p.S2, 
              file.name = paste0("figures/S2_", dpi.set, "dpi.png"), 
@@ -1434,7 +1451,9 @@ data.df <- data.frame(Day = rep(1:90, times = length(K)),
 p.K <- ggplot(data = data.df) +
   geom_path(aes(x = Day, y = mean.N), color = "red") +
   facet_wrap(~ K) +
-  ylab("")
+  xlab("Ordinal Day of Season") +
+  ylab("") +
+  theme_bw()
 
 save.fig.fcn(p.K, 
              file.name = paste0("figures/K_", dpi.set, "dpi.png"), 
@@ -1490,7 +1509,8 @@ data.df <- data.frame(Day = rep(1:90, times = length(P)),
 p.P <- ggplot(data = data.df) +
   geom_path(aes(x = Day, y = mean.N), color = "red") +
   facet_wrap(~ P) +
-  ylab("")
+  ylab("") +
+  theme_bw()
 
 save.fig.fcn(p.P, 
              file.name = paste0("figures/P_", 

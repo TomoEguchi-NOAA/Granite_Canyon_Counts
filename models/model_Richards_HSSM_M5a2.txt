@@ -22,13 +22,12 @@
 #
 # N is the number of whales passing through the study area during the 9-hr sampling period.
 # 
-# Observed counts are assumed to be Poisson distribution with its mean = 
-# available whales x sighting probability, 
+# Observed counts are assumed to be Negative Binomial distribution 
 # where sighting probability is a function of visibility, Beaufort, and observers.
 # Ten observers were selected for the number of sightings. All others were pooled 
 # as an "other" observer. They are treated as fixed effects with independent intercepts.
 #
-# This version (M5a1) has year spcific P=P1=P2, Max, S1 and S2 parameters with hyperparameters.
+# This version (M5a2) has year spcific P=P1=P2, Max, S1 and S2 parameters with hyperparameters.
 # K is shared among years.
 #
 
@@ -62,12 +61,18 @@ model{
 				# watch.length must be in days (which you have: 0.04 to 0.4)
 				whales.available[d,s,y] <- mean.N[day[d,s,y], y] * watch.length[(d-1),s,y]
 				
-				# Poisson Rate
-				lambda[d, s, y] <- whales.available[d,s,y] * obs.prob[d,s,y]
-            
-				n[d, s, y] ~ dpois(lambda[d,s,y])
+								
+				# 1. Calculate expected mean (kappa) 
+				kappa[d, s, y] <- whales.available[d,s,y] * obs.prob[d, s, y]  
+
+				# 2. Convert kappa to the JAGS Negative Binomial probability parameter
+				# (Using 'p_nb' to avoid confusing it with your detection probability)
+				p_nb[d, s, y] <- r / (r + kappa[d, s, y])
+
+				# 3. The new Negative Binomial likelihood function
+				n[d, s, y] ~ dnegbin(p_nb[d, s, y], r)
 			
-				log.lkhd[(d-1),s,y] <- logdensity.pois(n[d,s,y], lambda[d,s,y])
+				log.lkhd[(d-1),s,y] <- logdensity.negbin(n[d,s,y], p_nb[d, s, y], r)
 								
 				# probability is mean + covariate effects and watch.length as an offset
 				logit(obs.prob[d,s,y]) <- alpha[obs.fixed[d,s,y]] +
@@ -78,6 +83,7 @@ model{
 		}
 	}
 		
+	r ~ dunif(0, 50)
 	# OBSERVERS: Independent Intercepts
     # We estimate 12 separate intercepts (or however many groups you have).
     # No 'mean.prob', no 'beta.obs'. Just 'alpha'.
@@ -118,7 +124,7 @@ model{
 		log.Max[y] ~ dnorm(mu.log.Max[y], tau.proc.Max)
 		Max[y] <- exp(log.Max[y])
 	}
-		
+	
 	# Uniform distributions were adjusted to capture entire posterior 
 	# distributions of the hyper-parameters. 
 	# Hyper parameters for S1 and S2 were changed following suggestions by Gemini 2026-02-03
@@ -133,9 +139,11 @@ model{
 		S2[y] ~ dgamma(S2.alpha, S2.beta)  
 	}
 	
-	# K is fixed. 
-	K <- 1  #~ dgamma(2, 1)   # or dlnorm(0, 1)
-     
+	# K is not fixed. 
+	#K ~ dunif(0.001, 2)
+	# or fixed
+	K <- 1
+	 
 	## Beaufort and visibility	
 	## Gemini: The precision parameters were changed from 0.001 to 0.25 2026-02-03
 	BF.Fixed ~ dnorm(0,0.25) 

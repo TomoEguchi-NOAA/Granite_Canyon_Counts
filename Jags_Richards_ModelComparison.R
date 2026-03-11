@@ -17,9 +17,8 @@ min.dur <- 60
 YEAR <- 2026
 
 # Model name IDs
-model.names <- c("1", "2", "3", "4",
-                 "5", "6", "7", "8")
-
+model.names <- c( "M5a1", "M6a1", "M7a1", "M8a1" ,
+                  "M5a2", "M6a2", "M7a2", "M8a2")
 #model.names <- c( "6", "7", "8")
 
 # model IDs in the manuscript is in the same order as above but the numbers are
@@ -50,8 +49,8 @@ min.ESS.bulk <- min.ESS.tail <- min.ESS <- vector(mode = "numeric", length = len
 new.Rhat <- LOOIC.n <- ESS.bulk <- ESS.tail <- list()
 k <- 6
 for (k in 1:length(model.names)){
-  .out <- readRDS(paste0("RData/JAGS_Richards_HSSM_v", 
-                         model.names[k], "a1_1968to", YEAR, "_min", 
+  .out <- readRDS(paste0("RData/JAGS_Richards_HSSM_", 
+                         model.names[k], "_1968to", YEAR, "_min", 
                          min.dur, "_NoBUGS.rds"))
   
   new.Rhat[[k]] <- rank.normalized.R.hat(.out$jm$samples, 
@@ -110,7 +109,7 @@ out.list <- list(LOOIC = LOOIC.n,
 saveRDS(out.list, 
         file = paste0("RData/Richards_Convergence_", YEAR, ".rds"))
 
-out.table <- data.frame(model = model.ID,
+out.table <- data.frame(model = model.names,
                         LOOIC = LOOIC,
                         n.params = n.params,
                         p.big.Rhat = prop.big.Rhat,

@@ -22,14 +22,12 @@
 #
 # N is the number of whales passing through the study area during the 9-hr sampling period.
 # 
-# Observed counts are assumed to be Poisson distribution with its mean = 
-# available whales x sighting probability, 
+# Observed counts are assumed to be Negative Binomial distribution
 # where sighting probability is a function of visibility, Beaufort, and observers.
 # Ten observers were selected for the number of sightings. All others were pooled 
 # as an "other" observer. They are treated as fixed effects with independent intercepts.
 #
-# This version (M5a1) has year spcific P=P1=P2, Max, S1 and S2 parameters with hyperparameters.
-# K is shared among years.
+# This (M6a2) version has season specific P and Max, whereas S1, S2, and K are shared among seasons.
 #
 
 model{
@@ -46,8 +44,8 @@ model{
 		for (t in 2:(n.days-1)){
 			# year-specific K - results in conversion issues. 2022-11-09 
 			# This was fixed by adding hyperparameters. 2024
-			M1[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/(-S1[y])) * (P[y] - t))) ^ (-1/exp(K))
-			M2[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K))
+			M1[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/(-S1)) * (P[y] - t))) ^ (-1/exp(K))
+			M2[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/S2) * (P[y] - t))) ^ (-1/exp(K))
 			
 			mean.N[t, y] <- (Max[y]) * (M1[t, y] * M2[t, y]) 
 						
@@ -55,6 +53,7 @@ model{
 	}  
 
 	# observations are from the realized abundance: 
+		
 	for (y in 1:n.year){
 		for (s in 1:n.station[y]){
 			for (d in 2:(periods[y,s]+1)){
@@ -62,12 +61,17 @@ model{
 				# watch.length must be in days (which you have: 0.04 to 0.4)
 				whales.available[d,s,y] <- mean.N[day[d,s,y], y] * watch.length[(d-1),s,y]
 				
-				# Poisson Rate
-				lambda[d, s, y] <- whales.available[d,s,y] * obs.prob[d,s,y]
-            
-				n[d, s, y] ~ dpois(lambda[d,s,y])
+				# 1. Calculate expected mean (kappa) 
+				kappa[d, s, y] <- whales.available[d,s,y] * obs.prob[d, s, y]  
+
+				# 2. Convert kappa to the JAGS Negative Binomial probability parameter
+				# (Using 'p_nb' to avoid confusing it with your detection probability)
+				p_nb[d, s, y] <- r / (r + kappa[d, s, y])
+
+				# 3. The new Negative Binomial likelihood function
+				n[d, s, y] ~ dnegbin(p_nb[d, s, y], r)
 			
-				log.lkhd[(d-1),s,y] <- logdensity.pois(n[d,s,y], lambda[d,s,y])
+				log.lkhd[(d-1),s,y] <- logdensity.negbin(n[d,s,y], p_nb[d, s, y], r)
 								
 				# probability is mean + covariate effects and watch.length as an offset
 				logit(obs.prob[d,s,y]) <- alpha[obs.fixed[d,s,y]] +
@@ -77,7 +81,8 @@ model{
 			}
 		}
 	}
-		
+	
+	r ~ dunif(0, 50)
 	# OBSERVERS: Independent Intercepts
     # We estimate 12 separate intercepts (or however many groups you have).
     # No 'mean.prob', no 'beta.obs'. Just 'alpha'.
@@ -127,15 +132,16 @@ model{
 	
 	S2.alpha ~ dnorm(10, 0.1)T(0,)  #dunif(0.1, 50)
 	S2.beta ~ dgamma(1, 1)     #dunif(0.01, 10)
-		
-	for (y in 1:n.year){
-		S1[y] ~ dgamma(S1.alpha, S1.beta)  
-		S2[y] ~ dgamma(S2.alpha, S2.beta)  
-	}
 	
-	# K is fixed. 
-	K <- 1  #~ dgamma(2, 1)   # or dlnorm(0, 1)
-     
+	S1 ~ dgamma(S1.alpha, S1.beta)  
+	S2 ~ dgamma(S2.alpha, S2.beta)  
+		
+	# Change in the K parameter prior 2026-02-03
+	# K is not fixed. 
+	#K ~ dunif(0.001, 2)
+		# or fixed
+	K <- 1
+ 
 	## Beaufort and visibility	
 	## Gemini: The precision parameters were changed from 0.001 to 0.25 2026-02-03
 	BF.Fixed ~ dnorm(0,0.25) 

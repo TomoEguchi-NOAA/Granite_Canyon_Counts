@@ -664,6 +664,11 @@ NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC
     jags.data$vs.1 <- jags.data$vs
     jags.data$vs <- vs.std
     
+    jags.data$start.years <- c(jags.input.list$jags.input.Laake$all.start.year,
+                               jags.input.list$jags.input.new$start.years)
+    
+    jags.data$year.index <- jags.data$start.years - mean(jags.data$start.years)
+    
     jags.input <- list(jags.data = jags.data,
                        min.dur = min.dur, 
                        jags.input.Laake = jags.input.list$jags.input.Laake,
