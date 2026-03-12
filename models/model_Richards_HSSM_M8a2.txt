@@ -29,8 +29,9 @@
 # Ten observers were selected for the number of sightings. All others were pooled 
 # as an "other" observer. They are treated as fixed effects with independent intercepts.
 #
-# This version (M8a2) has year spcific P=P1=P2, Max, and S2 parameters with hyperparameters.
-# K and S1 are shared among years.
+# This version (M8a2) has year spcific P, Max, and S2 parameters. P and Max are treated
+# with linear trend models with a global intercept and centered years.
+# K = 1 and S1 are shared among years.
 #
 
 model{
