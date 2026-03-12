@@ -24,12 +24,12 @@
 # 
 # The number of available whales is computed by N x watch.length (in days)
 #
-# Observed counts are assumed to be Negative Binomial distribution
+# Observed counts are assumed to be Negative Binomial (a2) distribution
 # where sighting probability is a function of visibility, Beaufort, and observers.
 # Ten observers were selected for the number of sightings. All others were pooled 
 # as an "other" observer. They are treated as fixed effects with independent intercepts.
 #
-# This version (M8a2) has year spcific P, Max, and S2 parameters. The means of P and Max 
+# This version (M8) has year spcific P, Max, and S2 parameters. The means of P and Max 
 # are modeled with linear trends with global intercepts and centered years. The realized
 # P[y] and Max[y] are random deviates from normal distributions. 
 # K = 1 and S1 are shared among years.
@@ -63,14 +63,13 @@ model{
 		for (s in 1:n.station[y]){
 			for (d in 2:(periods[y,s]+1)){
 				# Calculate 'Available Whales' based on effort (watch length)
-				# watch.length must be in days (which you have: 0.04 to 0.4)
+				# watch.length must be in days 
 				whales.available[d,s,y] <- mean.N[day[d,s,y], y] * watch.length[(d-1),s,y]
 				
 				# 1. Calculate expected mean (kappa) 
 				kappa[d, s, y] <- whales.available[d,s,y] * obs.prob[d, s, y]  
 
 				# 2. Convert kappa to the JAGS Negative Binomial probability parameter
-				# (Using 'p_nb' to avoid confusing it with your detection probability)
 				p_nb[d, s, y] <- r / (r + kappa[d, s, y])
 
 				# 3. The new Negative Binomial likelihood function
@@ -79,6 +78,8 @@ model{
 				log.lkhd[(d-1),s,y] <- logdensity.negbin(n[d,s,y], p_nb[d, s, y], r)
 								
 				# probability is mean + covariate effects and watch.length as an offset
+				# bf and vs d index is -1 because d = 1 is for no whales. But, bf and vs
+				# don't have the records for d = 1. 
 				logit(obs.prob[d,s,y]) <- alpha[obs.fixed[d,s,y]] +
 								(BF.Fixed * bf.1[(d-1),s,y]) +
 								(VS.Fixed * vs.1[(d-1),s,y])
@@ -87,12 +88,11 @@ model{
 		}
 	}
 	
+	# Overdispersion parameter
 	r ~ dunif(0, 50)
 	
 	# OBSERVERS: Independent Intercepts
-    # We estimate 12 separate intercepts (or however many groups you have).
-    # No 'mean.prob', no 'beta.obs'. Just 'alpha'.
-    
+    # We estimate n.obs.fixed separate intercepts.
     for (o in 1:n.obs.fixed){
         # Each observer gets their own detection baseline.
         # dnorm(0, 1) covers the logit range comfortably.
@@ -100,7 +100,7 @@ model{
     }
 	    	
 	# priors for Richards function parameters. 
-		# --- Priors for the Peak (P) Trend Model ---
+	# --- Priors for the Peak (P) Trend Model ---
 	beta0.P ~ dunif(30, 60)       # Global Intercept (Average peak day across all years)
 	beta1.P ~ dnorm(0, 0.25)      # Global Slope (How many days the peak shifts per year)
 	
