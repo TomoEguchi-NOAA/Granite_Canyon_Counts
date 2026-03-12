@@ -27,8 +27,9 @@
 # Ten observers were selected for the number of sightings. All others were pooled 
 # as an "other" observer. They are treated as fixed effects with independent intercepts.
 #
-# This version (M7a2) has year spcific P, Max, and S1 parameters. P and Max are treated
-# with linear trend models with a global intercept and centered years.  
+# This version (M7a2) has year spcific P, Max, and S1 parameters. The means of P and Max 
+# are modeled with linear trends with global intercepts and centered years. The realized
+# P[y] and Max[y] are random deviates from normal distributions.   
 # K = 1 and S2 are shared among years.
 #
 

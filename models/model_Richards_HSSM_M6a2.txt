@@ -27,8 +27,9 @@
 # Ten observers were selected for the number of sightings. All others were pooled 
 # as an "other" observer. They are treated as fixed effects with independent intercepts.
 #
-# This (M6a2) version has season specific P and Max and are treated
-# with linear trend models with a global intercept and centered years. 
+# This (M6a2) version has season specific P and Max. The means of P and Max 
+# are modeled with linear trends with global intercepts and centered years. The realized
+# P[y] and Max[y] are random deviates from normal distributions. 
 # S1, S2, and K = 1 are shared among seasons.
 #
 
