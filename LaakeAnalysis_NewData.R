@@ -25,7 +25,7 @@ source("Laake_functions.R")
 
 save.file <- F
 # These are the second year of each season.
-years <- c(2008, 2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025)
+years <- c(2008, 2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025, 2026)
 
 out.file.name <- paste0("Data/all_estimates_Laake_",
                         max(years), "_", Sys.Date(), ".csv")

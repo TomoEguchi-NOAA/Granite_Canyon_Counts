@@ -664,6 +664,11 @@ NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC
     jags.data$vs.1 <- jags.data$vs
     jags.data$vs <- vs.std
     
+    jags.data$start.years <- c(jags.input.list$jags.input.Laake$all.start.year,
+                               jags.input.list$jags.input.new$start.years)
+    
+    jags.data$year.index <- jags.data$start.years - mean(jags.data$start.years)
+    
     jags.input <- list(jags.data = jags.data,
                        min.dur = min.dur, 
                        jags.input.Laake = jags.input.list$jags.input.Laake,
@@ -2990,25 +2995,30 @@ plot.trace.dens <- function(jm, var.name){
                                          each = n.samples)) %>%
       mutate(numeric.index = as.numeric(str_extract(par.name, "(?<=\\[)\\d+(?=\\])"))) %>%
       mutate(par.name.ordered = factor(par.name, levels = unique(par.name[order(numeric.index)])))
+    p.trace <- ggplot(samples.df) +
+      geom_line(aes(x = seq, y = sample, color = chain)) +
+      facet_wrap(~ par.name.ordered) +
+      theme(legend.position = "none")
     
+    p.dens <- ggplot(samples.df) +
+      geom_density(aes(x = sample)) +
+      facet_wrap(~ par.name.ordered)
   } else {
     samples.vec <- unlist(samples)
     samples.df <- data.frame(seq = rep(1:n.samples),
                              sample = samples.vec,
-                             par.name = par.names[col.idx],
+                             par.name = factor(par.names[col.idx]),
                              chain = rep(1:n.chains, 
                                          times = n.samples))
-        
+    p.trace <- ggplot(samples.df) +
+      geom_line(aes(x = seq, y = sample, color = chain)) +
+      theme(legend.position = "none")
+    
+    p.dens <- ggplot(samples.df) +
+      geom_density(aes(x = sample)) 
   }
 
-  p.trace <- ggplot(samples.df) +
-    geom_line(aes(x = seq, y = sample, color = chain)) +
-    facet_wrap(~ par.name.ordered) +
-    theme(legend.position = "none")
-  
-  p.dens <- ggplot(samples.df) +
-    geom_density(aes(x = sample)) +
-    facet_wrap(~ par.name.ordered)
+ 
   
   return(list(df = samples.df,
               p.trace = p.trace,

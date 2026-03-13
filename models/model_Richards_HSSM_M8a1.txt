@@ -1,0 +1,176 @@
+# JAGS model for estimating gray whale abundance off Granite Canyon
+
+# known cyclical nature of gray whale counts is modeled by the function
+# provided in Girondot et al. (2007): Modeling approaches to quantify
+# leatherback nesting trends in French Guiana and Suriname. Chelonian
+# Conservation and Biology 6(1): 37-46.
+#
+# The function has the following form:
+# 
+# M1 <- (1 + (2 * exp(K) - 1) * exp((1/S1) * (P - d))) ^ (-1/exp(K))
+# M2 <- (1 + (2 * exp(K) - 1) * exp((1/S2) * (P - d))) ^ (-1/exp(K))
+# N <- min + (max - min) * (M1 * M2)
+#
+# d is the number of days from the beginning of migration season
+# S1 < 0 and S2 > 0 define the "fatness" of the function
+# K > 0 defines the "flatness" at the peak of the function
+# P defines where the peak is relatvie to the range of d min(d) < P < max(d)
+# min is "the basal level of the number of whales outside the migration season"
+# max > min
+#
+# I set min = 0. 
+#
+# N is the mean number of whales passing through the study area during the 9-hr sampling period.
+# 
+# The number of available whales is computed by N x watch.length (in days)
+#
+# Observed counts are assumed to be Poisson distribution (a1) with its mean = 
+# available whales x sighting probability, 
+# where sighting probability is a function of visibility, Beaufort, and observers.
+# Ten observers were selected for the number of sightings. All others were pooled 
+# as an "other" observer. They are treated as fixed effects with independent intercepts.
+#
+# This version (M8) has year spcific P, Max, and S2 parameters. The means of P and Max 
+# are modeled with linear trends with global intercepts and centered years. The realized
+# P[y] and Max[y] are random deviates from normal distributions. 
+# K = 1 and S1 are shared among years.
+#
+
+model{
+
+	# Define Richards function - this is the mean of "true" daily abundance
+	# The realization is a Poisson deviate. 
+	for (y in 1:n.year){    
+		# Fix Day 1
+		mean.N[1, y] <- 0.0001 # Use small epsilon to avoid log(0) errors if used in log-likelihood
+    
+		# Fix Last Day
+		mean.N[n.days, y] <- 0.0001
+	
+		for (t in 2:(n.days-1)){
+			# year-specific K - results in conversion issues. 2022-11-09 
+			# This was fixed by adding hyperparameters. 2024
+			M1[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/(-S1)) * (P[y] - t))) ^ (-1/exp(K))
+			M2[t, y] <- (1 + (2 * exp(K) - 1) * exp((1/S2[y]) * (P[y] - t))) ^ (-1/exp(K))
+			
+			mean.N[t, y] <- (Max[y]) * (M1[t, y] * M2[t, y]) 
+						
+		}
+	}  
+
+	# observations are from the realized abundance: 
+
+	for (y in 1:n.year){
+		for (s in 1:n.station[y]){
+			for (d in 2:(periods[y,s]+1)){
+				# Calculate 'Available Whales' based on effort (watch length)
+				# watch.length must be in days
+				whales.available[d,s,y] <- mean.N[day[d,s,y], y] * watch.length[(d-1),s,y]
+				
+				# Poisson Rate
+				lambda[d, s, y] <- whales.available[d,s,y] * obs.prob[d,s,y]
+            
+				n[d, s, y] ~ dpois(lambda[d,s,y])
+			
+				log.lkhd[(d-1),s,y] <- logdensity.pois(n[d,s,y], lambda[d,s,y])
+								
+				# probability is mean + covariate effects and watch.length as an offset
+				# bf and vs d index is -1 because d = 1 is for no whales. But, bf and vs
+				# don't have the records for d = 1. 
+				logit(obs.prob[d,s,y]) <- alpha[obs.fixed[d,s,y]] +
+								(BF.Fixed * bf.1[(d-1),s,y]) +
+								(VS.Fixed * vs.1[(d-1),s,y])
+															
+			}
+		}
+	}
+		
+	# OBSERVERS: Independent Intercepts
+    # We estimate n.obs.fixed separate intercepts.
+    for (o in 1:n.obs.fixed){
+        # Each observer gets their own detection baseline.
+        # dnorm(0, 1) covers the logit range comfortably.
+        alpha[o] ~ dnorm(0, 1) 
+    }
+	    	
+	# priors for Richards function parameters. 
+	# --- Priors for the Peak (P) Trend Model ---
+	beta0.P ~ dunif(30, 60)       # Global Intercept (Average peak day across all years)
+	beta1.P ~ dnorm(0, 0.25)      # Global Slope (How many days the peak shifts per year)
+	
+	sd.proc.P ~ dnorm(0, 1)T(0,)  # Standard deviation of the random year effects
+	tau.proc.P <- pow(sd.proc.P, -2)
+	
+	# --- Apply the trend and random effect to each year ---
+	for (y in 1:n.year){
+		# 1. Calculate the expected mean peak for this specific year based on the trend
+		mu.P[y] <- beta0.P + (beta1.P * year.index[y])
+		
+		# 2. Estimate the actual year's peak, allowing it to randomly deviate from the trend line
+		P[y] ~ dnorm(mu.P[y], tau.proc.P)
+	}
+
+	# --- Priors for the Abundance (Max) Trend Model ---
+	beta0.Max ~ dnorm(7.6, 0.25)  # Global Intercept for log(Max)
+	beta1.Max ~ dnorm(0, 0.25)    # Global Slope (Rate of increase/decrease in Max per year)
+	
+	sd.proc.Max ~ dnorm(0, 1)T(0,)
+	tau.proc.Max <- pow(sd.proc.Max, -2)
+
+	# --- Apply the trend and random effect ---
+	for (y in 1:n.year){
+		mu.log.Max[y] <- beta0.Max + (beta1.Max * year.index[y])
+		log.Max[y] ~ dnorm(mu.log.Max[y], tau.proc.Max)
+		Max[y] <- exp(log.Max[y])
+	}
+	
+	
+	# Uniform distributions were adjusted to capture entire posterior 
+	# distributions of the hyper-parameters. 
+	# Hyper parameters for S1 and S2 were changed following suggestions by Gemini 2026-02-03
+	S1.alpha ~ dnorm(10, 0.1)T(0,)  #dunif(0.1, 50)
+	S1.beta ~ dgamma(1, 1)   #dunif(0.01, 5)
+	
+	S2.alpha ~ dnorm(10, 0.1)T(0,)  #dunif(0.1, 50)
+	S2.beta ~ dgamma(1, 1)     #dunif(0.01, 10)
+		
+	for (y in 1:n.year){
+		S2[y] ~ dgamma(S1.alpha, S1.beta)  
+	}
+	S1 ~ dgamma(S2.alpha, S2.beta)  
+	
+	# K is fixed. 
+	K <- 1  
+    	 
+	## Beaufort and visibility	
+	## Gemini: The precision parameters were changed from 0.001 to 0.25 2026-02-03
+	BF.Fixed ~ dnorm(0,0.25) 
+	VS.Fixed ~ dnorm(0,0.25) 
+  
+	### Summaries, Abundance Estimates, and Other Derived Quantities 
+	for(t in 1:n.year){
+		
+		Raw.Est[t] <- sum(mean.N[1:n.days, t])
+		# multiply raw estimates by correction factor for nighttime passage rates (below)
+		Corrected.Est[t] <- Raw.Est[t] * corr.factor 
+	}#t
+  
+	# Correction factor for nighttime passage rates (Perryman et al. 1999 Marine Mammal Science):
+	corr.factor ~ dnorm(mean.corr, tau.corr)
+	mean.corr <- 1.0875
+	sd.corr <- 0.03625
+	tau.corr <- pow(sd.corr,-2)
+  		
+	 
+  # In the paper, Perryman et al. stated that "... the multiplicative correction 
+  # factor for the entire visual survey based on a 15-h nocturnal (i.e., non-survey)
+  # period would be 1 + 0.175f (SE = 0.116 * (14/24)), where f is the fraction of total
+  # whales migrating afer 15 January." So, fixing the mean to be 1.0875, it assumes that
+  # the median date of migration is Jan 15 (1 + 0.175 * 0.5 = 1.0875). This may have to
+  # be fixed to adjust for the changing median migration date. SE of 0.03625 was not found
+  # in the paper... 0.116*(14/24) = 0.0677	
+  
+  # There was a typographic error in Perryman et al. Laake et al. (2012) stated that "... a
+  # standard error of f x 15/24 x 0.116 after correcting the typographic errors in Perryman
+  # et al. (1999).
+}
