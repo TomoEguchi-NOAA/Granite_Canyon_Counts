@@ -9,15 +9,23 @@ library(tidyverse)
 library(loo)
 
 source("Granite_Canyon_Counts_fcns.R")
+source("Richards_HSSM_model_definition.R")
 options(mc.cores = 5)
 
 # Minimum length of observation periods in minutes
 min.dur <- 60 #10 #85 #
 
-ver <- c( "M5a1", "M6a1", "M7a1", "M8a1" ,
-          "M5a2", "M6a2", "M7a2", "M8a2")
+all.model.names <- c("M5a1", "M6a1", "M7a1", "M8a1","M5a2", "M6a2", "M7a2", "M8a2")
+model.defs <- data.frame(ID = all.model.names,
+                         Lkhd = c(rep("Poisson", 4), rep("NegBin", 4)),
+                         P = "time",
+                         S1 = rep(c("time", "S1"), 4),
+                         S2 = rep(c("time", "S2", "S2", "time"), 2))
+
+# ver <- c( "M5a1", "M6a1", "M7a1", "M8a1" ,
+#           "M5a2", "M6a2", "M7a2", "M8a2")
 #ver <- c("v6a1", "v7a1", "v8a1" )
-#ver <- c("M5a2")
+ver <- c("M6a2")
 Run.date <- Sys.Date()
 
 # These are the ending year of each season - for example, 2022 in the following vector indicates
@@ -64,6 +72,7 @@ jags.params <- c("VS.Fixed", "BF.Fixed",
                  "S1.alpha", "S2.alpha",
                  "S1.beta", "S2.beta",
                  "beta0.P", "beta1.P", "sd.proc.P",
+                 "beta.p",  "sd.obs",
                  "beta0.Max", "beta1.Max", "sd.proc.Max",
                  "Raw.Est", "beta.obs",
                  "alpha", "r",
@@ -72,10 +81,18 @@ jags.params <- c("VS.Fixed", "BF.Fixed",
                  #"beta.1",
                  #"N.alpha", "N.obs",
                  "log.lkhd")
-
-for (k in 1:length(ver)){
+model.names <- list()
+for (k in 1:length(all.model.names)){
+  model.names[[k]] <- Richards_HSSM_model_definition(K = 1,
+                                                     S1 = model.defs[k, "S1"],
+                                                     S2 = model.defs[k, "S2"],
+                                                     P = "time",
+                                                     Max = "time",
+                                                     lkhd = model.defs[k, "Lkhd"],
+                                                     name = model.defs[k, "ID"])
+  
   jm.out <- NoBUGS_Richards_fcn(min.dur = min.dur, 
-                                ver = ver[k], 
+                                ver = model.defs[k, "ID"], 
                                 years = years, 
                                 data.dir = data.dir, 
                                 jags.params = jags.params, 

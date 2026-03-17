@@ -42,23 +42,50 @@ Richards_HSSM_model_definition <- function(K = 1,
   K <- ifelse(tolower(K) == "time", "K[y]", K)
   Max <- ifelse(tolower(Max) == "time", "Max[y]", Max)
   
+  if (length(grep("M5", name)) > 0){
+    S2.txt <- paste("for (y in 1:n.year){", "\n",
+		                "   S2[y] ~ dgamma(S2.alpha, S2.beta)", "\n",  
+	                  "   } #y", "\n")
+    S1.txt <- paste("for (y in 1:n.year){", "\n",
+                    "   S1[y] ~ dgamma(S1.alpha, S1.beta)", "\n",  
+                    "   } #y", "\n")
+  } 
+  
+  if (length(grep("M7", name)) > 0){
+    S1.txt <- paste("for (y in 1:n.year){", "\n",
+                    "   S1[y] ~ dgamma(S1.alpha, S1.beta)", "\n",
+                    "   } #y", "\n")
+    S2.txt <- paste0("S2 ~ dgamma(S2.alpha, S2.beta)", "\n")
+  } 
+  if (length(grep("M8", name)) > 0) {
+    S2.txt <- paste("for (y in 1:n.year){", "\n",
+                    "   S2[y] ~ dgamma(S2.alpha, S2.beta)", "\n",
+                    "   } #y", "\n")
+    S1.txt <- paste0("S1 ~ dgamma(S1.alpha, S1.beta)", "\n")
+  }
+  
+  if (length(grep("M6", name)) > 0){
+    S1.txt <- paste0("S1 ~ dgamma(S1.alpha, S1.beta)", "\n")
+    S2.txt <- paste0("S2 ~ dgamma(S2.alpha, S2.beta)", "\n")
+  }
+  
   M1 <- paste("M1[t, y] <- (1 + (2 * exp(", K, ") - 1) * exp((1/(", S1, ")) * (", P, "- t))) ^ (-1/exp(", K, "))")
   M2 <- paste("M2[t, y] <- (1 + (2 * exp(", K, ") - 1) * exp((1/(", S2, ")) * (", P, "- t))) ^ (-1/exp(", K, "))")
   mean.N <- paste("mean.N[t, y] <- ", Max, " * (M1[t, y] * M2[t, y])")
   
   if (lkhd == "Poisson"){
     lkhd.txt <- paste("# Poisson Rate", "\n",
-                      "         lambda[d, s, y] <- whales.available[d,s,y] * obs.prob[d,s,y]", "\n",
-				              "         n[d, s, y] ~ dpois(lambda[d,s,y])", "\n")
+                      "            lambda[d, s, y] <- whales.available[d,s,y] * obs.prob[d,s,y]", "\n",
+				              "            n[d, s, y] ~ dpois(lambda[d,s,y])", "\n")
     log.lkhd.txt <- paste("         log.lkhd[(d-1),s,y] <- logdensity.pois(n[d,s,y], lambda[d,s,y])", "\n")
   } else if (lkhd == "NegBin"){
     lkhd.txt <- paste("# 1. Calculate expected mean (kappa)", "\n", 
-                      "         kappa[d, s, y] <- whales.available[d,s,y] * obs.prob[d, s, y]", "\n",
-                      "         # 2. Convert kappa to the JAGS Negative Binomial probability parameter", "\n",
-                      "         p_nb[d, s, y] <- r / (r + kappa[d, s, y])", "\n",
-                      "         # 3. The new Negative Binomial likelihood function", "\n",
-                      "         n[d, s, y] ~ dnegbin(p_nb[d, s, y], r)", "\n")
-    log.lkhd.txt <- paste("         log.lkhd[(d-1),s,y] <- logdensity.negbin(n[d,s,y], p_nb[d, s, y], r)", "\n")
+                      "            kappa[d, s, y] <- whales.available[d,s,y] * obs.prob[d, s, y]", "\n",
+                      "            # 2. Convert kappa to the JAGS Negative Binomial probability parameter", "\n",
+                      "            p_nb[d, s, y] <- r / (r + kappa[d, s, y])", "\n",
+                      "            # 3. The new Negative Binomial likelihood function", "\n",
+                      "            n[d, s, y] ~ dnegbin(p_nb[d, s, y], r)", "\n")
+    log.lkhd.txt <- paste("log.lkhd[(d-1),s,y] <- logdensity.negbin(n[d,s,y], p_nb[d, s, y], r)", "\n")
   }
   
   model.text <- cat("model{", "\n", 
@@ -74,6 +101,8 @@ Richards_HSSM_model_definition <- function(K = 1,
   "         ", mean.N, "\n", 
   "      } #t", "\n",
   "   } #y", "\n",
+  "   \n",
+  
   "   for (y in 1:n.year){", "\n",
   "      for (s in 1:n.station[y]){", "\n",
   "         for (d in 2:(periods[y,s]+1)){", "\n",
@@ -85,23 +114,45 @@ Richards_HSSM_model_definition <- function(K = 1,
 	"            # probability is mean + covariate effects and watch.length as an offset", "\n",
 	"            # bf and vs d index is -1 because d = 1 is for no whales. But, bf and vs", "\n",
   "            # don't have the records for d = 1.", "\n",
-  "            logit(obs.prob[d,s,y]) <- alpha[obs.fixed[d,s,y]] + (BF.Fixed * bf.1[(d-1),s,y]) + (VS.Fixed * vs.1[(d-1),s,y])", "\n",
+  "            logit(obs.prob[d,s,y]) <- alpha[obs.fixed[d,s,y]] +", "\n",
+  "                                      (BF.Fixed * bf.1[(d-1),s,y]) +", "\n",
+  "                                      (VS.Fixed * (vs.1[(d-1),s,y] - 1))", "\n",
   "         } #d", "\n",
   "      } #s", "\n",
   "   } #y", "\n", 
+  "   \n",
+  
+  "   r ~ dunif(0, 50)  # Dispersion parameter for the Negative Binomial", "\n",
+  "   \n",
+  
   "   # OBSERVERS: Independent Intercepts", "\n",
-  "   # We estimate n.obs.fixed separate intercepts.", "\n",
-  "   for (o in 1:n.obs.fixed){", "\n",
-  "      # Each observer gets their own detection baseline.", "\n",
-  "      # dnorm(0, 1) covers the logit range comfortably.", "\n",
-  "      alpha[o] ~ dnorm(0, 1)", "\n", 
-  "   } #o", "\n",
-	    	
+  "   # 1. Global Intercept (The group average)", "\n",
+  "   # A mean of 1.0 in logit space is ~73% detection.", "\n", 
+  "   # A precision of 0.5 allows it to comfortably float between 50% and 88%,", "\n", 
+  "   # but prevents it from drifting into absurd values.", "\n",
+  "   #beta.p ~ dnorm(1.0, 0.5)", "\n",
+  "   \n",
+  
+  "   # 2. Random Effect Variance", "\n",
+  "   # We restrict the standard deviation to prevent observers from drifting too far apart.", "\n",
+  "   sd.obs ~ dunif(0, 1.5)  ", "\n",
+  "   tau.obs <- pow(sd.obs, -2)", "\n",
+  "   \n",
+  
+  "   # 3. Observer Random Effects", "\n",
+  "   # By pulling them from dnorm(0, tau.obs), they naturally shrink toward zero,", "\n",
+  "   # which allows beta.p to safely act as the global mean without the dummy variable trap!", "\n",
+  "   for (o in 1:n.obs.fixed){ ", "\n",
+  "      alpha[o] ~ dnorm(0, tau.obs)", "\n", 
+  "   }", "\n", 
+  "   \n",
+  
 	"   # priors for Richards function parameters. ", "\n",
 	"   # --- Priors for the Peak (P) Trend Model ---", "\n",
 	"   beta0.P ~ dunif(30, 60)       # Global Intercept (Average peak day across all years)", "\n",
 	"   beta1.P ~ dnorm(0, 0.25)      # Global Slope (How many days the peak shifts per year)", "\n",
-	
+  "   \n",
+  
 	"   sd.proc.P ~ dnorm(0, 1)T(0,)  # Standard deviation of the random year effects", "\n",
 	"   tau.proc.P <- pow(sd.proc.P, -2)", "\n",
 	
@@ -112,14 +163,17 @@ Richards_HSSM_model_definition <- function(K = 1,
 	"      # 2. Estimate the actual year's peak, allowing it to randomly deviate from the trend line", "\n",
   "		   P[y] ~ dnorm(mu.P[y], tau.proc.P)", "\n",
   "	  } #y", "\n",
-
+  "   \n",
+  
 	"   # --- Priors for the Abundance (Max) Trend Model ---", "\n",
 	"   beta0.Max ~ dnorm(7.6, 0.25)  # Global Intercept for log(Max)", "\n",
 	"   beta1.Max ~ dnorm(0, 0.25)    # Global Slope (Rate of increase/decrease in Max per year)", "\n",
-	
+  "   \n",
+  
 	"   sd.proc.Max ~ dnorm(0, 1)T(0,)", "\n",
 	"   tau.proc.Max <- pow(sd.proc.Max, -2)", "\n",
-
+  "   \n",
+  
 	"   # --- Apply the trend and random effect ---", "\n",
 	"   for (y in 1:n.year){", "\n",
 	"	     mu.log.Max[y] <- beta0.Max + (beta1.Max * year.index[y])", "\n",
@@ -135,9 +189,10 @@ Richards_HSSM_model_definition <- function(K = 1,
 	
 	"   S2.alpha ~ dnorm(10, 0.1)T(0,)  #dunif(0.1, 50)", "\n",
 	"   S2.beta ~ dgamma(1, 1)     #dunif(0.01, 10)", "\n",
-	"   S1 ~ dgamma(S1.alpha, S1.beta)  ", "\n",
-	"   S2 ~ dgamma(S2.alpha, S2.beta)  ", "\n",
-		
+  "   ", S1.txt, "\n",
+  "   ", S2.txt, "\n",
+  "   \n",
+  
 	"   # Change in the K parameter prior 2026-02-03", "\n",
 	"   #K <- 1  #~ dgamma(2, 1)   # or dlnorm(0, 1)", "\n",
      
@@ -145,6 +200,7 @@ Richards_HSSM_model_definition <- function(K = 1,
 	"   ## Gemini: The precision parameters were changed from 0.001 to 0.25 2026-02-03", "\n",
 	"   BF.Fixed ~ dnorm(0,0.25) ", "\n",
 	"   VS.Fixed ~ dnorm(0,0.25) ", "\n",
+  "   \n",
   
 	"   ### Summaries, Abundance Estimates, and Other Derived Quantities ", "\n",
 	"   for(t in 1:n.year){", "\n",
@@ -152,15 +208,17 @@ Richards_HSSM_model_definition <- function(K = 1,
 	"	     # multiply raw estimates by correction factor for nighttime passage rates (below)", "\n",
 	"	     Corrected.Est[t] <- Raw.Est[t] * corr.factor ", "\n",
   "   }#t", "\n",
+  "   \n",
   
 	"   # Correction factor for nighttime passage rates (Perryman et al. 1999 Marine Mammal Science):", "\n",
 	"   corr.factor ~ dnorm(mean.corr, tau.corr)", "\n",
 	"   mean.corr <- 1.0875", "\n",
 	"   sd.corr <- 0.03625", "\n",
 	"   tau.corr <- pow(sd.corr,-2)", "\n",
-  "} #model", file = file.id)
+  "} #model", "\n", file = file.id)
   
   close(file.id)
   #sink(file.id)
+  return(filename)
   
 }

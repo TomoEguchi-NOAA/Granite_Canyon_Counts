@@ -112,42 +112,55 @@ A primary limitation of the Durban et al. approach was the difficulty of handlin
 
 This new approach uses a function that can accommodate an asymmetrical shape around the peak, while reflecting the general pattern of increase, peak, and decrease in whale counts. This pattern can be modeled by the product of two sigmoid functions, each with a peak that is not necessarily centered. A similar pattern is often found in the number of nesting marine turtles. For instance, a model derived from a modified Verhulst equation was used to describe the number of nesting leatherback turtles in French Guiana and Suriname [@girondot_modeling_2007]. The equation is similar to the Richards growth function [@richards1959] and has the following form.
 
-$$M_1 = \left( 1 + (2e^K - 1) e^{\frac{P_1 - d}{-S_1}} \right)^{-\frac{1}{e^K}} $$ $$ M_2 = \left( 1 + (2e^K - 1) e^{\frac{P_2 - d}{S_2}} \right)^{-\frac{1}{e^K}} $$
+$$M_1 = \left( 1 + (2e^\gamma - 1) e^{\frac{P_1 - d}{-S_1}} \right)^{-\frac{1}{e^\gamma}} $$ 
+
+$$ M_2 = \left( 1 + (2e^\gamma - 1) e^{\frac{P_2 - d}{S_2}} \right)^{-\frac{1}{e^\gamma}} $$
 
 $$\bar{N} = N_{min} + (N_{max} - N_{min}) * (M_1 * M_2)$$
 
-where $d > 0$ is the number of days since an arbitrary start date, $S_1 > 0$ and $S_2 > 0$ define how the slope decreases and increases, respectively, $K > 0$ defines the "flatness" at the peak of the function, $P_1$ and $P_2$ define where the peak is relative to the range of $d$, where $min(d) < P_1 <= P_2 < max(d)$, $N_{min}$ is the number of whales migrating outside of a migration season ($N_{min} = 0$), and $N_{max} >> N_{min}$. $N_{max}$ is not the maximum number of whales migrating per day, but it is a parameter that may be fixed or estimated during the analysis. Effects of these parameters on the shape of the equation are described in the Appendix. Hereafter, this function will be referred to as the Richards equation.
+where $d > 0$ is the number of days since an arbitrary start date, $S_1 > 0$ and $S_2 > 0$ define how the slope decreases and increases, respectively, $\gamma > 0$ defines the "flatness" at the peak of the function, $P_1$ and $P_2$ define where the peak is relative to the range of $d$, where $min(d) < P_1 <= P_2 < max(d)$, $N_{min}$ is the number of whales migrating outside of a migration season ($N_{min} = 0$), and $N_{max} >> N_{min}$. $N_{max}$ is not the maximum number of whales migrating per day, but it is a parameter that may be fixed or estimated during the analysis. Effects of these parameters on the shape of the equation are described in the Appendix. Hereafter, this function will be referred to as the Richards equation. To avoid overparameterization, I restricted $P = P_1 = P_2$ and $\gamma = 1$. 
 
-I created eight versions of the Richards equation, based on how $P_1$, $P_2$, $S_1$, and $S_2$ were defined with respect to time (Table \@ref(tab:model-definition)). The $N_{max}$ parameter was assumed to be season-specific and $K$ was assumed to be constant (0.01) across all seasons. The parameters $P$, or $P_1$ and $P_2$, and $Max$ were modeled as autoregressive (AR(1)). For example,
+I created four versions of the Richards equation, based on how $P$, $S_1$, and $S_2$ were defined with respect to time (Table \@ref(tab:model-definition)). The $N_{max}$ parameter was assumed to be season-specific across all seasons. The parameters $P$  and $Max$ were modeled as a linear function of time (trend). For example,
 
-$$ \bar{P}[y] = \mu_P + \rho_P \times (P[y-1] - \mu_P)$$
+$$ P[y] \sim N(\mu_{P}, \sigma_{P})$$
+$$ \mu_{P} = \beta_{0, P} + \beta_{1,P} \times Y$$
+where Y is the centered year. Similarly forr the Max parameter, 
 
-$$ P[y] \sim N(\bar{P}[y], \sigma_P) $$
+$$ log(Max[y]) \sim N(\mu_{Max}, \sigma_{Max}) $$
 
-$$ P[1] \sim N(\mu_P, \sigma_P) $$
-
-For the Max parameter, the autoregressive process was modeled in the natural log space:
-
-$$ log(\bar{Max}[y]) = \mu_{log(Max)} + \rho_{Max} \times (log(Max[y-1]) - \mu_{log(Max)}) $$
-
-$$ log(Max[y]) \sim N(log(\bar{Max}[y], \sigma_{Max}) $$
+$$ \mu_{Max} = \beta_{0, Max} + \beta_{1, Max} \times Y $$
 
 $$ Max[y] = exp(log(Max[y]) $$
+
+The Richards equation provided the daily mean number of gray whales ($\bar{N}$) passing through the observation point. The number of available whales for sampling was determined by considering the shift duration in days:
+
+$$ A_{t,s,y} = \bar{N} \times L(i_t,s,y)$$
+
+The observed number of whales is modeled with either a Poisson deviate with the mean ($\kappa$), where $\kappa$ is a function of $A_{t,s,y}$ and the sighting probability ($p_{i_t, s, y}$) or a negative binomial deviate with parameters $kappa$ and the overdispersion parameter $r$:
+
+$$ \kappa_{i_t, s, y} = A_{t,s,y} \times p_{i_t, s, y}$$
+
+$$ n_{i_t, s, y} \sim POI(\kappa_{i_t, s, y})  $$
+$$ n_{i_t, s, y} \sim NB(\kappa_{i_t, s, y}, r) $$
+
+where the index $i_t$ is the watch period $i$ of the day $t$, $s$ is the station (1 or 2), and $y$ is the season.
+
 
 Each parameter had a hyper-distribution of either a Normal, uniform, or gamma distribution (Appendix Table A`r run_reference("hyperparameter-table")`).
 
 ```{r model-definitions-table, echo=FALSE, message=FALSE}
-model.defs <- data.frame(ID = c(1:8),
-                         P1 = c(rep("Season", 4), rep("P[Season]", 4)),
-                         P2 = c(rep("Season", 4), rep("P[Season]", 4)),
+all.model.names <- c("M5a1", "M6a1", "M7a1", "M8a2","M5a2", "M6a2", "M7a2", "M8a2")
+model.defs <- data.frame(ID = all.model.names,
+                         Lkhd = c(rep("POI", 4), rep("NB", 4)),
+                         P = "P[Season]",
                          S1 = rep(c("Season", "Constant"), 4),
                          S2 = rep(c("Season", "Constant", "Constant", "Season"), 2))
 
 ft.models <- flextable(model.defs)
 header_labels <- list(
   ID = as_paragraph(as_chunk("Model")),
-  P1 = as_paragraph(as_chunk("P"), as_chunk("1", props = fp_text(vertical.align = "subscript"))),
-  P2 = as_paragraph(as_chunk("P"), as_chunk("2", props = fp_text(vertical.align = "subscript"))),
+  Lkhd = as_paragraph(as_chunk("Likelihood")),
+  P = as_paragraph(as_chunk("P")),
   S1 = as_paragraph(as_chunk("S"), as_chunk("1", props = fp_text(vertical.align = "subscript"))),
   S2 = as_paragraph(as_chunk("S"), as_chunk("2", props = fp_text(vertical.align = "subscript")))
 )
@@ -161,17 +174,6 @@ for (nm in names(header_labels)) {
 
 ```
 
-The Richards equation provided the daily mean number of gray whales ($\bar{N}$) passing through the observation point. The number of available whales for sampling was determined by considering the shift duration in days:
-
-$$ A_{t,s,y} = \bar{N} \times L(i_t,s,y)$$
-
-The observed number of whales is a Poisson deviate with the mean ($\kappa$), where $\kappa$ is a function of $A_{t,s,y}$ and the sighting probability ($p_{i_t, s, y}$):
-
-$$ \kappa_{i_t, s, y} = A_{t,s,y} \times p_{i_t, s, y}$$
-
-$$ n_{i_t, s, y} \sim POI(\kappa_{i_t, s, y})  $$
-
-where the index $i_t$ is the watch period $i$ of the day $t$, $s$ is the station (1 or 2), and $y$ is the season.
 
 \begin{equation}
 logit(p_{i_t, s, y}) = \alpha[O_{i_t, s, y}] + \beta_{B} \times B_{i_t, y} + \beta_{V} \times V_{i_t, y} (\#eq:detection-probability-Eguchi) 
@@ -296,7 +298,7 @@ for (nm in names(header_labels)) {
 #ft.models.comp <- autofit(ft.models.comp)
 ```
 
-The eight models (Table \@ref(tab:model-definition)) were fitted to the sightings data over 32 seasons. Three models (`r out.table %>% filter(min.ESS.bulk > 400) %>% pull(model) %>% sort()`) indicated satisfactory convergence of MCMC based on the minimum bulk ESS values (Table \@ref(tab:model-table)), whereas the rest did not. Among the three models, based on LOOIC, Model `r out.table %>% filter(min.ESS.bulk > 400) %>% filter(LOOIC == min(LOOIC)) %>% pull(model)` was identified as the best-fitting model (Table \@ref(tab:model-table)). The model consists of year-specific $P$ ($P_1 = P_2$), a constant $S_1$, and season-specific $S_2$ parameters (Table \@ref(tab:model-definition)).
+The eight models (Table \@ref(tab:model-definition)) were fitted to the sightings data over 32 seasons. Only one model (`r out.table %>% filter(min.ESS.bulk > 400) %>% pull(model) %>% sort()`) indicated satisfactory convergence of MCMC based on the minimum bulk ESS values (Table \@ref(tab:model-table)), whereas the rest did not. The model consists of year-specific $P$ and $Max$ parameters, and constant $S_1$ and $S_2$ parameters (Table \@ref(tab:model-definition)).
 
 ```{r JAGS-results, echo=F,message=FALSE,cache=FALSE}
 # Although I set cache to be TRUE at the beginning, there is a limit to how big 
@@ -310,23 +312,26 @@ The eight models (Table \@ref(tab:model-definition)) were fitted to the sighting
 # cache it at the end of the chunk.
 
 #rm(list = c(".out"))
-ver <- 8 #5 #out.table$model[1] #5
-jm.out <- readRDS(paste0("RData/JAGS_Richards_HSSM_M",
+ver <- "M6a2" #5 #out.table$model[1] #5
+jm.out <- readRDS(paste0("RData/JAGS_Richards_HSSM_",
                          ver,
-                         "a1_1968to", YEAR, "_min", min.dur,
+                         "_1968to", YEAR, "_min", min.dur,
                          "_NoBUGS.rds"))
 
 # bring in the convergence statistics:
+# This is a list of length 4. They are LOOIC, Rhat, ESS.bulk and ESS.tail
+# Each item has a length equals to the number of models ran. 
+ver.idx <- which(all.model.names == ver)
 list.convergence <- readRDS(paste0("RData/Richards_Convergence_", YEAR, ".rds"))
 
 # LOOIC and Pareto-k stats
-LOOIC.n <- list.convergence$LOOIC[ver] 
+LOOIC.n <- list.convergence$LOOIC[ver.idx] 
 
 # better ESS computations:
 summary.posterior <- jm.out$posterior.summary
 
-ESS.bulk <- list.convergence$ESS.bulk[[ver]]
-ESS.tail <- list.convergence$ESS.tail[[ver]]
+ESS.bulk <- list.convergence$ESS.bulk[[ver.idx]]
+ESS.tail <- list.convergence$ESS.tail[[ver.idx]]
 
 # Match Pareto-k and data. Note that days 1 and 100 should be removed.
 n.array <- jm.out$jags.input$jags.data$n
@@ -348,7 +353,7 @@ Nhat. <- data.frame(Season = paste0(all.start.year, "/",
                     UCL = jm.out$jm$q97.5$Corrected.Est) %>%
   right_join(all.years, by = "Season") %>%
   arrange(start.year) %>%
-  mutate(Method = paste0("Eguchi M", ver))
+  mutate(Method = paste0("Eguchi ", ver))
 
 # Create an observed counts dataframe
 obs.day <- jm.out$jags.input$jags.data$day[,1,]
@@ -394,7 +399,7 @@ N.hats.day <- data.frame(Season = rep(paste0(all.start.year,
                          UCL = as.vector(jm.out$jm$q97.5$mean.N),
                          obs.n = obs.n.df$n,
                          prop = obs.n.df$prop,
-                         Method = paste0("Eguchi M", ver)) %>%
+                         Method = paste0("Eguchi ", ver)) %>%
   mutate(Nhat = obs.n/prop)
 
 # Daily estimates plots
@@ -589,7 +594,7 @@ p.daily. <- ggplot(N.hats.day.all %>% group_by(Season)) +
 
 if (save.fig)
   save.fig.fcn(fig = p.daily., 
-               file.name = paste0("figures/Daily_Eguchi_M", ver, "_Durban.png"), 
+               file.name = paste0("figures/Daily_Eguchi_", ver, "_Durban.png"), 
                replace = T, 
                dpi = dpi.set, device = "png",
                height = 5, width = 7, units = "in",
@@ -635,7 +640,7 @@ tmp.1 %>%
   rbind(Nhat.) %>%
   mutate(Method2 = factor(Method, levels = c("Laake", 
                                              "Durban", 
-                                             paste0("Eguchi M", ver)))) %>%
+                                             paste0("Eguchi ", ver)))) %>%
   select(Season, Nhat, LCL, UCL, start.year, Method2) %>%
   mutate(CI.width = UCL - LCL) %>%
   rename(Method = Method2) -> all.estimates
@@ -656,7 +661,7 @@ p.Nhats <- ggplot(all.estimates) +
 
 if (save.fig)
   save.fig.fcn(fig = p.Nhats,
-               file.name = paste0("figures/Nhats_M", 
+               file.name = paste0("figures/Nhats_", 
                                   ver, "_min", min.dur, 
                                   "_", dpi.set, "dpi.png"),
                replace = T,
@@ -710,13 +715,13 @@ all.estimates %>% na.omit() %>%
   mutate(time = start.year - min(start.year)) -> all.estimates.gam
   
 all.estimates.gam %>%
-  filter(Method == paste0("Eguchi M", ver)) %>% 
+  filter(Method == paste0("Eguchi ", ver)) %>% 
   filter(start.year > 2005) %>%
   mutate(year = time - min(time)) -> gam.estimates.2006.Eguchi
 
 
 all.estimates.gam %>%
-  filter(Method == paste0("Eguchi M", ver)) %>% 
+  filter(Method == paste0("Eguchi ", ver)) %>% 
   mutate(year = time - min(time)) -> gam.estimates.all.Eguchi
 
 all.estimates.gam %>% 
@@ -787,7 +792,7 @@ pred.data.2006 %>%
          SE = gam.preds.2006.Eguchi$se.fit,
          upper_CI = gam.preds.2006.Eguchi$fit + (1.96 * SE),
          lower_CI = gam.preds.2006.Eguchi$fit - (1.96 * SE),
-         Method = paste0("Eguchi M", ver)) -> pred.2006.Eguchi
+         Method = paste0("Eguchi ", ver)) -> pred.2006.Eguchi
 
 pred.data.2006 %>%
   mutate(fit = gam.preds.2006.Laake$fit,
@@ -808,7 +813,7 @@ pred.2006 <- rbind(pred.2006.Eguchi, pred.2006.Durban, pred.2006.Laake) %>%
   mutate(Method = factor(Method1, 
                          levels = c("Laake", 
                                     "Durban",
-                                    paste0("Eguchi M", ver))))
+                                    paste0("Eguchi ", ver))))
   #mutate(method.f = as.factor(method))
 
 pred.data.all %>%
@@ -816,7 +821,7 @@ pred.data.all %>%
          SE = gam.preds.all.Eguchi$se.fit,
          upper_CI = gam.preds.all.Eguchi$fit + (1.96 * SE),
          lower_CI = gam.preds.all.Eguchi$fit - (1.96 * SE),
-         Method = paste0("Eguchi M", ver)) -> pred.all.Eguchi
+         Method = paste0("Eguchi ", ver)) -> pred.all.Eguchi
 
 pred.data.all %>%
   mutate(fit = gam.preds.all.Laake$fit,
@@ -828,7 +833,7 @@ pred.data.all %>%
 pred.all <- rbind(pred.all.Eguchi, pred.all.Laake) %>%
   rename(Method1 = Method) %>%
   mutate(Method = factor(Method1, 
-                         levels = c("Laake", paste0("Eguchi M", ver))))
+                         levels = c("Laake", paste0("Eguchi ", ver))))
 
 
 p.gam.2006.fit <- ggplot(data = pred.2006) +
@@ -875,7 +880,7 @@ if (save.fig)
 lm.Eguchi <- lm(log(Nhat) ~ time, 
                 data = all.estimates.gam %>% 
                   filter(start.year > 2013, 
-                         Method == paste0("Eguchi M", ver)))
+                         Method == paste0("Eguchi ", ver)))
 
 lm.Laake <- lm(log(Nhat) ~ time, 
                data = all.estimates.gam %>% 
@@ -922,7 +927,7 @@ p.posteriors.VS.BF <- ggplot(VS.BF.df) +
 
 if (save.fig)
   save.fig.fcn(fig = p.posteriors.VS.BF,
-               file.name = paste0("figures/posteriors_VS_BF_M", ver, "_", dpi.set, "dpi.png"),
+               file.name = paste0("figures/posteriors_VS_BF_", ver, "_", dpi.set, "dpi.png"),
                replace = T,
                height = 5, width = 7,
                dpi = dpi.set)
@@ -953,7 +958,7 @@ posteriors.Obs <- plot.trace.dens(jm.out$jm,
 
 if (save.fig)
   save.fig.fcn(fig = posteriors.Obs$p.dens,
-               file.name = paste0("figures/Observer_dens_M", ver, ".png"),
+               file.name = paste0("figures/Observer_dens_", ver, ".png"),
                replace = T,
                height = 5, width = 7,
                dpi = dpi.set)
@@ -979,13 +984,13 @@ p.posteriors.P <- ggplot(P.df, aes(x = P, y = start.year.f)) +
 
 if (save.fig)
   save.fig.fcn(fig = p.posteriors.P,
-               file.name = paste0("figures/posterior_P_M", ver, "_", dpi.set, "dpi.png"),
+               file.name = paste0("figures/posterior_P_", ver, "_", dpi.set, "dpi.png"),
                replace = T,
                height = 5, width = 7,
                dpi = dpi.set)
 
 # Need to include \\[ to remove S1.alpha and S1.beta
-if (ver %% 2 == 1 ){
+if (length(grep("M5|M7", ver)) > 0){
   posteriors.S1 <- plot.trace.dens(jm.out$jm,
                                    var.name = "S1\\[")
   posteriors.S1$df %>%
@@ -1008,12 +1013,12 @@ if (ver %% 2 == 1 ){
 
 if (save.fig)
   save.fig.fcn(fig = p.posteriors.S1,
-               file.name = paste0("figures/posteriors_S1_M", ver, "_", dpi.set, "dpi.png"),
+               file.name = paste0("figures/posteriors_S1_", ver, "_", dpi.set, "dpi.png"),
                replace = T,
                height = 5, width = 7,
                dpi = dpi.set)
 
-if (ver == 2 | ver == 3 | ver == 6 | ver == 7){
+if (length(grep("M6|M7", ver)) > 0){
   posteriors.S2 <- plot.trace.dens(jm.out$jm, var.name = "S2\\b(?!\\.\\w*)")
   p.posteriors.S2 <- posteriors.S2$p.dens
 } else {
@@ -1034,7 +1039,7 @@ if (ver == 2 | ver == 3 | ver == 6 | ver == 7){
 
 if (save.fig)
   save.fig.fcn(fig = p.posteriors.S2,
-               file.name = paste0("figures/posteriors_S2_M", ver, "_", dpi.set, "dpi.png"),
+               file.name = paste0("figures/posteriors_S2_", ver, "_", dpi.set, "dpi.png"),
                replace = T,
                height = 5, width = 7,
                dpi = dpi.set)
@@ -1129,7 +1134,7 @@ cap_text <- paste0("Estimated annual abundance and associated 95% intervals (con
 
 ```{r plot-N-hats, echo=FALSE, message=FALSE, fig.cap=cap_text, fig.id = "N-hats"}
 
-knitr::include_graphics(paste0("figures/Nhats_M", 
+knitr::include_graphics(paste0("figures/Nhats_", 
                                ver, "_min", min.dur, "_", dpi.set, "dpi.png"))
 
 ```
@@ -1153,7 +1158,7 @@ cap_text <- paste0("Posterior distributions of the fixed-effects coefficients fo
 
 ```{r plot-Fixed-posteriors, echo=FALSE, message=FALSE, fig.cap=cap_text, fig.id = "Fixed-posteriors"}
 
-knitr::include_graphics(paste0("figures/posteriors_VS_BF_M", ver, "_", dpi.set, "dpi.png"))
+knitr::include_graphics(paste0("figures/posteriors_VS_BF_", ver, "_", dpi.set, "dpi.png"))
 
 ```
 
@@ -1165,7 +1170,7 @@ cap_text <- paste0("Marginal posterior distributions of season-specific P parame
 
 ```{r plot-P-posteriors, echo=FALSE, message=FALSE, fig.cap=cap_text, fig.id = "P-posteriors"}
 
-knitr::include_graphics(paste0("figures/posterior_P_M", ver, "_", dpi.set, "dpi.png"))
+knitr::include_graphics(paste0("figures/posterior_P_", ver, "_", dpi.set, "dpi.png"))
 
 ```
 
@@ -1260,7 +1265,7 @@ Marginal posterior distributions of the fixed observer effect. Observers with 10
 
 ```{r plot-OBS-posteriors, echo=FALSE, message=FALSE}
 
-knitr::include_graphics(paste0("figures/Observer_dens_M", ver, ".png"))
+knitr::include_graphics(paste0("figures/Observer_dens_", ver, ".png"))
 
 ```
 
@@ -1276,7 +1281,7 @@ Marginal posterior distributions of season-specific $S_2$ parameters (Figure A\@
 
 ```{r plot-S2-posteriors, echo=FALSE, message=FALSE}
 
-knitr::include_graphics(paste0("figures/posteriors_S2_M", ver, "_", dpi.set, "dpi.png"))
+knitr::include_graphics(paste0("figures/posteriors_S2_", ver, "_", dpi.set, "dpi.png"))
 ```
 
 ::: {custom-style="Image Caption"}
@@ -1291,7 +1296,7 @@ The marginal posterior distribution of the $S_1$ parameters (Figure A\@ref(fig:S
 
 ```{r plot-S1-posteriors, echo=FALSE, message=FALSE}
 
-knitr::include_graphics(paste0("figures/posteriors_S1_M", ver, "_", dpi.set, "dpi.png"))
+knitr::include_graphics(paste0("figures/posteriors_S1_", ver, "_", dpi.set, "dpi.png"))
 ```
 
 ::: {custom-style="Image Caption"}

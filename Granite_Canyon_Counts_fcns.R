@@ -569,7 +569,7 @@ NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC
   model.name <- paste0(model.name.root, ver) 
   print(paste0("Starting NoBUGS_Richards_fcn at ", Sys.time(), " for Model: ", model.name))
   
-  jags.model <- paste0("models/model_", model.name, ".txt")
+  jags.model <- paste0("models/model_", model.name, ".jags")
   
   
   
