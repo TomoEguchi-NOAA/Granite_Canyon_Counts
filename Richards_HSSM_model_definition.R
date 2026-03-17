@@ -23,8 +23,18 @@
 # M7: P = "time", Max = "time", S1 = "time", S2 = "S2", K = 1
 # M8: P = "time", Max = "time", S2 = "time", S1 = "S1", K = 1
 # 
+# Poisson likelihood (Poisson): a1
+# Negative binomial likelihood (NegBin): a2
+# 
 # Example:
-# Richards_HSSM_model_definition(K = 1, S1 = "time", S2 = "time, P = P, lkhd = "NegBin", name = "M)
+# model.name <- Richards_HSSM_model_definition(K = 1, 
+#                                              S1 = "time", 
+#                                              S2 = "time, 
+#                                              P = P, 
+#                                              lkhd = "NegBin", 
+#                                              name = "M5a2")
+#
+# It returns the model file name
 
 Richards_HSSM_model_definition <- function(K = 1, 
                                            S1 = "time", 
