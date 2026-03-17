@@ -44,7 +44,7 @@ Richards_HSSM_model_definition <- function(K = 1,
   
   if (length(grep("M5", name)) > 0){
     S2.txt <- paste("for (y in 1:n.year){", "\n",
-		                "   S2[y] ~ dgamma(S2.alpha, S2.beta)", "\n",  
+		                "      S2[y] ~ dgamma(S2.alpha, S2.beta)", "\n",  
 	                  "   } #y", "\n")
     S1.txt <- paste("for (y in 1:n.year){", "\n",
                     "   S1[y] ~ dgamma(S1.alpha, S1.beta)", "\n",  
@@ -53,13 +53,13 @@ Richards_HSSM_model_definition <- function(K = 1,
   
   if (length(grep("M7", name)) > 0){
     S1.txt <- paste("for (y in 1:n.year){", "\n",
-                    "   S1[y] ~ dgamma(S1.alpha, S1.beta)", "\n",
+                    "      S1[y] ~ dgamma(S1.alpha, S1.beta)", "\n",
                     "   } #y", "\n")
     S2.txt <- paste0("S2 ~ dgamma(S2.alpha, S2.beta)", "\n")
   } 
   if (length(grep("M8", name)) > 0) {
     S2.txt <- paste("for (y in 1:n.year){", "\n",
-                    "   S2[y] ~ dgamma(S2.alpha, S2.beta)", "\n",
+                    "      S2[y] ~ dgamma(S2.alpha, S2.beta)", "\n",
                     "   } #y", "\n")
     S1.txt <- paste0("S1 ~ dgamma(S1.alpha, S1.beta)", "\n")
   }
@@ -114,6 +114,9 @@ Richards_HSSM_model_definition <- function(K = 1,
 	"            # probability is mean + covariate effects and watch.length as an offset", "\n",
 	"            # bf and vs d index is -1 because d = 1 is for no whales. But, bf and vs", "\n",
   "            # don't have the records for d = 1.", "\n",
+  "            # bf.1 and vs.1 indicate the raw Beaufort and visibility code, rather than ", "\n",
+  "            # standardized (bf and vs).", "\n",
+  "            # vs.1 - 1 is to make the minimum VS = 0 in the linear model", "\n",
   "            logit(obs.prob[d,s,y]) <- alpha[obs.fixed[d,s,y]] +", "\n",
   "                                      (BF.Fixed * bf.1[(d-1),s,y]) +", "\n",
   "                                      (VS.Fixed * (vs.1[(d-1),s,y] - 1))", "\n",
@@ -125,23 +128,13 @@ Richards_HSSM_model_definition <- function(K = 1,
   "   r ~ dunif(0, 50)  # Dispersion parameter for the Negative Binomial", "\n",
   "   \n",
   
-  "   # OBSERVERS: Independent Intercepts", "\n",
-  "   # 1. Global Intercept (The group average)", "\n",
-  "   # A mean of 1.0 in logit space is ~73% detection.", "\n", 
-  "   # A precision of 0.5 allows it to comfortably float between 50% and 88%,", "\n", 
-  "   # but prevents it from drifting into absurd values.", "\n",
-  "   #beta.p ~ dnorm(1.0, 0.5)", "\n",
-  "   \n",
-  
-  "   # 2. Random Effect Variance", "\n",
+  "   # Random Effect Variance", "\n",
   "   # We restrict the standard deviation to prevent observers from drifting too far apart.", "\n",
   "   sd.obs ~ dunif(0, 1.5)  ", "\n",
   "   tau.obs <- pow(sd.obs, -2)", "\n",
   "   \n",
   
-  "   # 3. Observer Random Effects", "\n",
   "   # By pulling them from dnorm(0, tau.obs), they naturally shrink toward zero,", "\n",
-  "   # which allows beta.p to safely act as the global mean without the dummy variable trap!", "\n",
   "   for (o in 1:n.obs.fixed){ ", "\n",
   "      alpha[o] ~ dnorm(0, tau.obs)", "\n", 
   "   }", "\n", 
@@ -189,13 +182,10 @@ Richards_HSSM_model_definition <- function(K = 1,
 	
 	"   S2.alpha ~ dnorm(10, 0.1)T(0,)  #dunif(0.1, 50)", "\n",
 	"   S2.beta ~ dgamma(1, 1)     #dunif(0.01, 10)", "\n",
-  "   ", S1.txt, "\n",
-  "   ", S2.txt, "\n",
+  "  ", S1.txt, "\n",
+  "  ", S2.txt, "\n",
   "   \n",
   
-	"   # Change in the K parameter prior 2026-02-03", "\n",
-	"   #K <- 1  #~ dgamma(2, 1)   # or dlnorm(0, 1)", "\n",
-     
 	"   ## Beaufort and visibility	", "\n",
 	"   ## Gemini: The precision parameters were changed from 0.001 to 0.25 2026-02-03", "\n",
 	"   BF.Fixed ~ dnorm(0,0.25) ", "\n",
