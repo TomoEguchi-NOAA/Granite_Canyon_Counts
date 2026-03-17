@@ -11,11 +11,10 @@
 # M2 <- (1 + (2 * exp(K) - 1) * exp((1/S2) * (P - d))) ^ (-1/exp(K))
 # N <- min + (max - min) * (M1 * M2)
 # 
-# Provide either "time", a constant, or the parameter name to K, S1, S2, and P. 
-# If "time", parameters will be specified as time-specific. For example, K = "time"
-# will result in K[y]. To fix the parameter, provide K = 1, for example. If a 
-# constant but unknown over time, then specify as K = "K", for example. No K[y]
-# is allowed at the moment. No priors are set for time-varying K in the code.
+# Provide either "time", a constant, or the parameter name to S1 and S2. 
+# If "time", parameters will be specified as time-specific. For example, S1 = "time"
+# will result in S1[y]. To fix the parameter, provide S1 = "S1". P and Max
+# are assumed to be time/season specific and K = 1.
 # 
 # The current convention is:
 # M5: P = "time", Max = "time", S1 = "time", S2 = "time", K = 1
