@@ -17,8 +17,8 @@ min.dur <- 60
 YEAR <- 2026
 
 # Model name IDs
-model.names <- c( "M5a1", "M6a1", "M7a1", "M8a1" ,
-                  "M5a2", "M6a2", "M7a2", "M8a2")
+model.names <- c( "M5a1", "M6a1", "M7a1", "M8a1")
+#                  "M5a2", "M6a2", "M7a2", "M8a2")
 #model.names <- c( "6", "7", "8")
 
 # model IDs in the manuscript is in the same order as above but the numbers are
@@ -40,7 +40,8 @@ model.ID <- c(1:length(model.names))
 
 # including hyperparameters and year-specific Max (all models except 7 and 8.
 #params.2 <- "^VS\\.Fixed|^BF\\.Fixed|^Max\\[|^S1|^S2|^P|^OBS\\.RF\\["
-params.a1 <- "^VS\\.Fixed|^BF\\.Fixed|^Max\\[|^S1|^S2|^P|^alpha\\["
+params.a1 <- "^VS\\.Fixed|^BF\\.Fixed|^Max\\[|^S1|^S2|^P|^alpha\\[|^beta0|^beta1|^sd"
+params.a2 <- "^VS\\.Fixed|^BF\\.Fixed|^Max\\[|^S1|^S2|^P|^alpha\\[|^beta0|^beta1|^sd|^r"
 
 #max.Rhat.big <- list()
 prop.big.Rhat <- n.params <- n.big.Rhat <- n.bad.Pareto <- prop.bad.Pareto <- LOOIC <- vector(mode = "numeric", length = length(model.names))
@@ -53,10 +54,18 @@ for (k in 1:length(model.names)){
                          model.names[k], "_1968to", YEAR, "_min", 
                          min.dur, "_NoBUGS.rds"))
   
-  new.Rhat[[k]] <- rank.normalized.R.hat(.out$jm$samples, 
-                                         params = params.a1, 
-                                         MCMC.params = .out$MCMC.params)
+  if (length(grep("a1", model.names[[k]])) > 0){
+    new.Rhat[[k]] <- rank.normalized.R.hat(.out$jm$samples, 
+                                           params = params.a1, 
+                                           MCMC.params = .out$MCMC.params)
+  }
   
+  if (length(grep("a2", model.names[[k]])) > 0){
+    new.Rhat[[k]] <- rank.normalized.R.hat(.out$jm$samples, 
+                                           params = params.a2, 
+                                           MCMC.params = .out$MCMC.params)
+  }
+
   n.params[k] <- length(new.Rhat[[k]])
   #max.Rhat <- lapply(.out[[k]]$jm$Rhat, FUN = max, na.rm = T) %>%
   #  unlist()

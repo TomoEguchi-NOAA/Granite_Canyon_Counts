@@ -15,9 +15,8 @@ options(mc.cores = 5)
 # Minimum length of observation periods in minutes
 min.dur <- 60 #10 #85 #
 
-all.model.names <- c("M5a1", "M6a1", "M7a1", "M8a1","M5a2", "M6a2", "M7a2", "M8a2")
-model.defs <- data.frame(ID = all.model.names,
-                         Lkhd = c(rep("Poisson", 4), rep("NegBin", 4)),
+#all.model.names <- c("M5a1", "M6a1", "M7a1", "M8a1","M5a2", "M6a2", "M7a2", "M8a2")
+model.defs <- data.frame(Lkhd = c(rep("NegBin", 4), rep("Poisson", 4)),
                          P = "time",
                          S1 = rep(c("time", "S1"), 4),
                          S2 = rep(c("time", "S2", "S2", "time"), 2))
@@ -88,8 +87,7 @@ for (k in 1:length(all.model.names)){
                                                      S2 = model.defs[k, "S2"],
                                                      P = "time",
                                                      Max = "time",
-                                                     lkhd = model.defs[k, "Lkhd"],
-                                                     name = model.defs[k, "ID"])
+                                                     lkhd = model.defs[k, "Lkhd"])
   
   jm.out <- NoBUGS_Richards_fcn(min.dur = min.dur, 
                                 ver = model.defs[k, "ID"], 
@@ -101,6 +99,7 @@ for (k in 1:length(all.model.names)){
                                 obs.n.min = 10,
                                 max.day = 100,
                                 N.obs = 10,
-                                model.name.root = "Richards_HSSM_")
+                                model.name = paste0("Richards_HSSM_", model.defs[k, "ID"], ".jags"),
+                                ext = ".jags")
   
 }

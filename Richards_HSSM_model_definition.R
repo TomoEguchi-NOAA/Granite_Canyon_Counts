@@ -20,7 +20,7 @@
 # M5: P = "time", Max = "time", S1 = "time", S2 = "time", K = 1
 # M6: P = "time", Max = "time", S1 = "S1", S2 = "S2", K = 1
 # M7: P = "time", Max = "time", S1 = "time", S2 = "S2", K = 1
-# M8: P = "time", Max = "time", S2 = "time", S1 = "S1", K = 1
+# M8: P = "time", Max = "time", S1 = "S1", S2 = "time", K = 1
 # 
 # Poisson likelihood (Poisson): a1
 # Negative binomial likelihood (NegBin): a2
@@ -40,12 +40,21 @@ Richards_HSSM_model_definition <- function(K = 1,
                                            S2 = "time", 
                                            P = "time", 
                                            Max = "time",
-                                           lkhd = "Poisson", 
-                                           name){
+                                           lkhd = "Poisson"){
+  Run.Time <- as.character(Sys.time())
+  
+  if (P == "time" & Max == "time" & S1 == "time" & S2 == "time") M <- "M5"
+  if (P == "time" & Max == "time" & S1 == "S1" & S2 == "S2") M <- "M6"
+  if (P == "time" & Max == "time" & S1 == "time" & S2 == "S2") M <- "M7"
+  if (P == "time" & Max == "time" & S1 == "S1" & S2 == "time") M <- "M8"
+  
+  if (tolower(lkhd) == "poisson") name <- paste0(M, "a1")
+  if (tolower(lkhd) == "negbin") name <- paste0(M, "a2")
+  
   filename <- paste0("models/model_Richards_HSSM_", name, ".jags")
   file.id <- file(filename, open = "wt")
   
-  S1 <- ifelse(tolower(S1) == "time",  "-S1[y]", S1)
+  S1 <- ifelse(tolower(S1) == "time",  "-S1[y]", paste0("-", S1))
   S2 <- ifelse(tolower(S2) == "time", "S2[y]", S2)
   P <- ifelse(tolower(P) == "time", "P[y]", P)
   K <- ifelse(tolower(K) == "time", "K[y]", K)
@@ -82,12 +91,12 @@ Richards_HSSM_model_definition <- function(K = 1,
   M2 <- paste("M2[t, y] <- (1 + (2 * exp(", K, ") - 1) * exp((1/(", S2, ")) * (", P, "- t))) ^ (-1/exp(", K, "))")
   mean.N <- paste("mean.N[t, y] <- ", Max, " * (M1[t, y] * M2[t, y])")
   
-  if (lkhd == "Poisson"){
+  if (tolower(lkhd) == "poisson"){
     lkhd.txt <- paste("# Poisson Rate", "\n",
                       "            lambda[d, s, y] <- whales.available[d,s,y] * obs.prob[d,s,y]", "\n",
 				              "            n[d, s, y] ~ dpois(lambda[d,s,y])", "\n")
     log.lkhd.txt <- paste("         log.lkhd[(d-1),s,y] <- logdensity.pois(n[d,s,y], lambda[d,s,y])", "\n")
-  } else if (lkhd == "NegBin"){
+  } else if (tolower(lkhd) == "negbin"){
     lkhd.txt <- paste("# 1. Calculate expected mean (kappa)", "\n", 
                       "            kappa[d, s, y] <- whales.available[d,s,y] * obs.prob[d, s, y]", "\n",
                       "            # 2. Convert kappa to the JAGS Negative Binomial probability parameter", "\n",
@@ -97,7 +106,23 @@ Richards_HSSM_model_definition <- function(K = 1,
     log.lkhd.txt <- paste("log.lkhd[(d-1),s,y] <- logdensity.negbin(n[d,s,y], p_nb[d, s, y], r)", "\n")
   }
   
-  model.text <- cat("model{", "\n", 
+  model.text <- cat("# Created:", Run.Time, "\n",
+                    "# Craeted by: Richards_HSSM_model_definition.R", "\n",
+                    "# A JAGS model for Hierarchical State Space Modeling using", "\n",
+                    "# the Richards function to estimate gray whale abundance from", "\n",
+                    "# count data at Granite Canyon, CA. ", "\n\n", 
+                    
+                    "# The current model naming convention is:", "\n",
+                    "# M5: P = 'time', Max = 'time', S1 = 'time', S2 = 'time, K = 1", "\n",
+                    "# M6: P = 'time', Max = 'time', S1 = 'S1', S2 = 'S2', K = 1", "\n",
+                    "# M7: P = 'time', Max = 'time', S1 = 'time', S2 = 'S2', K = 1", "\n",
+                    "# M8: P = 'time', Max = 'time', S1 = 'S1', S2 = time, K = 1", "\n\n",
+                    
+                    "# Poisson likelihood (Poisson): a1", "\n",
+                    "# Negative binomial likelihood (NegBin): a2", "\n",
+                    "\n",
+                    
+  "model{", "\n", 
   "   for (y in 1:n.year){", "\n",    
   "      # Fix Day 1", "\n",
   "      # Use small epsilon to avoid log(0) errors if used in log-likelihood", "\n",
@@ -146,7 +171,7 @@ Richards_HSSM_model_definition <- function(K = 1,
   "   # By pulling them from dnorm(0, tau.obs), they naturally shrink toward zero,", "\n",
   "   for (o in 1:n.obs.fixed){ ", "\n",
   "      alpha[o] ~ dnorm(0, tau.obs)", "\n", 
-  "   }", "\n", 
+  "   } #o", "\n", 
   "   \n",
   
 	"   # priors for Richards function parameters. ", "\n",
