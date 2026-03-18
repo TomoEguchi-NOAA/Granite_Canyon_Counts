@@ -149,7 +149,7 @@ where the index $i_t$ is the watch period $i$ of the day $t$, $s$ is the station
 Each parameter had a hyper-distribution of either a Normal, uniform, or gamma distribution (Appendix Table A`r run_reference("hyperparameter-table")`).
 
 ```{r model-definitions-table, echo=FALSE, message=FALSE}
-all.model.names <- c("M5a1", "M6a1", "M7a1", "M8a2","M5a2", "M6a2", "M7a2", "M8a2")
+all.model.names <- c("M1a1", "M2a1", "M3a1", "M4a1","M1a2", "M2a2", "M3a2", "M4a2")
 model.defs <- data.frame(ID = all.model.names,
                          Lkhd = c(rep("POI", 4), rep("NB", 4)),
                          P = "P[Season]",
@@ -312,7 +312,7 @@ The eight models (Table \@ref(tab:model-definition)) were fitted to the sighting
 # cache it at the end of the chunk.
 
 #rm(list = c(".out"))
-ver <- "M6a2" #5 #out.table$model[1] #5
+ver <- "M1a2" #5 #out.table$model[1] #5
 jm.out <- readRDS(paste0("RData/JAGS_Richards_HSSM_",
                          ver,
                          "_1968to", YEAR, "_min", min.dur,
