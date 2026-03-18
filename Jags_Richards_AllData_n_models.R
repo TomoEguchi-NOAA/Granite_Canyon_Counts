@@ -81,7 +81,7 @@ jags.params <- c("VS.Fixed", "BF.Fixed",
                  #"N.alpha", "N.obs",
                  "log.lkhd")
 model.names <- list()
-for (k in 1:length(all.model.names)){
+for (k in 1:nrow(model.defs)){
   model.names[[k]] <- Richards_HSSM_model_definition(K = 1,
                                                      S1 = model.defs[k, "S1"],
                                                      S2 = model.defs[k, "S2"],
@@ -89,8 +89,9 @@ for (k in 1:length(all.model.names)){
                                                      Max = "time",
                                                      lkhd = model.defs[k, "Lkhd"])
   
+  model.name.no.dir <- strsplit(model.names[[k]], split = "models/")[[1]][2]
+  
   jm.out <- NoBUGS_Richards_fcn(min.dur = min.dur, 
-                                ver = model.defs[k, "ID"], 
                                 years = years, 
                                 data.dir = data.dir, 
                                 jags.params = jags.params, 
@@ -99,7 +100,7 @@ for (k in 1:length(all.model.names)){
                                 obs.n.min = 10,
                                 max.day = 100,
                                 N.obs = 10,
-                                model.name = paste0("Richards_HSSM_", model.defs[k, "ID"], ".jags"),
+                                model.name = model.name.no.dir,
                                 ext = ".jags")
   
 }

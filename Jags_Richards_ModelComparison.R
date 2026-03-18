@@ -17,8 +17,8 @@ min.dur <- 60
 YEAR <- 2026
 
 # Model name IDs
-model.names <- c( "M5a1", "M6a1", "M7a1", "M8a1")
-#                  "M5a2", "M6a2", "M7a2", "M8a2")
+model.names <- c( "M1a1", "M2a1", "M3a1", "M4a1",
+                  "M1a2", "M2a2", "M3a2", "M4a2")
 #model.names <- c( "6", "7", "8")
 
 # model IDs in the manuscript is in the same order as above but the numbers are

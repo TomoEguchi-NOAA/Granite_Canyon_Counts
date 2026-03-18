@@ -7,9 +7,9 @@
 # 
 # Richards function:
 # 
-# # M1 <- (1 + (2 * exp(K) - 1) * exp((1/S1) * (P - d))) ^ (-1/exp(K))
-# M2 <- (1 + (2 * exp(K) - 1) * exp((1/S2) * (P - d))) ^ (-1/exp(K))
-# N <- min + (max - min) * (M1 * M2)
+# C1 <- (1 + (2 * exp(K) - 1) * exp((1/S1) * (P - d))) ^ (-1/exp(K))
+# C2 <- (1 + (2 * exp(K) - 1) * exp((1/S2) * (P - d))) ^ (-1/exp(K))
+# N <- min + (max - min) * (C1 * C2)
 # 
 # Provide either "time", a constant, or the parameter name to S1 and S2. 
 # If "time", parameters will be specified as time-specific. For example, S1 = "time"
@@ -17,10 +17,10 @@
 # are assumed to be time/season specific and K = 1.
 # 
 # The current convention is:
-# M5: P = "time", Max = "time", S1 = "time", S2 = "time", K = 1
-# M6: P = "time", Max = "time", S1 = "S1", S2 = "S2", K = 1
-# M7: P = "time", Max = "time", S1 = "time", S2 = "S2", K = 1
-# M8: P = "time", Max = "time", S1 = "S1", S2 = "time", K = 1
+# M1: P = "time", Max = "time", S1 = "time", S2 = "time", K = 1
+# M2: P = "time", Max = "time", S1 = "S1", S2 = "S2", K = 1
+# M3: P = "time", Max = "time", S1 = "time", S2 = "S2", K = 1
+# M4: P = "time", Max = "time", S1 = "S1", S2 = "time", K = 1
 # 
 # Poisson likelihood (Poisson): a1
 # Negative binomial likelihood (NegBin): a2
@@ -29,9 +29,8 @@
 # model.name <- Richards_HSSM_model_definition(K = 1, 
 #                                              S1 = "time", 
 #                                              S2 = "time, 
-#                                              P = P, 
-#                                              lkhd = "NegBin", 
-#                                              name = "M5a2")
+#                                              P = "time, 
+#                                              lkhd = "NegBin")
 #
 # It returns the model file name
 
@@ -43,10 +42,10 @@ Richards_HSSM_model_definition <- function(K = 1,
                                            lkhd = "Poisson"){
   Run.Time <- as.character(Sys.time())
   
-  if (P == "time" & Max == "time" & S1 == "time" & S2 == "time") M <- "M5"
-  if (P == "time" & Max == "time" & S1 == "S1" & S2 == "S2") M <- "M6"
-  if (P == "time" & Max == "time" & S1 == "time" & S2 == "S2") M <- "M7"
-  if (P == "time" & Max == "time" & S1 == "S1" & S2 == "time") M <- "M8"
+  if (P == "time" & Max == "time" & S1 == "time" & S2 == "time") M <- "M1"
+  if (P == "time" & Max == "time" & S1 == "S1" & S2 == "S2") M <- "M2"
+  if (P == "time" & Max == "time" & S1 == "time" & S2 == "S2") M <- "M3"
+  if (P == "time" & Max == "time" & S1 == "S1" & S2 == "time") M <- "M4"
   
   if (tolower(lkhd) == "poisson") name <- paste0(M, "a1")
   if (tolower(lkhd) == "negbin") name <- paste0(M, "a2")
@@ -54,42 +53,31 @@ Richards_HSSM_model_definition <- function(K = 1,
   filename <- paste0("models/model_Richards_HSSM_", name, ".jags")
   file.id <- file(filename, open = "wt")
   
-  S1 <- ifelse(tolower(S1) == "time",  "-S1[y]", paste0("-", S1))
-  S2 <- ifelse(tolower(S2) == "time", "S2[y]", S2)
-  P <- ifelse(tolower(P) == "time", "P[y]", P)
-  K <- ifelse(tolower(K) == "time", "K[y]", K)
-  Max <- ifelse(tolower(Max) == "time", "Max[y]", Max)
+  S1.par <- ifelse(tolower(S1) == "time",  "-S1[y]", paste0("-", S1))
+  S2.par <- ifelse(tolower(S2) == "time", "S2[y]", S2)
+  P.par <- ifelse(tolower(P) == "time", "P[y]", P)
+  K.par <- ifelse(tolower(K) == "time", "K[y]", K)
+  Max.par <- ifelse(tolower(Max) == "time", "Max[y]", Max)
   
-  if (length(grep("M5", name)) > 0){
+  if (tolower(S2) == "time"){
     S2.txt <- paste("for (y in 1:n.year){", "\n",
 		                "      S2[y] ~ dgamma(S2.alpha, S2.beta)", "\n",  
 	                  "   } #y", "\n")
+  } else {
+    S2.txt <- paste0("S2 ~ dgamma(S2.alpha, S2.beta)", "\n")
+  }
+  
+  if (tolower(S1) == "time"){
     S1.txt <- paste("for (y in 1:n.year){", "\n",
                     "   S1[y] ~ dgamma(S1.alpha, S1.beta)", "\n",  
                     "   } #y", "\n")
-  } 
-  
-  if (length(grep("M7", name)) > 0){
-    S1.txt <- paste("for (y in 1:n.year){", "\n",
-                    "      S1[y] ~ dgamma(S1.alpha, S1.beta)", "\n",
-                    "   } #y", "\n")
-    S2.txt <- paste0("S2 ~ dgamma(S2.alpha, S2.beta)", "\n")
-  } 
-  if (length(grep("M8", name)) > 0) {
-    S2.txt <- paste("for (y in 1:n.year){", "\n",
-                    "      S2[y] ~ dgamma(S2.alpha, S2.beta)", "\n",
-                    "   } #y", "\n")
-    S1.txt <- paste0("S1 ~ dgamma(S1.alpha, S1.beta)", "\n")
+  } else {
+    S1.txt <- paste0("S1 ~ dgamma(S1.alpha, S1.beta)", "\n")  
   }
-  
-  if (length(grep("M6", name)) > 0){
-    S1.txt <- paste0("S1 ~ dgamma(S1.alpha, S1.beta)", "\n")
-    S2.txt <- paste0("S2 ~ dgamma(S2.alpha, S2.beta)", "\n")
-  }
-  
-  M1 <- paste("M1[t, y] <- (1 + (2 * exp(", K, ") - 1) * exp((1/(", S1, ")) * (", P, "- t))) ^ (-1/exp(", K, "))")
-  M2 <- paste("M2[t, y] <- (1 + (2 * exp(", K, ") - 1) * exp((1/(", S2, ")) * (", P, "- t))) ^ (-1/exp(", K, "))")
-  mean.N <- paste("mean.N[t, y] <- ", Max, " * (M1[t, y] * M2[t, y])")
+ 
+  C1.txt <- paste("C1[t, y] <- (1 + (2 * exp(", K.par, ") - 1) * exp((1/(", S1.par, ")) * (", P.par, "- t))) ^ (-1/exp(", K.par, "))")
+  C2.txt <- paste("C2[t, y] <- (1 + (2 * exp(", K.par, ") - 1) * exp((1/(", S2.par, ")) * (", P.par, "- t))) ^ (-1/exp(", K.par, "))")
+  mean.N <- paste("mean.N[t, y] <- ", Max.par, " * (C1[t, y] * C2[t, y])")
   
   if (tolower(lkhd) == "poisson"){
     lkhd.txt <- paste("# Poisson Rate", "\n",
@@ -113,10 +101,10 @@ Richards_HSSM_model_definition <- function(K = 1,
                     "# count data at Granite Canyon, CA. ", "\n\n", 
                     
                     "# The current model naming convention is:", "\n",
-                    "# M5: P = 'time', Max = 'time', S1 = 'time', S2 = 'time, K = 1", "\n",
-                    "# M6: P = 'time', Max = 'time', S1 = 'S1', S2 = 'S2', K = 1", "\n",
-                    "# M7: P = 'time', Max = 'time', S1 = 'time', S2 = 'S2', K = 1", "\n",
-                    "# M8: P = 'time', Max = 'time', S1 = 'S1', S2 = time, K = 1", "\n\n",
+                    "# M1: P = 'time', Max = 'time', S1 = 'time', S2 = 'time, K = 1", "\n",
+                    "# M2: P = 'time', Max = 'time', S1 = 'S1', S2 = 'S2', K = 1", "\n",
+                    "# M3: P = 'time', Max = 'time', S1 = 'time', S2 = 'S2', K = 1", "\n",
+                    "# M4: P = 'time', Max = 'time', S1 = 'S1', S2 = time, K = 1", "\n\n",
                     
                     "# Poisson likelihood (Poisson): a1", "\n",
                     "# Negative binomial likelihood (NegBin): a2", "\n",
@@ -130,8 +118,8 @@ Richards_HSSM_model_definition <- function(K = 1,
   "      # Fix Last Day", "\n",
   "      mean.N[n.days, y] <- 0.0001", "\n",
   "      for (t in 2:(n.days-1)){", "\n",
-  "         ", M1, "\n",
-  "         ", M2, "\n",
+  "         ", C1.txt, "\n",
+  "         ", C2.txt, "\n",
   "         ", mean.N, "\n", 
   "      } #t", "\n",
   "   } #y", "\n",
@@ -145,9 +133,9 @@ Richards_HSSM_model_definition <- function(K = 1,
   "            whales.available[d,s,y] <- mean.N[day[d,s,y], y] * watch.length[(d-1),s,y]", "\n",
   "            ", lkhd.txt, "\n",
   "            ", log.lkhd.txt, "\n",
-	"            # probability is mean + covariate effects and watch.length as an offset", "\n",
-	"            # bf and vs d index is -1 because d = 1 is for no whales. But, bf and vs", "\n",
-  "            # don't have the records for d = 1.", "\n",
+	"            # probability is observer effects + covariate effects", "\n",
+	"            # bf and vs d index is -1 because when d = 1, there no whales (i.e., day 1).", "\n",
+  "            # But, bf and vs don't have the records for d = 1.", "\n",
   "            # bf.1 and vs.1 indicate the raw Beaufort and visibility code, rather than ", "\n",
   "            # standardized (bf and vs).", "\n",
   "            # vs.1 - 1 is to make the minimum VS = 0 in the linear model", "\n",
@@ -159,7 +147,8 @@ Richards_HSSM_model_definition <- function(K = 1,
   "   } #y", "\n", 
   "   \n",
   
-  "   r ~ dunif(0, 50)  # Dispersion parameter for the Negative Binomial", "\n",
+  "   # Dispersion parameter for the Negative Binomial", "\n", 
+  "   r ~ dunif(0, 50)  ", "\n",
   "   \n",
   
   "   # Random Effect Variance", "\n",
@@ -186,13 +175,14 @@ Richards_HSSM_model_definition <- function(K = 1,
 	"   # --- Apply the trend and random effect to each year ---", "\n",
 	"   for (y in 1:n.year){", "\n",
 	"      # 1. Calculate the expected mean peak for this specific year based on the trend", "\n",
-	"      mu.P[y] <- beta0.P + (beta1.P * year.index[y])", "\n",
+	"      mu.P[y] <- beta0.P + (beta1.P * year.index[y])", "\n\n",
+  
 	"      # 2. Estimate the actual year's peak, allowing it to randomly deviate from the trend line", "\n",
   "		   P[y] ~ dnorm(mu.P[y], tau.proc.P)", "\n",
   "	  } #y", "\n",
   "   \n",
   
-	"   # --- Priors for the Abundance (Max) Trend Model ---", "\n",
+	"   # --- Priors for the Max Trend Model ---", "\n",
 	"   beta0.Max ~ dnorm(7.6, 0.25)  # Global Intercept for log(Max)", "\n",
 	"   beta1.Max ~ dnorm(0, 0.25)    # Global Slope (Rate of increase/decrease in Max per year)", "\n",
   "   \n",
@@ -216,17 +206,17 @@ Richards_HSSM_model_definition <- function(K = 1,
 	
 	"   S2.alpha ~ dnorm(10, 0.1)T(0,)  #dunif(0.1, 50)", "\n",
 	"   S2.beta ~ dgamma(1, 1)     #dunif(0.01, 10)", "\n",
-  "  ", S1.txt, "\n",
-  "  ", S2.txt, "\n",
+  "  ", S1.txt, 
+  "  ", S2.txt, 
   "   \n",
   
-	"   ## Beaufort and visibility	", "\n",
-	"   ## Gemini: The precision parameters were changed from 0.001 to 0.25 2026-02-03", "\n",
+	"   # Beaufort and visibility	", "\n",
+	"   # Gemini: The precision parameters were changed from 0.001 to 0.25 2026-02-03", "\n",
 	"   BF.Fixed ~ dnorm(0,0.25) ", "\n",
 	"   VS.Fixed ~ dnorm(0,0.25) ", "\n",
   "   \n",
   
-	"   ### Summaries, Abundance Estimates, and Other Derived Quantities ", "\n",
+	"   # Summaries, Abundance Estimates, and Other Derived Quantities ", "\n",
 	"   for(t in 1:n.year){", "\n",
 	"	     Raw.Est[t] <- sum(mean.N[1:n.days, t])", "\n",
 	"	     # multiply raw estimates by correction factor for nighttime passage rates (below)", "\n",
@@ -242,7 +232,7 @@ Richards_HSSM_model_definition <- function(K = 1,
   "} #model", "\n", file = file.id)
   
   close(file.id)
-  #sink(file.id)
+  
   return(filename)
   
 }

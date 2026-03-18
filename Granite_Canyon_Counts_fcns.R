@@ -569,9 +569,10 @@ NoBUGS_Richards_fcn <- function(min.dur, years, data.dir, jags.params, MCMC.para
   #model.name <- paste0(model.name.root, ver) 
   print(paste0("Starting NoBUGS_Richards_fcn at ", Sys.time(), " for Model: ", model.name))
   
-  jags.model <- paste0("models/model_", model.name, ".jags")
+  jags.model <- paste0("models/", model.name)
   
-  model.name.part <- strsplit(model.name, split = ext)[[1]]
+  model.name.part.1 <- strsplit(model.name, split = ext)[[1]]
+  model.name.part <- strsplit(model.name.part.1, split = "model_")[[1]][2]
   
   out.file.name <- paste0("RData/JAGS_", model.name.part, 
                           "_1968to", max(years), 
