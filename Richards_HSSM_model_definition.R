@@ -22,6 +22,8 @@
 # M3: P = "time", Max = "time", S1 = "time", S2 = "S2", K = 1
 # M4: P = "time", Max = "time", S1 = "S1", S2 = "time", K = 1
 # 
+# In the manuscript, K is replaced with /gamma and Max = N_{Max}
+# 
 # Poisson likelihood (Poisson): a1
 # Negative binomial likelihood (NegBin): a2
 # 
