@@ -580,7 +580,8 @@ p.daily.Durban <- ggplot(N.hats.day.Durban %>% group_by(Season)) +
   geom_path(aes(x = Day, y = Mean)) + 
   geom_point(aes(x = Day, y = Nhat), color = "darkgreen") +
   facet_wrap(~ Season) +
-  theme_bw()
+  theme_bw() +
+  theme(legend.position = "top")
 
 if (save.fig)
   save.fig.fcn(fig = p.daily.Durban, 
@@ -596,7 +597,8 @@ p.daily. <- ggplot(N.hats.day.all %>% group_by(Season)) +
   geom_path(aes(x = Day, y = Mean, color = Method), size = 1) + 
   geom_point(aes(x = Day, y = Nhat, color = Method)) +
   facet_wrap(~ Season) +
-  theme_bw()
+  theme_bw()+
+  theme(legend.position = "top")
 
 if (save.fig)
   save.fig.fcn(fig = p.daily., 
@@ -662,8 +664,8 @@ p.Nhats <- ggplot(all.estimates) +
                     color = Method)) +
   ylim(5000, 35000) +
   xlab("") + ylab("Abundance") +
-  theme(legend.position = "top") +
-  theme_bw()
+  theme_bw() +
+  theme(legend.position = "top") 
 
 if (save.fig)
   save.fig.fcn(fig = p.Nhats,
@@ -854,9 +856,9 @@ p.gam.2006.fit <- ggplot(data = pred.2006) +
   geom_line(aes(x = year, y = fit, color = Method), 
             size = 1) +
   scale_x_continuous(labels = function(breaks){ paste0(breaks + start.year.2006)}) +
-  xlab("") + ylab("Abundance") +
-  theme(legend.position = "top") +
-  theme_bw()
+  xlab("") + ylab("Abundance")  +
+  theme_bw()+
+  theme(legend.position = "top")
   
 p.gam.all.fit <- ggplot(data = pred.all) +
   # Add the confidence interval ribbon using the new prediction data
@@ -868,8 +870,8 @@ p.gam.all.fit <- ggplot(data = pred.all) +
             size = 1) +
   scale_x_continuous(labels = function(breaks){ paste0(breaks + 1967)}) +
   xlab("") + ylab("Abundance") +
-  theme(legend.position = "top") +
-  theme_bw()
+  theme_bw() +
+  theme(legend.position = "top") 
 
   # geom_point(data = all.estimates.gam %>%
   #              filter(start.year > 2005),
@@ -1142,7 +1144,7 @@ cap_text <- paste0("Estimated annual abundance and associated 95% intervals (con
 
 ```
 
-```{r plot-N-hats, echo=FALSE, message=FALSE, fig.cap=cap_text, fig.id = "N-hats"}
+```{r plot-N-hats, echo=FALSE, message=FALSE, fig.cap=cap_text, fig.id = "N-hats", fig.width=6, out.width=100%}
 
 knitr::include_graphics(paste0("figures/Nhats_", 
                                ver, "_min", min.dur, "_", dpi.set, "dpi.png"))
