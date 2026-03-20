@@ -3013,10 +3013,13 @@ plot.trace.dens <- function(jm, var.name){
                                          times = n.samples))
     p.trace <- ggplot(samples.df) +
       geom_line(aes(x = seq, y = sample, color = chain)) +
-      theme(legend.position = "none")
+      theme(legend.position = "none") +
+      theme_bw()
     
     p.dens <- ggplot(samples.df) +
-      geom_density(aes(x = sample)) 
+      geom_density(aes(x = sample)) +
+      theme_bw()
+    
   }
 
  

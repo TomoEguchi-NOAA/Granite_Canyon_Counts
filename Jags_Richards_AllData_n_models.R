@@ -10,21 +10,16 @@ library(loo)
 
 source("Granite_Canyon_Counts_fcns.R")
 source("Richards_HSSM_model_definition.R")
-options(mc.cores = 5)
+options(mc.cores = parallel::detectCores())
 
 # Minimum length of observation periods in minutes
 min.dur <- 60 #10 #85 #
 
-#all.model.names <- c("M5a1", "M6a1", "M7a1", "M8a1","M5a2", "M6a2", "M7a2", "M8a2")
 model.defs <- data.frame(Lkhd = c(rep("NegBin", 4), rep("Poisson", 4)),
                          P = "time",
                          S1 = rep(c("time", "S1"), 4),
                          S2 = rep(c("time", "S2", "S2", "time"), 2))
 
-# ver <- c( "M5a1", "M6a1", "M7a1", "M8a1" ,
-#           "M5a2", "M6a2", "M7a2", "M8a2")
-#ver <- c("v6a1", "v7a1", "v8a1" )
-ver <- c("M6a2")
 Run.date <- Sys.Date()
 
 # These are the ending year of each season - for example, 2022 in the following vector indicates
