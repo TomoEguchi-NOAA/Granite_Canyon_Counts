@@ -3003,6 +3003,7 @@ plot.trace.dens <- function(jm, var.name){
     
     p.dens <- ggplot(samples.df) +
       geom_density(aes(x = sample)) +
+      xlab("") +
       facet_wrap(~ par.name.ordered)
   } else {
     samples.vec <- unlist(samples)
@@ -3018,6 +3019,7 @@ plot.trace.dens <- function(jm, var.name){
     
     p.dens <- ggplot(samples.df) +
       geom_density(aes(x = sample)) +
+      xlab("") +
       theme_bw()
     
   }
