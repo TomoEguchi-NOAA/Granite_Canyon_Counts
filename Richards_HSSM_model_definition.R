@@ -153,11 +153,11 @@ Richards_HSSM_model_definition <- function(K = 1,
   "   r ~ dunif(0, 50)  ", "\n",
   "   \n",
   
-  "   # Random Effect Variance", "\n",
+  "   # Observer Effect Variance", "\n",
   "   # We restrict the standard deviation to prevent observers from drifting too far apart.", "\n",
   "   # To anchor the  model to Durban’s 0.80 estimate, we need to convert it into logit space.", "\n",
   "   # logit(0.80) = ln(0.80 / (1 - 0.80)) = 1.386. ", "\n", 
-  "   # Because we successfully fixed the MCMC mixing by using a Cell-Means random effect ", "\n", 
+  "   # Because we successfully fixed the MCMC mixing by using a Cell-Means ", "\n", 
   "   # (without the global beta.p), we simply shift the mean of that prior from 0 ", "\n", 
   "   # (which was forcing the 50% detection rate) up to 1.39.", "\n",
   
