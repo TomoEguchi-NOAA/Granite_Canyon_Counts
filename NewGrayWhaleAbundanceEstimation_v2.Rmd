@@ -145,7 +145,7 @@ $$ \kappa_{j, s, y} = A_{j,s,y} \times p_{j, s, y} $$
 Detection probability was modeled as a function of environmental viewing conditions—Beaufort sea state ($B$) and visibility code ($V$)—and observer effects ($O$). The 10 observers with the most historical sightings over the entire timeseries were assigned independent effects, while the remaining observers were pooled into a single reference group. This parameterization naturally absorbs the global intercept ($p_0$ in the Durban et al. approach) into the observer effects:
 
 \begin{equation}
-logit(p_{j, s, y}) = \alpha_{O_{j, s, y}} + \beta_{B} \times B_{j, y} + \beta_{V} \times V_{j, y} (\#eq:detection-probability-Eguchi) 
+logit(p_{j, s, y}) = \alpha_{O_{j, s, y}} + \beta_{B} \times B_{j, y} + \beta_{V} \times V_{j, y}  
 \end{equation}
 
 Estimating both abundance ($N$) and detection probability ($p$) simultaneously from single-observer count data introduces non-identifiability. To break this confounding, the baseline detection probability was anchored using an informative prior. Durban et al. (2015) conducted a paired-observer study at the Granite Canyon survey site and estimated a baseline detectability of 0.80. We incorporated this prior information into the detection probability, where the observer effect was centered on a logit of 1.39 (corresponding to $p = 0.80$). This framework allowed individual observers to vary relative to one another based on the data, while anchoring the overall mean.
@@ -206,7 +206,7 @@ hyper.params <- data.frame(Parameter = c("P[y]", "sigma2.P", "beta0.P", "beta1.P
                                             
                                             "Normal(mu.log.Max[y], sigma2.log.Max)",
                                             "Normal(0, 1)T(0,)",
-                                            "Normal(7.7, 4)",
+                                            "Normal(7.6, 4)",
                                             "Normal(0, 4)",
                                             
                                             "Normal(0, 4)",
@@ -1147,7 +1147,7 @@ Among the eight submodels compared, the Negative Binomial likelihood models were
 
 The new modeling approach yielded results comparable to those obtained by the methods of Laake et al. and Durban et al. Although point estimates differed in some years, the confidence and credible intervals overlapped across most of the time series, and all three methods captured similar long-term trends and the recent rate of decline.
 
-Estimated Richards function's parameters provided insights into the nature of the survey. The Beaufort sea state index had a positive effect on detection probabilities, which was a non-intuitive result. A closer look at the relationship between the number of observed whales and Beaufort sea state indicated that a greater proportion of sightings were singleton whales (`r signif((dim(n.and.bf.high %>% filter(n == 1))[1])/dim(n.and.bf.high)[1] * 100, 2)`%) when the Beaufort sea state was $\ge 3$, compared to when the sea state was $< 3$ (`r signif((dim(n.and.bf.low %>% filter(n == 1))[1])/dim(n.and.bf.low)[1] * 100, 2)`%). Rather than an actual increase in detectability, this may represent an observation artifact: in rougher, choppy waters, observers likely have greater difficulty visually determining group cohesion. Consequently, whales that would easily be identified as a single, multi-whale pod in calm waters may be recorded as multiple separate singleton sightings in high sea states. Because the model estimates detection probability based on the number of discrete sightings, this artificial inflation of singleton records could mathematically drive the apparent positive effect of the Beaufort sea state.
+Estimated parameters of the detection probability function provided insights into the nature of the survey. The Beaufort sea state index had a positive effect on detection probabilities, which was a non-intuitive result. A closer look at the relationship between the number of observed whales and Beaufort sea state indicated that a greater proportion of sightings were singleton whales (`r signif((dim(n.and.bf.high %>% filter(n == 1))[1])/dim(n.and.bf.high)[1] * 100, 2)`%) when the Beaufort sea state was $\ge 3$, compared to when the sea state was $< 3$ (`r signif((dim(n.and.bf.low %>% filter(n == 1))[1])/dim(n.and.bf.low)[1] * 100, 2)`%). Rather than an actual increase in detectability, this may represent an observation artifact: in rougher, choppy waters, observers likely have greater difficulty visually determining group cohesion. Consequently, whales that would easily be identified as a single, multi-whale pod in calm waters may be recorded as multiple separate singleton sightings in high sea states. Because the model estimates detection probability based on the number of discrete sightings, this artificial inflation of singleton records could mathematically drive the apparent positive effect of the Beaufort sea state.
 
 ### Methodological and Statistical Advantages {.unnumbered}
 
@@ -1223,7 +1223,7 @@ ft.models.comp %>%
   set_table_properties(layout = "autofit") %>%
   #autofit() %>%
   paginate(init = TRUE, hdr_ftr = TRUE) %>%
-  set_caption(caption = as_paragraph("Comparison of eight models using the LOOIC, rank-normalized ", as_chunk(R_hat), " statistics, Pareto-k statistics, and effective sample sizes (ESS bulk and tail). LOOIC (leave-one-out information criteria) measures the predictive accuracy of each model, where smaller values indicate better predictions. ", as_chunk("\u0394"), as_chunk("LOOIC"), " is the difference between a LOOIC value and the minimum LOOIC value. “# parameters” means the number of monitored parameters and not the total number of parameters in the model.  The rank-normalized ", as_chunk(R_hat), " statistic measures the convergence of Markov chain Monte Carlo samples. ", as_chunk(R_hat), " > 1.01 indicates non-convergence. The Pareto-k statistic provides a measure of predictive errors for each data point. The ", as_chunk(R_hat), " statistic is computed for each parameter, and Pareto-k statistic is computed for each data point. ESS is a measure of numerical convergence of Markov chain Monte Carlo. Higher numbers indicate better convergence."),
+  set_caption(caption = as_paragraph("Comparison of convergence and model fit among eight models. “# parameters” means the number of monitored parameters and not the total number of parameters in the model. Rank-normalized ", as_chunk(R_hat), " statistics (", as_chunk(R_hat), ") measures the convergence of Markov chain Monte Carlo samples. ", as_chunk(R_hat), " > 1.01 indicates non-convergence. Pareto-k statistic provides a measure of predictive error for each data point. ESS (bulk and tail) is a measure of numerical convergence of Markov chain Monte Carlo. Higher numbers indicate better convergence.  LOOIC (leave-one-out information criteria) measures the predictive accuracy of each model, where smaller values indicate better predictions. ", as_chunk("\u0394"), as_chunk("LOOIC"), " is the difference between a LOOIC value and the minimum LOOIC value.  The ", as_chunk(R_hat), " statistic is computed for each parameter, and Pareto-k statistic is computed for each data point. "),
               fp_p = officer::fp_par(text.align = "left"),
               align_with_table = FALSE,
               autonum = run_autonum(seq_id = "tab",
@@ -1299,7 +1299,7 @@ The binomial $N_{d(j),t}$ parameter is the unknown total number of gray whales p
 The detection probability was modeled as a function of visibility (V), Beaufort scale (B), and observers (O).
 
 \begin{equation}
-logit(p_{i,d(j),t}) = logit(p_0) + I_{V} \beta_{V} V_{d(j),t} + I_{B} \beta_{B} B_{d(j),t}+ I_{O} \mathbf{\beta}^{O_{i,d(j),t} = o}_{O} (\#eq:detection-probability-Durban)
+logit(p_{i,d(j),t}) = logit(p_0) + I_{V} \beta_{V} V_{d(j),t} + I_{B} \beta_{B} B_{d(j),t}+ I_{O} \mathbf{\beta}^{O_{i,d(j),t} = o}_{O} 
 \end{equation}
 
 where the intercept $p_0$ was the base detection probability in the absence of covariate effects, assigned a Uniform(0,1) prior distribution, and $logit(p_0) = ln(p_0/(1–p_0))$. For each fixed effect, $\beta_{B}$ and $\beta_{V}$, a Normal prior distribution with mean zero and standard deviation of 10 was used. The random effect for each observer was drawn from a Normal distribution with mean zero and standard deviation $\sigma_{O} \sim Uniform(0,10)$. Each binary indicator variable, $I$, was assigned a Bernoulli(0.5) distribution to specify equal probability of inclusion (1) or exclusion (0) of the effect in the model [@durban_estimating_2015].
