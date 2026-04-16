@@ -90,7 +90,7 @@ For the conservation of the Eastern North Pacific (ENP) gray whale (*Eschrichtiu
 
 The Eastern North Pacific (ENP) gray whale (*Eschrichtius robustus*) population undertakes one of the longest annual migrations of any mammal, traveling between its Arctic feeding grounds and the warm-water lagoons of Baja California, Mexico, where they calve and breed. This population has been the subject of extensive research due to its recovery from historic whaling and its continued vulnerability to environmental changes [@stewart_boom-bust_2023]. Understanding the dynamics of the ENP gray whale population, including its abundance, distribution, and migratory patterns, is crucial for effective conservation and management.
 
-Analytical methods to estimate the abundance of gray whales from visual surveys at Granite Canyon, CA, have evolved over the years. In recent years, Laake et al. (2012) used a distance sampling approach with generalized additive models (GAMs). Subsequently, Durban et al. (2015) developed a new method using a Bayesian N-mixture approach, which was approved by the International Whaling Commission (IWC) and has been used for the analysis since the 2006/2007 season. Their approach used the general trend of ENP gray whale migration, in which the number of sightings increases over time, peaks, and then decreases. They modeled this pattern using a normal function to capture the general trend, while deviations from the normal function were modeled by fitting a spline to the observed counts. Observations were then modeled with binomial distributions, an approach that inherently required double-observer protocols to estimate detection probabilities. A brief description of their model is provided in the Appendix. 
+Analytical methods to estimate the abundance of gray whales from visual surveys at Granite Canyon, CA, have evolved over the years. In recent years, Laake et al. (2012) used a distance sampling approach with generalized additive models (GAMs). Subsequently, Durban et al. (2015) developed a new method using a Bayesian N-mixture approach, which was approved by the International Whaling Commission (IWC) and has been used for the analysis since the 2006/2007 season. Their approach used the general trend of ENP gray whale migration, in which the number of sightings increases over time, peaks, and then decreases. They modeled this pattern using a normal function to capture the general trend, while deviations from the normal function were modeled by fitting a spline to the observed counts. Observations were then modeled with binomial distributions, an approach that inherently required double-observer protocols to estimate detection probabilities. A brief description of their model is provided in the Appendix.
 
 However, the Durban et al. method faces significant logistical, biological, and statistical limitations today. Logistically, recent financial constraints have prevented the use of two independent, simultaneous observation teams, making the double-observer requirement unfeasible. Additionally, the previous method implicitly assumed that two observation stations operated simultaneously with identical effort, which was historically not always true. Biologically, the assumption that migrating gray whales follow a symmetric normal distribution centered on the midpoint of the season is restrictive; studies have shown that the migration peak changes over time, the curve is often asymmetric, and peak abundance may persist for several days [@rugh_timing_2001; @eguchi_abundance_2024]. While splines were used to alleviate this, a fitted spline can be overly flexible, susceptible to changes in observation effort, and fail to preserve the fundamental assumption that numbers gradually increase, peak, and decrease. Finally, computation of the Durban et al. method relied on the "*cut*" function within WinBUGS to dissociate estimated parameters—a function that does not converge to a well-defined limiting distribution and is unavailable in modern Bayesian computation packages [@plummer_cuts_2015]. Furthermore, the MCMC convergence of the WinBUGS analysis was not thoroughly evaluated using modern diagnostic tools.
 
@@ -120,7 +120,7 @@ $$ C_{1,d} = \left( 1 + (2e - 1) e^{\frac{P - d}{-S_1}} \right)^{-\frac{1}{e}} $
 
 $$ C_{2,d} = \left( 1 + (2e - 1) e^{\frac{P - d}{S_2}} \right)^{-\frac{1}{e}} $$
 
-where $d > 0$ is the number of days since an arbitrary start date, $S_1 > 0$ and $S_2 > 0$ define the slopes of the trailing and leading edges, respectively, $P$ defines where the peak is relative to the range of $d$, where $min(d) < P < max(d)$, $N_{min}$ is the number of whales migrating outside of a migration season ($N_{min} = 0$), and $N_{max} >> N_{min}$. $N_{max}$ represents a scaling parameter for the curve amplitude, which may be fixed or estimated. Effects of these parameters on the shape of the equation are described in the Appendix. This is an abbreviated version of the full model, which is presented in the Appendix. Hereafter, the above function is referred to as the Richards equation. 
+where $d > 0$ is the number of days since an arbitrary start date, $S_1 > 0$ and $S_2 > 0$ define the slopes of the trailing and leading edges, respectively, $P$ defines where the peak is relative to the range of $d$, where $min(d) < P < max(d)$, $N_{min}$ is the number of whales migrating outside of a migration season ($N_{min} = 0$), and $N_{max} >> N_{min}$. $N_{max}$ represents a scaling parameter for the curve amplitude, which may be fixed or estimated. Effects of these parameters on the shape of the equation are described in the Appendix. This is an abbreviated version of the full model, which is presented in the Appendix. Hereafter, the above function is referred to as the Richards equation.
 
 Four versions of the Richards equation were created based on how the parameters were defined with respect to seasons. The structural parameters of the equation ($S_1$ and $S_2$) were treated either as constant across the time series or as season-specific (Table \@ref(tab:model-definition)). Because the peak of gray whale migration has been reported to shift over time [@rugh_timing_2001], the parameter $P[y]$ for the season $y$ was modeled as a linear function of time, distributed as:
 
@@ -280,6 +280,10 @@ hyper.params %>%
   compose(i = 10, j = "Parameter",
           value = as_paragraph(as_chunk("\U03B2"), 
                                as_chunk("V", props = fp_text(vertical.align = "subscript")))) %>%
+  compose(i = 11, j = "Parameter",
+          value = as_paragraph(as_chunk("S"), 
+                               as_chunk("1", props = fp_text(vertical.align = "subscript")),
+                               as_chunk("[y]"))) %>%
   compose(i = 11, j = "Distribution",
           value = as_paragraph(as_chunk("Gamma(\U03B1"),
                                as_chunk("S1",
@@ -294,6 +298,10 @@ hyper.params %>%
   compose(i = 13, j = "Parameter",
           value = as_paragraph(as_chunk("\U03B2"), 
                                as_chunk("S1", props = fp_text(vertical.align = "subscript")))) %>%
+  compose(i = 14, j = "Parameter",
+          value = as_paragraph(as_chunk("S"), 
+                               as_chunk("2", props = fp_text(vertical.align = "subscript")),
+                               as_chunk("[y]"))) %>%
   compose(i = 14, j = "Distribution",
           value = as_paragraph(as_chunk("Gamma(\U03B1"),
                                as_chunk("S2",
@@ -320,7 +328,7 @@ In the Durban et al. analysis, the annual migration at the survey station was de
 
 The new approach was used to analyze the entire dataset from the 1967/1968 season onward, and the results were compared to the estimates reported in Lang et al. (2026). In order to apply the new approach to historical data, sighting data between the 1967/1968 and 2006/2007 seasons were obtained from the *ERAnalysis* package (<https://github.com/jlaake/ERAnalysis>, Laake 2012). An R script was written to convert the historical sightings data in the *ERAnalysis* package to an input object required for the new analysis. Data from the 2007/2008 to 2025/2026 seasons were extracted from raw data files using another R script. All shifts of at least 60 minutes with the Beaufort sea state of \< 5 and the visibility code of \< 5 were included in the analysis. Laake et al.’s approach was applied to the entire dataset after formatting new data from the 2007/2008 season into the input object for the *ERAnalysis* package. Because no information was available to match sightings of groups between the two stations in the 2009/2010 and 2010/2011 seasons, a correction factor, i.e., a multiplier to convert “naïve” to “corrected,” which accounted for missed groups by the primary observer, from double-observer years, was applied.
 
-The new models were fitted to the data using JAGS [@plummer_jags_2003] in the R statistical environment, using the *jagsUI* package (Kellner 2024). For each model, five MCMC chains were run for 250,000 steps each. The first 50,000 samples of each chain were discarded as “burn-in.” The remaining posterior samples were thinned to every 200, yielding 5000 posterior samples for inference. The convergence of MCMC was assessed using the rank-normalized `r R_hat` statistic and effective sample sizes (ESS, Vehtari et al. 2021). Following Vehtari et al. (2021), a minimum bulk and tail ESS of 100 per chain were assumed, establishing a threshold of $> 500$. For models that converged sufficiently, goodness-of-fit was assessed using Pareto-k statistics [@vehtari_practical_2017] implemented in the *loo* package (Vehtari et al. 2024). Model performance was compared using the LOOIC (Leave-One-Out Information Criteria) statistic via the *rstanarm* (Goodrich et al. 2025) and *loo* packages.
+The new models were fitted to the data using JAGS [@plummer_jags_2003] in the R statistical environment (ver `r version$major`.`r version$minor`), using the *jagsUI* package (Kellner 2024). For each model, five MCMC chains were run for 250,000 steps each. The first 50,000 samples of each chain were discarded as “burn-in.” The remaining posterior samples were thinned to every 200, yielding 5000 posterior samples for inference. The convergence of MCMC was assessed using the rank-normalized `r R_hat` statistic and effective sample sizes (ESS) [@vehtari_rank-normalization_2021]. Following Vehtari et al. (2021), a minimum bulk and tail ESS of 100 per chain were assumed, establishing a threshold of $> 500$. For models that converged sufficiently, goodness-of-fit was assessed using Pareto-k statistics [@vehtari_practical_2017] implemented in the *loo* package (Vehtari et al. 2024). Model performance was compared using the LOOIC (Leave-One-Out Information Criteria) statistic via the *rstanarm* (Goodrich et al. 2025) and *loo* packages.
 
 To compare the three approaches (Laake et al., Durban et al., and the new approach), generalized additive models (GAMs) were fitted to abundance estimates between the 2006/2007 and 2025/2026 seasons. Furthermore, Laake et al.'s and the new approaches were compared by fitting GAMs to the point estimates over the entire timeseries from the 1967/1968 to 2025/2026 seasons. The rate of recent decline in the estimated abundance was compared by fitting linear models to the natural log of abundance estimates between the 2014/2015 and 2025/2026 seasons.
 
@@ -1040,7 +1048,7 @@ if (save.fig)
                dpi = dpi.set)
 ```
 
-Marginal posterior distributions of the Richards equation parameters provided valuable insights into how annual gray whale migration varied among years. The $P$ parameters, which define the timing of the migration peak, shifted over the years (Figure \@ref(fig:P-posteriors)), a phenomenon reported in previous studies [@rugh_timing_2001;@eguchi_abundance_2024], although the significance and causes for the changes are unknown. The $S_2$ parameter, which defines the increasing part of the migration curve, also varied annually, indicating that the way the number of migrating whales increased within a season fluctuated from year to year (Appendix Figure A\@ref(fig:S2-posteriors)). Similarly, $S_1$ parameter, which defines the decreasing part of the migration curve, varied among seasons (Appendix Figure A\@ref(fig:s1-posteriors)).
+Marginal posterior distributions of the Richards equation parameters provided valuable insights into how annual gray whale migration varied among years. The $P$ parameters, which define the timing of the migration peak, shifted over the years (Figure \@ref(fig:P-posteriors)), a phenomenon reported in previous studies [@rugh_timing_2001; @eguchi_abundance_2024], although the significance and causes for the changes are unknown. The $S_2$ parameter, which defines the increasing part of the migration curve, also varied annually, indicating that the way the number of migrating whales increased within a season fluctuated from year to year (Appendix Figure A\@ref(fig:S2-posteriors)). Similarly, $S_1$ parameter, which defines the decreasing part of the migration curve, varied among seasons (Appendix Figure A\@ref(fig:s1-posteriors)).
 
 The fixed effect of visibility was negative, whereas the fixed effect of the Beaufort sea state was positive (Figure \@ref(fig:Fixed-posteriors)). Higher visibility code (less desirable conditions) corresponded with lower detection probabilities but suggested that higher Beaufort sea states corresponded with greater detection probabilities. The observer random effects indicated significant differences among individuals, consistent with the findings of Durban et al. (Appendix Figure A\@ref(fig:OBS-posteriors)).
 
@@ -1343,13 +1351,15 @@ $$ g_{d,t} = S_{0,t} + S_{1,t} * d_t + \sum_{k=1}^{m} \lambda_{k,t} (d_t – \ka
 \newpage
 
 ### Richards function {.unnumbered}
-The non-abbreviated Richards function contains an additional parameter ($\gamma$) and two independent peak parameters ($P_1$ and $P_2$). In the current analysis, $\gamma = 1$ and $P_1 = P_2 = P$ to avoid overparameterization of the function. With more data, i.e., the number of observation days per season, these parameters may be estimated. 
+
+The non-abbreviated Richards function contains an additional parameter ($\gamma$) and two independent peak parameters ($P_1$ and $P_2$). In the current analysis, $\gamma = 1$ and $P_1 = P_2 = P$ to avoid overparameterization of the function. With more data, i.e., the number of observation days per season, these parameters may be estimated.
 
 $$ C_{1,d} = \left( 1 + (2e^\gamma - 1) e^{\frac{P_1 - d}{-S_1}} \right)^{-\frac{1}{e^\gamma}} $$
 
 $$ C_{2,d} = \left( 1 + (2e^\gamma - 1) e^{\frac{P_2 - d}{S_2}} \right)^{-\frac{1}{e^\gamma}} $$
 
 \newpage
+
 ### Hyperparameter definitions {.unnumbered}
 
 ```{r table-hyperparmaters-setup, echo=FALSE, message=FALSE}
