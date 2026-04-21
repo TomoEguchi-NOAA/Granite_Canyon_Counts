@@ -105,10 +105,11 @@ for (k in 1:length(model.names)){
   min.ESS.tail[k] <- min(ESS.tail[[k]]$ess_tail)
   
   min.ESS[k] <- min(min.ESS.tail[k], min.ESS.bulk[k])
-  
-  LOOIC[k] <- ifelse(min.ESS[k] > 400,
-                     LOOIC.n[[k]]$loo.out$estimates["looic", "Estimate"],
-                     NA)
+
+  LOOIC[k] <- LOOIC.n[[k]]$loo.out$estimates["looic", "Estimate"]  
+  # LOOIC[k] <- ifelse(min.ESS[k] > 500,
+  #                    LOOIC.n[[k]]$loo.out$estimates["looic", "Estimate"],
+  #                    NA)
   
 }
 
