@@ -2,13 +2,46 @@
 
 ## 1. Three Main Stages
 ### Data Extraction
-In this stage, data related to gray whale sightings and related metrics are collected and preprocessed. It is essential to ensure that the data is clean and formatted correctly for the subsequent analysis. Key functions to use:
-- `Extract_Data_All_v2.Rmd`: This R Markdown document serves as the starting point for data extraction, allowing for covariate selection and insight generation based on preliminary data exploration.
+In this stage, data from the field are reviewed and corrections are made as needed. It is essential to ensure that the data is clean and formatted correctly for the subsequent analysis. Key functions to use:
+- `Extract_Data_All_v2.Rmd`: This R Markdown document serves as the starting point for data extraction. All data up to the 2025/2026 season have been extracted using this script. 
 
-### JAGS Analysis
-This involves the statistical analysis phase where the data is modeled using JAGS (Just Another Gibbs Sampler). The primary scripts involved in this stage include:
-- `data2WinBUGS_input`: This function prepares the data output for JAGS, converting it into the required format for the WinBUGS/JAGS models.
-- `Jags_Richards_AllData_n_models.R`: This script runs the JAGS models for estimating the gray whale abundance based on the input data from the previous stage.
+Create a new output directory for the new season. This is done in lines 28 and 29:
+Line 28: out.dir <- "RData/V2.1_Feb2026"
+Line 29: if (!dir.exists(out.dir)) dir.create(out.dir)
+
+It's best to create a new directory, for example V2.1_Feb2026, for the analysis in 2026. This way, old data are preserved for reanalysis if necessary. 
+
+V2.1 refers to the version 2.1 for the data extraction method. This is the most recent and should provide necessary data for JAGS and WinBUGS analyses. Data from previous seasons should be copied to this new RData folder. 
+
+New data should be extracted by changing 
+Line 35: YEAR <- 2026
+Note that the YEAR is defined as the second year of each season. For example, the 2025/2026 season should be YEAR <- 2026 and so forth.
+
+Various functions in "Granite_Canyon_Counts_fcns.R" are used for extracting data from the raw data files. 
+
+Error messages may return while running this script for the first time. They are mostly from input data file errors. Find which data file is causing the problem, double check where the problem(s) is by looking at the output of get.data on line 85 and get.shift on line 134. The file number (ff) and shift number (k on line 131) can be fixed and run the function line by line within the Granite_Canyon_Counts_fcns.R. The intermediate variables in those functions, e.g., data in get.data or shifts.df in get.shift, usually provide a clue to the error message(s). 
+
+Once the data extraction process is completed, make sure all the extracted data files are in the same directory (e.g., RData/V2.1_Feb2026), including those from the previous seasons. These files should have the filename convention of out_YYYY_minMM_Tomo_v2.rds, where YYYY corresponds to the season identification and MM indicates the minimum shift duration, which is defined at line 46:
+
+min_dur <- shift_dur_min - grace_min
+
+Once this step is completed, the models can be fit to the data using WinBUGS or JAGS.
+
+### Analysis
+
+#### N-mixture model using WinBUGS
+This is the analysis described in Durban et al. (2015). It is run in 'WinBUGS Ver2.Rmd'. Edit the lines 33-36 to make sure (1) the data.dir is pointing to the correct path (created in the previous step) and (2) the new season is included in the years object. min.dur can be changed but not necessary. It's been 60 minutes for a few years. For this to be changed, data need to be extracted again with the new minimum shift duration in the previous step. 
+
+MCMC setup can be changed in lines 51-54, if necessary. 
+
+WinBUGS code is 'GW_Nmix_Orig.bugs'. This file should be in the same directory as 'WinBUGS Ver2.Rmd' exists. 
+
+It is a good practice to start with short chains, e.g., n.iter = 200, to test if WinBUGS runs without issues. Turn "debug = T" in the bugs function (line 89) so that WinBUGS will stop if it encounters a problem. Some errors that I encountered are listed in the script as well as in 'WinBUGS errors and fixes.txt'
+
+#### Hierarchical State-Space model using JAGS
+This is the analysis described in Eguchi (2026). It is run in 'Jags_Richards_AllData_n_models.R'. This script should be edited when new data are added to the analysis. Line 28 defines analysis years, beyond the data in Laake's analysis and Line 29 defines the path to the data files (.rds files). This script uses a function script 'Richards_HSSM_model_definition.R' that creates 8 different models according to the input to the function and runs JAGS to estimate parameters.  
+
+
 
 ### Reporting
 Once the analysis is complete, the results will be reported. This stage includes visualizing the outputs and generating reports summarizing the findings. This is crucial for communicating the results to stakeholders effectively.
