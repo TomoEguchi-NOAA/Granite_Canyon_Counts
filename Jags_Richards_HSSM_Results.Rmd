@@ -1,0 +1,205 @@
+---
+title: "Richards HSSM results summary"
+output: html_notebook
+---
+
+This notebook shows various results from the Hierarchial State Space Model approach using the Richards function to estimate the abundance of gray whales. The models should be fitted using 'Jags_Richards_AllData_n_models.R'. The script saves the results in .rds files to the '/RData' directory. This notebook uses those outputs to create various summaries of the analysis.
+
+```{r}
+# Whether or not to save the figures
+save.fig <- T
+
+source("Granite_Canyon_Counts_fcns.R")
+source("Richards_HSSM_model_definition.R")
+
+library(tidyverse)
+library(lubridate)
+library(flextable)
+library(jagsUI)
+library(bayesplot)
+library(ggpubr)
+#library(R2WinBUGS)
+library(abind)
+library(rmarkdown)
+library(loo)
+library(ggridges)
+library(rstanarm)
+library(mgcv)
+
+# Define the latest year to be analyzed
+YEAR <- 2026
+# Minimum shift duration to be included
+min.dur <- 60#10 
+# dpi for output figures
+dpi.set <- 600
+
+# The date when WinBUGS was run on the same dataset. This is run in the GrayWhaleAbundance project.
+WinBUGS.Run.Date <- "2026-02-20"  
+
+# Create a function to save figures if requested.
+save.fig.fcn <- function(fig, file.name, replace = F, 
+                         dpi = dpi.set, device = "png",
+                         height = 3, width = 3, units = "in",
+                         bg = "white"){
+  if (isTRUE(replace) | (!isTRUE(replace) & !file.exists(file.name)))
+    ggsave(fig, 
+           filename = file.name, 
+           dpi = dpi, device = device,
+           height = height, width = width, units = units,
+           bg = bg)
+  
+}
+
+# Define models - this can be adjusted if needed or possible
+# If new mdoels were added or the definitions chnaged, make sure to edit 'Richards_HSSM_model_definition.R'
+all.model.names <- c("M1a1", "M2a1", "M3a1", "M4a1","M1a2", "M2a2", "M3a2", "M4a2")
+model.defs <- data.frame(ID = all.model.names,
+                         Lkhd = c(rep("POI", 4), rep("NB", 4)),
+                         S1 = rep(c("Season", "Constant"), 4),
+                         S2 = rep(c("Season", "Constant", "Constant", "Season"), 2))
+
+```
+
+Once the models were fit, the model comparison step is done using 'Jags_Richards_ModelComparison.R'. Results are saved in a .rds file. Bring in the output and create a table. Then bring in the best model output for inference. 
+
+```{r}
+out.table <- readRDS(paste0("RData/Richards_ModelComparison_", YEAR, ".rds"))
+out.table %>% 
+  select(model, n.params, n.big.Rhat, p.big.Rhat, n.bad.Pareto, p.bad.Pareto, min.ESS.bulk, min.ESS.tail, dLOOIC) %>%
+  flextable() %>%
+  colformat_double(j = c("dLOOIC", "p.big.Rhat", "p.bad.Pareto",
+                         "min.ESS.bulk", "min.ESS.tail"),
+                   digits = 2) %>%
+  compose(part = "header", j = "dLOOIC",
+          value = as_paragraph(as_chunk("\u0394"), as_chunk("LOOIC"))) -> ft.models.comp
+
+
+ver <- out.table[1, "model"] # "M1a2" #5 #out.table$model[1] #5
+jm.out <- readRDS(paste0("RData/JAGS_Richards_HSSM_",
+                         ver,
+                         "_1968to", YEAR, "_min", min.dur,
+                         "_NoBUGS.rds"))
+
+# bring in the convergence statistics:
+# This is a list of length 4. They are LOOIC, Rhat, ESS.bulk and ESS.tail
+# Each item has a length equals to the number of models ran. 
+ver.idx <- which(all.model.names == ver)
+
+# The convergence statistics are saved by 'Jags_Richards_ModelComparison.R'. 
+# Rather than re-calculating those statistics, bring in the output.
+list.convergence <- readRDS(paste0("RData/Richards_Convergence_", YEAR, ".rds"))
+
+# LOOIC and Pareto-k stats
+LOOIC.n <- list.convergence$LOOIC[ver.idx] 
+
+# better ESS computations:
+summary.posterior <- jm.out$posterior.summary
+
+ESS.bulk <- list.convergence$ESS.bulk[[ver.idx]]
+ESS.tail <- list.convergence$ESS.tail[[ver.idx]]
+
+# Match Pareto-k and data. Note that days 1 and 100 should be removed.
+n.array <- jm.out$jags.input$jags.data$n
+days <- jm.out$jags.input$jags.data$day
+watch.length <- jm.out$jags.input$jags.data$watch.length
+
+all.start.year <- c(jm.out$jags.input$jags.input.Laake$all.start.year,
+                    jm.out$jags.input$jags.input.new$start.years)
+
+# Create a dataframe with all years, including unsampled years.
+all.years <- data.frame(start.year = seq(min(all.start.year), max(all.start.year))) %>%
+  mutate(Season = paste0(start.year, "/", start.year + 1))
+
+# Look at the annual abundance estimates:
+Nhat. <- data.frame(Season = paste0(all.start.year, "/",
+                                    all.start.year+1),
+                    Nhat = jm.out$jm$q50$Corrected.Est,
+                    LCL = jm.out$jm$q2.5$Corrected.Est,
+                    UCL = jm.out$jm$q97.5$Corrected.Est) %>%
+  right_join(all.years, by = "Season") %>%
+  arrange(start.year) %>%
+  mutate(Method = paste0("Eguchi ", ver))
+
+# Create an observed counts dataframe
+obs.day <- jm.out$jags.input$jags.data$day[,1,]
+obs.n <- jm.out$jags.input$jags.data$n[,1,]
+obs.prop <- jm.out$jags.input$jags.data$watch.length[,1,]
+obs.prop <- rbind(c(rep(0, ncol(obs.n))),
+                  obs.prop,
+                  c(rep(0, ncol(obs.n))))
+
+obs.n.df <- data.frame(start.year = rep(all.start.year, each = 100),
+                       Season = rep(paste0(all.start.year, "/",
+                                           all.start.year+1),
+                                    each = 100),
+                       Day = rep(1:100, times = length(all.start.year)),
+                       n = NA,
+                       prop = NA)
+
+k1 <- k2 <- 1
+for (k1 in 1:length(all.start.year)){
+  obs.day.1 <- obs.day[, k1]
+  obs.n.1 <- obs.n[, k1]
+  obs.day.1.uniq <- na.omit(unique(obs.day.1))
+  for (k2 in 1:length(obs.day.1.uniq)){
+    obs.n.df[obs.n.df$start.year == all.start.year[k1] &
+               obs.n.df$Day == obs.day.1.uniq[k2], "n"] <- sum(obs.n[obs.day[,k1] == obs.day.1.uniq[k2], k1], na.rm = T)
+    obs.n.df[obs.n.df$start.year == all.start.year[k1] &
+               obs.n.df$Day == obs.day.1.uniq[k2], "prop"] <- sum(obs.prop[obs.day[,k1] == obs.day.1.uniq[k2], k1], na.rm = T)
+  }
+  
+}
+
+# This is for daily estimates
+N.hats.day <- data.frame(Season = rep(paste0(all.start.year, 
+                                             "/", all.start.year+1),
+                                      
+                                      each = nrow(jm.out$jm$mean$mean.N)), 
+                         start.year = rep(all.start.year,
+                                          each = nrow(jm.out$jm$mean$mean.N)),
+                         Day = rep(1:nrow(jm.out$jm$mean$mean.N), 
+                                   times = length(all.start.year)),
+                         Mean = as.vector(jm.out$jm$mean$mean.N),
+                         LCL = as.vector(jm.out$jm$q2.5$mean.N),
+                         UCL = as.vector(jm.out$jm$q97.5$mean.N),
+                         obs.n = obs.n.df$n,
+                         prop = obs.n.df$prop,
+                         Method = paste0("Eguchi ", ver)) %>%
+  mutate(Nhat = obs.n/prop)
+
+# Daily estimates plots
+p.daily.Richards <- ggplot(N.hats.day %>% 
+                             group_by(Season) %>%
+                             arrange(by = Day)) + 
+  geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL),
+              fill = "blue", alpha = 0.5) +
+  geom_path(aes(x = Day, y = Mean)) + 
+  geom_point(aes(x = Day, y = Nhat), color = "darkgreen") +
+  facet_wrap(~ Season) +
+  theme_bw()
+
+# These same plots were also created with NewGrayWhaleAbundanceEstimation_vx.Rmd
+# In order to differentiate plots from this .Rmd file, I changed the output figure 
+# file names.
+save.fig.fcn(fig = p.daily.Richards, 
+             file.name = paste0("figures/Daily_Nhats_Eguchi_", ver, "_", ".png"), 
+             replace = T, 
+             dpi = dpi.set, device = "png",
+             height = 10, width = 10, units = "in",
+             bg = "white")
+
+# These estimates are from the annual report (created in the GrayWhaleAbundance project)
+Reported.estimates <- read.csv(file = paste0("Data/Nhats_", YEAR, ".csv")) %>%  
+  transmute(Season = Season,
+            Nhat = Nhat,
+            LCL = LCL,
+            UCL = UCL,
+            Method = paste0(Method, "-Reported")) %>%
+  right_join(all.years, by = "Season") %>%
+  arrange(start.year) %>%
+  relocate(Method, .after = start.year)
+
+```
+
+Bring in the WinBUGS output 
+
