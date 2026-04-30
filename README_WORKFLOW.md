@@ -42,13 +42,15 @@ After WinBUGS completes the analysis, several plots are created to show the resu
 
 #### Hierarchical State-Space models using JAGS
 
-This is the analysis described in Eguchi (2026). It is run in 'Jags_Richards_AllData_n_models.R'. This script should be edited when new data are added to the analysis. Line 28 defines analysis years, beyond the data in Laake's analysis and Line 29 defines the path to the data files (.rds files). 
+This is the analysis described in Eguchi (2026). It is run in 'Jags_Richards_AllData_n_models.R'. This script should be edited when new data are added to the analysis. Line 28 defines analysis years beyond the data in Laake's analysis and Line 29 defines the path to the data files (.rds files). 
 
-max.day on line 30 refers to the assumed number of days in a migration season; 100 days include all years. MCMC setup can be modified in line 38. 
+max.day on Line 30 refers to the assumed number of days in a migration season; '100' is appropriate for all years. 
+
+MCMC setup can be modified in Line 38. 
 
 For this analysis, multiple models are fitted to the data. This script uses a function script 'Richards_HSSM_model_definition.R' that creates 8 different models according to the input to the function and runs JAGS to estimate parameters. Differences in the models are the likelihood function (Poisson vs. Negative Binomial) and which parameters of the Richards function are assumed constant over time or season-specific. See Eguchi (2026) for details. I explored other Other parameters to be season-specific but they did not converge well, likely due to the limited information in the data. If more data become available, other models may be developed and fitted.  
 
-Results of the analysis are summarized and visualized using 'Jags_Richards_HSSM_Results.Rmd'. 
+Results of the analysis are summarized and visualized using 'Jags_Richards_HSSM_Results.Rmd'. To analyze the same data with the Laake et al.'s approach, use 'LaakeAnalysis_NewData.R'. The output of the script (LaakeAnalysis_NewData.R) is necessary for Jags_Richards_HSSM_Results.Rmd. In Jags_Richards_HSSM_Results.Rmd, a .csv file of reported estimates is read. This file is an output file from running the WinBUGS code using 'WinBUGS Ver2.Rmd'.
 
 
 ### Reporting

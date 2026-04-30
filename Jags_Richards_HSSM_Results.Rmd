@@ -182,13 +182,16 @@ p.daily.Richards <- ggplot(N.hats.day %>%
 # In order to differentiate plots from this .Rmd file, I changed the output figure 
 # file names.
 save.fig.fcn(fig = p.daily.Richards, 
-             file.name = paste0("figures/Daily_Nhats_Eguchi_", ver, "_", ".png"), 
+             file.name = paste0("figures/Daily_HSSM_Eguchi_", ver, "_", ".png"), 
              replace = T, 
              dpi = dpi.set, device = "png",
              height = 10, width = 10, units = "in",
              bg = "white")
 
-# These estimates are from the annual report (created in the GrayWhaleAbundance project)
+# These estimates are from the annual report (created in the
+# GrayWhaleAbundance project and using WinBUGS output). The file is
+# created when an annual report is written. This needs to be fixed
+# because the report may not be written using the same script. 
 Reported.estimates <- read.csv(file = paste0("Data/Nhats_", YEAR, ".csv")) %>%  
   transmute(Season = Season,
             Nhat = Nhat,
@@ -201,5 +204,199 @@ Reported.estimates <- read.csv(file = paste0("Data/Nhats_", YEAR, ".csv")) %>%
 
 ```
 
-Bring in the WinBUGS output 
+Bring in the Laake analysis output 
+
+```{r}
+# The following needs output from LaakeAnalysis_NewData.R
+# Run the LaakeAnalysis_NewData.R script with the newly acquired data.
+# In the script, change the years variable to include the most
+# up-to-date data. It should read all extracted data and run the
+# Laake's analysis and write results in a .csv file.
+Laake.Run.Date <- "2026-02-23"
+Laake.abundance.new <- read.csv(file = paste0("Data/all_estimates_Laake_", 
+                                              YEAR, "_", Laake.Run.Date, ".csv")) %>%
+  mutate(LCL = CL.low,
+         UCL = CL.high) %>%
+  select(c(Season, Nhat, LCL, UCL)) %>%
+  right_join(all.years, by = "Season") %>%
+  arrange(start.year) %>%
+  mutate(Method = "Laake")
+
+#Laake.output <- read_rds(file = "RData/Laake_abundance_estimates_2024.rds")
+
+# In reported estimates, there are two 2006/2007.
+Reported.estimates %>%
+  na.omit() %>%
+  select(Season) %>% 
+  unique() -> sampled.seasons 
+
+# Reported estimates are not exactly identical to the reanalysis. For consistency,
+# I use the reported estimates.  
+# Laake.abundance.new %>%
+#   rbind(Durban.abundance.df) %>%
+Reported.estimates %>%
+  mutate(Method1 = sub("-.*", "", Method)) -> tmp.1
+
+tmp.1[grep("NA", tmp.1$Method1) & tmp.1$start.year < 2006, 
+      "Method1"] <- "Laake"
+tmp.1[grep("NA", tmp.1$Method1) & tmp.1$start.year > 2007, 
+      "Method1"] <- "Durban"
+
+tmp.1 %>%
+  select(Season, Nhat, LCL, UCL, start.year, Method1) %>%
+  rename(Method = Method1) %>% #-> tmp.2
+  rbind(Laake.abundance.new %>% 
+          filter(start.year > 2006)) %>%
+  rbind(Nhat.) %>%
+  mutate(Method2 = factor(Method, 
+                          levels = c("Laake", 
+                                     "Durban", 
+                                     paste0("Eguchi ", ver)))) %>%
+  select(Season, Nhat, LCL, UCL, start.year, Method2) %>%
+  mutate(CI.width = UCL - LCL) %>%
+  rename(Method = Method2) -> all.estimates
+
+#  rbind(spline.Nhat) 
+  #rbind(Reported.estimates %>% na.omit()) -> all.estimates
+
+p.Nhats <- ggplot(all.estimates) +
+  geom_point(aes(x = start.year, y = Nhat,
+                 color = Method),
+             alpha = 0.5) +
+  geom_errorbar(aes(x = start.year, ymin = LCL, ymax = UCL,
+                    color = Method)) +
+  ylim(5000, 35000) +
+  xlab("") + ylab("Abundance") +
+  theme_bw() +
+  theme(legend.position = "top") 
+
+if (save.fig)
+  save.fig.fcn(fig = p.Nhats,
+               file.name = paste0("figures/Nhats_HSSM_", 
+                                  ver, "_min", min.dur, 
+                                  "_", dpi.set, "dpi.png"),
+               replace = T,
+               height = 5, width = 7,
+               dpi = dpi.set)
+
+Nhat. %>% 
+  select(Season, start.year, Nhat, LCL, UCL) %>%
+  rename(Nhat.Eguchi = Nhat,
+         LCL.Eguchi = LCL,
+         UCL.Eguchi = UCL) %>%
+  cbind(Laake.abundance.new %>%
+          select(Nhat, LCL, UCL) %>%
+          rename(Nhat.Laake = Nhat,
+                 LCL.Laake = LCL,
+                 UCL.Laake = UCL)) %>%
+  cbind(Durban.abundance.df %>%
+          select(Nhat, LCL, UCL) %>%
+          rename(Nhat.Durban = Nhat,
+                 LCL.Durban = LCL,
+                 UCL.Durban = UCL)) %>%
+  mutate(d.Laake.Eguchi = Nhat.Laake - Nhat.Eguchi,
+         d.Durban.Eguchi = Nhat.Durban - Nhat.Eguchi) -> Nhat.all.wide
+
+
+```
+
+Look at the marginal posterior distributions of the Richards function
+
+```{r}
+#Posteriors on P, S1, and S2
+posteriors.P <- plot.trace.dens(jm.out$jm, 
+                                var.name = "^P\\[")
+
+posteriors.P$df %>%
+  mutate(start.year = all.start.year[numeric.index],
+         start.year.f = as.factor(start.year)) %>% 
+  rename(P = sample)-> P.df
+
+p.posteriors.P <- ggplot(P.df, aes(x = P, y = start.year.f)) +
+  geom_density_ridges() +
+  xlab("Ordinal Day of Season") +
+  ylab("Start year") +
+  theme_bw()
+
+if (save.fig)
+  save.fig.fcn(fig = p.posteriors.P,
+               file.name = paste0("figures/posterior_P_HSSM_", 
+                                  ver, "_", dpi.set, "dpi.png"),
+               replace = T,
+               height = 5, width = 7,
+               dpi = dpi.set)
+
+# Need to include \\[ to remove S1.alpha and S1.beta
+if (length(grep("M1|M3", ver)) > 0){
+  posteriors.S1 <- plot.trace.dens(jm.out$jm,
+                                   var.name = "S1\\[")
+  posteriors.S1$df %>%
+  mutate(start.year = all.start.year[numeric.index],
+         start.year.f = as.factor(start.year)) %>% 
+  rename(S1 = sample)-> S1.df
+
+  p.posteriors.S1 <- ggplot(S1.df, aes(x = S1, y = start.year.f)) +
+    geom_density_ridges() +
+    xlim(c(1, 10)) +
+    xlab(expression(S[1])) +
+    ylab("Start year") +
+  theme_bw()
+  
+} else {
+  posteriors.S1 <- plot.trace.dens(jm.out$jm,
+                                   var.name = "^S1\\b(?!\\.\\w*)")
+  p.posteriors.S1 <- posteriors.S1$p.dens
+}
+
+if (save.fig)
+  save.fig.fcn(fig = p.posteriors.S1,
+               file.name = paste0("figures/posteriors_S1_HSSM_", 
+                                  ver, "_", dpi.set, "dpi.png"),
+               replace = T,
+               height = 5, width = 7,
+               dpi = dpi.set)
+
+if (length(grep("M2|M3", ver)) > 0){
+  posteriors.S2 <- plot.trace.dens(jm.out$jm, 
+                                   var.name = "S2\\b(?!\\.\\w*)")
+  p.posteriors.S2 <- posteriors.S2$p.dens
+} else {
+  posteriors.S2 <- plot.trace.dens(jm.out$jm, var.name = "S2\\[")
+  posteriors.S2$df %>%
+    mutate(start.year = all.start.year[numeric.index],
+           start.year.f = as.factor(start.year)) %>% 
+    rename(S2 = sample)-> S2.df
+  
+  p.posteriors.S2 <- ggplot(S2.df, aes(x = S2, y = start.year.f)) +
+    geom_density_ridges() +
+    xlim(c(1, 10)) +
+    xlab(expression(S[2])) +
+    ylab("Start year") +
+  theme_bw()
+  
+} 
+
+if (save.fig)
+  save.fig.fcn(fig = p.posteriors.S2,
+               file.name = paste0("figures/posteriors_S2_HSSM_", 
+                                  ver, "_", dpi.set, "dpi.png"),
+               replace = T,
+               height = 5, width = 7,
+               dpi = dpi.set)
+
+posterior.theta <- plot.trace.dens(jm.out$jm,
+                                   var.name = "^r")
+
+posterior.theta$p.dens +
+  labs(x = expression(theta)) -> p.posterior.theta
+
+if (save.fig)
+  save.fig.fcn(fig = p.posterior.theta,
+               file.name = paste0("figures/posterior_theta_HSSM_", 
+                                  ver, "_", dpi.set, "dpi.png"),
+               replace = T,
+               height = 5, width = 7,
+               dpi = dpi.set)
+
+```
 
