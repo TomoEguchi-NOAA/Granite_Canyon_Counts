@@ -327,7 +327,7 @@ create.observer.list <- function(sightings){
 
 
 # retrieve BUGS results
-get.results.BUGS <- function(BUGS.file.name){
+get.results.BUGS <- function(BUGS.file.name, end.year){
   out <- readRDS(paste0("RData/", BUGS.file.name))
   out$BUGS.out$summary %>%
     as.data.frame() %>%
@@ -345,7 +345,7 @@ get.results.BUGS <- function(BUGS.file.name){
                                  model = "BUGS",
                                  min.watch = watch.dur[2],
                                  Method = "Durban",
-                                 data.set = "2007to2024")
+                                 data.set = paste0("2007to", end.year))
   return(WinBUGS.Nhats.df) 
   
 }
