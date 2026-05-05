@@ -3793,14 +3793,16 @@ get.shift <- function(YEAR, data, i){
                 Bearing = as.numeric(V6),
                 Reticle = as.numeric(V7),
                 Distance = as.numeric(V8),
-                Observer = V10,
+                Observer = toupper(V10),
                 shift = shift, 
                 key = key, 
                 begin = start,
                 end = end,
                 time = time,
                 effort = effort,
-                Shift = Shift) %>%
+                Shift = Shift,
+                sighting.key = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", 
+                                      Shift, "_", Group_ID)) %>%
       group_by(Group_ID) %>%
       summarise(Date = first(Date),
                 Time = first(Time),
@@ -3817,7 +3819,8 @@ get.shift <- function(YEAR, data, i){
                 end = first(end),
                 time = first(time),
                 effort = first(effort),
-                Shift = first(Shift)) -> sub.data.shift
+                Shift = first(Shift),
+                sighting.key = first(sighting.key)) -> sub.data.shift
     
     # effort summary
     # Rare occasions when observer changes within a shift... this needs to be
@@ -3838,7 +3841,8 @@ get.shift <- function(YEAR, data, i){
                 end = first(end),
                 time = first(time),
                 effort = first(effort),
-                Shift = first(Shift)) -> data.shift.effort
+                Shift = first(Shift),
+                sighting.key = first(sighting.key)) -> data.shift.effort
     
     
     
@@ -3858,14 +3862,15 @@ get.shift <- function(YEAR, data, i){
                 Bearing = NA,
                 Reticle = NA,
                 Distance = NA,
-                Observer = Observer,
+                Observer = toupper(Observer),
                 shift = shift, 
                 key = key, 
                 begin = start,
                 end = end,
                 time = time,
                 effort = effort,
-                Shift = Shift) -> sub.data.shift
+                Shift = Shift,
+                sighting.key = NA) -> sub.data.shift
     
     # fix beaufort and visibility 
     for (k1 in 1:nrow(BFs.dt)){
@@ -3887,7 +3892,8 @@ get.shift <- function(YEAR, data, i){
                 end = first(end),
                 time = first(time),
                 effort = first(effort),
-                Shift = first(Shift)) -> data.shift.effort
+                Shift = first(Shift),
+                sighting.key = NA) -> data.shift.effort
     
   }
   

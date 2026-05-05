@@ -12,27 +12,27 @@ The recent version as of December 2023 also creates input files for Laake's appr
 The station information needs to be added. The data files that I have don't have that info... this needs to be fixed in the future. This has been fixed. 2023-12-12. Not exactly... They are not entered in the n array correctly. Unfortunately, the current WinBUGS approach does not let effort duration between station 1 and 2 (the effort array is 2D, whereas n array is 3D). If we were to use these data, the effort array needs to be changed to 3D and their timing match with the station 1 - the assumed N is the same for station 1 and 2. This is not an easy fix. I'm not sure how Durban took care of this issue for 2009/2010 and 2010/2011 data. 
 
 
-```{r}
+```{r warning=FALSE}
 
 rm(list=ls())
 library(tidyverse)
 library(lubridate)
 source("Granite_Canyon_Counts_fcns.R")
 
-save.output <- FALSE # TRUE
+save.output <- TRUE # TRUE
 # https://statisticsglobe.com/dplyr-message-summarise-has-grouped-output-r
 options(dplyr.summarise.inform = FALSE)
 
 # I forget why I have .1 convention in the subdirectory name. But, I decided to keep it.
 #out.dir <- "RData/V2.1_Nov2024"
-out.dir <- "RData/V2.1_Feb2025"
+out.dir <- "RData/V2.1_May2026"
 if (!dir.exists(out.dir)) dir.create(out.dir)
 
 # YEAR should be one of 2010, 2011, 2015, 2016, 2020, 2022, 2023 (and beyond)
 # They are the end year of the season, which is the season name. For example, the 
 # 2020/2021 season is called the 2021 season.
 
-YEAR <- 2026 #2008 #10 #Enter the year of the data files
+YEAR <- 2026 #2026 #2008 #10 #Enter the year of the data files
 
 # For 2009/2010 (maybe in the previous years too but I don't have any of those files),
 # Time is entered in decimal hours, not hh:mm:ss. So, that needs to be accommodated in
@@ -49,7 +49,7 @@ min_dur <- shift_dur_min - grace_min
 ```
 
 
-```{r}
+```{r warning=FALSE}
 if (YEAR == 2023 | YEAR == 2008){
   FILES <- list.files(path = paste0("Data/", YEAR, "/"),
                       pattern = "EditedGW")
@@ -190,7 +190,7 @@ Create data for Laake's approach:
 #   
 # } else {
 Data4Laake <- do.call("rbind", all.sightings.list.1) %>%  
-  mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
+  mutate(key.1 = sighting.key, # paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
          Time_HMS = Time,
          Date.shift = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift))
 #} 
@@ -230,7 +230,7 @@ Effort4Laake_1 <-  do.call("rbind", all.effort.list.1) %>%
             nwhales = nwhales,
             beaufort = bft,
             vis = vis,
-            observer = Observer,
+            observer = toupper(Observer),
             begin = begin,
             end = end,
             time = time,
@@ -271,6 +271,32 @@ Effort4Laake_1 %>%
 # Laake's analysis. So, I move the variable.
 # Warning: Detected an unexpected many-to-many relationship between `x` and `y`.
 # Check this... 2024-02-23
+# This has been fixed. The data files needed to be fixed for the observers.
+# They were not consistently recorded for 2010. 
+# 
+duplicated.keys <- unique(Effort4Laake_1$key[duplicated(Effort4Laake_1$key)])
+if (length(duplicated.keys) > 0){
+  dupes.keys.df <- data.frame(key = duplicated.keys)
+  dupes.keys.df %>%
+    left_join(Effort4Laake_1, by = "key") -> duplicated.df
+}
+
+# # For duplicated keys, I take the first observer and combine the npods and nwhales
+# non.dupes <- list()
+# for (k in 1:length(duplicated.keys)){
+#   duplicated.df %>%
+#     filter(key == duplicated.keys[k]) -> tmp
+#   tmp.1 <- tmp[1,]
+#   tmp.1$npods <- sum(tmp$npods)
+#   tmp.1$nwhales <- sum(tmp$nwhales)
+#   tmp.1$pphr <- tmp.1$nwhales/(tmp.1$effort * 24)
+#   non.dupes[[k]] <- tmp.1
+# }
+# non.dupes.df <- do.call("rbind", non.dupes)
+
+# Effort4Laake_1 %>%
+#   filter(!key %in% duplicated.keys) -> tmp.3
+
 Data4Laake_1 %>%
   left_join(Effort4Laake_1 %>%
               dplyr::select(key, pphr), by = "key") -> Data4Laake_1
@@ -282,18 +308,23 @@ if (!is.null(Data_Out_2)){
   Data_Out_2 %>%
     mutate(station = "S") -> Data_Out_2
   
-  if (YEAR == 2010){
-    Data4Laake <- do.call("rbind", all.sightings.list.2) %>%
-      mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
-             Time_HMS = fractional_Hr2HMS(Time),
-             Date.shift = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift))
-    
-  } else {
-    Data4Laake <- do.call("rbind", all.sightings.list.2) %>%  
-      mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
+  Data4Laake <- do.call("rbind", all.sightings.list.2) %>%  
+      mutate(key.1 = sighting.key, #paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
              Time_HMS = Time,
              Date.shift = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift))
-  } 
+  
+  # if (YEAR == 2010){
+  #   Data4Laake <- do.call("rbind", all.sightings.list.2) %>%
+  #     mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
+  #            Time_HMS = fractional_Hr2HMS(Time),
+  #            Date.shift = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift))
+  #   
+  # } else {
+  #   Data4Laake <- do.call("rbind", all.sightings.list.2) %>%  
+  #     mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
+  #            Time_HMS = Time,
+  #            Date.shift = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift))
+  # } 
   
   Data4Laake %>%
     transmute(Date = Date,
@@ -320,7 +351,7 @@ if (!is.null(Data_Out_2)){
     arrange(by = begin)
   
   Effort4Laake_2 <-  do.call("rbind", all.effort.list.2) %>%
-    mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
+    mutate(key.1 = sighting.key, #paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
            Date.shift = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift)) %>%
     transmute(Date = Date,
               Start.year = YEAR - 1,
@@ -337,7 +368,8 @@ if (!is.null(Data_Out_2)){
               time = time,
               effort = effort,
               pphr = npods/(24*effort),
-              station = "S")
+              station = "S",
+              sighting.key = sighting.key)
   
   Effort4Laake_2$seq <- seq(from = 1, to = nrow(Effort4Laake_2)) 
   Effort4Laake_2 %>%
