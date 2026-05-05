@@ -776,9 +776,9 @@ abundance.estimates.1967to2006 <- readRDS(file = "RData/Nhats_1967to2006.rds")
 # lapply(naive.abundance.models.Laake, FUN = function(x) x$Total) %>% unlist -> naive.Nhat
 # abundance.estimates.1967to2006$Nhat/naive.Nhat
 
-naive.Nhat.2010to2024 <- lapply(naive.abundance.models.new, 
+naive.Nhat.from2010 <- lapply(naive.abundance.models.new, 
                                 FUN = function(x) x$Total) %>% unlist
-Nhat.2010to2024 <- naive.Nhat.2010to2024 * 1.567
+Nhat.from2010 <- naive.Nhat.from2010 * 1.567
 
 ratio <- abundance.estimates.1967to2006$ratio
 ratio.SE <- 0.03  # from Laake et al 2012, Table 8
