@@ -7,7 +7,8 @@ This notebook shows various results from the Hierarchial State Space Model appro
 
 ```{r}
 # Whether or not to save the figures
-save.fig <- T
+save.fig <- F
+save.estimates <- T
 
 source("Granite_Canyon_Counts_fcns.R")
 source("Richards_HSSM_model_definition.R")
@@ -192,7 +193,20 @@ save.fig.fcn(fig = p.daily.Richards,
 # GrayWhaleAbundance project and using WinBUGS output). The file is
 # created when an annual report is written. This needs to be fixed
 # because the report may not be written using the same script. 
-Reported.estimates <- read.csv(file = paste0("Data/Nhats_", YEAR, ".csv")) %>%  
+# 
+# 2026-05-04: Instead of replacing this chunk with something else, The following
+# loop looks for the most recent file. 
+
+Y <- YEAR
+if (!file.exists(paste0("Data/Nhats_", Y, ".csv"))){
+  while (!file.exists(paste0("Data/Nhats_", Y, ".csv"))){
+    Y <- Y - 1
+  }
+  Nhats.YEAR <- read.csv(file = paste0("Data/Nhats_", Y, ".csv"))
+} 
+  
+
+Nhats.YEAR %>%  
   transmute(Season = Season,
             Nhat = Nhat,
             LCL = LCL,
@@ -200,7 +214,7 @@ Reported.estimates <- read.csv(file = paste0("Data/Nhats_", YEAR, ".csv")) %>%
             Method = paste0(Method, "-Reported")) %>%
   right_join(all.years, by = "Season") %>%
   arrange(start.year) %>%
-  relocate(Method, .after = start.year)
+  relocate(Method, .after = start.year) -> Reported.estimates
 
 ```
 
@@ -256,6 +270,10 @@ tmp.1 %>%
   mutate(CI.width = UCL - LCL) %>%
   rename(Method = Method2) -> all.estimates
 
+if (save.estimates)
+  write.csv(all.estimates,
+            file = paste0("Data/all_N_estimates_", Sys.Date(), ".csv"))
+
 #  rbind(spline.Nhat) 
   #rbind(Reported.estimates %>% na.omit()) -> all.estimates
 
@@ -279,23 +297,23 @@ if (save.fig)
                height = 5, width = 7,
                dpi = dpi.set)
 
-Nhat. %>% 
-  select(Season, start.year, Nhat, LCL, UCL) %>%
-  rename(Nhat.Eguchi = Nhat,
-         LCL.Eguchi = LCL,
-         UCL.Eguchi = UCL) %>%
-  cbind(Laake.abundance.new %>%
-          select(Nhat, LCL, UCL) %>%
-          rename(Nhat.Laake = Nhat,
-                 LCL.Laake = LCL,
-                 UCL.Laake = UCL)) %>%
-  cbind(Durban.abundance.df %>%
-          select(Nhat, LCL, UCL) %>%
-          rename(Nhat.Durban = Nhat,
-                 LCL.Durban = LCL,
-                 UCL.Durban = UCL)) %>%
-  mutate(d.Laake.Eguchi = Nhat.Laake - Nhat.Eguchi,
-         d.Durban.Eguchi = Nhat.Durban - Nhat.Eguchi) -> Nhat.all.wide
+# Nhat. %>% 
+#   select(Season, start.year, Nhat, LCL, UCL) %>%
+#   rename(Nhat.Eguchi = Nhat,
+#          LCL.Eguchi = LCL,
+#          UCL.Eguchi = UCL) %>%
+#   cbind(Laake.abundance.new %>%
+#           select(Nhat, LCL, UCL) %>%
+#           rename(Nhat.Laake = Nhat,
+#                  LCL.Laake = LCL,
+#                  UCL.Laake = UCL)) %>%
+#   cbind(Durban.abundance.df %>%
+#           select(Nhat, LCL, UCL) %>%
+#           rename(Nhat.Durban = Nhat,
+#                  LCL.Durban = LCL,
+#                  UCL.Durban = UCL)) %>%
+#   mutate(d.Laake.Eguchi = Nhat.Laake - Nhat.Eguchi,
+#          d.Durban.Eguchi = Nhat.Durban - Nhat.Eguchi) -> Nhat.all.wide
 
 
 ```
