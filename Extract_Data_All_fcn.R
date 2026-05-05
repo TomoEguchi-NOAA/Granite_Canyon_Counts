@@ -1,0 +1,478 @@
+# Extract_Data_All function
+
+# YEAR should be one of 2010, 2011, 2015, 2016, 2020, 2022, 2023 (and beyond)
+# They are the end year of the season, which is the season name. For example, the 
+# 2020/2021 season is called the 2021 season.
+
+Extract_Data_All_fcn <- function(out.dir, YEAR, shift_dur_min = 90, min_dur, save.output = TRUE){
+  library(tidyverse)
+  library(lubridate)
+  source("Granite_Canyon_Counts_fcns.R")
+  
+  # https://statisticsglobe.com/dplyr-message-summarise-has-grouped-output-r
+  options(dplyr.summarise.inform = FALSE)
+  
+  # I forget why I have .1 convention in the subdirectory name. But, I decided to keep it.
+  if (!dir.exists(out.dir)) dir.create(out.dir)
+  
+  # For 2009/2010 (maybe in the previous years too but I don't have any of those files),
+  # Time is entered in decimal hours, not hh:mm:ss. So, that needs to be accommodated in
+  # data extraction code. 2022-10-05
+  
+  max_dur <- shift_dur_min + 5
+  grace_min <- shift_dur_min - min_dur
+  
+  if (YEAR == 2023 | YEAR == 2008){
+    FILES <- list.files(path = paste0("Data/", YEAR, "/"),
+                        pattern = "EditedGW")
+    
+  } else {
+    # if FILES input was not provided, make a list of files in the directory. This should work
+    # for other years 
+    FILES <- list.files(paste0("Data", "/", YEAR, "/"))
+    
+  }
+  
+  all.effort.list.1 <- Data_Out.list.1 <- all.sightings.list.1 <- list()
+  all.effort.list.2 <- Data_Out.list.2 <- all.sightings.list.2 <- list()
+  
+  # The next for loop throws back "NAs introduced by coercion" but not to worry.
+  # These are results of as.numeric() for the line numbers, where some lines may
+  # be non-numbers, e.g., "Edited" and other text. Also, some BF and VS codes are
+  # missing and they return warnings "in 'transmute()'..." They turn into NAs so 
+  # they are not problems. But... it'd be best to remove the first comment line.
+  # I fixed the first line issue in Dec 2023.
+  
+  # 2023-11-28: Shift IDs are incorrect. They need to be defined from 7:30, rather than
+  # the first shift of each day. Need to... extract all data first using get.data.
+  # combine them to make one data frame, then send that to get.shift by selecting 
+  # one day at a time. Need to change the ff loop and create another loop (or apply)
+  # to extract shifts/day. Fixed. Now has a variable named Shift with upper S, which
+  # defines shifts. 
+  
+  data.list <- list()
+  ff <- 16
+  for(ff in 1:length(FILES)){ 
+    print(paste0("file = ", ff))
+    data.list[[ff]] <- get.data("Data/", YEAR, FILES = FILES, ff = ff)
+  }
+  
+  # combine all data
+  data.all <- do.call("rbind", data.list)
+  #data.all$Shift <- shift.definition(as.Date(data.all$V3, format = "%m/%d/%Y"), data.all$V4)
+  
+  # The next loop doesn't work when there were two teams. 
+  # This needs to be fixed - 2023-12-04 
+  # This has been fixed
+  # 
+  # get.shift is not working for 2010 - Shift is not defined. 2023-12-05
+  # This has been fixed. I created a dataframe that defines the beginning
+  # and the end of each shift in Granite_Canyon_Counts_fcns.R 
+  # 
+  # 2023-12-08: Group ID 5 on Jan 1, 2010 was double counted in watch 4 and 5!
+  # This has been fixed. 
+  
+  # 2023-12-11: There are still some issues for 2010 when shifts are not exactly
+  # 1.5 hr long and when observers change within a shift. get.shift function
+  # needs to be tested more thoroughly. I changed the part where effort and sightings
+  # are extracted for Laake's analysis (lines 691-928). That needs to be tested
+  # further. I think... this is all taken care of now. 2023-12-12
+  
+  unique.dates <- unique(data.all$V3)
+  n.stations <- vector(mode = "numeric", length = length(unique.dates))
+  c <-27
+  for (c in 1:length(unique.dates)){
+    print(paste0("Date = ", c))
+    data.all %>% 
+      filter(V3 == unique.dates[c]) -> data  
+    
+    # If there were two stations, there should be two file names for that day
+    n.stations[c] <- length(unique(data$ff))
+    
+    if (n.stations[c] == 2){
+      data.1 <- filter(data, ff == unique(data$ff)[1])
+      data.2 <- filter(data, ff == unique(data$ff)[2])
+    } else {
+      data.1 <- data    
+    }
+    
+    Shifts.1 <- which(data.1$V2 %in% "P") #start of all shifts
+    
+    all.effort.1 <- Output.list.1 <- all.sightings.1 <- list()
+    
+    k <- 4
+    for(k in 1:length(Shifts.1)){
+      #print(paste0("Shift.p = ", k))
+      out.shift.1 <- get.shift(YEAR, data.1, k)
+      
+      Output.list.1[[k]] <- out.shift.1$out.df
+      all.sightings.1[[k]] <- out.shift.1$data  # added for Laake's analysis
+      all.effort.1[[k]] <- out.shift.1$shift.effort  # for computing effort for Laake's analysis
+    }
+    
+    Data_Out.list.1[[c]] <- do.call("rbind", Output.list.1)
+    all.sightings.list.1[[c]] <- do.call("rbind", all.sightings.1) %>% filter(n > 0)
+    all.effort.list.1[[c]] <- do.call("rbind", all.effort.1)
+    
+    if (n.stations[c] == 2){
+      
+      #data.2 <- filter(data, ff == unique(data$ff)[2])
+      
+      Shifts.2 <- which(data.2$V2 %in% "P") #start of all shifts
+      all.effort.2 <- Output.list.2 <- all.sightings.2 <- list()
+      k <- 6
+      
+      for(k in 1:length(Shifts.2)){
+        #print(paste0("Shift.s = ", k))
+        out.shift.2 <- get.shift(YEAR, data.2, k)
+        
+        Output.list.2[[k]] <- out.shift.2$out.df
+        all.sightings.2[[k]] <- out.shift.2$data  # added for Laake's analysis
+        all.effort.2[[k]] <- out.shift.2$shift.effort  # for computing effort for Laake's analysis
+      }
+      
+      Data_Out.list.2[[c]] <- do.call("rbind", Output.list.2)
+      all.sightings.list.2[[c]] <- do.call("rbind", all.sightings.2) %>% filter(n > 0)
+      all.effort.list.2[[c]] <- do.call("rbind", all.effort.2)
+      
+    }
+    
+    #Sys.sleep(1)
+  }         
+  
+  # For 2020, time was recorded in decimal hours, which need to be converted to H:M:S
+  # There is a function for that fractional_Hrs2HMS in Granite_Canyon_Counts_fcns.R
+  
+  # For primary:
+  Data_Out_1 <- do.call("rbind", Data_Out.list.1) %>%
+    mutate(station = "P")
+  
+  Data4Laake <- do.call("rbind", all.sightings.list.1) %>%  
+    mutate(key.1 = sighting.key, # paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
+           Time_HMS = Time,
+           Date.shift = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift))
+  #} 
+  
+  Data4Laake  %>%
+    transmute(Date = Date,
+              Time_PST = Time_HMS,
+              key = key.1,
+              Group_ID = Group_ID,
+              nwhales = n,
+              beaufort = bft,
+              vis = vis,
+              Bearing = Bearing,
+              Reticle = Reticle,
+              Distance = Distance,
+              shift = shift,
+              date.shift = Date.shift,
+              observer = toupper(Observer),
+              begin = begin,
+              end = end,
+              time = time,
+              effort = effort,
+              station = "P") %>%
+    filter(nwhales > 0) -> Data4Laake_1
+  
+  # 2023-11-29 Double check on what the "key" should be in the effort file. In Laake's
+  # analysis, key is Date_Shift. 
+  Effort4Laake_1 <-  do.call("rbind", all.effort.list.1) %>%
+    mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
+           Date.shift = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift)) %>%
+    transmute(Date = Date,
+              Start.year = YEAR - 1,
+              key = key.1,
+              shift = shift,
+              date.shift = Date.shift,
+              npods = npods,
+              nwhales = nwhales,
+              beaufort = bft,
+              vis = vis,
+              observer = toupper(Observer),
+              begin = begin,
+              end = end,
+              time = time,
+              effort = effort,
+              pphr = npods/(24*effort),
+              station = "P")
+  
+  
+  # Because I defined "shift" by observer changes, not by time definitions, there are 
+  # occasions where one pod was sighted over more than two shifts (e.g., 1/14/2010, 
+  # Group_ID = 66, secondary observer).
+  # These need to be dealt with by removing earlier recordings. This is done when 
+  # one or more pods are found in two consecutive shifts within get.shift function.
+  # 
+  Data4Laake_1 %>% 
+    group_by(Date, Group_ID) %>%
+    summarise(n = n()) %>%
+    filter(n > 1) -> n_data.1
+  
+  # Look at n_data.1, which lists groups that were recorded more than once. 
+  tmp.1 <- list()
+  k <- 1
+  if (nrow(n_data.1) > 0){
+    for (k in 1:nrow(n_data.1)){
+      Data4Laake_1 %>%
+        filter(Date == n_data.1$Date[k],  
+               Group_ID == n_data.1$Group_ID[k]) -> tmp.1[[k]]
+      
+    }
+  }
+  
+  Effort4Laake_1$seq <- seq(from = 1, to = nrow(Effort4Laake_1)) 
+  Effort4Laake_1 %>%
+    mutate(watch.key = paste0(Start.year, "_", seq)) %>%
+    dplyr::select(-c(seq)) -> Effort4Laake_1
+  
+  # pphr (pods per hour) is in the sightings data, rather than in the effort in 
+  # Laake's analysis. So, I move the variable.
+  # Warning: Detected an unexpected many-to-many relationship between `x` and `y`.
+  # Check this... 2024-02-23
+  # This has been fixed. The data files needed to be fixed for the observers.
+  # They were not consistently recorded for 2010. 
+  # 
+  duplicated.keys <- unique(Effort4Laake_1$key[duplicated(Effort4Laake_1$key)])
+  if (length(duplicated.keys) > 0){
+    dupes.keys.df <- data.frame(key = duplicated.keys)
+    dupes.keys.df %>%
+      left_join(Effort4Laake_1, by = "key") -> duplicated.df
+  }
+  
+  # # For duplicated keys, I take the first observer and combine the npods and nwhales
+  # non.dupes <- list()
+  # for (k in 1:length(duplicated.keys)){
+  #   duplicated.df %>%
+  #     filter(key == duplicated.keys[k]) -> tmp
+  #   tmp.1 <- tmp[1,]
+  #   tmp.1$npods <- sum(tmp$npods)
+  #   tmp.1$nwhales <- sum(tmp$nwhales)
+  #   tmp.1$pphr <- tmp.1$nwhales/(tmp.1$effort * 24)
+  #   non.dupes[[k]] <- tmp.1
+  # }
+  # non.dupes.df <- do.call("rbind", non.dupes)
+  
+  # Effort4Laake_1 %>%
+  #   filter(!key %in% duplicated.keys) -> tmp.3
+  
+  Data4Laake_1 %>%
+    left_join(Effort4Laake_1 %>%
+                dplyr::select(key, pphr), by = "key") -> Data4Laake_1
+  
+  # For secondary if exists:
+  Data_Out_2 <- do.call("rbind", Data_Out.list.2)
+  
+  if (!is.null(Data_Out_2)){
+    Data_Out_2 %>%
+      mutate(station = "S") -> Data_Out_2
+    
+    Data4Laake <- do.call("rbind", all.sightings.list.2) %>%  
+      mutate(key.1 = sighting.key, #paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
+             Time_HMS = Time,
+             Date.shift = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift))
+    
+    # if (YEAR == 2010){
+    #   Data4Laake <- do.call("rbind", all.sightings.list.2) %>%
+    #     mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
+    #            Time_HMS = fractional_Hr2HMS(Time),
+    #            Date.shift = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift))
+    #   
+    # } else {
+    #   Data4Laake <- do.call("rbind", all.sightings.list.2) %>%  
+    #     mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
+    #            Time_HMS = Time,
+    #            Date.shift = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift))
+    # } 
+    
+    Data4Laake %>%
+      transmute(Date = Date,
+                Time_PST = Time_HMS,
+                key = key.1,
+                Group_ID = Group_ID,
+                nwhales = n,
+                beaufort = bft,
+                vis = vis,
+                Bearing = Bearing,
+                Reticle = Reticle,
+                Distance = Distance,
+                shift = shift,
+                date.shift = Date.shift,
+                observer = toupper(Observer),
+                begin = begin,
+                end = end,
+                time = time,
+                effort = effort,
+                station = "S") %>%
+      filter(nwhales > 0) -> Data4Laake_2
+    
+    Data_Out <- rbind(Data_Out_1, Data_Out_2) %>%
+      arrange(by = begin)
+    
+    Effort4Laake_2 <-  do.call("rbind", all.effort.list.2) %>%
+      mutate(key.1 = sighting.key, #paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
+             Date.shift = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift)) %>%
+      transmute(Date = Date,
+                Start.year = YEAR - 1,
+                key = key.1,
+                shift = shift,
+                date.shift = Date.shift,
+                npods = npods,
+                nwhales = nwhales,
+                beaufort = bft,
+                vis = vis,
+                observer = Observer,
+                begin = begin,
+                end = end,
+                time = time,
+                effort = effort,
+                pphr = npods/(24*effort),
+                station = "S",
+                sighting.key = sighting.key)
+    
+    Effort4Laake_2$seq <- seq(from = 1, to = nrow(Effort4Laake_2)) 
+    Effort4Laake_2 %>%
+      mutate(watch.key = paste0(Start.year, "_", seq)) %>%
+      select(-c(seq)) -> Effort4Laake_2
+    
+    # Because I defined "shift" by observer changes, not by time definitions, there are 
+    # occasions where one pod was sighted over more than two shifts (e.g., 1/14/2010, 
+    # Group_ID = 66, secondary observer).
+    # These need to be dealt with by removing earlier recordings. This is done when 
+    # one or more pods are found in two consecutive shifts within get.shift function.
+    # 
+    Data4Laake_2 %>% 
+      group_by(Date, Group_ID) %>%
+      summarise(n = n()) %>%
+      filter(n > 1) -> n_data.2
+    
+    # Look at n_data.1, which lists groups that were recorded more than once. 
+    tmp.2 <- list()
+    k <- 1
+    if (nrow(n_data.2) > 0){
+      for (k in 1:nrow(n_data.2)){
+        Data4Laake_2 %>%
+          filter(Date == n_data.2$Date[k],  
+                 Group_ID == n_data.2$Group_ID[k]) -> tmp.2[[k]]
+        
+      }
+    }
+    
+    # pphr (pods per hour) is in the sightings data, rather than in the effort in 
+    # Laake's analysis. So, I move the variable.
+    Data4Laake_2 %>%
+      left_join(Effort4Laake_2 %>%
+                  select(key, pphr), by = "key") -> Data4Laake_2
+    
+    
+    Data4Laake_all <- rbind(Data4Laake_1, Data4Laake_2) %>%
+      arrange(by = begin)
+    
+    Effort4Laake_all <- rbind(Effort4Laake_1, Effort4Laake_2) %>%
+      arrange(by = begin)  
+  } else {
+    Data_Out <- Data_Out_1 %>%
+      arrange(by = begin)
+    
+    Data4Laake_all <- Data4Laake_1 %>%
+      arrange(by = begin)
+    
+    Effort4Laake_all <- Effort4Laake_1  %>%
+      arrange(by = begin)  
+  }
+  
+  # Check tmp.1 and tmp.2 for possible double counting of pods, when they were sighted 
+  # over more than two shifts. If one of these messages appear, check the corresponding
+  # list (i.e., tmp.1 or tmp.2). The raw data file may be edited. 
+  # 
+  if (length(tmp.1) > 0){
+    print("Multiple sightings were found in primary observers")
+    
+  }
+  
+  if (exists("tmp.2")){
+    if (length(tmp.2) > 0){
+      print("Multiple sightings were found in secondary observers")
+    }
+    
+  }
+  
+  
+  Data_Out %>% 
+    filter(dur > min_dur/(24*60) & 
+             dur < max_dur/(24*60)) -> Correct_Length
+  
+  Chaff <- Data_Out[which(Data_Out$end-Data_Out$begin < 
+                            (shift_dur_min - grace_min)/(24*60)),]
+  
+  Final_Data <- Correct_Length %>%
+    filter(bf < 5, vs < 5)
+  
+  WhalesDays <- Final_Data %>%
+    filter(station == "P") %>%
+    group_by(BeginDay) %>%
+    mutate(PropDay = end-begin) %>%
+    summarize(TotalWatch = sum(PropDay), TotalWhales=sum(n))
+  
+  # ggplot(data = WhalesDays) + 
+  #   geom_point(aes(x = as.numeric(BeginDay), y = TotalWhales/TotalWatch))
+  #plot(x=WhalesDays$BeginDay,y=WhalesDays$TotalWhales/WhalesDays$TotalWatch)
+  
+  ShiftsPerDay <- Final_Data %>%
+    filter(station == "P") %>%
+    group_by(BeginDay) %>%
+    summarize(Watches = n())
+  
+  
+  #Summary Stats for Report
+  Complete_Data <- Final_Data[complete.cases(Final_Data),]
+  Complete_Data$Eff <- Complete_Data$end - Complete_Data$begin
+  
+  TotalHrs <- sum(Complete_Data %>% 
+                    filter(station == "P") %>% 
+                    dplyr::select(Eff))*24
+  
+  TotalDays <- length(unique(floor(Complete_Data %>%
+                                     filter(station == "P") %>%
+                                     dplyr::select(begin))))
+  
+  TotalObservers <- length(unique(Complete_Data$obs))
+  
+  TotalWhales <- sum(Complete_Data %>%
+                       filter(station == "P") %>%
+                       dplyr::select(n))
+  
+  WPH <- Complete_Data %>%
+    filter(station == "P") %>%
+    mutate(DaysSinceDec1 = as.numeric(BeginDay)) %>%
+    group_by(DaysSinceDec1) %>%
+    summarize(TotalWhales = sum(n), 
+              TotalEffort = sum(Eff), 
+              WPH = sum(n)/(sum(Eff)*24)) 
+  
+  out.obj <- list(Data_Out = Data_Out,
+                  Correct_Length = Correct_Length,
+                  Final_Data = Final_Data,
+                  Complete_Data = Complete_Data,
+                  WPH = WPH,
+                  sightings_primary = all.sightings.list.1,
+                  sightings_secondary = all.sightings.list.2,
+                  Data4Laake = Data4Laake_all,
+                  Effort4Laake = Effort4Laake_all)
+  
+  # Saving RDS file for Bayesian analyses (Durban and Eguchi)
+  # saveRDS(out.obj, file = paste0("RData/V2.1_Nov2023/out_", YEAR, "_Tomo_v2.rds"))
+  # saveRDS(out.obj, file = paste0("RData/V2.1_Nov2023/out_", YEAR, "_Tomo_v2.rds"))
+  
+  if (save.output){
+    saveRDS(out.obj, file = paste0(out.dir, "/out_",
+                                   YEAR, "_min", min_dur,
+                                   "_Tomo_v2.rds"))
+    
+    # Saving csv files for Laake analysis
+    write.csv(Data4Laake_all,
+              file = paste0("Data/all_sightings_", YEAR, "_Tomo_v2.csv"))
+    write.csv(Effort4Laake_all,
+              file = paste0("Data/all_effort_", YEAR, "_Tomo_v2.csv"))
+  }
+}
+
