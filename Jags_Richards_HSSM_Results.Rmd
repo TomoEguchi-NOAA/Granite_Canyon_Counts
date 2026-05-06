@@ -6,9 +6,10 @@ output: html_notebook
 This notebook shows various results from the Hierarchial State Space Model approach using the Richards function to estimate the abundance of gray whales. The models should be fitted using 'Jags_Richards_AllData_n_models.R'. The script saves the results in .rds files to the '/RData' directory. This notebook uses those outputs to create various summaries of the analysis.
 
 ```{r}
+rm(list = ls())
 # Whether or not to save the figures
 save.fig <- F
-save.estimates <- T
+save.estimates <- F
 
 source("Granite_Canyon_Counts_fcns.R")
 source("Richards_HSSM_model_definition.R")
@@ -36,6 +37,8 @@ dpi.set <- 600
 
 # The date when WinBUGS was run on the same dataset. This is run in the GrayWhaleAbundance project.
 WinBUGS.Run.Date <- "2026-02-20"  
+# The date when Laake analysis was conducted. This is run in the LaakeAnalysis_NewData.R script.
+Laake.Run.Date <- "2026-05-06"
 
 # Create a function to save figures if requested.
 save.fig.fcn <- function(fig, file.name, replace = F, 
@@ -203,7 +206,9 @@ if (!file.exists(paste0("Data/Nhats_", Y, ".csv"))){
     Y <- Y - 1
   }
   Nhats.YEAR <- read.csv(file = paste0("Data/Nhats_", Y, ".csv"))
-} 
+} else {
+  Nhats.YEAR <- read.csv(file = paste0("Data/Nhats_", Y, ".csv"))
+}
   
 
 Nhats.YEAR %>%  
@@ -226,7 +231,6 @@ Bring in the Laake analysis output
 # In the script, change the years variable to include the most
 # up-to-date data. It should read all extracted data and run the
 # Laake's analysis and write results in a .csv file.
-Laake.Run.Date <- "2026-02-23"
 Laake.abundance.new <- read.csv(file = paste0("Data/all_estimates_Laake_", 
                                               YEAR, "_", Laake.Run.Date, ".csv")) %>%
   mutate(LCL = CL.low,
