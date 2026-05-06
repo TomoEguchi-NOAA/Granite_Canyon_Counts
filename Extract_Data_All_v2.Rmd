@@ -7,7 +7,7 @@ In this version, I use the new function that was used to compare Josh's and my r
 
 This fix may work for all years. At least, 2015 and 2016 files were processed without any errors. Results need to be compared with Josh's outputs. The old extraction missed many things, although the differences are minor. I think it's now (December 2023) a lot better extraction method than old versions. I tested it for data since 2010 (2010, 2011, 2015, 2016, 2020, 2022, 2023). They worked fine and picked up some strange data, which were fixed in the input files. 
 
-The recent version as of December 2023 also creates input files for Laake's approach. That approach requires double-observer data, which are only available for 2010 and 2011 in the recent data. Years without double observers are adjusted by using the average observation probability from years with double observers. Use LaakeAnalysis_NewData.R for the analysis. It is incomplete as of December 2023. There is not enough information in 2010 and 2011 to run Laake's analysis. Laake's analysis requires a Match dataframe, which indicates whether or not each pod was recorded by primary and secondary teams. No such information is available in the raw data. 
+The recent version as of December 2023 also creates input files for Laake's approach. That approach requires double-observer data, which are only available for 2010 and 2011 in the recent data. Years without double observers are adjusted by using the average observation probability from years with double observers. Use LaakeAnalysis_NewData.R for the analysis. There is not enough information in 2010 and 2011 to run Laake's analysis. Laake's analysis requires a Match dataframe, which indicates whether or not each pod was recorded by primary and secondary teams. No such information is available in the raw data for 2010 and 2011. 
 
 The station information needs to be added. The data files that I have don't have that info... this needs to be fixed in the future. This has been fixed. 2023-12-12. Not exactly... They are not entered in the n array correctly. Unfortunately, the current WinBUGS approach does not let effort duration between station 1 and 2 (the effort array is 2D, whereas n array is 3D). If we were to use these data, the effort array needs to be changed to 3D and their timing match with the station 1 - the assumed N is the same for station 1 and 2. This is not an easy fix. I'm not sure how Durban took care of this issue for 2009/2010 and 2010/2011 data. 
 
@@ -72,7 +72,7 @@ all.effort.list.2 <- Data_Out.list.2 <- all.sightings.list.2 <- list()
 # be non-numbers, e.g., "Edited" and other text. Also, some BF and VS codes are
 # missing and they return warnings "in 'transmute()'..." They turn into NAs so 
 # they are not problems. But... it'd be best to remove the first comment line.
-# I fixed the first line issue in Dec 2023.
+# I fixed the first line issue in Dec 2023. These have been mostly fixed May 2026.
 
 # 2023-11-28: Shift IDs are incorrect. They need to be defined from 7:30, rather than
 # the first shift of each day. Need to... extract all data first using get.data.
@@ -114,7 +114,7 @@ unique.dates <- unique(data.all$V3)
 n.stations <- vector(mode = "numeric", length = length(unique.dates))
 c <-27
 for (c in 1:length(unique.dates)){
-  print(paste0("Date = ", c))
+  print(paste0("Date = ", unique.dates[c]))
   data.all %>% 
     filter(V3 == unique.dates[c]) -> data  
   
