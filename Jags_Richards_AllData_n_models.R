@@ -29,30 +29,14 @@ years <- c(2008, 2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025, 2026)
 data.dir <- "RData/V2.1_Feb2026"
 max.day <- 100
 
-# MCMC.params <- list(n.samples = 550000,
-#                     n.thin = 100,
-#                     n.burnin = 500000,
-#                     n.chains = 5)
-
 #5000 samples
 MCMC.params <- list(n.samples = 250000,
                     n.thin = 200,
                     n.burnin = 50000,
                     n.chains = 5)
 
-# 2500 samples
-# MCMC.params <- list(n.samples = 125000,
-#                     n.thin = 100,
-#                     n.burnin = 75000,
-#                     n.chains = 5)
-
 # 225 samples
 # MCMC.params <- list(n.samples = 100,
-#                     n.thin = 2,
-#                     n.burnin = 10,
-#                     n.chains = 5)
-
-# MCMC.params <- list(n.samples = 500,
 #                     n.thin = 2,
 #                     n.burnin = 10,
 #                     n.chains = 5)
