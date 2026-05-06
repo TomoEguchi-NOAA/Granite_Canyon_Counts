@@ -19,7 +19,10 @@ library(tidyverse)
 library(lubridate)
 source("Granite_Canyon_Counts_fcns.R")
 
-save.output <- TRUE # TRUE
+# The following line will make the script stop when a warning returns.
+options(warn = 2)
+
+save.output <- FALSE # TRUE
 # https://statisticsglobe.com/dplyr-message-summarise-has-grouped-output-r
 options(dplyr.summarise.inform = FALSE)
 
@@ -32,7 +35,7 @@ if (!dir.exists(out.dir)) dir.create(out.dir)
 # They are the end year of the season, which is the season name. For example, the 
 # 2020/2021 season is called the 2021 season.
 
-YEAR <- 2026 #2026 #2008 #10 #Enter the year of the data files
+YEAR <- 2015 #2026 #2008 #10 #Enter the year of the data files
 
 # For 2009/2010 (maybe in the previous years too but I don't have any of those files),
 # Time is entered in decimal hours, not hh:mm:ss. So, that needs to be accommodated in
@@ -49,7 +52,7 @@ min_dur <- shift_dur_min - grace_min
 ```
 
 
-```{r warning=FALSE}
+```{r warning=TRUE}
 if (YEAR == 2023 | YEAR == 2008){
   FILES <- list.files(path = paste0("Data/", YEAR, "/"),
                       pattern = "EditedGW")
@@ -79,10 +82,11 @@ all.effort.list.2 <- Data_Out.list.2 <- all.sightings.list.2 <- list()
 # defines shifts. 
 
 data.list <- list()
-ff <- 16
+ff <- 34
+in.dir <- "Data/"
 for(ff in 1:length(FILES)){ 
   print(paste0("file = ", ff))
-  data.list[[ff]] <- get.data("Data/", YEAR, FILES = FILES, ff = ff)
+  data.list[[ff]] <- get.data(in.dir, YEAR, FILES = FILES, ff = ff)
 }
 
 # combine all data
@@ -190,7 +194,7 @@ Create data for Laake's approach:
 #   
 # } else {
 Data4Laake <- do.call("rbind", all.sightings.list.1) %>%  
-  mutate(key.1 = sighting.key, # paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
+  mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
          Time_HMS = Time,
          Date.shift = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift))
 #} 

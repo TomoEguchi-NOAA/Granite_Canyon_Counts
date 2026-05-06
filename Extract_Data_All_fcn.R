@@ -4,6 +4,7 @@
 # They are the end year of the season, which is the season name. For example, the 
 # 2020/2021 season is called the 2021 season.
 
+# out.dir is where .rds files are stored for further analysis
 Extract_Data_All_fcn <- function(out.dir, YEAR, shift_dur_min = 90, min_dur, save.output = TRUE){
   library(tidyverse)
   library(lubridate)
@@ -53,7 +54,7 @@ Extract_Data_All_fcn <- function(out.dir, YEAR, shift_dur_min = 90, min_dur, sav
   data.list <- list()
   ff <- 16
   for(ff in 1:length(FILES)){ 
-    print(paste0("file = ", ff))
+    print(paste0("Reading file = ", FILES[ff]))
     data.list[[ff]] <- get.data("Data/", YEAR, FILES = FILES, ff = ff)
   }
   
@@ -82,7 +83,7 @@ Extract_Data_All_fcn <- function(out.dir, YEAR, shift_dur_min = 90, min_dur, sav
   n.stations <- vector(mode = "numeric", length = length(unique.dates))
   c <-27
   for (c in 1:length(unique.dates)){
-    print(paste0("Date = ", c))
+    print(paste0("Date = ", unique.dates[c]))
     data.all %>% 
       filter(V3 == unique.dates[c]) -> data  
     
@@ -148,7 +149,7 @@ Extract_Data_All_fcn <- function(out.dir, YEAR, shift_dur_min = 90, min_dur, sav
     mutate(station = "P")
   
   Data4Laake <- do.call("rbind", all.sightings.list.1) %>%  
-    mutate(key.1 = sighting.key, # paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
+    mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
            Time_HMS = Time,
            Date.shift = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift))
   #} 
@@ -267,7 +268,7 @@ Extract_Data_All_fcn <- function(out.dir, YEAR, shift_dur_min = 90, min_dur, sav
       mutate(station = "S") -> Data_Out_2
     
     Data4Laake <- do.call("rbind", all.sightings.list.2) %>%  
-      mutate(key.1 = sighting.key, #paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
+      mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
              Time_HMS = Time,
              Date.shift = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift))
     
@@ -309,7 +310,7 @@ Extract_Data_All_fcn <- function(out.dir, YEAR, shift_dur_min = 90, min_dur, sav
       arrange(by = begin)
     
     Effort4Laake_2 <-  do.call("rbind", all.effort.list.2) %>%
-      mutate(key.1 = sighting.key, #paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key),
+      mutate(key.1 = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift, "_", key), 
              Date.shift = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", shift)) %>%
       transmute(Date = Date,
                 Start.year = YEAR - 1,
@@ -395,7 +396,6 @@ Extract_Data_All_fcn <- function(out.dir, YEAR, shift_dur_min = 90, min_dur, sav
     }
     
   }
-  
   
   Data_Out %>% 
     filter(dur > min_dur/(24*60) & 
