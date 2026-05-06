@@ -3225,7 +3225,8 @@ get.data <- function(in.dir, YEAR, FILES, ff){
   # look at the first three letters of the first line
   first.3 <- str_sub(all.lines[1], start = 1, end = 3)
   
-  if (is.na(as.numeric(first.3)))
+  #if (is.na(as.numeric(first.3)))
+  if (is.character(first.3))  
     all.lines <- all.lines[2:length(all.lines)]
   
   # look at all event code
@@ -3301,11 +3302,11 @@ get.data <- function(in.dir, YEAR, FILES, ff){
       # before a start time, that's probably an error)
       # TE: I added [t] to Ends in the following line. I think it's needed. NO... 
       # Ends does not need the subscript. 
-      if (YEAR != 2010){
-        Diffs[t,] <- seconds(hms(data[Starts[t],4])) - seconds(hms(data[Ends,4]))         
-      } else {
-        Diffs[t,] <- (as.numeric(data[Starts[t], 4]) - as.numeric(data[Ends, 4])) * 24 * 60 * 60
-      }
+      #if (YEAR != 2010){
+      Diffs[t,] <- seconds(hms(data[Starts[t],4])) - seconds(hms(data[Ends,4]))         
+      #} else {
+      #Diffs[t,] <- (as.numeric(data[Starts[t], 4]) - as.numeric(data[Ends, 4])) * 24 * 60 * 60
+      #}
 
     }
     
