@@ -14,7 +14,7 @@
 # file by making save.file <- TRUE in the beginning of this script. 
 
 rm(list = ls())
-
+options(warn = 0)
 #library(ERAnalysis)
 library(tidyverse)
 library(ggplot2)
@@ -23,7 +23,7 @@ library(lubridate)
 source("Granite_Canyon_Counts_fcns.R")
 source("Laake_functions.R")
 
-save.file <- F
+save.file <- T
 # These are the second year of each season.
 years <- c(2008, 2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025, 2026)
 
@@ -248,8 +248,11 @@ all.observers <- create.observer.list(sightings.primary)
 sightings.primary %>% 
   left_join(all.observers$unique, by = "Observer") %>%
   select(-ID) %>%
-  #rename(Observer = ID) %>%
   mutate(Observer = as.factor(Observer)) %>%
+  mutate(Date = as.character(Date)) %>%
+  mutate(Sex = "U") %>%
+  mutate(Sex = as.factor(Sex)) %>%
+  mutate(watch = as.factor(watch)) %>%
   relocate(Observer, .after = Sex) %>%
   select(-c(station, ID.old, data, obs)) -> sightings.primary
 
@@ -260,6 +263,10 @@ sightings.secondary %>%
   select(-ID) %>%
   #rename(Observer = ID) %>%
   mutate(Observer = as.factor(Observer)) %>%
+  mutate(Date = as.character(Date)) %>%
+  mutate(Sex = "U") %>%
+  mutate(Sex = as.factor(Sex)) %>%
+  mutate(watch = as.factor(watch)) %>%
   relocate(Observer, .after = Sex) %>%
   select(-c(station, ID.old, data, obs)) -> sightings.secondary
 
