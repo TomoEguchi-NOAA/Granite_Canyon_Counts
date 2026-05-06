@@ -4,7 +4,7 @@
 
 ### Data Extraction
 
-In this stage, data from the field are reviewed and corrections are made as needed. It is essential to ensure that the data is clean and formatted correctly for the subsequent analysis. The following script converts the edited data files to input objects for the three approaches that are used in the subsequent sections '*Extract_Data_All_v2.Rmd*'. Various functions in '*Granite_Canyon_Counts_fcns.R*' are used for extracting data from the raw data files.
+In this stage, data from the field are reviewed and corrections are made as needed. It is essential to ensure that the data is clean and formatted correctly for the subsequent analysis. The following script converts the edited data files to input objects for the three approaches that are used in the subsequent sections '*Extract_Data_All_v2.Rmd*'. The same code was transfomred into a function ('*Extract_Data_All_fcn.R*'), which is in a wrapper script ('*extract_all_data.R*') to extract data from multiple years without running the .Rmd file repeatedly. Various functions in '*Granite_Canyon_Counts_fcns.R*' are used for extracting data from the raw data files.
 
 All data up to the 2025/2026 season have been extracted using this script and output saved in the **RData** folder (or directory). (I use folder and directory interchangeably in this document.)
 
@@ -21,11 +21,19 @@ Line 35: YEAR \<- 2026
 
 Note that the YEAR is defined as the second year of each season. For example, the 2025/2026 season should be YEAR \<- 2026 and so forth.
  
-Error messages may return while running this script ('*Extract_Data_All_v2.Rmd*') for the first time. They are mostly from input data file errors. Find which data file is causing the problem, double check where the problem(s) is by looking at the output of get.data on line 85 and get.shift on line 134. The file number (ff) and shift number (k on line 131) can be fixed and run the function line by line within '*Granite_Canyon_Counts_fcns.R*'. The intermediate variables in those functions, e.g., data in get.data or shifts.df in get.shift, usually provide a clue to the error message(s).
+Error messages may return while running this script ('*Extract_Data_All_v2.Rmd*') for the first time. They are mostly from input data file errors. Find which data file is causing the problem, double check where the problems are by looking at the output of get.data on line 85 and get.shift on line 134. The file number (ff) and shift number (k on line 131) can be fixed and run the function line by line within '*Granite_Canyon_Counts_fcns.R*'. The intermediate variables in those functions, e.g., data in get.data or shifts.df in get.shift, usually provide a clue to the error message(s).
 
 Once the data extraction process is completed, make sure all the extracted data files are in the same directory (e.g., **RData/V2.1_Feb2026**), including those from the previous seasons. These files should have the filename convention of *out_YYYY_minMM_Tomo_v2.rds*, where YYYY corresponds to the season identification and MM indicates the minimum shift duration in minutes, which is defined at line 46.
 
 Line 46: min_dur \<- shift_dur_min - grace_min
+
+When using the function, instead of the .Rmd file, five input variables are necessary:
+(1) out.dir, (2) YEAR, (3) shift_dur_min, (4) min_dur, and (5) save.output
+(1) out.dir is the relative path to the output (or a complete path if desired)
+(2) YEAR is the name of season for data extraction (this is the second year of each season, e.g., 2026 of the 2026/2026 season)
+(3) shift_dur_min is the nominal duration of each shift in minutes. Default is 90.
+(4) min_dur is the minimum duration of a shift to be included in the analysis.
+(5) save.output is a logical input to either save (TRUE) or not save (FALSE) the results. Defaults to TRUE.
 
 Once this step is completed, the models can be fit to the data.
 
@@ -48,13 +56,18 @@ It is a good practice to start with short chains, e.g., n.iter = 200, to test if
 
 After WinBUGS completes the analysis, several plots are created to show the results within the .Rmd file. WinBUGS output is saved as a .rds file in the **RData** directory. This output will be used in writing annual reports. The process for writing an annual report is described below. As of this writing (May 2026), the N-mixture approach is the official method of the abundance estimation and report writing process. The output from the report is used in the analysis summary to compare results in the Hierarchical State-Space approach.  
 
-#### Hierarchical State-Space models using JAGS
+#### Hierarchical state-space models using JAGS
 
-This is the analysis described in Eguchi (2026). It is run in '*Jags_Richards_AllData_n_models.R*'. This script should be edited when new data are added to the analysis. Line 28 defines analysis years beyond the data in the original Laake's analysis and Line 29 defines the path to the data files (.rds files). 
+This is the analysis described in Eguchi (2026). It is run in '*Jags_Richards_AllData_n_models.R*'. This script should be edited when new data are added to the analysis. Line 28 defines analysis years beyond the data in the original Laake's analysis and Line 29 defines the path to the data files (.rds files). This directory should be the same as the one that was created durign the data extraction process. 
+
+Line 28: years <- c(2008, 2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025, 2026)
+Line 29: data.dir <- "RData/V2.1_Feb2026"
 
 max.day on Line 30 refers to the assumed number of days in a migration season; '100' is appropriate for all years. 
 
-MCMC setup can be modified in Line 38. 
+Line 30: max.day <- 100
+
+MCMC setup can be modified in Line 33. 
 
 For this analysis, multiple models are fitted to the data. This script uses a function script '*Richards_HSSM_model_definition.R*' that creates 8 different models according to the input to the function and runs JAGS to estimate parameters. Differences in the models are the likelihood function (Poisson vs. Negative Binomial) and which parameters of the Richards function are assumed constant over time or season-specific. See Eguchi (2026) for details. I explored other Other parameters to be season-specific but they did not converge well, likely because of the limited information in the data. If more data become available, other models may be developed and fitted.  
 
