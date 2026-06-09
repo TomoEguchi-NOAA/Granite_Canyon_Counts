@@ -8,8 +8,8 @@ This notebook shows various results from the Hierarchial State Space Model appro
 ```{r}
 rm(list = ls())
 # Whether or not to save the figures
-save.fig <- F
-save.estimates <- F
+save.fig <- T
+save.estimates <- T
 
 source("Granite_Canyon_Counts_fcns.R")
 source("Richards_HSSM_model_definition.R")
@@ -40,6 +40,8 @@ WinBUGS.Run.Date <- "2026-02-20"
 # The date when Laake analysis was conducted. This is run in the LaakeAnalysis_NewData.R script.
 Laake.Run.Date <- "2026-05-06"
 
+Jags.run.date <- "2026-05-07"
+
 # Create a function to save figures if requested.
 save.fig.fcn <- function(fig, file.name, replace = F, 
                          dpi = dpi.set, device = "png",
@@ -67,7 +69,7 @@ model.defs <- data.frame(ID = all.model.names,
 Once the models were fit, the model comparison step is done using 'Jags_Richards_ModelComparison.R'. Results are saved in a .rds file. Bring in the output and create a table. Then bring in the best model output for inference. 
 
 ```{r}
-out.table <- readRDS(paste0("RData/Richards_ModelComparison_", YEAR, ".rds"))
+out.table <- readRDS(paste0("RData/Richards_ModelComparison_", YEAR, "_", Jags.run.date, ".rds"))
 out.table %>% 
   select(model, n.params, n.big.Rhat, p.big.Rhat, n.bad.Pareto, p.bad.Pareto, min.ESS.bulk, min.ESS.tail, dLOOIC) %>%
   flextable() %>%
@@ -81,7 +83,8 @@ out.table %>%
 ver <- out.table[1, "model"] # "M1a2" #5 #out.table$model[1] #5
 jm.out <- readRDS(paste0("RData/JAGS_Richards_HSSM_",
                          ver,
-                         "_1968to", YEAR, "_min", min.dur,
+                         "_1968to", YEAR, "_min", min.dur, "_",
+                         Jags.run.date,
                          "_NoBUGS.rds"))
 
 # bring in the convergence statistics:
@@ -91,7 +94,7 @@ ver.idx <- which(all.model.names == ver)
 
 # The convergence statistics are saved by 'Jags_Richards_ModelComparison.R'. 
 # Rather than re-calculating those statistics, bring in the output.
-list.convergence <- readRDS(paste0("RData/Richards_Convergence_", YEAR, ".rds"))
+list.convergence <- readRDS(paste0("RData/Richards_Convergence_", YEAR, "_", Jags.run.date, ".rds"))
 
 # LOOIC and Pareto-k stats
 LOOIC.n <- list.convergence$LOOIC[ver.idx] 
@@ -186,7 +189,7 @@ p.daily.Richards <- ggplot(N.hats.day %>%
 # In order to differentiate plots from this .Rmd file, I changed the output figure 
 # file names.
 save.fig.fcn(fig = p.daily.Richards, 
-             file.name = paste0("figures/Daily_HSSM_Eguchi_", ver, "_", ".png"), 
+             file.name = paste0("figures/Daily_HSSM_Eguchi_", ver, "_", Jags.run.date, ".png"), 
              replace = T, 
              dpi = dpi.set, device = "png",
              height = 10, width = 10, units = "in",
@@ -255,10 +258,10 @@ Reported.estimates %>%
 Reported.estimates %>%
   mutate(Method1 = sub("-.*", "", Method)) -> tmp.1
 
-tmp.1[grep("NA", tmp.1$Method1) & tmp.1$start.year < 2006, 
-      "Method1"] <- "Laake"
-tmp.1[grep("NA", tmp.1$Method1) & tmp.1$start.year > 2007, 
-      "Method1"] <- "Durban"
+# Convert literal string "NA" to logical NA
+tmp.1$Method1[tmp.1$Method1 == "NA"] <- NA
+tmp.1[tmp.1$start.year < 2006 & is.na(tmp.1$Method1), "Method1"] <- "Laake"
+tmp.1[tmp.1$start.year > 2007 & is.na(tmp.1$Method1), "Method1"] <- "Durban"
 
 tmp.1 %>%
   select(Season, Nhat, LCL, UCL, start.year, Method1) %>%
@@ -295,7 +298,7 @@ p.Nhats <- ggplot(all.estimates) +
 if (save.fig)
   save.fig.fcn(fig = p.Nhats,
                file.name = paste0("figures/Nhats_HSSM_", 
-                                  ver, "_min", min.dur, 
+                                  ver, "_min", min.dur, "_", Jags.run.date,
                                   "_", dpi.set, "dpi.png"),
                replace = T,
                height = 5, width = 7,
@@ -343,7 +346,8 @@ p.posteriors.P <- ggplot(P.df, aes(x = P, y = start.year.f)) +
 if (save.fig)
   save.fig.fcn(fig = p.posteriors.P,
                file.name = paste0("figures/posterior_P_HSSM_", 
-                                  ver, "_", dpi.set, "dpi.png"),
+                                  ver, "_", Jags.run.date, "_", 
+                                  dpi.set, "dpi.png"),
                replace = T,
                height = 5, width = 7,
                dpi = dpi.set)
@@ -373,7 +377,8 @@ if (length(grep("M1|M3", ver)) > 0){
 if (save.fig)
   save.fig.fcn(fig = p.posteriors.S1,
                file.name = paste0("figures/posteriors_S1_HSSM_", 
-                                  ver, "_", dpi.set, "dpi.png"),
+                                  ver, "_", Jags.run.date, "_", 
+                                  dpi.set, "dpi.png"),
                replace = T,
                height = 5, width = 7,
                dpi = dpi.set)
@@ -401,7 +406,8 @@ if (length(grep("M2|M3", ver)) > 0){
 if (save.fig)
   save.fig.fcn(fig = p.posteriors.S2,
                file.name = paste0("figures/posteriors_S2_HSSM_", 
-                                  ver, "_", dpi.set, "dpi.png"),
+                                  ver, "_", Jags.run.date, "_", 
+                                  dpi.set, "dpi.png"),
                replace = T,
                height = 5, width = 7,
                dpi = dpi.set)
@@ -415,7 +421,8 @@ posterior.theta$p.dens +
 if (save.fig)
   save.fig.fcn(fig = p.posterior.theta,
                file.name = paste0("figures/posterior_theta_HSSM_", 
-                                  ver, "_", dpi.set, "dpi.png"),
+                                  ver, "_", Jags.run.date, "_", 
+                                  dpi.set, "dpi.png"),
                replace = T,
                height = 5, width = 7,
                dpi = dpi.set)
