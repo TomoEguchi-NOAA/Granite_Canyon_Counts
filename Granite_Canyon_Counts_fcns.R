@@ -561,7 +561,7 @@ Jags_Richards_Since2010_fcn <- function(min.dur, max.day = 90, ver, years, data.
 #                     obs.n.min = 10,
 #                     N.obs = 10)     
 #                     
-NoBUGS_Richards_fcn <- function(min.dur, years, data.dir, jags.params, MCMC.params, max.day = 100, obs.n.min = 10, N.obs = 10,Run.date = Sys.Date(), model.name, ext = ".jags"){
+NoBUGS_Richards_fcn <- function(min.dur, years, data.dir, jags.params, MCMC.params, max.day = 100, obs.n.min = 10, N.obs = 10, Run.date = Sys.Date(), model.name, ext = ".jags"){
   
   # N.obs is the number of "top" observers who sighted the most whales among
   # all observers. 
@@ -576,7 +576,8 @@ NoBUGS_Richards_fcn <- function(min.dur, years, data.dir, jags.params, MCMC.para
   
   out.file.name <- paste0("RData/JAGS_", model.name.part, 
                           "_1968to", max(years), 
-                          "_min", min.dur,
+                          "_min", min.dur, "_",
+                          Run.date, 
                           "_NoBUGS.rds")
   
   if (!file.exists(out.file.name)){
