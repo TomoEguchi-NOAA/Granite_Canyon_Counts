@@ -16,7 +16,8 @@ library(rstanarm)
 options(mc.cores = parallel::detectCores())
 
 min.dur <- 60
-YEAR <- 2026
+YEAR <- 2026  # the last season name
+run.date <- "2026-05-07"
 
 # Model name IDs
 model.names <- c( "M1a1", "M2a1", "M3a1", "M4a1", 
@@ -53,7 +54,7 @@ k <- 6
 for (k in 1:length(model.names)){
   .out <- readRDS(paste0("RData/JAGS_Richards_HSSM_", 
                          model.names[k], "_1968to", YEAR, "_min", 
-                         min.dur, "_NoBUGS.rds"))
+                         min.dur, "_", run.date, "_NoBUGS.rds"))
   
   if (length(grep("a1", model.names[[k]])) > 0){
     new.Rhat[[k]] <- rank.normalized.R.hat(.out$jm$samples, 
@@ -118,7 +119,7 @@ out.list <- list(LOOIC = LOOIC.n,
                  ESS.bulk = ESS.bulk,
                  ESS.tail = ESS.tail)
 saveRDS(out.list, 
-        file = paste0("RData/Richards_Convergence_", YEAR, ".rds"))
+        file = paste0("RData/Richards_Convergence_", YEAR, "_", run.date, ".rds"))
 
 out.table <- data.frame(model = model.names,
                         LOOIC = LOOIC,
@@ -138,6 +139,6 @@ out.table <- data.frame(model = model.names,
          min.ESS.bulk, min.ESS.tail, LOOIC)
 
 saveRDS(out.table,
-        file = paste0("RData/Richards_ModelComparison_", YEAR, ".rds"))
+        file = paste0("RData/Richards_ModelComparison_", YEAR, "_", run.date, ".rds"))
 #d.t.2 <- Sys.time() - t.2 # 1.68 min
 
