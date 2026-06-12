@@ -1,4 +1,15 @@
-// whale_model.stan
+// A STAN model for Hierarchical State Space Modeling using 
+// the Richards function to estimate gray whale abundance from 
+// count data at Granite Canyon, CA.  
+
+// The current model naming convention is: 
+// M1: P = 'time', Max = 'time', S1 = 'time', S2 = 'time, K = 1 
+// M2: P = 'time', Max = 'time', S1 = 'S1', S2 = 'S2', K = 1 
+// M3: P = 'time', Max = 'time', S1 = 'time', S2 = 'S2', K = 1 
+// M4: P = 'time', Max = 'time', S1 = 'S1', S2 = time, K = 1 
+
+// Poisson likelihood (Poisson): a1 
+// Negative binomial likelihood (NegBin): a2 
 
 data {
   int<lower=1> n_year;

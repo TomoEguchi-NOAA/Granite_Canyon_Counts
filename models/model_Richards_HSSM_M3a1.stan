@@ -1,4 +1,15 @@
-// whale_model.stan
+// A STAN model for Hierarchical State Space Modeling using 
+// the Richards function to estimate gray whale abundance from 
+// count data at Granite Canyon, CA.  
+
+// The current model naming convention is: 
+// M1: P = 'time', Max = 'time', S1 = 'time', S2 = 'time, K = 1 
+// M2: P = 'time', Max = 'time', S1 = 'S1', S2 = 'S2', K = 1 
+// M3: P = 'time', Max = 'time', S1 = 'time', S2 = 'S2', K = 1 
+// M4: P = 'time', Max = 'time', S1 = 'S1', S2 = time, K = 1 
+
+// Poisson likelihood (Poisson): a1 
+// Negative binomial likelihood (NegBin): a2 
 
 data {
   int<lower=1> n_year;
@@ -82,10 +93,6 @@ model {
   sigma_Obs ~ uniform(0, 3);
   OBS_RF ~ normal(0, sigma_Obs);
   
-  for(y in 1:n_year) {
-    to_vector(r[,y]) ~ uniform(1e-3, 50);
-  }
-
 // --- Optimized Likelihood (Vectorized Marginalization Loop) ---
   for (y in 1:n_year) {
     for (t in 1:n_days) {
@@ -106,7 +113,7 @@ model {
         vector[K_val - max_n + 1] lp;
         
         if (t == 1 || t == n_days) {
-          real log_prob_N = poisson_lpmf(0 | mean_N[t, y], r[t, y]);
+          real log_prob_N = poisson_lpmf(0 | mean_N[t, y]);
           
           // --- OPTIMIZATION: Vectorized Binomial ---
           real log_prob_obs = binomial_lpmf(n[start:end] | 0, obs_prob[start:end]);
@@ -114,7 +121,7 @@ model {
           target += log_prob_N + log_prob_obs;
         } else {
           for (N_val in max_n:K_val) {
-            real log_prob_N = poisson_lpmf(N_val | mean_N[t, y], r[t, y]);
+            real log_prob_N = poisson_lpmf(N_val | mean_N[t, y]);
             
             // --- OPTIMIZATION: Vectorized Binomial ---
             // Eliminates the inner 'for (i in start:end)' loop entirely!
