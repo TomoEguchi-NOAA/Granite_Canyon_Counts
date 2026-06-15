@@ -4,7 +4,6 @@
 rm(list = ls())
 library(tidyverse)
 library(cmdstanr)
-library(loo)
 
 source("Granite_Canyon_Counts_fcns.R")
 
@@ -19,6 +18,8 @@ Run.date <- Sys.Date()
 years <- c(2008, 2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025, 2026)
 data.dir <- "RData/V2.1_May2026"
 max.day <- 100
+
+YEAR <- max(years)
 
 jags.input.list <- AllData2JagsInput_NoBUGS(min.dur, years = years, data.dir, max.day)                        
 #jags.input.list$jags.data["N"] <- NULL
@@ -144,14 +145,14 @@ for (k in 1:length(models)){
   }
 }
 
-# Output needs to be modified to fit the following code chunk using loo_compare() 
-
-# Compute the LOO object for a model
-loo_model1 <- fit_stan$loo(cores = 4)
-print(loo_model1)
-
-# Once you run this for multiple models, you can compare them directly:
-
-comparison <- loo_compare(loo_model1, loo_model2, loo_model3)
-print(comparison)
-
+# # Output needs to be modified to fit the following code chunk using loo_compare() 
+# 
+# # Compute the LOO object for a model
+# loo_model1 <- fit_stan$loo(cores = 4)
+# print(loo_model1)
+# 
+# # Once you run this for multiple models, you can compare them directly:
+# 
+# comparison <- loo_compare(loo_model1, loo_model2, loo_model3)
+# print(comparison)
+# 
