@@ -137,7 +137,8 @@ for (k in 1:length(models)){
     info.stan <- list(out.filename = out.file,
                       Run.Time = toc,
                       Run.Date = Sys.Date(),
-                      System = Sys.getenv())
+                      System = Sys.getenv(),
+                      data = stan_data)
      
      saveRDS(info.stan,
              file = paste0("RData/", out.file, ".info"))
