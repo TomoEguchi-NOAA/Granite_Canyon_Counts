@@ -17,7 +17,7 @@ options(mc.cores = parallel::detectCores())
 
 min.dur <- 60
 YEAR <- 2026  # the last season name
-run.date <- "2026-05-07"
+run.date <- "2026-06-18"
 
 # Model name IDs
 model.names <- c( "M1a1", "M2a1", "M3a1", "M4a1", 
