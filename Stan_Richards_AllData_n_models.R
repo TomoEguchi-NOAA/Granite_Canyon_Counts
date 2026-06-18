@@ -77,10 +77,13 @@ for (y in 1:jags.data$n.year) {
 storage.mode(start_idx) <- "integer"
 storage.mode(end_idx)   <- "integer"
 
+n_year <- jags.data$n.year
+n_days <- jags.data$n.days
+
 # --- 3. Package Everything for Stan ---
 stan_data <- list(
-  n_year       = jags.data$n.year,
-  n_days       = jags.data$n.days,
+  n_year       = n.year,
+  n_days       = n.days,
   n_obs        = max(flat_df$obs),
   N_flat       = nrow(flat_df),
   n            = flat_df$n,
@@ -90,7 +93,8 @@ stan_data <- list(
   watch_length = flat_df$watch_length,
   start_idx    = start_idx,
   end_idx      = end_idx,
-  
+  day_idx      = flat_df$day_idx,
+  year_idx     = flat_df$year_idx,
   # Hyper-parameters
   S1_alpha     = 10.0,  # Match your uniform hyperprior midpoint bounds
   S1_beta      = 1.0,
@@ -141,7 +145,7 @@ for (k in 1:length(models)){
                       data = stan_data)
      
      saveRDS(info.stan,
-             file = paste0("RData/", out.file, ".info"))
+             file = paste0("RData/", out.file, "_info.rds"))
     
   }
 }

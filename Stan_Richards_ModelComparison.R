@@ -219,9 +219,71 @@ for (k in 1:length(model.names)){
 
 }
 
-
-model_comparison <- loo_compare(loo_m1, loo_m2)
+model_comparison <- loo_compare(LOO)
 print(model_comparison, simplify = FALSE)
+
+# Posterior predictive check:
+library(bayesplot)
+
+# 1. Isolate parameters from your chosen best-performing model object
+best_model <- readRDS(paste0("RData/Stan_Richards_HSSM_", 
+                       model.names[5] , "_1968to", YEAR, "_min", 
+                       min.dur, "_", run.date, ".rds"))
+
+mean_N_mat <- as.matrix(best_model$draws("mean_N", format = "matrix"))
+p_mat      <- as.matrix(best_model$draws("obs_prob", format = "matrix"))
+has_r      <- "r[1,1]" %in% 
+  colnames(as.matrix(best_model$draws(variables = "r[1,1]", format = "matrix")))
+
+if(has_r) { r_mat <- as.matrix(best_model$draws("r", format = "matrix")) }
+
+S <- nrow(p_mat)       
+V <- nrow(flat_df)     
+yrep <- matrix(0, nrow = S, ncol = V)
+
+mean_N_cols <- match(paste0("mean_N[", flat_df$day_idx, ",", flat_df$year_idx, "]"), 
+                     colnames(mean_N_mat))
+if(has_r) { r_cols <- match(paste0("r[", flat_df$day_idx, ",", flat_df$year_idx, "]"), 
+                            colnames(r_mat)) }
+
+# 2. Simulate replicated survey datasets
+for (s in 1:S) {
+  mu_val  <- mean_N_mat[s, mean_N_cols]
+  p_val   <- p_mat[s, ]
+  mu_val[mu_val < 1e-6] <- 1e-6
+  
+  # Conditional check on state distribution type
+  if(has_r) {
+    N_sim <- rnbinom(V, size = r_mat[s, r_cols], mu = mu_val)
+  } else {
+    N_sim <- rpois(V, lambda = mu_val)
+  }
+  
+  yrep[s, ] <- rbinom(V, size = N_sim, prob = p_val)
+}
+
+# 3. Generate diagnostic charts for the reviewer
+y_observed <- flat_df$n
+
+# Chart A: Density Overlays
+ppc_dens_overlay(y_observed, yrep[1:50, ]) + 
+  theme_minimal() + labs(title = "Best Model: Posterior Predictive Overlay")
+
+# Chart B: Target Statistics (Recreating Zero Counts and Max Counts)
+prop_zero <- function(x) mean(x == 0)
+ppc_stat(y_observed, yrep, stat = "prop_zero") + 
+  labs(title = "Frequency of Zero-Count Surveys")
+
+ppc_stat(y_observed, yrep, stat = "max") + 
+  labs(title = "Maximum Whale Counts Observed")
+
+
+
+
+
+
+
+
 
 
 out.list <- list(LOOIC = LOOIC.n,
@@ -229,7 +291,7 @@ out.list <- list(LOOIC = LOOIC.n,
                  ESS.bulk = ESS.bulk,
                  ESS.tail = ESS.tail)
 saveRDS(out.list, 
-        file = paste0("RData/Richards_Convergence_", YEAR, "_", run.date, ".rds"))
+        file = paste0("RData/Stan_Richards_Convergence_", YEAR, "_", run.date, ".rds"))
 
 out.table <- data.frame(model = model.names,
                         LOOIC = LOOIC,

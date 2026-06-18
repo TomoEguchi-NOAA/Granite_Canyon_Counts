@@ -514,6 +514,109 @@ Jags_Richards_Since2010_fcn <- function(min.dur, max.day = 90, ver, years, data.
 
 }
 
+## Creates JAGS input data
+NoBUGS_Jags_input <- function(min.dur, years, data.dir, max.day = 100, obs.n.min = 10, N.obs = 10){
+  jags.input.list <- AllData2JagsInput_NoBUGS(min.dur, years = years, data.dir, max.day)                        
+  #jags.input.list$jags.data["N"] <- NULL
+  # Modify jags data to rearrange days and provide zeros for t = 1 and t = max.day
+  jags.data <- jags.input.list$jags.data
+  
+  # Code observers so that only observers with the minimum sample size are kept
+  obs.vec <- as.vector(jags.data$obs) 
+  data.frame(obs = obs.vec) %>%
+    mutate(obs.f = as.factor(obs)) %>%
+    group_by(obs.f) %>%
+    summarize(n = n(),
+              obs = first(obs)) -> obs.summary
+  
+  obs.too.few <- obs.summary %>% filter(n < obs.n.min)  
+  
+  obs.to.keep <- obs.summary %>% filter(n >= obs.n.min) 
+  obs.to.keep$new.ID <- seq(1, dim(obs.to.keep)[1])
+  obs.others <- max(obs.to.keep$new.ID)
+  
+  obs <- jags.data$obs
+  new.no.obs <- obs.others + 1
+  old.no.obs <- max(obs.to.keep$obs)
+  for (k in 1:nrow(obs.too.few)){
+    obs[obs == obs.too.few$obs[k]] <- NA
+  }
+  
+  for (k in 1:(nrow(obs.to.keep)-1)){
+    obs[obs == obs.to.keep$obs[k]]  <- obs.to.keep$new.ID[k] 
+  }
+  
+  obs[is.na(obs)] <- obs.others
+  obs[obs == old.no.obs] <- new.no.obs
+  
+  jags.data$obs <- obs
+  jags.data$n.obs <- max(obs) - 1
+  
+  # Create a fixed observer effect input
+  obs_counts <- table(obs.vec)
+  top_obs_names.df <- data.frame(old.ID = names(sort(obs_counts, 
+                                                     decreasing = TRUE))[1:N.obs],
+                                 new.ID = c(1:N.obs))
+  
+  # Initialize the array with NAs or 0
+  # Dimensions: Max Days, Max Stations, Total Years
+  n_days_max <- dim(obs)[1] # or however you defined 'd'
+  n_stations_max <- dim(obs)[2]
+  n_years <- dim(obs)[3]
+  
+  obs_array <- array((N.obs+1), 
+                     dim = c(n_days_max, 
+                             n_stations_max, 
+                             n_years))
+  
+  # Fill the array
+  # Assuming your dataframe 'data' has columns: year_index, station_index, day_index _ this doesn't work
+  #START HERE 2026-02-08!!
+  for (i in 1:nrow(top_obs_names.df)){
+    obs_array[obs == top_obs_names.df[i,"old.ID"]] <- top_obs_names.df[i, "new.ID"]
+  }
+  
+  jags.data$obs.fixed <- obs_array
+  jags.data$n.obs.fixed <- (max(top_obs_names.df$new.ID)) + 1
+  
+  #jags.data$scaled.day <- jags.data$day-(max.day/2)
+  #jags.data["N"] <- NULL
+  ###  ###  ###
+  
+  # center and scale VS and BF
+  vs.std <- jags.data$vs
+  for (k in 1:dim(vs.std)[3]){
+    vs.std[,1,k] <- (vs.std[,1,k] - mean(vs.std[,1,k], na.rm = T))/sqrt(var(vs.std[,1,k], na.rm = T))
+    vs.std[,2,k] <- (vs.std[,2,k] - mean(vs.std[,2,k], na.rm = T))/sqrt(var(vs.std[,2,k], na.rm = T))
+  }
+  
+  bf.std <- jags.data$bf
+  for (k in 1:dim(bf.std)[3]){
+    bf.std[,1,k] <- (bf.std[,1,k] - mean(bf.std[,1,k], na.rm = T))/sqrt(var(bf.std[,1,k], na.rm = T))
+    bf.std[,2,k] <- (bf.std[,2,k] - mean(bf.std[,2,k], na.rm = T))/sqrt(var(bf.std[,2,k], na.rm = T))
+  }
+  
+  jags.data$bf.1 <- jags.data$bf
+  jags.data$bf <- bf.std
+  jags.data$vs.1 <- jags.data$vs
+  jags.data$vs <- vs.std
+  
+  jags.data$start.years <- c(jags.input.list$jags.input.Laake$all.start.year,
+                             jags.input.list$jags.input.new$start.years)
+  
+  jags.data$year.index <- jags.data$start.years - mean(jags.data$start.years)
+  
+  jags.input <- list(jags.data = jags.data,
+                     min.dur = min.dur, 
+                     jags.input.Laake = jags.input.list$jags.input.Laake,
+                     jags.input.new = jags.input.list$jags.input.new,
+                     jags.original.data = jags.input.list$jags.data,
+                     data.dir = data.dir,
+                     obs.summary = obs.summary)
+  
+  return(jags.input)
+}
+
 # Runs a Richards' function with Pois-Binom model on datasets without using
 # WinBUGS input, i.e., creating input data from output of Extract_Data_All_v2.Rmd.
 # It also uses Laake's data.
@@ -561,7 +664,7 @@ Jags_Richards_Since2010_fcn <- function(min.dur, max.day = 90, ver, years, data.
 #                     obs.n.min = 10,
 #                     N.obs = 10)     
 #                     
-NoBUGS_Richards_fcn <- function(min.dur, years, data.dir, jags.params, MCMC.params, max.day = 100, obs.n.min = 10, N.obs = 10, Run.date = Sys.Date(), model.name, ext = ".jags"){
+NoBUGS_Richards_fcn <- function(min.dur, years, data.dir, jags.params, MCMC.params, max.day = 100, obs.n.min = 10, N.obs = 10, Run.date = Sys.Date(), model.name, ext = ".jags", inits = NULL){
   
   # N.obs is the number of "top" observers who sighted the most whales among
   # all observers. 
@@ -581,108 +684,111 @@ NoBUGS_Richards_fcn <- function(min.dur, years, data.dir, jags.params, MCMC.para
                           "_NoBUGS.rds")
   
   if (!file.exists(out.file.name)){
-    jags.input.list <- AllData2JagsInput_NoBUGS(min.dur, years = years, data.dir, max.day)                        
-    #jags.input.list$jags.data["N"] <- NULL
-    # Modify jags data to rearrange days and provide zeros for t = 1 and t = max.day
-    jags.data <- jags.input.list$jags.data
+    # jags.input.list <- AllData2JagsInput_NoBUGS(min.dur, years = years, data.dir, max.day)                        
+    # #jags.input.list$jags.data["N"] <- NULL
+    # # Modify jags data to rearrange days and provide zeros for t = 1 and t = max.day
+    # jags.data <- jags.input.list$jags.data
+    # 
+    # # Code observers so that only observers with the minimum sample size are kept
+    # obs.vec <- as.vector(jags.data$obs) 
+    # data.frame(obs = obs.vec) %>%
+    #   mutate(obs.f = as.factor(obs)) %>%
+    #   group_by(obs.f) %>%
+    #   summarize(n = n(),
+    #             obs = first(obs)) -> obs.summary
+    # 
+    # obs.too.few <- obs.summary %>% filter(n < obs.n.min)  
+    # 
+    # obs.to.keep <- obs.summary %>% filter(n >= obs.n.min) 
+    # obs.to.keep$new.ID <- seq(1, dim(obs.to.keep)[1])
+    # obs.others <- max(obs.to.keep$new.ID)
+    # 
+    # obs <- jags.data$obs
+    # new.no.obs <- obs.others + 1
+    # old.no.obs <- max(obs.to.keep$obs)
+    # for (k in 1:nrow(obs.too.few)){
+    #   obs[obs == obs.too.few$obs[k]] <- NA
+    # }
+    # 
+    # for (k in 1:(nrow(obs.to.keep)-1)){
+    #   obs[obs == obs.to.keep$obs[k]]  <- obs.to.keep$new.ID[k] 
+    # }
+    # 
+    # obs[is.na(obs)] <- obs.others
+    # obs[obs == old.no.obs] <- new.no.obs
+    # 
+    # jags.data$obs <- obs
+    # jags.data$n.obs <- max(obs) - 1
+    # 
+    # # Create a fixed observer effect input
+    # obs_counts <- table(obs.vec)
+    # top_obs_names.df <- data.frame(old.ID = names(sort(obs_counts, 
+    #                                                    decreasing = TRUE))[1:N.obs],
+    #                                new.ID = c(1:N.obs))
+    #                                
+    # # Initialize the array with NAs or 0
+    # # Dimensions: Max Days, Max Stations, Total Years
+    # n_days_max <- dim(obs)[1] # or however you defined 'd'
+    # n_stations_max <- dim(obs)[2]
+    # n_years <- dim(obs)[3]
+    # 
+    # obs_array <- array((N.obs+1), 
+    #                    dim = c(n_days_max, 
+    #                            n_stations_max, 
+    #                            n_years))
+    # 
+    # # Fill the array
+    # # Assuming your dataframe 'data' has columns: year_index, station_index, day_index _ this doesn't work
+    # #START HERE 2026-02-08!!
+    # for (i in 1:nrow(top_obs_names.df)){
+    #   obs_array[obs == top_obs_names.df[i,"old.ID"]] <- top_obs_names.df[i, "new.ID"]
+    # }
+    #   
+    # jags.data$obs.fixed <- obs_array
+    # jags.data$n.obs.fixed <- (max(top_obs_names.df$new.ID)) + 1
+    # 
+    # #jags.data$scaled.day <- jags.data$day-(max.day/2)
+    # #jags.data["N"] <- NULL
+    # ###  ###  ###
+    # 
+    # # center and scale VS and BF
+    # vs.std <- jags.data$vs
+    # for (k in 1:dim(vs.std)[3]){
+    #   vs.std[,1,k] <- (vs.std[,1,k] - mean(vs.std[,1,k], na.rm = T))/sqrt(var(vs.std[,1,k], na.rm = T))
+    #   vs.std[,2,k] <- (vs.std[,2,k] - mean(vs.std[,2,k], na.rm = T))/sqrt(var(vs.std[,2,k], na.rm = T))
+    # }
+    # 
+    # bf.std <- jags.data$bf
+    # for (k in 1:dim(bf.std)[3]){
+    #   bf.std[,1,k] <- (bf.std[,1,k] - mean(bf.std[,1,k], na.rm = T))/sqrt(var(bf.std[,1,k], na.rm = T))
+    #   bf.std[,2,k] <- (bf.std[,2,k] - mean(bf.std[,2,k], na.rm = T))/sqrt(var(bf.std[,2,k], na.rm = T))
+    # }
+    # 
+    # jags.data$bf.1 <- jags.data$bf
+    # jags.data$bf <- bf.std
+    # jags.data$vs.1 <- jags.data$vs
+    # jags.data$vs <- vs.std
+    # 
+    # jags.data$start.years <- c(jags.input.list$jags.input.Laake$all.start.year,
+    #                            jags.input.list$jags.input.new$start.years)
+    # 
+    # jags.data$year.index <- jags.data$start.years - mean(jags.data$start.years)
+    # 
+    # jags.input <- list(jags.data = jags.data,
+    #                    min.dur = min.dur, 
+    #                    jags.input.Laake = jags.input.list$jags.input.Laake,
+    #                    jags.input.new = jags.input.list$jags.input.new,
+    #                    jags.original.data = jags.input.list$jags.data,
+    #                    data.dir = data.dir,
+    #                    obs.summary = obs.summary)
     
-    # Code observers so that only observers with the minimum sample size are kept
-    obs.vec <- as.vector(jags.data$obs) 
-    data.frame(obs = obs.vec) %>%
-      mutate(obs.f = as.factor(obs)) %>%
-      group_by(obs.f) %>%
-      summarize(n = n(),
-                obs = first(obs)) -> obs.summary
-    
-    obs.too.few <- obs.summary %>% filter(n < obs.n.min)  
-    
-    obs.to.keep <- obs.summary %>% filter(n >= obs.n.min) 
-    obs.to.keep$new.ID <- seq(1, dim(obs.to.keep)[1])
-    obs.others <- max(obs.to.keep$new.ID)
-    
-    obs <- jags.data$obs
-    new.no.obs <- obs.others + 1
-    old.no.obs <- max(obs.to.keep$obs)
-    for (k in 1:nrow(obs.too.few)){
-      obs[obs == obs.too.few$obs[k]] <- NA
-    }
-    
-    for (k in 1:(nrow(obs.to.keep)-1)){
-      obs[obs == obs.to.keep$obs[k]]  <- obs.to.keep$new.ID[k] 
-    }
-    
-    obs[is.na(obs)] <- obs.others
-    obs[obs == old.no.obs] <- new.no.obs
-    
-    jags.data$obs <- obs
-    jags.data$n.obs <- max(obs) - 1
-    
-    # Create a fixed observer effect input
-    obs_counts <- table(obs.vec)
-    top_obs_names.df <- data.frame(old.ID = names(sort(obs_counts, 
-                                                       decreasing = TRUE))[1:N.obs],
-                                   new.ID = c(1:N.obs))
-                                   
-    # Initialize the array with NAs or 0
-    # Dimensions: Max Days, Max Stations, Total Years
-    n_days_max <- dim(obs)[1] # or however you defined 'd'
-    n_stations_max <- dim(obs)[2]
-    n_years <- dim(obs)[3]
-    
-    obs_array <- array((N.obs+1), 
-                       dim = c(n_days_max, 
-                               n_stations_max, 
-                               n_years))
-    
-    # Fill the array
-    # Assuming your dataframe 'data' has columns: year_index, station_index, day_index _ this doesn't work
-    #START HERE 2026-02-08!!
-    for (i in 1:nrow(top_obs_names.df)){
-      obs_array[obs == top_obs_names.df[i,"old.ID"]] <- top_obs_names.df[i, "new.ID"]
-    }
-      
-    jags.data$obs.fixed <- obs_array
-    jags.data$n.obs.fixed <- (max(top_obs_names.df$new.ID)) + 1
-    
-    #jags.data$scaled.day <- jags.data$day-(max.day/2)
-    #jags.data["N"] <- NULL
-    ###  ###  ###
-    
-    # center and scale VS and BF
-    vs.std <- jags.data$vs
-    for (k in 1:dim(vs.std)[3]){
-      vs.std[,1,k] <- (vs.std[,1,k] - mean(vs.std[,1,k], na.rm = T))/sqrt(var(vs.std[,1,k], na.rm = T))
-      vs.std[,2,k] <- (vs.std[,2,k] - mean(vs.std[,2,k], na.rm = T))/sqrt(var(vs.std[,2,k], na.rm = T))
-    }
-    
-    bf.std <- jags.data$bf
-    for (k in 1:dim(bf.std)[3]){
-      bf.std[,1,k] <- (bf.std[,1,k] - mean(bf.std[,1,k], na.rm = T))/sqrt(var(bf.std[,1,k], na.rm = T))
-      bf.std[,2,k] <- (bf.std[,2,k] - mean(bf.std[,2,k], na.rm = T))/sqrt(var(bf.std[,2,k], na.rm = T))
-    }
-    
-    jags.data$bf.1 <- jags.data$bf
-    jags.data$bf <- bf.std
-    jags.data$vs.1 <- jags.data$vs
-    jags.data$vs <- vs.std
-    
-    jags.data$start.years <- c(jags.input.list$jags.input.Laake$all.start.year,
-                               jags.input.list$jags.input.new$start.years)
-    
-    jags.data$year.index <- jags.data$start.years - mean(jags.data$start.years)
-    
-    jags.input <- list(jags.data = jags.data,
-                       min.dur = min.dur, 
-                       jags.input.Laake = jags.input.list$jags.input.Laake,
-                       jags.input.new = jags.input.list$jags.input.new,
-                       jags.original.data = jags.input.list$jags.data,
-                       data.dir = data.dir,
-                       obs.summary = obs.summary)
+    jags.input <- NoBUGS_Jags_input(min.dur, years, data.dir, max.day, obs.n.min, N.obs)
+    jags.data <- jags.input$jags.data
     
     Start_Time<-Sys.time()
     
     jm <- jagsUI::jags(jags.data,
-                       inits = NULL,
+                       inits = inits,
                        parameters.to.save= jags.params,
                        model.file = jags.model,
                        n.chains = MCMC.params$n.chains,

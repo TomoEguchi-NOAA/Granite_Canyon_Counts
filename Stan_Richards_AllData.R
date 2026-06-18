@@ -51,7 +51,8 @@ for (y in 1:jags.data$n.year) {
         obs = jags.data$obs[d, s, y],
         watch_length = jags.data$watch.length[(d - 1), s, y],
         year_idx = y,
-        day_idx = jags.data$day[d, s, y]
+        day_idx = jags.data$day[d, s, y],
+        station_idx = s
       )
       counter <- counter + 1
     }
@@ -96,19 +97,15 @@ stan_data <- list(
   watch_length = flat_df$watch_length,
   start_idx    = start_idx,
   end_idx      = end_idx,
-  
-  # Hyper-parameters
-  S1_alpha     = 10.0,  # Match your uniform hyperprior midpoint bounds
-  S1_beta      = 1.0,
-  S2_alpha     = 10.0,
-  S2_beta      = 1.0,
-  log_K_mu     = 1.5,
-  log_K_sigma  = 0.5
+  day_idx      = flat_df$day_idx,
+  year_idx     = flat_df$year_idx,
+  station_idx  = flat_df$station_idx,
+  year_values  = c(1:jags.data$n.year)
 )
 
 # --- 4. Compile and Execute ---
 #file <- file.path("models/whale_model.stan")
-file <- file.path("models/model_Richards_HSSM_M1a2.stan")
+file <- file.path("models/model_Richards_HSSM_M1a2_reparam.stan")
 # Compile with aggressive C++ optimization flags
 mod <- cmdstan_model(file, 
                      cpp_options = list(stan_threads = TRUE, O = 3))
@@ -126,7 +123,7 @@ fit_stan <- mod$sample(
 )
 
 # --- 5. Inspect Results ---
-print(fit_stan$summary(c("mean_prob", "BF_Fixed", "VS_Fixed", "Max")))
+print(fit_stan$summary(c("S1", "S2", "P", "BF_Fixed", "VS_Fixed", "Max")))
 
 
 # --- Get Summaries for Specific Global Parameters ---
