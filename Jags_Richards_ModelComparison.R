@@ -50,7 +50,7 @@ prop.big.Rhat <- n.params <- n.big.Rhat <- n.bad.Pareto <- prop.bad.Pareto <- LO
 
 min.ESS.bulk <- min.ESS.tail <- min.ESS <- vector(mode = "numeric", length = length(model.names))
 new.Rhat <- LOOIC.n <- ESS.bulk <- ESS.tail <- list()
-k <- 6
+k <- 5
 for (k in 1:length(model.names)){
   .out <- readRDS(paste0("RData/JAGS_Richards_HSSM_", 
                          model.names[k], "_1968to", YEAR, "_min", 

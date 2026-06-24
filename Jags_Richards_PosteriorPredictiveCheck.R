@@ -1,15 +1,23 @@
-# Posterior predictive check 
-NOT COMPLETE YET. ONCE THE MODELS FINISH RUNNING, USE MODEL COMPARISON SCRIPT TO
-FIND THE BEST MODEL
 
+rm(list = ls())
+
+# Posterior predictive check 
 library(bayesplot)
 library(ggplot2)
 library(reshape2)
 
-# Bring in the best model:
+# Bring in the best model: this should be found after running Jags_Richards_ModelComparison.R
+# which uses tjhe results from Jags_Richards_AllData_n_models.R
+best.model <- "M1a2"
 
-jags_output <- readRDS("RData/")
-jags_fit <- jags_output$
+min.dur <- 60
+YEAR <- 2026  # the last season name
+run.date <- "2026-06-18"
+jags_output <- readRDS(paste0("RData/JAGS_Richards_HSSM_", 
+                              best.model, "_1968to", YEAR, "_min", 
+                              min.dur, "_", run.date, "_NoBUGS.rds"))
+
+jags_fit <- jags_output$jm
 
 # ==============================================================================
 # 1. ASSUMPTIONS & PREREQUISITES

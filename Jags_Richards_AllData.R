@@ -34,117 +34,237 @@
 # v2: 
 # v3: 
 
+
 rm(list = ls())
 
-#library(ERAnalysis)
 library(tidyverse)
-library(ggplot2)
 library(loo)
-library(bayesplot)
-library(posterior)
 
 source("Granite_Canyon_Counts_fcns.R")
-options(mc.cores = 5)
-save.plot <- F
-
-WinBUGS.Run.Date <- "2025-04-11"
-#WinBUGS.Run.Date <- "2025-06-06"
-
-Run.date <- "2025-06-24" #Sys.Date() #"2025-04-21" #"2025-04-17" #
+source("Richards_HSSM_model_definition.R")
+options(mc.cores = parallel::detectCores())
 
 # Minimum length of observation periods in minutes
 min.dur <- 60 #10 #85 #
 
-ver <- "v8a1"  #"v5a1" #"v2a1" 
+model.name <- "models/model_Richards_HSSM_M1a2.jags"
+
+Run.date <- Sys.Date()
 
 # These are the ending year of each season - for example, 2022 in the following vector indicates
 # for the 2021/2022 season. These data were extracted using Extract_Data_All_v2.Rmd
 # Data prior to the 2009/2010 season are in Laake's ERAnalayis package. 
-years <- c(2008, 2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025)
-data.dir <- "RData/V2.1_Feb2025"
+years <- c(2008, 2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025, 2026)
+data.dir <- "RData/V2.1_May2026"
 max.day <- 100
 
-# MCMC.params <- list(n.samples = 550000,
-#                     n.thin = 100,
-#                     n.burnin = 500000,
-#                     n.chains = 5)
-
-# MCMC.params <- list(n.samples = 200000,
-#                     n.thin = 100,
-#                     n.burnin = 150000,
-#                     n.chains = 5)
-
+#5000 samples
 MCMC.params <- list(n.samples = 250000,
                     n.thin = 200,
                     n.burnin = 50000,
                     n.chains = 5)
-# 
-# 
-MCMC.params <- list(n.samples = 10000,
-                    n.thin = 10,
-                    n.burnin = 5000,
-                    n.chains = 5)
 
+# 225 samples
 # MCMC.params <- list(n.samples = 100,
 #                     n.thin = 2,
-#                     n.burnin = 50,
+#                     n.burnin = 10,
 #                     n.chains = 5)
 
 jags.params <- c("VS.Fixed", "BF.Fixed",
                  "Max", "K", "K1", "K2", "S1", "S2", "P",
-                 "P1", "P2",
                  "mean.prob", "prob", "obs.prob",
                  "mean.N", "Corrected.Est", "N", "obs.N",
                  #"OBS.RF", "sigma.Obs",
                  "Max.alpha", "Max.beta",
                  "S1.alpha", "S2.alpha",
                  "S1.beta", "S2.beta",
-                 "mu.P", "rho.P", "sd.proc.P",
-                 "mu.log.Max", "rho.Max", "sd.proc.Max",
+                 "beta0.P", "beta1.P", "sd.proc.P",
+                 "beta.p",  "sd.obs",
+                 "beta0.Max", "beta1.Max", "sd.proc.Max",
                  "Raw.Est", "beta.obs",
-                 "alpha",
+                 "alpha", "r", "kappa",
                  #"P.alpha", "P.beta",
                  #"K.alpha", "K.beta",
                  #"beta.1",
                  #"N.alpha", "N.obs",
                  "log.lkhd")
 
+jags.input <- NoBUGS_Jags_input(min.dur, years, data.dir, max.day)
+jags.data <- jags.input$jags.data
 
-# The following function uses "new" data since 2010 as well as those from Laake's 
-# analysis to compute abundance since the 1967/1968 season. There were two seasons
-# where the survey continued beyond the 90th day. So, max.day needs to be increased
-# from 90. I used 100. 
-# obs.n.min is not used for the fixed observer effects. N.obs is used in
-# fixed observer effects. HSSM uses fixed effects. 
-jags.input.list <- AllData2JagsInput_NoBUGS(min.dur, 
-                                            years = years, 
-                                            data.dir, max.day) 
+model.name.no.dir <- strsplit(model.name, split = "models/")[[1]][2]
+
+if (length(grep("M1a", model.name)) > 0){
+  S1.length <- jags.data$n.year
+  S2.length <- jags.data$n.year
+}
+
+if (length(grep("M2a", model.name)) > 0){
+  S1.length <- 1
+  S2.length <- 1
+}
+
+if (length(grep("M3a", model.name)) > 0){
+  S1.length <- jags.data$n.year
+  S2.length <- 1
+}
+
+if (length(grep(c("M4a"), model.name)) > 0){
+  S1.length <- 1
+  S2.length <- jags.data$n.year
+} 
+
+make_inits <- function(seed) list(
+  beta0.P = runif(1, 35, 55),  
+  beta1.P = rnorm(1, 0, 1),  
+  sd.proc.P = runif(1, 0.5, 3),
+  P = runif(jags.data$n.year, 35, 55),
+  beta0.Max = rnorm(1, 7.6, 0.7), 
+  beta1.Max = rnorm(1, 0, 0.5), 
+  sd.proc.Max = runif(1, 0.2, 1),
+  log.Max = rnorm(jags.data$n.year, 7.6, 0.7),
+  S1 = runif(S1.length, 1, 12), 
+  S2 = runif(S2.length, 1, 12),   # wide -> spreads chains across the sharp/gradual basins
+  S1.alpha = runif(1, 5, 15), 
+  S1.beta = runif(1, 0.5, 2),
+  S2.alpha = runif(1, 5, 15), 
+  S2.beta = runif(1, 0.5, 2),
+  r = runif(1, 1, 20),
+  BF.Fixed = rnorm(1, 0, 1), 
+  VS.Fixed = rnorm(1, 0, 1),
+  sd.obs = runif(1, 0.3, 1.2), 
+  alpha = rnorm(jags.data$n.obs.fixed, 1.39, 0.5),
+  .RNG.name = "base::Mersenne-Twister", .RNG.seed = seed
+)
+
+inits <- lapply(1:MCMC.params$n.chains, function(i) make_inits(1000 + i))
 
 jm.out <- NoBUGS_Richards_fcn(min.dur = min.dur, 
-                              ver = ver, 
                               years = years, 
-                              data.dir = "RData/V2.1_Feb2025", 
+                              data.dir = data.dir, 
                               jags.params = jags.params, 
                               MCMC.params = MCMC.params,
                               Run.date = Run.date,
-                              obs.n.min = 50,
+                              obs.n.min = 10,
                               max.day = 100,
                               N.obs = 10,
-                              model.name.root = "Richards_HSSM_")
+                              model.name = model.name.no.dir,
+                              ext = ".jags",
+                              inits = inits)
 
-# better ESS computations:
-#post <- as_draws(jm.out$jm$samples)
-summary.posterior <- jm.out$posterior.summary #summarise_draws(post)
 
-summary.posterior %>%
-  select(variable, ess_bulk) %>%
-  na.omit() %>%
-  arrange(ess_bulk) -> ESS.bulk
-
-summary.posterior %>%
-  select(variable, ess_tail) %>%
-  na.omit() %>%
-  arrange(ess_tail) -> ESS.tail
+################# old code starts here: #############################
+# rm(list = ls())
+# 
+# #library(ERAnalysis)
+# library(tidyverse)
+# library(ggplot2)
+# library(loo)
+# library(bayesplot)
+# library(posterior)
+# 
+# source("Granite_Canyon_Counts_fcns.R")
+# options(mc.cores = 5)
+# save.plot <- F
+# 
+# WinBUGS.Run.Date <- "2025-04-11"
+# #WinBUGS.Run.Date <- "2025-06-06"
+# 
+# Run.date <- "2025-06-24" #Sys.Date() #"2025-04-21" #"2025-04-17" #
+# 
+# # Minimum length of observation periods in minutes
+# min.dur <- 60 #10 #85 #
+# 
+# ver <- "v8a1"  #"v5a1" #"v2a1" 
+# 
+# # These are the ending year of each season - for example, 2022 in the following vector indicates
+# # for the 2021/2022 season. These data were extracted using Extract_Data_All_v2.Rmd
+# # Data prior to the 2009/2010 season are in Laake's ERAnalayis package. 
+# years <- c(2008, 2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025)
+# data.dir <- "RData/V2.1_Feb2025"
+# max.day <- 100
+# 
+# # MCMC.params <- list(n.samples = 550000,
+# #                     n.thin = 100,
+# #                     n.burnin = 500000,
+# #                     n.chains = 5)
+# 
+# # MCMC.params <- list(n.samples = 200000,
+# #                     n.thin = 100,
+# #                     n.burnin = 150000,
+# #                     n.chains = 5)
+# 
+# MCMC.params <- list(n.samples = 250000,
+#                     n.thin = 200,
+#                     n.burnin = 50000,
+#                     n.chains = 5)
+# # 
+# # 
+# MCMC.params <- list(n.samples = 10000,
+#                     n.thin = 10,
+#                     n.burnin = 5000,
+#                     n.chains = 5)
+# 
+# # MCMC.params <- list(n.samples = 100,
+# #                     n.thin = 2,
+# #                     n.burnin = 50,
+# #                     n.chains = 5)
+# 
+# jags.params <- c("VS.Fixed", "BF.Fixed",
+#                  "Max", "K", "K1", "K2", "S1", "S2", "P",
+#                  "P1", "P2",
+#                  "mean.prob", "prob", "obs.prob",
+#                  "mean.N", "Corrected.Est", "N", "obs.N",
+#                  #"OBS.RF", "sigma.Obs",
+#                  "Max.alpha", "Max.beta",
+#                  "S1.alpha", "S2.alpha",
+#                  "S1.beta", "S2.beta",
+#                  "mu.P", "rho.P", "sd.proc.P",
+#                  "mu.log.Max", "rho.Max", "sd.proc.Max",
+#                  "Raw.Est", "beta.obs",
+#                  "alpha",
+#                  #"P.alpha", "P.beta",
+#                  #"K.alpha", "K.beta",
+#                  #"beta.1",
+#                  #"N.alpha", "N.obs",
+#                  "log.lkhd")
+# 
+# 
+# # The following function uses "new" data since 2010 as well as those from Laake's 
+# # analysis to compute abundance since the 1967/1968 season. There were two seasons
+# # where the survey continued beyond the 90th day. So, max.day needs to be increased
+# # from 90. I used 100. 
+# # obs.n.min is not used for the fixed observer effects. N.obs is used in
+# # fixed observer effects. HSSM uses fixed effects. 
+# jags.input.list <- AllData2JagsInput_NoBUGS(min.dur, 
+#                                             years = years, 
+#                                             data.dir, max.day) 
+# 
+# jm.out <- NoBUGS_Richards_fcn(min.dur = min.dur, 
+#                               ver = ver, 
+#                               years = years, 
+#                               data.dir = "RData/V2.1_Feb2025", 
+#                               jags.params = jags.params, 
+#                               MCMC.params = MCMC.params,
+#                               Run.date = Run.date,
+#                               obs.n.min = 50,
+#                               max.day = 100,
+#                               N.obs = 10,
+#                               model.name.root = "Richards_HSSM_")
+# 
+# # better ESS computations:
+# #post <- as_draws(jm.out$jm$samples)
+# summary.posterior <- jm.out$posterior.summary #summarise_draws(post)
+# 
+# summary.posterior %>%
+#   select(variable, ess_bulk) %>%
+#   na.omit() %>%
+#   arrange(ess_bulk) -> ESS.bulk
+# 
+# summary.posterior %>%
+#   select(variable, ess_tail) %>%
+#   na.omit() %>%
+#   arrange(ess_tail) -> ESS.tail
 
 # if (!jm.out$new.run){
 #   jags.params <- jm.out$jags.params
