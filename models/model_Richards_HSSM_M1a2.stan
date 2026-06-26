@@ -14,17 +14,19 @@
 data {
   int<lower=1> n_year;
   int<lower=1> n_days;
-  int<lower=1> n_obs;       
+  int<lower=1> n_obs;        
   int<lower=1> N_flat;      
   
   array[N_flat] int n;      
-  array[N_flat] real bf;     // FIXED: Now correctly declared as an array of reals
-  array[N_flat] real vs;     
-  array[N_flat] int obs;     
+  array[N_flat] real bf;    
+  array[N_flat] real vs;    
+  array[N_flat] int obs;    
   vector[N_flat] watch_length;
+  vector[n_year] year_values;
   
-  array[n_days, n_year] int start_idx;
-  array[n_days, n_year] int end_idx;
+  // Mapping indices for the observation loop
+  array[N_flat] int day_idx;
+  array[N_flat] int year_idx;
   
   real<lower=0> S1_alpha; real<lower=0> S1_beta;
   real<lower=0> S2_alpha; real<lower=0> S2_beta;
@@ -32,111 +34,170 @@ data {
 }
 
 parameters {
-  vector<lower=0>[n_year] Max;
-  vector<lower=0, upper=20>[n_year] S1;
-  vector<lower=0, upper=20>[n_year] S2;
-  vector<lower=1e-3>[n_year] K;
-  vector<lower=30, upper=60>[n_year] P;
+  vector<lower=0.1, upper=20>[n_year] S1;
+  vector<lower=0.1, upper=20>[n_year] S2;
+  //vector<lower=1e-3, upper=2>[n_year] K;
   
-  real mean_prob;
+  vector[n_obs] OBS_RF;     
+  vector<lower=0, upper=50>[n_year] r; // Dispersion parameter per year
+  
+  real<lower=-1.5,upper=3> mean_prob;
   real BF_Fixed;
   real VS_Fixed;
-  real<lower=0> sigma_Obs;
-  vector[n_obs] OBS_RF;     
+  real<lower=0.01> K;
   
-  matrix<lower=1e-3, upper=50>[n_days, n_year] r;
+  real<lower=0, upper=3> sigma_Obs;
+  real<lower=0> sigma_process;
+  
+  // Latent abundance process (continuous approximation)
+  matrix[n_days, n_year] log_N_raw;
+  
+  // Richards Trend Hyper-parameters
+  real<lower=0, upper=30> beta0_P;
+  real beta1_P;
+  real<lower=0> sigma_proc_P;
+  
+  real beta0_Max; // This is on log scale per your JAGS model [cite: 17]
+  real beta1_Max;
+  real<lower=0> sigma_proc_Max;
+  
+  // Random year effects (raw for non-centered parameterization)
+  vector[n_year] P_raw;
+  vector[n_year] log_Max_raw;
 }
 
 transformed parameters {
   vector[N_flat] obs_prob;
   matrix[n_days, n_year] mean_N;
-
+  matrix[n_days, n_year] N_latent; // The "True" Abundance
+  matrix[n_days, n_year] log_N_latent;
+  
+  vector[n_year] P;
+  vector[n_year] Max;
+  
+  for (y in 1:n_year) {
+    // 1. Peak Day (P) trend: 
+    real mu_P = beta0_P + (beta1_P * year_values[y]);
+	
+    P[y] = mu_P + (sigma_proc_P * P_raw[y]);
+    
+    // 2. Max trend: [cite: 17, 18]
+    real mu_log_Max = beta0_Max + (beta1_Max * year_values[y]);
+    real log_Max = mu_log_Max + (sigma_proc_Max * log_Max_raw[y]);
+    Max[y] = exp(log_Max);
+  }
+  
+  // 1. Calculate Detection Probability
   for (i in 1:N_flat) {
-    obs_prob[i] = inv_logit(mean_prob + 
-                            (BF_Fixed * bf[i]) + 
-                            (VS_Fixed * vs[i]) + 
-                            OBS_RF[obs[i]] + 
-                            log(watch_length[i] + 1e-9)); 
+    obs_prob[i] = inv_logit(mean_prob + (BF_Fixed * bf[i]) + (VS_Fixed * vs[i]) + 
+                            OBS_RF[obs[i]]); 
   }
 
+  // 2. Richards Migration Curve
   for (y in 1:n_year) {
     for (t in 1:n_days) {
       if (t == 1 || t == n_days) {
-        mean_N[t, y] = 1e-6; 
+        log_N_latent[t, y] = -11.5; // log(1e-5)
+        N_latent[t, y] = 1e-5;
       } else {
-        real base1 = 1 + (2 * exp(K[y]) - 1) * exp((1 / (-S1[y])) * (P[y] - t));
-        real base2 = 1 + (2 * exp(K[y]) - 1) * exp((1 / S2[y]) * (P[y] - t));
+        // Calculate Richards in parts to stay away from 0
+        real p_minus_t = P[y] - t;
         
-        real safe_base1 = max([base1, 1e-9]);
-        real safe_base2 = max([base2, 1e-9]);
+        // Use log1p(exp(x)) for stability if needed, 
+        // but here we just ensure the inner exp doesn't explode
+        real inv_S1 = 1.0 / S1[y];
+        real inv_S2 = 1.0 / S2[y];
         
-        real M1 = pow(safe_base1, -1 / exp(K[y]));
-        real M2 = pow(safe_base2, -1 / exp(K[y]));
+        // We use a safe ceiling for the exponent to prevent overflow
+        real exp1 = exp(fmin(-inv_S1 * p_minus_t, 20.0));
+        real exp2 = exp(fmin(inv_S2 * p_minus_t, 20.0));
         
-        mean_N[t, y] = Max[y] * (M1 * M2);
+        real base1 = (1 + (2 * exp(K) - 1) * exp1);
+        real base2 = (1 + (2 * exp(K) - 1) * exp2);
+        
+		real log_mean_N = log(Max[y]) - (1.0 / exp(K)) * (log(fmax(base1, 1e-9)) + log(fmax(base2, 1e-9)));
+
+        // Now apply the process error in log-space
+        log_N_latent[t, y] = log_mean_N + (sigma_process * log_N_raw[t, y]);
+        N_latent[t, y] = exp(log_N_latent[t, y]);
       }
     }
   }
+  
 }
 
 model {
-  Max ~ normal(2000, 800);
+  // --- Priors ---
+  beta0_P ~ uniform(30, 60);       // [cite: 15]
+  beta1_P ~ normal(0, 0.25);         // 1/sqrt(0.25) = 2 [cite: 15]
+  sigma_proc_P ~ normal(0, 1);    // [cite: 15]
+  
+  beta0_Max ~ normal(7.6, 2);     // [cite: 17]
+  beta1_Max ~ normal(0, 2);       // [cite: 17]
+  sigma_proc_Max ~ normal(0, 1);  // [cite: 17]
+  
+  // --- Sampling Raw Random Effects ---
+  P_raw ~ std_normal();
+  log_Max_raw ~ std_normal();
+  
+  // Priors
+  //Max ~ normal(2000, 800);
   S1 ~ gamma(S1_alpha, S1_beta);
   S2 ~ gamma(S2_alpha, S2_beta);
   K ~ lognormal(log_K_mu, log_K_sigma);
-  P ~ uniform(30, 60);
-  
+  //P ~ uniform(30, 60);
   mean_prob ~ uniform(-1.5, 3);
   BF_Fixed ~ normal(0, 30);
   VS_Fixed ~ normal(0, 30);
-  
   sigma_Obs ~ uniform(0, 3);
   OBS_RF ~ normal(0, sigma_Obs);
-  
-  for(y in 1:n_year) {
-    to_vector(r[,y]) ~ uniform(1e-3, 50);
-  }
+  sigma_process ~ normal(0, 1);
+  r ~ uniform(0, 50);
 
-// --- Optimized Likelihood (Vectorized Marginalization Loop) ---
+  // --- PROCESS MODEL ---
   for (y in 1:n_year) {
-    for (t in 1:n_days) {
-      int start = start_idx[t, y];
-      int end = end_idx[t, y];
+    for (t in 2:(n_days - 1)) {
       
-      if (start <= end) { // Check if we have observations for this specific day
-        
-        // Find maximum observed count for the day
-        int max_n = 0;
-        for (i in start:end) {
-          if (n[i] > max_n) max_n = n[i];
-        }
-        
-        // --- OPTIMIZATION: Tighter integration buffer ---
-        // Changed from +120 to +50. Adjust this if your detection prob is tiny.
-        int K_val = max_n + 50; 
-        vector[K_val - max_n + 1] lp;
-        
-        if (t == 1 || t == n_days) {
-          real log_prob_N = neg_binomial_2_lpmf(0 | mean_N[t, y], r[t, y]);
-          
-          // --- OPTIMIZATION: Vectorized Binomial ---
-          real log_prob_obs = binomial_lpmf(n[start:end] | 0, obs_prob[start:end]);
-          
-          target += log_prob_N + log_prob_obs;
-        } else {
-          for (N_val in max_n:K_val) {
-            real log_prob_N = neg_binomial_2_lpmf(N_val | mean_N[t, y], r[t, y]);
-            
-            // --- OPTIMIZATION: Vectorized Binomial ---
-            // Eliminates the inner 'for (i in start:end)' loop entirely!
-            real log_prob_obs = binomial_lpmf(n[start:end] | N_val, obs_prob[start:end]);
-            
-            lp[N_val - max_n + 1] = log_prob_N + log_prob_obs;
-          }
-          target += log_sum_exp(lp); 
-        }
-      }
+      log_N_raw[t, y] ~ std_normal();
     }
   }
+
+  // --- OBSERVATION MODEL (Negative Binomial) ---
+  for (i in 1:N_flat) {
+    int d = day_idx[i];
+    int y = year_idx[i];
+    
+    // N_latent[d,y] is the true abundance; obs_prob[i] is the detection rate
+    // We use the same Negative Binomial parameterization as your JAGS model:
+    // n ~ NegBin(kappa, r) where kappa = N * p
+    // 1. Calculate the number of whales that could be seen given the effort
+    real whales_available = N_latent[d, y] * watch_length[i];
+    
+    // 2. Expected mean (kappa)
+    real kappa = whales_available * obs_prob[i];
+    
+    // 3. Negative Binomial Likelihood
+    n[i] ~ neg_binomial_2(fmax(kappa, 1e-6), r[y]);
+
+  }
+}
+
+generated quantities {
+  vector[n_year] Raw_Est;
+  vector[n_year] Corrected_Est;
   
+  // Define correction factor parameters
+  real mean_corr = 1.0875;
+  real sd_corr = 0.03625;
+  
+  for (y in 1:n_year) {
+    // Sum the latent abundance for the year
+    Raw_Est[y] = sum(N_latent[1:n_days, y]);
+    
+    // Sample the correction factor distribution for this iteration
+    real corr_factor = normal_rng(mean_corr, sd_corr);
+    
+    // Apply correction
+    Corrected_Est[y] = Raw_Est[y] * corr_factor;
+  }
 }
