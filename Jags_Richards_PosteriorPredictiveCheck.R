@@ -19,11 +19,13 @@ max.day <- 100
 YEAR <- 2026  # the last season name
 run.date <- "2026-06-24"  # This is the version with "kappa" monitored. Previous runs that 
 # were used to compare models (Jags_Richards_ModelComparison.R) did not include "kappa" in
-# the list of monitored parameters
+# the list of monitored parameters. Run date has been removed for running the Quarto document
 jags_output <- readRDS(paste0("RData/JAGS_Richards_HSSM_", 
                               best.model, "_1968to", YEAR, "_min", 
-                              min.dur, "_", run.date, "_NoBUGS.rds"))
+                              min.dur, "_NoBUGS.rds"))
 
+# "_", run.date, 
+# 
 jags_fit <- jags_output$jm
 
 # Need all seasons:
