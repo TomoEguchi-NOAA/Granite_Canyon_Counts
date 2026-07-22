@@ -393,11 +393,14 @@ for (nm in names(header_labels)) {
 # lazy-load database has a hard limit: it cannot store objects larger than 2GB 
 # (which R refers to internally as "long vectors").
 
-# Because your jm.out MCMC array is massive, R crashes when knitr attempts to 
+# Because jm.out MCMC array is massive, R crashes when knitr attempts to 
 # cache it at the end of the chunk.
 
 #rm(list = c(".out"))
 ver <- "M1a2" #5 #out.table$model[1] #5
+# I removed the run-date from the file name - the run-date is automatically added
+# to the file name, so remove it before running this code. Otherwise, the "cannot open..."
+# error comes back. 
 jm.out <- readRDS(paste0("RData/JAGS_Richards_HSSM_",
                          ver,
                          "_1968to", YEAR, "_min", min.dur,
