@@ -46,7 +46,6 @@ library(ggridges)
 library(rstanarm)
 library(mgcv)
 
-
 source("Granite_Canyon_Counts_fcns.R")
 
 options(mc.cores = 5)
@@ -65,7 +64,7 @@ dpi.set <- 600
 # It was run in the GrayWhaleAbundance project. 
 WinBUGS.Run.Date <- "2026-05-06"  
 
-save.fig <- T
+save.fig <- T #F 
 save.fig.fcn <- function(fig, file.name, replace = F, 
                          dpi = dpi.set, device = "png",
                          height = 3, width = 3, units = "in",
@@ -166,7 +165,11 @@ where $q = \theta/(\theta + \kappa)$. When $\theta \to \infty$, the Negative Bin
 Each parameter had a hyper-distribution of either a normal, uniform, or gamma distribution (Appendix Table A`r run_reference("hyperparameter-table")`).
 
 
-```{r model-definitions-table, echo=FALSE, message=FALSE}
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
 all.model.names <- c("M1a1", "M2a1", "M3a1", "M4a1","M1a2", "M2a2", "M3a2", "M4a2")
 model.defs <- data.frame(ID = all.model.names,
                          Lkhd = c(rep("POI", 4), rep("NB", 4)),
@@ -196,135 +199,34 @@ $$ N_y = \lambda * \sum_{d = 1} ^ {max(d)} \bar{N}_{d, y} $$ {#eq-Total_N} and
 
 $$ \lambda \sim N(1.0875, 0.03625) $$ (Perryman et al. 1999).
 
-```{r hyper-parameters, echo=FALSE, message=FALSE}
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
 
-hyper.params <- data.frame(Parameter = c("P[y]", "sigma2.P", "beta0.P", "beta1.P", 
-                                         "log(Max[y])", "sigma2.log.Max", "beta0.Max", "beta1.Max",
-                                         "beta.BF", "beta.VS", 
-                                         "S1[y]", "S1.alpha", "S1.beta", 
-                                         "S2[y]", "S2.alpha", "S2.beta"),
-                           Distribution = c("Normal(mu.P[y], sigma2.P)",
-                                            "Normal(0, 1)T(0,)",
-                                            "Uniform(30, 60)",
-                                            "Normal(0, 4)",
-                                            
-                                            "Normal(mu.log.Max[y], sigma2.log.Max)",
-                                            "Normal(0, 1)T(0,)",
-                                            "Normal(7.6, 4)",
-                                            "Normal(0, 4)",
-                                            
-                                            "Normal(0, 4)",
-                                            "Normal(0, 4)",
-                                            
-                                            "Gamma(S1.alpha, S1.beta)",
-                                            "Normal(10, 10)T(0,)",
-                                            "Gamma(1, 1)",
-                                            
-                                            "Gamma(S2.alpha, S2.beta)",
-                                            "Normal(10, 10)T(0,)",
-                                            "Gamma(1, 1)"))
+hyper.params <- tibble(Parameter = c("P[y]", "\\sigma^2_P", "\\beta_{0,P}", "\\beta_{1,P}", "\\text{log(Max[y])}", "\\sigma^2_{log(Max)}", "\\beta_{0,Max}", "\\beta_{1,Max}", "\\beta_{B}", "\\beta_{V}", "\\text{S}_1[y]", "\\alpha_{S1}", "\\beta_{S1}", "\\text{S}_2[y]", "\\alpha_{S2}", "\\beta_{S2}"),
+                       Distribution = c("\\text{Normal}(\\mu_{P[y]}, \\sigma^2_P)", "\\text{Normal}(0, 1)T(0,)", "\\text{Uniform}(30, 60)", "\\text{Normal}(0, 4)", "\\text{Normal}(\\mu_{log.Max[y]}, \\sigma^2_{log(Max)})", "\\text{Normal}(0, 1)T(0,)", "\\text{Normal}(7.6, 4)", "\\text{Normal}(0, 4)", "\\text{Normal}(0, 4)", "\\text{Normal}(0, 4)", "\\text{Gamma}(\\alpha_{S1}, \\beta_{S1})", "\\text{Normal}(10, 10)T(0,)", "\\text{Gamma}(1, 1)", "\\text{Gamma}(\\alpha_{S2}, \\beta_{S2})", "\\text{Normal}(10, 10)T(0,)", "\\text{Gamma}(1, 1)"))
 
-# sigma = U03C3
-# beta = U03B2
-# mu = U03BC
-# alpha = U03B1
-
-hyper.params %>%
-  flextable() %>%
-  set_table_properties(layout = "autofit") %>%
-  #autofit() %>%
-  paginate(init = TRUE, hdr_ftr = TRUE) %>%
-  compose(i = 1, j = "Distribution",
-          value = as_paragraph(as_chunk("Normal(\U03BC"),
-                               as_chunk("P",
-                                        props = fp_text(vertical.align = "subscript")),
-                               as_chunk("[y], \U03C3"),
-                               as_chunk("2",
-                                        props = fp_text(vertical.align = "superscript")),
-                               as_chunk("P",
-                                        props = fp_text(vertical.align = "subscript")),
-                               as_chunk(")"))) %>%
-  compose(i = 2, j = "Parameter",
-          value = as_paragraph(as_chunk("\U03C3"),
-                               as_chunk("2",
-                                        props = fp_text(vertical.align = "superscript")),
-                               as_chunk("P",
-                                        props = fp_text(vertical.align = "subscript")))) %>%
-  compose(i = 3, j = "Parameter",
-          value = as_paragraph(as_chunk("\U03B2"),
-                               as_chunk("0,P", props = fp_text(vertical.align = "subscript")))) %>%
-  compose(i = 4, j = "Parameter",
-          value = as_paragraph(as_chunk("\U03B2"), 
-                               as_chunk("1,P", props = fp_text(vertical.align = "subscript")))) %>%
-  compose(i = 5, j = "Distribution",
-          value = as_paragraph(as_chunk("Normal(\U03BC"),
-                               as_chunk("log(Max)",
-                                        props = fp_text(vertical.align = "subscript")),
-                               as_chunk("[y], \U03C3"),
-                               as_chunk("2",
-                                        props = fp_text(vertical.align = "superscript")),
-                               as_chunk("log(Max)",
-                                        props = fp_text(vertical.align = "subscript")),
-                               as_chunk(")"))) %>%
-  compose(i = 6, j = "Parameter",
-          value = as_paragraph(as_chunk("\U03C3"),
-                               as_chunk("2",
-                                        props = fp_text(vertical.align = "superscript")),
-                               as_chunk("log(Max)",
-                                        props = fp_text(vertical.align = "subscript")))) %>%
-  compose(i = 7, j = "Parameter",
-          value = as_paragraph(as_chunk("\U03B2"),
-                               as_chunk("0,log(Max)", props = fp_text(vertical.align = "subscript")))) %>%
-  compose(i = 8, j = "Parameter",
-          value = as_paragraph(as_chunk("\U03B2"),
-                               as_chunk("1,log(Max)", props = fp_text(vertical.align = "subscript")))) %>%
-  compose(i = 9, j = "Parameter",
-          value = as_paragraph(as_chunk("\U03B2"), 
-                               as_chunk("B", props = fp_text(vertical.align = "subscript")))) %>%
-  compose(i = 10, j = "Parameter",
-          value = as_paragraph(as_chunk("\U03B2"), 
-                               as_chunk("V", props = fp_text(vertical.align = "subscript")))) %>%
-  compose(i = 11, j = "Parameter",
-          value = as_paragraph(as_chunk("S"), 
-                               as_chunk("1", props = fp_text(vertical.align = "subscript")),
-                               as_chunk("[y]"))) %>%
-  compose(i = 11, j = "Distribution",
-          value = as_paragraph(as_chunk("Gamma(\U03B1"),
-                               as_chunk("S1",
-                                        props = fp_text(vertical.align = "subscript")),
-                               as_chunk(", \U03B2"),
-                               as_chunk("S1",
-                                        props = fp_text(vertical.align = "subscript")),
-                               as_chunk(")"))) %>%
-  compose(i = 12, j = "Parameter",
-          value = as_paragraph(as_chunk("\U03B1"), 
-                               as_chunk("S1", props = fp_text(vertical.align = "subscript")))) %>%
-  compose(i = 13, j = "Parameter",
-          value = as_paragraph(as_chunk("\U03B2"), 
-                               as_chunk("S1", props = fp_text(vertical.align = "subscript")))) %>%
-  compose(i = 14, j = "Parameter",
-          value = as_paragraph(as_chunk("S"), 
-                               as_chunk("2", props = fp_text(vertical.align = "subscript")),
-                               as_chunk("[y]"))) %>%
-  compose(i = 14, j = "Distribution",
-          value = as_paragraph(as_chunk("Gamma(\U03B1"),
-                               as_chunk("S2",
-                                        props = fp_text(vertical.align = "subscript")),
-                               as_chunk(", \U03B2"),
-                               as_chunk("S2",
-                                        props = fp_text(vertical.align = "subscript")),
-                               as_chunk(")"))) %>%
-  compose(i = 15, j = "Parameter",
-          value = as_paragraph(as_chunk("\U03B1"), 
-                               as_chunk("S2", props = fp_text(vertical.align = "subscript")))) %>%
-  compose(i = 16, j = "Parameter",
-          value = as_paragraph(as_chunk("\U03B2"), 
-                               as_chunk("S2", props = fp_text(vertical.align = "subscript")))) ->
-  ft.hyper.params
-  # compose(i = 9, j = "Parameter",
-  #         value = as_paragraph(as_chunk("\U03B2"), 
-  #                              as_chunk("0", props = fp_text(vertical.align = "subscript"))))  -> 
+# 2. Build table and parse math using equatags
+flextable(hyper.params) %>%
+  theme_booktabs() %>%
   
+  # Natively handle the math using compose() and as_equation()
+  compose(
+    j = c("Parameter"),
+    value = as_paragraph(as_equation(Parameter))
+  ) %>% 
+  compose(
+    j = c("Distribution"),
+    value = as_paragraph(as_equation(Distribution))
+  ) %>% 
+  
+  # Design enhancements
+  bold(part = "header") %>%
+  bg(part = "header", bg = "#F8F9FA") %>%
+  align(align = "left", part = "all") %>%
+  valign(valign = "top", part = "body") %>%
+  padding(padding = 5, part = "all")  -> ft.hyper.params
 
 ```
 
@@ -340,52 +242,48 @@ To ensure reproducibility and streamline future annual abundance estimation, a c
 
 # Results {.unnumbered}
 
-```{r model-comparison, echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE}
+```{r model-comparison}
+#| echo: false
+#| message: false
+#| warning: false
+
 # Model comparison was completed in Jags_Richards_ModelComparison.R and
 # results saved in a .rds file. To change that, run the script again.
 # 
 out.table <- readRDS(paste0("RData/Richards_ModelComparison_", YEAR, ".rds"))
+
 out.table %>% 
-  select(model, n.params, n.big.Rhat, p.big.Rhat, n.bad.Pareto, p.bad.Pareto, min.ESS.bulk, min.ESS.tail, dLOOIC) %>%
+  select(model, n.params, n.big.Rhat, n.bad.Pareto, min.ESS.bulk, min.ESS.tail, dLOOIC) %>% 
+  tibble() %>%
   flextable() %>%
-  colformat_double(j = c("dLOOIC", "p.big.Rhat", "p.bad.Pareto",
+  theme_booktabs() %>%
+  colformat_double(j = c("dLOOIC", 
                          "min.ESS.bulk", "min.ESS.tail"),
                    digits = 2) %>%
-  compose(part = "header", j = "dLOOIC",
-          value = as_paragraph(as_chunk("\u0394"), as_chunk("LOOIC"))) -> ft.models.comp
+  compose(part = "header", j = 1,
+          value = as_paragraph("Model")) %>%
+  compose(part = "header", j = 2,
+          value = as_paragraph("# parameters")) %>%
+  compose(part = "header", j = 3,
+          value = as_paragraph(as_equation("\\text{\\#} \\hat{R} > 1.01"))) %>%
+  compose(part = "header", j = 4,
+          value = as_paragraph(as_equation("\\text{\\# Pareto-k} > 0.7"))) %>%
+  compose(part = "header", j = 5,
+          value = as_paragraph("Min bulk ESS")) %>%  
+  compose(part = "header", j = 6,
+          value = as_paragraph("Min tail ESS")) %>%  
+  compose(part = "header", j = 7,
+          value = as_paragraph(as_equation("\\Delta LOOIC"))) %>%
+  font(part = "header", fontname = "calibri") %>%
+  fontsize(part = "header", size = 9)-> ft.models.comp
 
-# ft.models.comp <- flextable(out.table)
-# 
-# ft.models.comp <- flextable::colformat_double(ft.models.comp,
-#                                            j = c("dLOOIC", "p.big.Rhat", "p.bad.Pareto"),
-#                                            digits = 2)
-# 
-# ft.models.comp <- flextable::compose(ft.models.comp, part = "header", j = "dLOOIC",
-#                           value = as_paragraph(as_chunk("\u0394"), as_chunk("LOOIC")))
-
-# Fix the column headers:
-
-header_labels <- list(
-  model = as_paragraph(as_chunk("Model")),
-  n.params = as_paragraph(as_chunk("# parameters")),
-  n.big.Rhat = as_paragraph(as_chunk(paste0("# ", R_hat, " > 1.01"))),
-  p.big.Rhat = as_paragraph(as_chunk(paste0("% ", R_hat, " > 1.01"))), 
-  n.bad.Pareto = as_paragraph(as_chunk("# Pareto-k > 0.7")),
-  p.bad.Pareto = as_paragraph(as_chunk("% Pareto-k > 0.7")),
-  min.ESS.bulk = as_paragraph(as_chunk("Min bulk ESS")),
-  min.ESS.tail = as_paragraph(as_chunk("Min tail ESS")))
-
-for (nm in names(header_labels)) {
-  ft.models.comp <- flextable::compose(ft.models.comp, 
-                                       part = "header", 
-                                       j = nm, 
-                                       value = header_labels[[nm]])
-}
-
-#ft.models.comp <- autofit(ft.models.comp)
 ```
 
-```{r JAGS-results, echo=F,message=FALSE,cache=FALSE}
+```{r JAGS-results}
+#| echo: false
+#| message: false
+#| warning: false
+
 # Although I set cache to be TRUE at the beginning, there is a limit to how big 
 # cache can be. According to Gemini... 
 # By default, knitr tries to save cached objects into a "lazy-load database" 
@@ -521,7 +419,12 @@ Reported.estimates <- read.csv(file = paste0("Data/Nhats_", YEAR, ".csv")) %>%
 
 The eight models (Table \@ref(tab:model-definition)) were fitted to the sightings data over 32 seasons. According to the bulk and tail ESS, and rank-normalized `r R_hat` values, the MCMC converged well and exceeded the recommended minimum ESS threshold of 500 for `r sum(!is.na(out.table$dLOOIC))` models (Table \@ref(tab:model-table)). All models with the Negative Binomial likelihood converged. The best model, based on LOOIC values, consists of year-specific $S_1$ and $S_2$ parameters (Table \@ref(tab:model-definition)). Pareto-k statistics indicated that the best model fit the data well (Table \@ref(tab:model-table)). Consequently, the posterior distributions of the parameters from Model `r ver` should be reliable.
 
-```{r Winbugs-results, echo=F,message=FALSE,cache=FALSE}
+```{r Winbugs-results}
+#| echo: false
+#| message: false
+#| warning: false
+#| error: false
+
 #WinBugs.run.date <- "2025-04-11"
 WinBugs.out <- readRDS(file = paste0("RData/WinBUGS_2007to", YEAR, "_v2_min", 
                                      min.dur,
@@ -656,7 +559,10 @@ N.hats.day.Durban <- data.frame(Season = rep(WinBugs.out$BUGS.input$seasons,
 
 For the Durban et al's method, we found that the minimum bulk and tail ESS were too low (min(bulk ESS) = `r signif(min(ESS.bulk.BUGS$ess_bulk), digits = 2)`, min(tail ESS) = `r signif(min(ESS.tail.BUGS$ess_tail), digits = 2)`) to meet the threshold of 500 required to assume successful convergence of Markov chains. The rank-normalized `r R_hat` statistics also indicated that convergence was not reached in `r length(BUGS.Rhat.big)` of `r dim(WinBugs.out$BUGS.out$sims.array)[3]` monitored parameters (i.e., rank-normalized `r R_hat` \> 1.01). Consequently, the inference from this model is questionable.
 
-```{r all-results, message=FALSE, echo=FALSE}
+```{r all-results}
+#| echo: false
+#| message: false
+#| warning: false
 
 N.hats.day.all <- rbind(N.hats.day, N.hats.day.Durban) %>% 
   filter(start.year > 2005)
@@ -682,7 +588,8 @@ if (save.fig)
 p.daily. <- ggplot(N.hats.day.all %>% group_by(Season)) + 
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL, fill = Method),
               alpha = 0.5) +
-  geom_path(aes(x = Day, y = Mean, color = Method), linewidth = 1) + 
+  geom_path(aes(x = Day, y = Mean, color = Method), 
+            linewidth = 1) + 
   geom_point(aes(x = Day, y = Nhat, color = Method)) +
   facet_wrap(~ Season) +
   theme_bw()+
@@ -723,6 +630,7 @@ Reported.estimates %>%
 #   rbind(Durban.abundance.df) %>%
 Reported.estimates %>%
   mutate(Method1 = sub("-.*", "", Method)) -> tmp.1
+
 tmp.1[grep("NA", tmp.1$Method1) & tmp.1$start.year < 2006, 
       "Method1"] <- "Laake"
 tmp.1[grep("NA", tmp.1$Method1) & tmp.1$start.year > 2007, 
@@ -734,26 +642,32 @@ tmp.1 %>%
   rbind(Laake.abundance.new %>% 
           filter(start.year > 2006)) %>%
   rbind(Nhat.) %>%
-  mutate(Method2 = factor(Method, levels = c("Laake", 
-                                             "Durban", 
-                                             paste0("Eguchi ", ver)))) %>%
+  mutate(Method2 = factor(Method, 
+                          levels = c("Laake", 
+                                     "Durban", 
+                                     paste0("Eguchi ", ver)))) %>%
   select(Season, Nhat, LCL, UCL, start.year, Method2) %>%
   mutate(CI.width = UCL - LCL) %>%
   rename(Method = Method2) -> all.estimates
 
 #  rbind(spline.Nhat) 
   #rbind(Reported.estimates %>% na.omit()) -> all.estimates
-
+# Create a shared position object with a fixed seed
+pos.width <- 0.6
 p.Nhats <- ggplot(all.estimates) +
-  geom_point(aes(x = start.year, y = Nhat,
+  geom_errorbar(aes(x = start.year,
+                    ymin = LCL, ymax = UCL,
+                    color = Method),
+                position = position_dodge(width = pos.width)) +
+  geom_point(aes(x = start.year, 
+                 y = Nhat,
                  color = Method),
+             position = position_dodge(width = pos.width),
              alpha = 0.5) +
-  geom_errorbar(aes(x = start.year, ymin = LCL, ymax = UCL,
-                    color = Method)) +
   ylim(5000, 35000) +
   xlab("") + ylab("Abundance") +
-  theme_bw() +
-  theme(legend.position = "top") 
+  theme_bw()   +
+  theme(legend.position = "top")
 
 if (save.fig)
   save.fig.fcn(fig = p.Nhats,
@@ -806,7 +720,11 @@ obsd.n.df <- data.frame(Season = rep(all.season, each = dim(obsd.n.prop)[1]),
 
 To compare the abundance estimates from three approaches, medians of the posterior distributions were used as point estimates for the Durban et al. and new approaches, whereas for the Laake et al. approach, the maximum likelihood estimates were used. Estimated abundances from the new approach closely followed the same trend as the previous approaches (Figure \@ref(fig:N-hats)). For all estimates, the three approaches provided comparable estimates, and the 95% credible and confidence intervals overlapped significantly, except for the 2025/2026 season.
 
-```{r gam-glm-fit, echo=F,message=FALSE}
+```{r gam-glm-fit}
+#| echo: false
+#| message: false
+#| warning: false
+
 all.estimates %>% na.omit() %>%
   mutate(time = start.year - min(start.year)) -> all.estimates.gam
   
@@ -942,7 +860,7 @@ p.gam.2006.fit <- ggplot(data = pred.2006) +
   
   # Add the fitted line using the new prediction data
   geom_line(aes(x = year, y = fit, color = Method), 
-            size = 1) +
+            linewidth = 1) +
   scale_x_continuous(labels = function(breaks){ paste0(breaks + start.year.2006)}) +
   xlab("") + ylab("Abundance") +
   theme(legend.position = "top") +
@@ -950,16 +868,19 @@ p.gam.2006.fit <- ggplot(data = pred.2006) +
   
 p.gam.all.fit <- ggplot(data = pred.all) +
   # Add the confidence interval ribbon using the new prediction data
-  geom_ribbon(aes(x = year, ymin = lower_CI, ymax = upper_CI, fill = Method), 
+  geom_ribbon(aes(x = year, 
+                  ymin = lower_CI, 
+                  ymax = upper_CI, 
+                  fill = Method), 
               alpha = 0.3) +
   
   # Add the fitted line using the new prediction data
   geom_line(aes(x = year, y = fit, color = Method), 
-            size = 1) +
+            linewidth = 1) +
   scale_x_continuous(labels = function(breaks){ paste0(breaks + 1967)}) +
-  xlab("") + ylab("Abundance") +
-  theme(legend.position = "top") +
-  theme_bw()  
+  xlab("") + ylab("Abundance")  +
+  theme_bw()  +
+  theme(legend.position = "top")
 
   # geom_point(data = all.estimates.gam %>%
   #              filter(start.year > 2005),
@@ -994,7 +915,10 @@ GAMs fitted to the estimated abundance between the 2006/2007 and 2025/2026 seaso
 
 For general linear models ($log(\hat{N}) = time + \epsilon$, $\epsilon \sim N(0, \sigma^2)$) fitted to the point estimates from the 2014/2015 season to the 2025/2026 season revealed a statistically indistinguishable annual rate of decline among the three approaches (Laake: `r signif(lm.Laake$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Laake))["time", "Std. Error"], 2)` (SE). Durban: `r signif(lm.Durban$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Durban))["time", "Std. Error"], 2)` (SE), Eguchi: `r signif(lm.Eguchi$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Eguchi))["time", "Std. Error"], 2)` (SE)).
 
-```{r posterior-fixed-effects-plots, echo=FALSE, message=FALSE, cache=FALSE}
+```{r posterior-fixed-effects-plots}
+#| echo: false
+#| message: false
+#| warning: false
 
 posteriors.Fixed <- plot.trace.dens(jm.out$jm, 
                                     var.name = ".Fixed")
@@ -1067,7 +991,10 @@ The fixed effect of visibility was negative, whereas the fixed effect of the Bea
 
 The marginal posterior distribution of the overdispersion parameter ($\theta$) indicated that the mean was `r signif(jm.out$jm$mean$r, 3)` (95%CI = [`r signif(jm.out$jm$q2.5$r, 3)` - `r signif(jm.out$jm$q97.5$r, 3)`], Appendix Figure A\@ref(fig:r-posterior)), indicating that the variance was greater than the mean.
 
-```{r posterior-Richards-plots, echo=FALSE, message=FALSE, cache=FALSE}
+```{r posterior-Richards-plots}
+#| echo: false
+#| message: false 
+#| cache: false 
 #Posteriors on P, S1, and S2
 posteriors.P <- plot.trace.dens(jm.out$jm, 
                                 var.name = "^P\\[")
@@ -1209,34 +1136,36 @@ Plummer, M. (2003). JAGS: A program for analysis of Bayesian graphical models us
 # Tables and Figures {.unnumbered}
 :::
 
+::: {#tbl-model-definition}
 ```{r}
-#| label: tbl-model-definition
-#| tbl-cap: !expr paste0("Definitions of eight models. For Likelihood, POI = Poisson, and NB = Negative Binomial. Two parameters (S", as_sub("1"), ", S", as_sub("2"), ") were tested for season dependence. P was assumed to be season-specific.")
 #| echo: false
 #| results: asis
-
 
 ft.models 
 
-
 ```
+
+Definitions of eight models. For Likelihood, POI = Poisson, and NB = Negative Binomial. Two parameters ($S_1$, $S_2$) were tested for season dependence. $P$ was assumed to be season-specific.
+:::
 
 \newpage
 
+::: {#tbl-model-comparison}
 ```{r}
-#| label: tbl-model-comparison
-#| tbl-cap: !expr paste0("Comparison of convergence and model fit among eight models. “# parameters” means the number of monitored parameters and not the total number of parameters in the model. Rank-normalized ", as_chunk(R_hat), " statistic (", as_chunk(R_hat), ") measures the convergence of Markov chain Monte Carlo samples. ", as_chunk(R_hat), " > 1.01 indicates non-convergence. Pareto-k statistic provides a measure of predictive error for each data point. Effective Sample Size (ESS, bulk and tail) is another measure of numerical convergence of Markov chain Monte Carlo. Minimum ESS among all monitored parameters are provided in the table. Higher numbers indicate better convergence. Leave-one-out information criteria (LOOIC) measure the predictive accuracy of each model, where smaller values indicate better predictions. ", as_chunk("\u0394"), as_chunk("LOOIC"), " is the difference between a LOOIC value and the minimum LOOIC value. The ", as_chunk(R_hat), " statistic is computed for each parameter, and Pareto-k statistic is computed for each data point. ")
 #| echo: false
 #| results: asis
 
-ft.models.comp 
+ft.models.comp
 ```
+
+Comparison of convergence and model fit among eight models. '$#$ parameters' means the number of monitored parameters and not the total number of parameters in the model. Rank-normalized $\hat{R}$ statistic measures the convergence of Markov chain Monte Carlo samples. $\hat{R} > 1.01$ indicates non-convergence. Pareto-k statistic provides a measure of predictive error for each data point. Effective Sample Size (ESS, bulk and tail) is another measure of numerical convergence of Markov chain Monte Carlo. Minimum ESS among all monitored parameters are provided in the table. Higher numbers indicate better convergence. Leave-one-out information criteria (LOOIC) measure the predictive accuracy of each model, where smaller values indicate better predictions.  $\Delta$LOOIC is the difference between a LOOIC value and the minimum LOOIC value. The $\hat{R}$ statistic is computed for each parameter, and Pareto-k statistic is computed for each data point.
+:::
 
 \newpage
 
+::: {#fig-Nhats}
 ```{r}
 #| label: fig-Nhats
-#| fig-cap: !expr paste0("Estimated annual abundance and associated 95% uncertainty intervals (confidence intervals for MLE; credible intervals for Bayesian medians) using the Laake et al. method (red), the Durban et al. method (green), and the new approach (Model ", ver, ", blue).")
 #| echo: false
 #| message: false
 #| dev.args: list(bg = "transparent")
@@ -1245,6 +1174,10 @@ knitr::include_graphics(paste0("figures/Nhats_",
                                ver, "_min", min.dur, "_", dpi.set, "dpi.png"))
 
 ```
+
+Estimated annual abundance and associated 95% uncertainty intervals (confidence intervals for MLE; credible intervals for Bayesian medians) using the Laake et al. method (red), the Durban et al. method (green), and the new approach (Model ", `r ver`, blue).
+
+:::
 
 \newpage
 
@@ -1259,10 +1192,8 @@ knitr::include_graphics(paste0("figures/gam_fit_", dpi.set, "dpi.png"))
 ```
 
 \newpage
-
+::: {#fig-fixed-posteriors}
 ```{r}
-#| label: fig-fixed-posteriors
-#| fig-cap: "Marginal posterior distributions of the fixed-effects coefficients for the visibility code ($\\beta_{V}$) and Beaufort sea state ($\\beta_{B}$)."
 #| echo: false
 #| message: false
 #| dev.args: list(bg = "transparent")
@@ -1270,7 +1201,8 @@ knitr::include_graphics(paste0("figures/gam_fit_", dpi.set, "dpi.png"))
 knitr::include_graphics(paste0("figures/posteriors_VS_BF_", ver, "_", dpi.set, "dpi.png"))
 
 ```
-
+Marginal posterior distributions of the fixed-effects coefficients for the visibility code ($\beta_{V}$) and Beaufort sea state ($\beta_{B}$)."
+:::
 \newpage
 
 ```{r}
