@@ -64,6 +64,11 @@ MCMC.params <- list(n.samples = 250000,
                     n.burnin = 50000,
                     n.chains = 5)
 
+# Shorter chains to see if wider priors can make differecne
+MCMC.params <- list(n.samples = 50000,
+                    n.thin = 100,
+                    n.burnin = 10000,
+                    n.chains = 5)
 # 225 samples
 # MCMC.params <- list(n.samples = 100,
 #                     n.thin = 2,
@@ -152,6 +157,18 @@ jm.out <- NoBUGS_Richards_fcn(min.dur = min.dur,
                               ext = ".jags",
                               inits = inits)
 
+# Compute the following when it's done.
+# jags.data will be in jm.out
+sd_y <- sd(jm.out$jags.data$year.index)          # ≈ 19.63
+b1   <- as.vector(jm.out$jm$sims.list$beta1.P)
+sP   <- as.vector(jm.out$jm$sims.list$sd.proc.P)
+
+trend_sd <- abs(b1) * sd_y
+R <- trend_sd^2 / (trend_sd^2 + sP^2)
+quantile(R, c(0.025, 0.5, 0.975))
+
+# phenological shift, days per decade
+quantile(b1 * 10, c(0.025, 0.5, 0.975))
 
 ################# old code starts here: #############################
 # rm(list = ls())
