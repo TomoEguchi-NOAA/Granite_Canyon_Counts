@@ -3,6 +3,7 @@
 
 rm(list = ls())
 library(tidyverse)
+library(posterior)
 
 # Need to install cmdnstanr from the Stan package repo:
 # # Tell R to look at the Stan repository instead of CRAN
@@ -27,10 +28,12 @@ years <- c(2008, 2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025, 2026)
 data.dir <- "RData/V2.1_May2026"
 max.day <- 100
 
-jags.input.list <- AllData2JagsInput_NoBUGS(min.dur, years = years, data.dir, max.day)                        
+#jags.input.list <- AllData2JagsInput_NoBUGS(min.dur, years = years, data.dir, max.day)                       
+jm.out <- readRDS("RData/JAGS_Richards_HSSM_M1a2_1968to2026_min60_2026-07-27_NoBUGS.rds")
+
 #jags.input.list$jags.data["N"] <- NULL
 # Modify jags data to rearrange days and provide zeros for t = 1 and t = max.day
-jags.data <- jags.input.list$jags.data
+jags.data <- jm.out$jags.input$jags.data
 
 # --- 1. Flatten Your Existing JAGS Arrays ---
 # (This simulates rebuilding your messy arrays into a long-form data frame)
@@ -48,7 +51,7 @@ for (y in 1:jags.data$n.year) {
         n = jags.data$n[d, s, y],
         bf = jags.data$bf[(d - 1), s, y],
         vs = jags.data$vs[(d - 1), s, y],
-        obs = jags.data$obs[d, s, y],
+        obs = jags.data$obs.fixed[d, s, y],
         watch_length = jags.data$watch.length[(d - 1), s, y],
         year_idx = y,
         day_idx = jags.data$day[d, s, y],
@@ -80,58 +83,171 @@ for (y in 1:jags.data$n.year) {
   }
 }
 
+# The following plot can be useful: Set it aside for the manuscript. Predicted-versus-observed counts across all watch periods and all 34 seasons, correlation 0.88, with the scatter fanning out proportionally to the mean exactly as a negative binomial should — that is a direct, visual answer to reviewer #2. It shows the Richards curve tracking the observed counts across the full range without any spline flexibility, and the mean-variance relationship supporting the NB choice.
+
+# It's also most of the posterior predictive check your Methods promise and never deliver. Regenerate it from posterior draws rather than plug-in medians, add the 95% predictive band, and colour by season — that plus the within-season residual autocorrelation check gives you the whole GOF section.
+# 
+# reconstruct kappa at the JAGS posterior medians, using the STAN data list
+# Pm <- apply(jm.out$jm$sims.list$P, 2, median)
+# Mm <- apply(jm.out$jm$sims.list$Max, 2, median)
+# S1m <- apply(jm.out$jm$sims.list$S1, 2, median)
+# S2m <- apply(jm.out$jm$sims.list$S2, 2, median)
+# g <- exp(1)
+# pmt <- Pm[stan_data$year_idx] - stan_data$day_idx
+# C1 <- (1 + (2*g-1)*exp(-pmt/S1m[stan_data$year_idx]))^(-1/g)
+# C2 <- (1 + (2*g-1)*exp( pmt/S2m[stan_data$year_idx]))^(-1/g)
+# pred <- Mm[stan_data$year_idx]*C1*C2 * stan_data$watch_length * 0.8
+# plot(pred, stan_data$n); abline(0,1,col="red")
+# cor(pred, stan_data$n)
+
 # --- Add these lines right before packaging 'stan_data' ---
 storage.mode(start_idx) <- "integer"
 storage.mode(end_idx)   <- "integer"
 
 # --- 3. Package Everything for Stan ---
 stan_data <- list(
-  n_year       = jags.data$n.year,
-  n_days       = jags.data$n.days,
-  n_obs        = max(flat_df$obs),
-  N_flat       = nrow(flat_df),
-  n            = flat_df$n,
-  bf           = flat_df$bf,
-  vs           = flat_df$vs,
-  obs          = flat_df$obs,
+  n_year = jags.data$n.year, 
+  n_days = jags.data$n.days, 
+  n_observer = max(flat_df$obs), 
+  N_flat = nrow(flat_df),
+  n = flat_df$n, 
+  bf = flat_df$bf, 
+  vs = flat_df$vs - 1,      # RAW, and vs shifted
+  observer_idx = flat_df$obs, 
   watch_length = flat_df$watch_length,
-  start_idx    = start_idx,
-  end_idx      = end_idx,
-  day_idx      = flat_df$day_idx,
-  year_idx     = flat_df$year_idx,
-  station_idx  = flat_df$station_idx,
-  year_values  = c(1:jags.data$n.year)
+  year_values = jm.out$jags.input$jags.data$year.index, 
+  day_idx = flat_df$day_idx, 
+  year_idx = flat_df$year_idx,
+  
+  sd_beta1_P = 2, beta0_Max_mu = 7.6, sd_beta0_Max = 2, sd_beta1_Max = 2,
+  sd_BF = 2, sd_VS = 2, sd_sigma_proc_P = 5, sd_sigma_proc_Max = 5,
+  alpha_S_mu = 10, alpha_S_sd = sqrt(10), beta_S_shape = 1, beta_S_rate = 1,
+  sigma_Obs_max = 1.5, phi_max = 50,
+  gamma_fix = 1.0, mean_prob_mu = 0.8, mean_prob_sd = 0.35,
+  year_specific_phi = 0,
+  anchor_mu = 1.39, anchor_sd = 0.01, #0.1622,    # 0.01 = parity; raise to 0.1622 to propagate
+  boundary_N = 0.0001,
+  centred_P = 1, centred_Max = 1,
+  use_process_error = 0, use_shape_dev = 0, 
+  independent_corr = 0,
+  n_period = 20, period_idx = rep(1:20, each = 5), sd_sigma_shape = 0.5
+)
+
+# N(1.3863, 0.162) on the logit scale implies p with a 95% CI of [0.744, 0.846]
+# and median 0.8. This should be used for the distribution of P. 
+
+# note that mean_prob_mu should be tested for 0.7 and 0.9, as sensitivity tests
+n_year <- jags.data$n.year
+n_observer <- jags.data$n.obs.fixed
+init_fn <- function() list(
+  beta0_Max = rnorm(1, 7.6, 0.2),  
+  beta1_Max = rnorm(1, 0, 0.05),
+  #log_Max_raw = rnorm(n_year, 0, 0.1),  
+  sigma_proc_Max = runif(1, 0.2, 0.6),
+  beta0_P = runif(1, 42, 48),      
+  beta1_P = rnorm(1, 0.21, 0.03),
+  P_raw       = rnorm(n_year, 45, 2),      # was rnorm(n_year, 0, 0.1)
+  log_Max_raw = rnorm(n_year, 7.6, 0.2),    # was rnorm(n_year, 0, 0.1)
+  #P_raw = rnorm(n_year, 0, 0.1),   
+  #sigma_proc_P = runif(1, 3.5, 5.5),
+  S1 = runif(n_year, 2, 4),        
+  S2 = runif(n_year, 2, 4),
+  mu_S1 = runif(1, 2.5, 3.5),  
+  shape_S1 = runif(1, 8, 12),
+  mu_S2 = runif(1, 2.5, 3.5),  
+  shape_S2 = runif(1, 8, 12),
+  #alpha_S1 = runif(1, 8, 12),      beta_S1 = runif(1, 2.5, 4.5),
+  #alpha_S2 = runif(1, 8, 12),      beta_S2 = runif(1, 2.5, 4.5),
+  alpha = rnorm(n_observer, 1.39, 0.1),  sigma_Obs = runif(1, 0.15, 0.35),
+  logit_p0 = rnorm(1, 1.3863, 0.01),
+  BF_Fixed = rnorm(1, 0, 0.1),     VS_Fixed = rnorm(1, 0, 0.1),
+  phi = runif(1, 4, 6),
+  sigma_shape = runif(1, 0.05, 0.2)
 )
 
 # --- 4. Compile and Execute ---
 #file <- file.path("models/whale_model.stan")
-file <- file.path("models/model_Richards_HSSM_M1a2_reparam.stan")
+file <- file.path("models/model_Richards_HSSM_M1a2_fixed_1.stan")
+out.file <- "Richards_HSSM_M1a2_stan"
+
 # Compile with aggressive C++ optimization flags
 mod <- cmdstan_model(file, 
                      cpp_options = list(stan_threads = TRUE, O = 3))
 
 #mod <- cmdstan_model(file)
-
-fit_stan <- mod$sample(
-  data            = stan_data,
-  chains          = 4,
-  parallel_chains = 4,
-  threads_per_chain = 2,
-  iter_warmup     = 1000,
-  iter_sampling   = 1000,
-  adapt_delta     = 0.95  # High adaptation limit targets complex curves cleanly
-)
+if (!file.exists(paste0("RData/", out.file, ".rds"))){
+  fit_stan <- mod$sample(
+    data            = stan_data,
+    init            = init_fn,
+    chains          = 4,
+    parallel_chains = 4,
+    threads_per_chain = 2,
+    iter_warmup     = 1000,
+    iter_sampling   = 1000,
+    adapt_delta     = 0.90  
+  )
+  
+  fit_stan$save_object(file = paste0("RData/", out.file, ".rds"))
+  
+} else {
+  fit_stan <- readRDS(paste0("RData/", out.file, ".rds"))
+}
 
 # --- 5. Inspect Results ---
-print(fit_stan$summary(c("S1", "S2", "P", "BF_Fixed", "VS_Fixed", "Max")))
-
+params.1.stan <- c("S1", "beta_S1", "S2", "P", "phi",
+                   "sigma_proc_P", "Corrected_Est", "Max")
 
 # --- Get Summaries for Specific Global Parameters ---
-global_summary <- fit_stan$summary(
-  variables = c("mean_prob", "BF_Fixed", "VS_Fixed", "sigma_Obs"),
-  "mean", "sd", "rhat", "ess_bulk"
-)
-print(global_summary)
+stan_global_summary <- fit_stan$summary(
+  variables = params.1.stan,
+  default_summary_measures(), 
+  default_convergence_measures(),
+  extra_quantiles = ~quantile2(., probs = c(0.025, 0.975)))
+
+print(stan_global_summary)
+
+# From Jags using regular expression syntax:
+params.1.jags <- c("^S1\\[", "^S1.beta", "^S2\\[", "^P\\[", "^r",
+                   "^sd.proc.P", "^Corrected.Est", "^Max\\[")
+
+jags.params.idx <- lapply(params.1.jags,
+                     FUN = function(x) grep(x, jm.out$posterior.summary$variable)) %>% unlist()
+
+summarise_draws(jm.out$jm$samples, 
+                default_summary_measures(),
+                default_convergence_measures(),
+                extra_quantiles = ~quantile2(., probs = c(0.025, 0.975))) %>%
+  as.data.frame() -> jags.convergence.summary
+
+jags.global.summary <- jags.convergence.summary[jags.params.idx,]
+
+stan.S1 <- stan_global_summary[grep("^S1\\[", stan_global_summary$variable),] %>%
+  mutate(MCMC = "Stan",
+         year.idx = seq(1, n_year))
+jags.S1 <- jags.global.summary[grep("^S1\\[", jags.global.summary$variable),] %>%
+  mutate(MCMC = "Jags",
+         year.idx = seq(1, n_year))
+
+S1.stan.jags <- rbind(stan.S1, jags.S1)
+
+ggplot(S1.stan.jags) +
+  geom_point(aes(x = year.idx, y = mean, color = MCMC)) +
+  geom_errorbar(aes(x = year.idx, ymin = q2.5, ymax = q97.5)) +
+  theme(legend.position = "top")
+
+stan.Nhats <- stan_global_summary[grep("^Corrected_Est", stan_global_summary$variable),] %>%
+  mutate(MCMC = "Stan",
+         year.idx = seq(1, n_year))
+jags.Nhats <- jags.global.summary[grep("^Corrected.Est", jags.global.summary$variable),] %>%
+  mutate(MCMC = "Jags",
+         year.idx = seq(1, n_year))
+
+Nhats.stan.jags <- rbind(stan.Nhats, jags.Nhats)
+
+ggplot(Nhats.stan.jags) +
+  geom_point(aes(x = year.idx, y = mean, color = MCMC)) +
+  geom_errorbar(aes(x = year.idx, ymin = q2.5, ymax = q97.5)) +
+  theme(legend.position = "top")
 
 # --- Get Summaries for Year-Specific Parameters ---
 # This will print the estimates for every year automatically
