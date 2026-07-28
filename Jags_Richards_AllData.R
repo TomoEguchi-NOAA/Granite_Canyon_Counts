@@ -159,7 +159,7 @@ jm.out <- NoBUGS_Richards_fcn(min.dur = min.dur,
 
 # Compute the following when it's done.
 # jags.data will be in jm.out
-sd_y <- sd(jm.out$jags.data$year.index)          # ≈ 19.63
+sd_y <- sd(jm.out$jags.input$jags.data$year.index)          # ≈ 19.63
 b1   <- as.vector(jm.out$jm$sims.list$beta1.P)
 sP   <- as.vector(jm.out$jm$sims.list$sd.proc.P)
 
