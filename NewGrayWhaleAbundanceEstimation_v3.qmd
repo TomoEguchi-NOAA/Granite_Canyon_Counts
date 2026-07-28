@@ -208,7 +208,7 @@ $$ \lambda \sim N(1.0875, 0.03625) $$ (Perryman et al. 1999).
 #| message: false
 #| warning: false
 
-hyper.params <- tibble(Parameter = c("P[y]", "\\sigma^2_P", "\\beta_{0,P}", "\\beta_{1,P}", "\\text{log(Max[y])}", "\\sigma^2_{log(Max)}", "\\beta_{0,Max}", "\\beta_{1,Max}", "\\beta_{B}", "\\beta_{V}", "\\text{S}_1[y]", "\\alpha_{S1}", "\\beta_{S1}", "\\text{S}_2[y]", "\\alpha_{S2}", "\\beta_{S2}"),
+hyper.params <- tibble(Parameter = c("P[y]", "\\sigma_P", "\\beta_{0,P}", "\\beta_{1,P}", "\\text{log(Max[y])}", "\\sigma_{log(Max)}", "\\beta_{0,Max}", "\\beta_{1,Max}", "\\beta_{B}", "\\beta_{V}", "\\text{S}_1[y]", "\\alpha_{S1}", "\\beta_{S1}", "\\text{S}_2[y]", "\\alpha_{S2}", "\\beta_{S2}"),
                        Distribution = c("\\text{Normal}(\\mu_{P[y]}, \\sigma^2_P)", "\\text{Normal}(0, 1)T(0,)", "\\text{Uniform}(30, 60)", "\\text{Normal}(0, 4)", "\\text{Normal}(\\mu_{log.Max[y]}, \\sigma^2_{log(Max)})", "\\text{Normal}(0, 1)T(0,)", "\\text{Normal}(7.6, 4)", "\\text{Normal}(0, 4)", "\\text{Normal}(0, 4)", "\\text{Normal}(0, 4)", "\\text{Gamma}(\\alpha_{S1}, \\beta_{S1})", "\\text{Normal}(10, 10)T(0,)", "\\text{Gamma}(1, 1)", "\\text{Gamma}(\\alpha_{S2}, \\beta_{S2})", "\\text{Normal}(10, 10)T(0,)", "\\text{Gamma}(1, 1)"))
 
 # 2. Build table and parse math using equatags
