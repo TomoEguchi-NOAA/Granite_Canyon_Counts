@@ -15,18 +15,38 @@ library(bayesplot)
 source("Granite_Canyon_Counts_fcns.R")
 source("ppc_richards_hssm.R")
 
+min.dur <- 60 #10 #85 #
+Run.date <- Sys.Date()
+
+# These are the ending year of each season - for example, 2022 in the following vector indicates
+# for the 2021/2022 season. These data were extracted using Extract_Data_All_v2.Rmd
+# Data prior to the 2009/2010 season are in Laake's ERAnalayis package. 
+years <- c(2008, 2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025, 2026)
+data.dir <- "RData/V2.1_May2026"
+max.day <- 100
+
+
+jags.input <- NoBUGS_Jags_input(min.dur = min.dur, 
+                                years = years, 
+                                data.dir = data.dir, 
+                                max.day = max.day, 
+                                obs.n.min = 10, N.obs = 10)
+
+jags.data <- jags.input$jags.data
+
+stan.data <- create.stan.data(jags.data = jags.data)
+
 # // ---- MODEL STRUCTURE (Table 1) ---------------------------------------
 #   //   S1_by_season  S2_by_season  likelihood_NB      model
 # //        1             1              0/1          M1a1 / M1a2
 # //        0             0              0/1          M2a1 / M2a2
 # //        1             0              0/1          M3a1 / M3a2
 # //        0             1              0/1          M4a1 / M4a2
+models <- c("M1a1", "M2a1", "M3a1", "M4a1",
+            "M1a2", "M2a2", "M3a2", "M4a2")
 
 params.1.stan <- c("S1", "beta_S1", "S2", "P", "phi", "alpha",
                    "sigma_proc_P", "Corrected_Est", "Max", "log_N_latent")
-
-models <- c("M1a1", "M2a1", "M3a1", "M4a1",
-            "M1a2", "M2a2", "M3a2", "M4a2")
 
 LOO.out <- stan.global.summary <- ppc.res <- list()
 k <- 1
@@ -36,7 +56,7 @@ for (k in 1:length(models)) {
   #mod <- cmdstan_model(file)
   fit_stan <- readRDS(paste0("RData/", out.file, ".rds"))
   
-  LOO.out[[k]] <- fit_stan$loo
+  LOO.out[[k]] <- fit_stan$loo()
   stan.global.summary[[k]] <- fit_stan$summary(
     variables = params.1.stan,
     default_summary_measures(), 
@@ -44,7 +64,17 @@ for (k in 1:length(models)) {
     extra_quantiles = ~quantile2(., probs = c(0.025, 0.975)))
   
   # --- Posterior Predictive Simulation Loop ---
-  ppc.res[[k]] <- ppc_richards(fit_stan, stan.data$stan.data, n_draws = 500)
+  # res$autocorr is the key one. Within-season lag-1 autocorrelation of daily-averaged residuals, compared against the same statistic computed on replicate datasets. If the Richards curve were too rigid to track the migration, residuals would come in same-signed runs along the season and the observed autocorrelation would exceed the replicate distribution. If the observed value sits inside the replicate interval, you have direct evidence the curve is flexible enough — an empirical answer where you currently have an argument.
+  
+  # plots$resid_day is the same thing visually, and it's the figure I'd put in the paper. A flat loess through residuals against day-of-season says the curve captures the shape; systematic curvature — a dip at the peak, say — would say it doesn't.
+
+# pvalues covers proportion of zeros (the check from your calf memo), maximum, SD, mean, and the upper tail. The flag column marks anything outside [0.025, 0.975].
+
+# plots$coverage gives the empirical coverage of 95% predictive intervals. This is the cleanest single number for the Results — if it lands near 95%, the observation model is calibrated. It also detects Poisson vs NB automatically by looking for phi[1], so you can run it unchanged across all eight models. Worth doing: comparing coverage and the zeros p-value between M1a1 and M1a2 is a much more direct justification for the negative binomial than ΔLOOIC is.
+
+# plots$resid_season faceted QQ plots will show whether any particular season fits badly. Worth checking against the ones with sparse effort, and especially 2025/2026.
+ 
+   ppc.res[[k]] <- ppc_richards(fit_stan, stan.data$stan.data, n_draws = 500)
   
   # res$pvalues
   # res$autocorr
