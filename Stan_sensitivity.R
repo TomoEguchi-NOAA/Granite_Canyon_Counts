@@ -1,0 +1,277 @@
+# Sensitivity analysis of Stan models as per Claude's suggestions
+
+#  0. Parity to Jags. (sen0)
+#  1. anchor_sd = 0.01 (sen1)
+#  2. use_trend_Max = 0 — the shrinkage check, and the one that could change what the paper says
+#    about 2025/2026 (sen2)
+#  3. use_pooling_Max = 0 — the stronger version of the same test (sen3)
+#  4. use_plateau = 1 — flexibility question by Andre, as a parameter (sen4)
+#  5. use_shape_dev = 1 — the shared periodic deviation (sen5)
+#  6. anchor_mu = qlogis(0.70) 
+#  7. anchor_mu = qlogis(0.90) — detection sensitivity (sen6)
+#  
+
+rm(list = ls())
+library(tidyverse)
+library(posterior)
+library(cmdstanr)
+
+source("Granite_Canyon_Counts_fcns.R")
+
+# Sensitivity analyses are done only on one model (M1a2)
+# The default values for S1, S2, and likelihood in create.stan.data are set
+# to run the M1a2 model as of 2026-07-29
+sensitivity <- "sen0"
+
+# // ---- MODEL STRUCTURE (Table 1) ---------------------------------------
+#   //   S1_by_season  S2_by_season  likelihood_NB      model
+# //        1             1              0/1          M1a1 / M1a2
+# //        0             0              0/1          M2a1 / M2a2
+# //        1             0              0/1          M3a1 / M3a2
+# //        0             1              0/1          M4a1 / M4a2
+
+model <- "M1a2"
+
+S1_by_season <- S2_by_season <- likelihood_NB <- 1
+
+if (length(grep("a1", model)) == 0) likelihood_NB <- 0
+if (length(grep("M2", model)) == 1) {
+  S1_by_season <- 0
+  S2_by_season <- 0
+}
+
+if (length(grep("M3", model)) == 1) {
+  S2_by_season <- 0
+}
+
+if (length(grep("M4", model)) == 1) {
+  S1_by_season <- 0
+}
+
+# Create input data:
+min.dur <- 60 #10 #85 #
+Run.date <- Sys.Date()
+
+# These are the ending year of each season - for example, 2022 in the following vector indicates
+# for the 2021/2022 season. These data were extracted using Extract_Data_All_v2.Rmd
+# Data prior to the 2009/2010 season are in Laake's ERAnalayis package. 
+years <- c(2008, 2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025, 2026)
+data.dir <- "RData/V2.1_May2026"
+max.day <- 100
+
+#jags.input.list <- AllData2JagsInput_NoBUGS(min.dur, years = years, data.dir, max.day)         
+
+jags.input <- NoBUGS_Jags_input(min.dur = min.dur, 
+                                years = years, 
+                                data.dir = data.dir, 
+                                max.day = max.day, 
+                                obs.n.min = 10, N.obs = 10)
+
+jags.data <- jags.input$jags.data
+
+sensitivity.table <- data.frame(ID = paste0("sen", seq(0, 7)),
+                                Sensitivity = c("Parity",
+                                                "anchor_sd = 0.01",
+                                                "use_trend_Max = 0",
+                                                "use_pooling_Max = 0",
+                                                "use_plateau = 1",
+                                                "use_shape_dev = 1",
+                                                "anchor_mu = qlogis(0.7)",
+                                                "anchor_mu = qlogis(0.9)"))
+
+if (sensitivity == "sen1"){
+  stan.data <- create.stan.data(jags.data = jags.data, anchor_sd = 0.1622)
+} else if (sensitivity == "sen2"){
+  stan.data <- create.stan.data(jags.data = jags.data, use_trend_Max = 0)
+} else if (sensitivity == "sen3"){
+  stan.data <- create.stan.data(jags.data = jags.data, use_pooling_Max = 0)
+} else if (sensitivity == "sen4"){
+  stan.data <- create.stan.data(jags.data = jags.data, use_plateau = 1)
+} else if (sensitivity == "sen5"){
+  stan.data <- create.stan.data(jags.data = jags.data, use_shape_dev = 1)
+} else if (sensitivity == "sen6"){
+  stan.data <- create.stan.data(jags.data = jags.data, anchor_mu = qlogis(0.7))
+} else if (sensitivity == "sen7"){
+  stan.data <- create.stan.data(jags.data = jags.data, anchor_mu = qlogis(0.9))
+} else if (sensitivity == "sen0"){
+  stan.data <- create.stan.data(jags.data = jags.data, anchor_sd = 0.01)
+}
+
+# Create an inits function
+n_year <- stan.data$jags.data$n.year
+n_observer <- stan.data$jags.data$n.obs.fixed
+init_fn <- function() {
+  out <- list(
+    beta0_Max = rnorm(1, 7.6, 0.2),  
+    #beta1_Max = rnorm(1, 0, 0.05),
+    #log_Max_raw = rnorm(n_year, 0, 0.1),  
+    sigma_proc_Max = runif(1, 0.2, 0.6),
+    beta0_P = runif(1, 42, 48),      
+    #beta1_P = rnorm(1, 0.21, 0.03),
+    P_raw = rnorm(n_year, 45, 2),      # was rnorm(n_year, 0, 0.1)
+    log_Max_raw = rnorm(n_year, 7.6, 0.2),  # was rnorm(n_year, 0, 0.1)
+    #P_raw = rnorm(n_year, 0, 0.1),   
+    #sigma_proc_P = runif(1, 3.5, 5.5),
+    S1 = runif(n_year, 2, 4),        
+    S2 = runif(n_year, 2, 4),
+    mu_S1 = runif(1, 2.5, 3.5),  
+    shape_S1 = runif(1, 8, 12),
+    mu_S2 = runif(1, 2.5, 3.5),  
+    shape_S2 = runif(1, 8, 12),
+    #alpha_S1 = runif(1, 8, 12),      beta_S1 = runif(1, 2.5, 4.5),
+    #alpha_S2 = runif(1, 8, 12),      beta_S2 = runif(1, 2.5, 4.5),
+    alpha = rnorm(n_observer, 1.39, 0.1),  
+    sigma_Obs = runif(1, 0.15, 0.35),
+    logit_p0 = rnorm(1, 1.3863, 0.01),
+    BF_Fixed = rnorm(1, 0, 0.1),     
+    VS_Fixed = rnorm(1, 0, 0.1),
+    phi = runif(1, 4, 6),
+    sigma_shape = runif(1, 0.05, 0.2)
+  )
+  # only supply inits for parameters that actually exist in this configuration
+
+  if (stan.data$stan.data$use_trend_P)   out$beta1_P   <- array(rnorm(1, 0.21, 0.03), dim = 1)
+  if (stan.data$stan.data$use_trend_Max) out$beta1_Max <- array(rnorm(1, 0,    0.05), dim = 1)
+  if (stan.data$stan.data$use_plateau) {
+    k <- if (stan.data$stan.data$plateau_by_year) n_year else 1
+    out$delta <- array(runif(k, 0.5, 2), dim = k)
+  }
+  if (stan.data$stan.data$use_process_error) {
+    out$log_N_raw     <- matrix(rnorm(n_days * n_year, 0, 0.1), n_days, n_year)
+    out$sigma_process <- array(runif(1, 0.1, 0.3), dim = 1)
+  }
+  
+  if (stan.data$stan.data$S1_by_season) {
+    out$mu_S1 <- array(runif(1,2.5,3.5),1)
+    out$shape_S1 <- array(runif(1,8,12),1)
+  }
+
+  if (stan.data$stan.data$S2_by_season) {
+    out$mu_S2 <- array(runif(1,2.5,3.5),1)
+    out$shape_S2 <- array(runif(1,8,12),1)
+  }
+  
+  return(out)
+}
+
+file <- file.path("models/model_Richards_HSSM_mod2.stan")
+
+out.file <- paste0("Richards_HSSM_", model, "_mod2_stan_", sensitivity)
+
+# Compile with aggressive C++ optimization flags
+mod <- cmdstan_model(file, 
+                     cpp_options = list(stan_threads = TRUE, 
+                                        O = 3))
+
+#mod <- cmdstan_model(file)
+if (!file.exists(paste0("RData/", out.file, ".rds"))){
+  fit_stan <- mod$sample(
+    data            = stan.data$stan.data,
+    init            = init_fn,
+    chains          = 4,
+    parallel_chains = 4,
+    threads_per_chain = 2,
+    iter_warmup     = 1000,
+    iter_sampling   = 1000,
+    adapt_delta     = 0.90  
+  )
+  
+  fit_stan$save_object(file = paste0("RData/", out.file, ".rds"))
+  
+} else {
+  fit_stan <- readRDS(paste0("RData/", out.file, ".rds"))
+}
+
+# --- 5. Inspect Results ---
+params.1.stan <- c("S1", "beta_S1", "S2", "P", "phi",
+                   "sigma_proc_P", "Corrected_Est", "Max")
+
+# --- Get Summaries for Specific Global Parameters ---
+stan_global_summary <- fit_stan$summary(
+  variables = params.1.stan,
+  default_summary_measures(), 
+  default_convergence_measures(),
+  extra_quantiles = ~quantile2(., probs = c(0.025, 0.975)))
+
+print(stan_global_summary)
+
+# Jags output:
+
+jm.out <- readRDS("RData/JAGS_Richards_HSSM_M1a2_1968to2026_min60_2026-07-27_NoBUGS.rds")
+
+# From Jags using regular expression syntax:
+params.1.jags <- c("^S1\\[", "^S1.beta", "^S2\\[", "^P\\[", "^r",
+                   "^sd.proc.P", "^Corrected.Est", "^Max\\[")
+
+jags.params.idx <- lapply(params.1.jags,
+                          FUN = function(x) grep(x, jm.out$posterior.summary$variable)) %>% unlist()
+
+summarise_draws(jm.out$jm$samples, 
+                default_summary_measures(),
+                default_convergence_measures(),
+                extra_quantiles = ~quantile2(., probs = c(0.025, 0.975))) %>%
+  as.data.frame() -> jags.convergence.summary
+
+jags.global.summary <- jags.convergence.summary[jags.params.idx,]
+
+
+stan.Nhats <- stan_global_summary[grep("^Corrected_Est", stan_global_summary$variable),] %>%
+  mutate(MCMC = "Stan",
+         year.idx = seq(1, n_year))
+jags.Nhats <- jags.global.summary[grep("^Corrected.Est", jags.global.summary$variable),] %>%
+  mutate(MCMC = "Jags",
+         year.idx = seq(1, n_year))
+
+Nhats.stan.jags <- rbind(stan.Nhats, jags.Nhats)
+
+ggplot(Nhats.stan.jags) +
+  geom_point(aes(x = year.idx, y = mean, color = MCMC)) +
+  geom_errorbar(aes(x = year.idx, ymin = q2.5, ymax = q97.5)) +
+  theme(legend.position = "top")
+
+Nhats_jags <- jm.out$jm$sims.list$Corrected.Est      # or S2
+mean.Nhats_jags <- apply(Nhats_jags, 2, mean) 
+se.Nhats_jags <- apply(Nhats_jags, 2, sd)/sqrt(coda::effectiveSize(Nhats_jags))
+
+Nhats_stan_summary  <- fit_stan$summary("Corrected_Est")
+mean.Nhats_stan <- Nhats_stan_summary$mean
+se.Nhats_stan <- Nhats_stan_summary$sd / sqrt(Nhats_stan_summary$ess_bulk)
+
+z <- (mean.Nhats_stan - mean.Nhats_jags) / sqrt(se.Nhats_jags^2 + se.Nhats_stan^2)     # standardised difference
+rel <- (mean.Nhats_stan - mean.Nhats_jags) / mean.Nhats_jags
+
+round(summary(z), 2)
+sum(abs(z) > 2)                # how many exceed 2 MCSE
+
+#systematic bias
+mean.Nhats.df <- data.frame(Jags = mean.Nhats_jags,
+                            Stan = mean.Nhats_stan)
+ggplot(mean.Nhats.df) +
+  geom_point(aes(x = Jags, y = Stan)) +
+  geom_abline(slope = 1, color = "red") +
+  labs(title = paste0(sensitivity, ":", sensitivity.table[grep(sensitivity, sensitivity.table$ID), "Sensitivity"])) +
+  xlab("Jags Mean Corrected Est") +
+  ylab("Stan Mean Corrected Est") 
+
+sum(mean.Nhats_stan > mean.Nhats_jags)                                     # want ~17, not 34 or 0
+binom.test(sum(mean.Nhats_stan > mean.Nhats_jags), length(mean.Nhats_stan))$p.value    # want non-significant
+summary((mean.Nhats_stan - mean.Nhats_jags) / sqrt(se.Nhats_jags^2 + se.Nhats_stan^2))       # want |z| mostly < 2
+
+# If there were divergence - see below:
+# dv <- fit_stan$sampler_diagnostics(format = "df")$divergent__
+# dr <- fit_stan$draws(format = "df")
+# colMeans(dr[dv == 1, c("sigma_proc_P","sigma_proc_Max","sigma_Obs","phi")])
+# colMeans(dr[dv == 0, c("sigma_proc_P","sigma_proc_Max","sigma_Obs","phi")])
+
+# colMeans(dr[dv == 1, c("delta[1]","sigma_proc_P","sigma_proc_Max","sigma_Obs","phi")])
+# colMeans(dr[dv == 0, c("delta[1]","sigma_proc_P","sigma_proc_Max","sigma_Obs","phi")])
+# 
+# fit_stan$summary(c("peak_day_decade", "peak_day_slope"))
+# fit_stan$summary("peak_day")
+# fit_stan$summary("peak_width")
+# # 
+# pd <- fit_stan$draws("peak_day", format = "matrix")
+# P  <- fit_stan$draws("P",        format = "matrix")
+# off <- pd - P                                     # mode minus midpoint, per season
+# sl <- apply(off, 1, \(o) coef(lm(o ~ stan.data$stan.data$year_values))[2])
+# quantile(sl * 10, c(0.025, 0.5, 0.975))           # days per decade of drift
