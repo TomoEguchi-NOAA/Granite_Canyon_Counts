@@ -1,6 +1,155 @@
 
 # define some functions
 
+# This function creates stan data list. Several switches are used for 
+# sensitivity analysis. Default values are provided. 
+# use_trend_P (1): If 0, drops the linear-in-year P term entirely. Beta1 (slope) is 
+#                  removed from the model. b1_P = 0 when use_trend_P = 0
+#                  207: if (use_trend_P)   b1_P   = beta1_P[1];
+#                  209: mu_P   = beta0_P   + b1_P   * year_values;
+# use_trend_Max (0): Same as P above. Note Max is not he maximum number of whales.
+#                    It is a scale parameter of the Richards function.
+# use_pooling_Max (1): removes hierarchical shrinkage on the season levels
+#                      altogether: each log_Max[y] gets an independent diffuse
+#                      prior, as in the calf-production model. Use this to test
+#                      whether shrinkage toward the trend inflates low seasons.
+#                      When 0, beta0_Max / beta1_Max / sigma_proc_Max are not
+#                      identified and simply sample their priors
+# sd_unpooled_Max (5): SD of Max when use_pooling_Max == 0
+# use_plateau (0): if 1, "shoulders" (delta) around the peak (P) is defined.
+# plateau_by_year (0): if 1, delta is defined for each year. Only if that shared 
+#                      delta is clearly positive → plateau_by_year = 1, which asks 
+#                      whether plateau width varies by season.
+# sd_delta (5): SD of the delta parameter (shoulder of the peak), in units of days.
+# anchor_mu (qlogis(0.8)): The mean detection probability in the logistic scale. 0.8 
+#                          comes from the paper by Durban et al. (2015). 
+# anchor_sd (0.1622): SD of the detection probability. The original JAGS model used
+#                     ~ 0, to make the model converge. 0.1662 is approximate to the 
+#                     95% CI reported by Durban et al. (2015): Highest Posterior 
+#                     Density Interval [0.75-0.85]                          
+# independent_corr (0): If 1, the correction factor for the nighttime passage rate
+#                       is drawn for each year. If 0 (default), one value is used
+#                       for all years. Keep this 0. 
+# S1_by_season (1): Switch to make S1 season dependent (1) or constant over all years (0)
+# S2_by_season (1): Switch to make S2 season dependent (1) or constant over all years (0)
+# likelihood_NB (1): Choose Negative-Binomial (1) or Poisson as the likelihood
+# jags.data: provide jags data, which is used to create the stan input list.
+
+create.stan.data <- function(use_trend_P = 1, use_trend_Max = 0,  use_pooling_Max = 1, sd_unpooled_Max = 5, use_plateau = 0, plateau_by_year = 0, sd_delta = 5, anchor_mu = qlogis(0.8), anchor_sd = 0.1622, independent_corr = 0, S1_by_season = 1, S2_by_season = 1,likelihood_NB = 1, jags.data){
+  
+  # --- 1. Flatten Your Existing JAGS Arrays ---
+  flat_data_list <- list()
+  counter <- 1
+  
+  # add 2 (day 1 and 100) to # periods:
+  periods <- jags.data$periods + 2
+  
+  for (y in 1:jags.data$n.year) {
+    for (s in 1:jags.data$n.station[y]) {
+      for (d in 2:(periods[y, s] - 1)) {
+        
+        flat_data_list[[counter]] <- data.frame(
+          n = jags.data$n[d, s, y],
+          bf = jags.data$bf.1[(d - 1), s, y],
+          vs = jags.data$vs.1[(d - 1), s, y],
+          obs = jags.data$obs.fixed[d, s, y],
+          watch_length = jags.data$watch.length[(d - 1), s, y],
+          year_idx = y,
+          day_idx = jags.data$day[d, s, y],
+          station_idx = s
+        )
+        counter <- counter + 1
+      }
+    }
+  }
+  
+  flat_df <- do.call(rbind, flat_data_list)
+  # Ensure data is sorted sequentially by year and day for indexing
+  flat_df <- flat_df[order(flat_df$year_idx, flat_df$day_idx), ]
+  
+  # --- 2. Build the Start/End Pointer Index Matrices ---
+  start_idx <- matrix(0, nrow = jags.data$n.days, ncol = jags.data$n.year)
+  end_idx <- matrix(0, nrow = jags.data$n.days, ncol = jags.data$n.year)
+  
+  for (y in 1:jags.data$n.year) {
+    for (t in 1:jags.data$n.days) {
+      matching_rows <- which(flat_df$year_idx == y & flat_df$day_idx == t)
+      if (length(matching_rows) > 0) {
+        start_idx[t, y] <- min(matching_rows)
+        end_idx[t, y]  <- max(matching_rows)
+      } else {
+        start_idx[t, y] <- 1
+        end_idx[t, y]  <- 0 # Signifies no observations on this day
+      }
+    }
+  }
+  storage.mode(start_idx) <- "integer"
+  storage.mode(end_idx)   <- "integer"
+  
+  # --- 3. Package Everything for Stan ---
+  stan_data <- list(
+    n_year = jags.data$n.year, 
+    n_days = jags.data$n.days, 
+    n_observer = max(flat_df$obs), 
+    N_flat = nrow(flat_df),
+    n = flat_df$n, 
+    bf = flat_df$bf, 
+    vs = flat_df$vs - 1,      # RAW, and vs shifted
+    observer_idx = flat_df$obs, 
+    watch_length = flat_df$watch_length,
+    year_values = jags.data$year.index, 
+    day_idx = flat_df$day_idx, 
+    year_idx = flat_df$year_idx,
+    
+    sd_beta1_P = 2, 
+    beta0_Max_mu = 7.6, 
+    sd_beta0_Max = 2, 
+    sd_beta1_Max = 2,
+    sd_BF = 2, 
+    sd_VS = 2, 
+    sd_sigma_proc_P = 5, 
+    sd_sigma_proc_Max = 5,
+    alpha_S_mu = 10, 
+    alpha_S_sd = sqrt(10), 
+    beta_S_shape = 1, 
+    beta_S_rate = 1,
+    sigma_Obs_max = 1.5, 
+    phi_max = 50,
+    
+    anchor_mu = anchor_mu, 
+    anchor_sd = anchor_sd, 
+    boundary_N = 0.0001,
+    
+    centred_P = 1, 
+    centred_Max = 1,
+    use_process_error = 0, 
+    use_shape_dev = 0, 
+    independent_corr = independent_corr,
+    n_period = 20, 
+    period_idx = rep(1:20, each = 5), 
+    sd_sigma_shape = 0.5,
+    S_const_shape = 10, 
+    S_const_rate = 1,
+    
+    use_trend_P = use_trend_P, 
+    use_trend_Max = use_trend_Max, 
+    use_pooling_Max = use_pooling_Max, 
+    sd_unpooled_Max = sd_unpooled_Max,
+    use_plateau = use_plateau, 
+    plateau_by_year = plateau_by_year, 
+    sd_delta = sd_delta,
+    S1_by_season = S1_by_season, 
+    S2_by_season = S2_by_season,
+    likelihood_NB = likelihood_NB
+  )
+  
+  return(list(stan.data = stan_data,
+              jags.data = jags.data))
+  
+}
+
+
+
 S1.S2.trace.plots <- function(ver, jm, jags.data, new.Rhat, start.year){
   par.idx = c(1:jags.data$n.year)
   
