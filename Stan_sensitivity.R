@@ -1,15 +1,10 @@
 # Sensitivity analysis of Stan models as per Claude's suggestions
 
 #  0. Parity to Jags. (sen0)
-#  1. anchor_sd = 0.01 (sen1)
-#  2. use_trend_Max = 0 — the shrinkage check, and the one that could change what the paper says
-#    about 2025/2026 (sen2)
-#  3. use_pooling_Max = 0 — the stronger version of the same test (sen3)
-#  4. use_plateau = 1 — flexibility question by Andre, as a parameter (sen4)
-#  5. use_shape_dev = 1 — the shared periodic deviation (sen5)
-#  6. anchor_mu = qlogis(0.70) 
-#  7. anchor_mu = qlogis(0.90) — detection sensitivity (sen6)
-#  
+#  1. use_pooling_Max = 0 — the stronger version of the same test (sen2)
+#  2. anchor_mu = qlogis(0.70) (sen3)
+#  3. anchor_mu = qlogis(0.90) — detection sensitivity (sen4)
+#  4. use_trend_P = 0 - is there a trend in P? (sen5)
 
 rm(list = ls())
 library(tidyverse)
@@ -30,7 +25,7 @@ sensitivity <- "sen0"
 # //        1             0              0/1          M3a1 / M3a2
 # //        0             1              0/1          M4a1 / M4a2
 
-model <- "M1a2"
+model <- "M1a2_1gamma"
 
 S1_by_season <- S2_by_season <- likelihood_NB <- 1
 
@@ -69,94 +64,33 @@ jags.input <- NoBUGS_Jags_input(min.dur = min.dur,
 
 jags.data <- jags.input$jags.data
 
-sensitivity.table <- data.frame(ID = paste0("sen", seq(0, 7)),
+sensitivity.table <- data.frame(ID = paste0("sen", seq(0, 6)),
                                 Sensitivity = c("Parity",
-                                                "anchor_sd = 0.01",
-                                                "use_trend_Max = 0",
+                                                "use_trend_Max = 1",
                                                 "use_pooling_Max = 0",
-                                                "use_plateau = 1",
-                                                "use_shape_dev = 1",
                                                 "anchor_mu = qlogis(0.7)",
-                                                "anchor_mu = qlogis(0.9)"))
+                                                "anchor_mu = qlogis(0.9)",
+                                                "use_trend_P = 0"))
 
 if (sensitivity == "sen1"){
-  stan.data <- create.stan.data(jags.data = jags.data, anchor_sd = 0.1622)
-} else if (sensitivity == "sen2"){
-  stan.data <- create.stan.data(jags.data = jags.data, use_trend_Max = 0)
-} else if (sensitivity == "sen3"){
   stan.data <- create.stan.data(jags.data = jags.data, use_pooling_Max = 0)
-} else if (sensitivity == "sen4"){
-  stan.data <- create.stan.data(jags.data = jags.data, use_plateau = 1)
-} else if (sensitivity == "sen5"){
-  stan.data <- create.stan.data(jags.data = jags.data, use_shape_dev = 1)
-} else if (sensitivity == "sen6"){
+} else if (sensitivity == "sen2"){
   stan.data <- create.stan.data(jags.data = jags.data, anchor_mu = qlogis(0.7))
-} else if (sensitivity == "sen7"){
+} else if (sensitivity == "sen3"){
   stan.data <- create.stan.data(jags.data = jags.data, anchor_mu = qlogis(0.9))
+} else if (sensitivity == "sen4"){
+  stan.data <- create.stan.data(jags.data = jags.data, use_trend_P = 0)
 } else if (sensitivity == "sen0"){
   stan.data <- create.stan.data(jags.data = jags.data, anchor_sd = 0.01)
-}
+} 
 
 # Create an inits function
 n_year <- stan.data$jags.data$n.year
 n_observer <- stan.data$jags.data$n.obs.fixed
-init_fn <- function() {
-  out <- list(
-    beta0_Max = rnorm(1, 7.6, 0.2),  
-    #beta1_Max = rnorm(1, 0, 0.05),
-    #log_Max_raw = rnorm(n_year, 0, 0.1),  
-    sigma_proc_Max = runif(1, 0.2, 0.6),
-    beta0_P = runif(1, 42, 48),      
-    #beta1_P = rnorm(1, 0.21, 0.03),
-    P_raw = rnorm(n_year, 45, 2),      # was rnorm(n_year, 0, 0.1)
-    log_Max_raw = rnorm(n_year, 7.6, 0.2),  # was rnorm(n_year, 0, 0.1)
-    #P_raw = rnorm(n_year, 0, 0.1),   
-    #sigma_proc_P = runif(1, 3.5, 5.5),
-    S1 = runif(n_year, 2, 4),        
-    S2 = runif(n_year, 2, 4),
-    mu_S1 = runif(1, 2.5, 3.5),  
-    shape_S1 = runif(1, 8, 12),
-    mu_S2 = runif(1, 2.5, 3.5),  
-    shape_S2 = runif(1, 8, 12),
-    #alpha_S1 = runif(1, 8, 12),      beta_S1 = runif(1, 2.5, 4.5),
-    #alpha_S2 = runif(1, 8, 12),      beta_S2 = runif(1, 2.5, 4.5),
-    alpha = rnorm(n_observer, 1.39, 0.1),  
-    sigma_Obs = runif(1, 0.15, 0.35),
-    logit_p0 = rnorm(1, 1.3863, 0.01),
-    BF_Fixed = rnorm(1, 0, 0.1),     
-    VS_Fixed = rnorm(1, 0, 0.1),
-    phi = runif(1, 4, 6),
-    sigma_shape = runif(1, 0.05, 0.2)
-  )
-  # only supply inits for parameters that actually exist in this configuration
 
-  if (stan.data$stan.data$use_trend_P)   out$beta1_P   <- array(rnorm(1, 0.21, 0.03), dim = 1)
-  if (stan.data$stan.data$use_trend_Max) out$beta1_Max <- array(rnorm(1, 0,    0.05), dim = 1)
-  if (stan.data$stan.data$use_plateau) {
-    k <- if (stan.data$stan.data$plateau_by_year) n_year else 1
-    out$delta <- array(runif(k, 0.5, 2), dim = k)
-  }
-  if (stan.data$stan.data$use_process_error) {
-    out$log_N_raw     <- matrix(rnorm(n_days * n_year, 0, 0.1), n_days, n_year)
-    out$sigma_process <- array(runif(1, 0.1, 0.3), dim = 1)
-  }
-  
-  if (stan.data$stan.data$S1_by_season) {
-    out$mu_S1 <- array(runif(1,2.5,3.5),1)
-    out$shape_S1 <- array(runif(1,8,12),1)
-  }
+file <- file.path("models/model_Richards_HSSM_mod3.stan")
 
-  if (stan.data$stan.data$S2_by_season) {
-    out$mu_S2 <- array(runif(1,2.5,3.5),1)
-    out$shape_S2 <- array(runif(1,8,12),1)
-  }
-  
-  return(out)
-}
-
-file <- file.path("models/model_Richards_HSSM_mod2.stan")
-
-out.file <- paste0("Richards_HSSM_", model, "_mod2_stan_", sensitivity)
+out.file <- paste0("Richards_HSSM_", model, "_mod3_stan_", sensitivity)
 
 # Compile with aggressive C++ optimization flags
 mod <- cmdstan_model(file, 
@@ -167,12 +101,12 @@ mod <- cmdstan_model(file,
 if (!file.exists(paste0("RData/", out.file, ".rds"))){
   fit_stan <- mod$sample(
     data            = stan.data$stan.data,
-    init            = init_fn,
+    init            = stan_init_fn,
     chains          = 4,
     parallel_chains = 4,
     threads_per_chain = 2,
-    iter_warmup     = 1000,
-    iter_sampling   = 1000,
+    iter_warmup     = 1500,
+    iter_sampling   = 2000,
     adapt_delta     = 0.90  
   )
   

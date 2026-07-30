@@ -25,7 +25,6 @@ years <- c(2008, 2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025, 2026)
 data.dir <- "RData/V2.1_May2026"
 max.day <- 100
 
-
 jags.input <- NoBUGS_Jags_input(min.dur = min.dur, 
                                 years = years, 
                                 data.dir = data.dir, 
@@ -34,7 +33,7 @@ jags.input <- NoBUGS_Jags_input(min.dur = min.dur,
 
 jags.data <- jags.input$jags.data
 
-stan.data <- create.stan.data(jags.data = jags.data)
+#stan.data <- create.stan.data(jags.data = jags.data)
 
 # // ---- MODEL STRUCTURE (Table 1) ---------------------------------------
 #   //   S1_by_season  S2_by_season  likelihood_NB      model
@@ -42,8 +41,11 @@ stan.data <- create.stan.data(jags.data = jags.data)
 # //        0             0              0/1          M2a1 / M2a2
 # //        1             0              0/1          M3a1 / M3a2
 # //        0             1              0/1          M4a1 / M4a2
-models <- c("M1a1", "M2a1", "M3a1", "M4a1",
-            "M1a2", "M2a2", "M3a2", "M4a2")
+# models <- c("M1a1", "M2a1", "M3a1", "M4a1",
+#             "M1a2", "M2a2", "M3a2", "M4a2")
+
+models <- c("M1a2",
+            "M1a2_1gamma", "M1a2_2gammas")
 
 params.1.stan <- c("S1", "S2", "P", 
                    "sigma_proc_P", "Corrected_Est", "Max", "log_N_latent")
@@ -62,6 +64,7 @@ for (k in 1:length(models)) {
     default_summary_measures(), 
     default_convergence_measures(),
     extra_quantiles = ~quantile2(., probs = c(0.025, 0.975)))
+  
   
   # --- Posterior Predictive Simulation Loop ---
   # res$autocorr is the key one. Within-season lag-1 autocorrelation of daily-averaged residuals, compared against the same statistic computed on replicate datasets. If the Richards curve were too rigid to track the migration, residuals would come in same-signed runs along the season and the observed autocorrelation would exceed the replicate distribution. If the observed value sits inside the replicate interval, you have direct evidence the curve is flexible enough — an empirical answer where you currently have an argument.
@@ -82,10 +85,113 @@ for (k in 1:length(models)) {
 }
   
 # --- Model comparison ---
+LOOIC.df <- do.call(rbind, lapply(LOO.out, FUN = function(x) x$estimates["looic",])) %>%
+  as.data.frame()
+LOOIC.df$Model <- as.vector(models) 
+LOOIC.df %>%  select(Model, Estimate, SE) %>%
+  mutate(dLOOIC = Estimate- min(Estimate)) %>% #-> tmp
+  arrange(by = dLOOIC) -> LOOIC.df
+
+coverage.df <- do.call(rbind, lapply(ppc.res, FUN = function(x) x$plots$coverage)) %>%
+  as.data.frame() %>%
+  rename(Coverage = V1)
+coverage.df$Model <- as.vector(models)
+
+LOOIC.df %>%
+  left_join(coverage.df, by = "Model") -> LOOIC.coverage.df
+
+loo::loo_compare(LOO.out[[1]], LOO.out[[2]], LOO.out[[3]]) %>%
+  data.frame() -> loo.comp.df
+
+pk <- LOO.out[[2]]$diagnostics$pareto_k
+which(pk > 0.7)
+sd <- stan.data$stan.data
+data.frame(day = sd$day_idx, year = sd$year_idx, n = sd$n)[which(pk > 0.7), ]
+
+pvalues.df <- do.call(rbind, lapply(ppc.res, FUN = function(x) x$pvalues)) %>%
+  as.data.frame()
+pvalues.df$Model <- rep(models, each = 6)
+
+#### Claude's suggestion about PPS results:
+res <- ppc.res[[5]]
+ps <- res$setup; sd <- ps$sd
+zobs <- sd$n == 0
+zrep <- colMeans(ps$y_rep == 0)
+
+chk <- function(g, lab) {
+  data.frame(group = lab, bin = levels(cut(g, 5)),
+             obs = tapply(zobs, cut(g, 5), mean),
+             pred = tapply(zrep, cut(g, 5), mean))
+}
+rbind(chk(sd$day_idx, "day of season"),
+      chk(sd$watch_length, "watch length"),
+      chk(sd$bf, "Beaufort"))
+
+k <- 5
+out.file <- paste0("Richards_HSSM_", models[k], "_stan")
+#mod <- cmdstan_model(file)
+fit_stan <- readRDS(paste0("RData/", out.file, ".rds"))
+
+lN <- fit_stan$draws("log_N_latent", format = "draws_matrix")
+tail_frac <- sapply(1:34, function(y) {
+  cols_all  <- sprintf("log_N_latent[%d,%d]", 1:100, y)
+  cols_late <- sprintf("log_N_latent[%d,%d]", 77:100, y)
+  mean(rowSums(exp(lN[, cols_late])) / rowSums(exp(lN[, cols_all])))
+})
+round(quantile(tail_frac, c(0, .5, 1)), 3)
+
+names(tail_frac) <- jags.data$start.years          # or whatever your season labels are
+sort(round(tail_frac, 3), decreasing = TRUE)[1:8]
+
+y25 <- which(jags.data$start.years == 2025)
+range(sd$day_idx[sd$year_idx == y25])              # does effort span the season?
+length(unique(sd$day_idx[sd$year_idx == y25]))     # how many distinct days surveyed
+sum(sd$watch_length[sd$year_idx == y25])           # total effort vs other seasons
+fit_stan$summary("P")$mean[y25]                    # fitted peak day
+fit_stan$summary("S1")$mean[y25]; fit_stan$summary("S2")$mean[y25]
+# Finding that a large part of abundance (21%) comes from the unobserved days (days 1 - 36).
+
+obs_frac <- sapply(1:34, function(y) {
+  dr <- range(sd$day_idx[sd$year_idx == y])
+  cols <- sprintf("log_N_latent[%d,%d]", 1:100, y)
+  cin  <- sprintf("log_N_latent[%d,%d]", dr[1]:dr[2], y)
+  mean(rowSums(exp(lN[, cin])) / rowSums(exp(lN[, cols])))
+})
+names(obs_frac) <- jags.data$start.years
+sort(round(obs_frac, 3))[1:10]
+Laake.Run.Date <- "2026-02-23"
+Laake.abundance <- read.csv(file = paste0("Data/all_estimates_Laake_2026", 
+                                              "_", Laake.Run.Date, ".csv")) %>%
+  mutate(LCL = CL.low,
+         UCL = CL.high) %>% 
+  na.omit()
+Eguchi.abundance <- fit_stan$summary("Corrected_Est")
+NEguchi <- Eguchi.abundance$median
+NLaake <- Laake.abundance$Nhat
+plot(obs_frac, (NEguchi - NLaake) / NLaake)   # the relationship that matters
+# There is no relationship
+
+asc <- sapply(1:34, function(y) {
+  d0 <- min(sd$day_idx[sd$year_idx == y])
+  cols <- sprintf("log_N_latent[%d,%d]", 1:100, y)
+  cpre <- sprintf("log_N_latent[%d,%d]", 1:(d0-1), y)
+  mean(rowSums(exp(lN[, cpre])) / rowSums(exp(lN[, cols])))
+})
+plot(asc, (NEguchi - NLaake) / NLaake)
 
 
+s2 <- fit_stan$draws("S2", format = "draws_matrix")
+data.frame(season = jags.data$start.years,
+           S2 = colMeans(s2), sd = apply(s2, 2, sd))[c(y25, order(-tail_frac)[1:5]), ]
+fit_stan$summary("mu_S2")   # population mean it shrinks toward
 
-
+raw90 <- sapply(1:34, function(y) {
+  cols <- sprintf("log_N_latent[%d,%d]", 1:100, y)
+  c90  <- sprintf("log_N_latent[%d,%d]", 1:90,  y)
+  mean(rowSums(exp(lN[, c90])) / rowSums(exp(lN[, cols])))
+})
+summary(1 - raw90)                    # % of each estimate coming from days 91-100
+cor(1 - raw90, (NEguchi - NLaake) / NLaake)
 
 #jm.out <- readRDS()
 # The following plot can be useful: Set it aside for the manuscript. Predicted-versus-observed counts across all watch periods and all 34 seasons, correlation 0.88, with the scatter fanning out proportionally to the mean exactly as a negative binomial should — that is a direct, visual answer to reviewer #2. It shows the Richards curve tracking the observed counts across the full range without any spline flexibility, and the mean-variance relationship supporting the NB choice.

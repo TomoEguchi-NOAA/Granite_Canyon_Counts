@@ -49,9 +49,15 @@ jags.data <- jags.input$jags.data
 # //        1             0              0/1          M3a1 / M3a2
 # //        0             1              0/1          M4a1 / M4a2
 
+# To run all models, keep the following three lines:
 S1.vec <- c(1, 0)
 S2.vec <- c(1, 0)
 lkhd.NB.vec <- c(1,0)
+
+# To run a specific model, set the vectors accordingly:
+S1.vec <- c(1)
+S2.vec <- c(1)
+lkhd.NB.vec <- c(1)
 
 # --- Add these lines right before packaging 'stan_data' ---
 # storage.mode(start_idx) <- "integer"
@@ -77,7 +83,7 @@ lkhd.NB.vec <- c(1,0)
 # Create an inits function
 
 # all models were fit into one file with various switches:
-file <- file.path("models/model_Richards_HSSM_mod2.stan")
+file <- file.path("models/model_Richards_HSSM_mod3.stan")
 #model <- list()
 #m <- 1
 
@@ -99,7 +105,7 @@ for (S1 in 1:length(S1.vec)){
       }
       
       model <- paste0(model.M, model.lkhd)
-      out.file <- paste0("Richards_HSSM_", model, "_stan")
+      out.file <- paste0("Richards_HSSM_", model, "_1gamma_stan")
       #m <- m + 1
       # Compile with aggressive C++ optimization flags
       mod <- cmdstan_model(file, 
@@ -109,78 +115,31 @@ for (S1 in 1:length(S1.vec)){
       stan.data <- create.stan.data(jags.data = jags.data,
                                     S1_by_season = S1_by_season,
                                     S2_by_season = S2_by_season,
-                                    likelihood_NB = likelihood_NB)
+                                    likelihood_NB = likelihood_NB,
+                                    estimate_gamma = 1,
+                                    separate_gamma = 0)
+      
       n_year <- stan.data$jags.data$n.year
       n_observer <- stan.data$jags.data$n.obs.fixed
-      
-      init_fn <- function() {
-        out <- list(
-          beta0_Max = rnorm(1, 7.6, 0.2),  
-          #beta1_Max = rnorm(1, 0, 0.05),
-          #log_Max_raw = rnorm(n_year, 0, 0.1),  
-          sigma_proc_Max = runif(1, 0.2, 0.6),
-          beta0_P = runif(1, 42, 48),      
-          #beta1_P = rnorm(1, 0.21, 0.03),
-          P_raw = rnorm(n_year, 45, 2),      # was rnorm(n_year, 0, 0.1)
-          log_Max_raw = rnorm(n_year, 7.6, 0.2),  # was rnorm(n_year, 0, 0.1)
-          #P_raw = rnorm(n_year, 0, 0.1),   
-          #sigma_proc_P = runif(1, 3.5, 5.5),
-          S1 = runif(n_year, 2, 4),        
-          S2 = runif(n_year, 2, 4),
-          #alpha_S1 = runif(1, 8, 12),      beta_S1 = runif(1, 2.5, 4.5),
-          #alpha_S2 = runif(1, 8, 12),      beta_S2 = runif(1, 2.5, 4.5),
-          alpha = rnorm(n_observer, 1.39, 0.1),  
-          sigma_Obs = runif(1, 0.15, 0.35),
-          logit_p0 = rnorm(1, 1.3863, 0.01),
-          BF_Fixed = rnorm(1, 0, 0.1),     
-          VS_Fixed = rnorm(1, 0, 0.1),
-          sigma_shape = runif(1, 0.05, 0.2)
-        )
-        # only supply inits for parameters that actually exist in this configuration
-        
-        if (stan.data$stan.data$use_trend_P)   out$beta1_P   <- array(rnorm(1, 0.21, 0.03), dim = 1)
-        if (stan.data$stan.data$use_trend_Max) out$beta1_Max <- array(rnorm(1, 0,    0.05), dim = 1)
-        if (stan.data$stan.data$use_plateau) {
-          k <- if (stan.data$stan.data$plateau_by_year) n_year else 1
-          out$delta <- array(runif(k, 0.5, 2), dim = k)
-        }
-        if (stan.data$stan.data$use_process_error) {
-          out$log_N_raw     <- matrix(rnorm(n_days * n_year, 0, 0.1), n_days, n_year)
-          out$sigma_process <- array(runif(1, 0.1, 0.3), dim = 1)
-        }
-        
-        if (stan.data$stan.data$S1_by_season) {
-          out$mu_S1 <- array(runif(1,2.5,3.5),1)
-          out$shape_S1 <- array(runif(1,8,12),1)
-        }
-        
-        if (stan.data$stan.data$S2_by_season) {
-          out$mu_S2 <- array(runif(1,2.5,3.5),1)
-          out$shape_S2 <- array(runif(1,8,12),1)
-        }
-        
-        if (stan.data$stan.data$likelihood_NB == 1) out$phi = runif(1, 4, 6)
-        return(out)
-      }
       
       #mod <- cmdstan_model(file)
       if (!file.exists(paste0("RData/", out.file, ".rds"))){
         fit_stan <- mod$sample(
           data            = stan.data$stan.data,
-          init            = init_fn,
+          init            = stan_init_fn,
           chains          = 4,
           parallel_chains = 4,
           threads_per_chain = 2,
-          iter_warmup     = 1000,
-          iter_sampling   = 1000,
+          iter_warmup     = 1500,
+          iter_sampling   = 2000,
           adapt_delta     = 0.90  
         )
         
         fit_stan$save_object(file = paste0("RData/", out.file, ".rds"))
         saveRDS(list(stan.data = stan.data$stan.data,
                      jags.data = stan.data$jags.data,
-                     init_fn = init_fn()),
-                file = paste0("RData/", out.file, "info.rds"))
+                     init_fn = stan_init_fn()),
+                file = paste0("RData/", out.file, "_info.rds"))
         
       } else {
         fit_stan <- readRDS(paste0("RData/", out.file, ".rds"))
