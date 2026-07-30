@@ -45,7 +45,7 @@ stan.data <- create.stan.data(jags.data = jags.data)
 models <- c("M1a1", "M2a1", "M3a1", "M4a1",
             "M1a2", "M2a2", "M3a2", "M4a2")
 
-params.1.stan <- c("S1", "beta_S1", "S2", "P", "phi", "alpha",
+params.1.stan <- c("S1", "S2", "P", 
                    "sigma_proc_P", "Corrected_Est", "Max", "log_N_latent")
 
 LOO.out <- stan.global.summary <- ppc.res <- list()
