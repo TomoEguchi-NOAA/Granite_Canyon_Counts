@@ -1,6 +1,64 @@
 
 # define some functions
 
+# Stan inits function:
+stan_init_fn <- function() {
+  out <- list(
+    beta0_Max = rnorm(1, 7.6, 0.2),  
+    #beta1_Max = rnorm(1, 0, 0.05),
+    #log_Max_raw = rnorm(n_year, 0, 0.1),  
+    sigma_proc_Max = runif(1, 0.2, 0.6),
+    beta0_P = runif(1, 42, 48),      
+    #beta1_P = rnorm(1, 0.21, 0.03),
+    P_raw = rnorm(n_year, 45, 2),      # was rnorm(n_year, 0, 0.1)
+    log_Max_raw = rnorm(n_year, 7.6, 0.2),  # was rnorm(n_year, 0, 0.1)
+    #P_raw = rnorm(n_year, 0, 0.1),   
+    #sigma_proc_P = runif(1, 3.5, 5.5),
+    S1 = runif(n_year, 2, 4),        
+    S2 = runif(n_year, 2, 4),
+    #alpha_S1 = runif(1, 8, 12),      beta_S1 = runif(1, 2.5, 4.5),
+    #alpha_S2 = runif(1, 8, 12),      beta_S2 = runif(1, 2.5, 4.5),
+    alpha = rnorm(n_observer, 1.39, 0.1),  
+    sigma_Obs = runif(1, 0.15, 0.35),
+    logit_p0 = rnorm(1, 1.3863, 0.01),
+    BF_Fixed = rnorm(1, 0, 0.1),     
+    VS_Fixed = rnorm(1, 0, 0.1),
+    sigma_shape = runif(1, 0.05, 0.2)
+  )
+  # only supply inits for parameters that actually exist in this configuration
+  
+  if (stan.data$stan.data$use_trend_P)   out$beta1_P   <- array(rnorm(1, 0.21, 0.03), dim = 1)
+  if (stan.data$stan.data$use_trend_Max) out$beta1_Max <- array(rnorm(1, 0,    0.05), dim = 1)
+  if (stan.data$stan.data$use_plateau) {
+    k <- if (stan.data$stan.data$plateau_by_year) n_year else 1
+    out$delta <- array(runif(k, 0.5, 2), dim = k)
+  }
+  if (stan.data$stan.data$use_process_error) {
+    out$log_N_raw     <- matrix(rnorm(n_days * n_year, 0, 0.1), n_days, n_year)
+    out$sigma_process <- array(runif(1, 0.1, 0.3), dim = 1)
+  }
+  
+  if (stan.data$stan.data$S1_by_season) {
+    out$mu_S1 <- array(runif(1,2.5,3.5),1)
+    out$shape_S1 <- array(runif(1,8,12),1)
+  }
+  
+  if (stan.data$stan.data$S2_by_season) {
+    out$mu_S2 <- array(runif(1,2.5,3.5),1)
+    out$shape_S2 <- array(runif(1,8,12),1)
+  }
+  
+  if (stan.data$stan.data$likelihood_NB == 1) out$phi = runif(1, 4, 6)
+  
+  if (stan.data$stan.data$estimate_gamma) {
+    k <- if (stan.data$stan.data$separate_gamma) 2 else 1
+    out$gamma_free <- array(rnorm(k, 1, 0.1), dim = k)
+  }
+  
+  return(out)
+}
+
+
 # This function creates stan data list. Several switches are used for 
 # sensitivity analysis. Default values are provided. 
 # use_trend_P (1): If 0, drops the linear-in-year P term entirely. Beta1 (slope) is 
@@ -35,7 +93,7 @@
 # likelihood_NB (1): Choose Negative-Binomial (1) or Poisson as the likelihood
 # jags.data: provide jags data, which is used to create the stan input list.
 
-create.stan.data <- function(use_trend_P = 1, use_trend_Max = 0,  use_pooling_Max = 1, sd_unpooled_Max = 5, use_plateau = 0, plateau_by_year = 0, sd_delta = 5, anchor_mu = qlogis(0.8), anchor_sd = 0.1622, independent_corr = 0, S1_by_season = 1, S2_by_season = 1,likelihood_NB = 1, jags.data){
+create.stan.data <- function(use_trend_P = 1, use_trend_Max = 1,  use_pooling_Max = 1, sd_unpooled_Max = 5, use_plateau = 0, plateau_by_year = 0, sd_delta = 5, anchor_mu = qlogis(0.8), anchor_sd = 0.1622, independent_corr = 0, S1_by_season = 1, S2_by_season = 1,likelihood_NB = 1, gamma_fix = 1, estimate_gamma = 1, separate_gamma = 0, gamma_prior_mu = 1.0, gamma_prior_sd = 1.0, jags.data){
   
   # --- 1. Flatten Your Existing JAGS Arrays ---
   flat_data_list <- list()
@@ -140,7 +198,14 @@ create.stan.data <- function(use_trend_P = 1, use_trend_Max = 0,  use_pooling_Ma
     sd_delta = sd_delta,
     S1_by_season = S1_by_season, 
     S2_by_season = S2_by_season,
-    likelihood_NB = likelihood_NB
+    likelihood_NB = likelihood_NB,
+    
+    gamma_fix = gamma_fix,           # used when estimate_gamma = 0; reproduces JAGS
+    estimate_gamma = estimate_gamma,
+    separate_gamma = separate_gamma,        # distinct gamma for descending vs ascending limb
+    gamma_lower = -0.60,
+    gamma_prior_mu = gamma_prior_mu, 
+    gamma_prior_sd = gamma_prior_sd
   )
   
   return(list(stan.data = stan_data,
