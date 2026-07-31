@@ -88,11 +88,12 @@ Author affiliation: National Oceanic and Atmospheric Administration, National Ma
 For the conservation of the Eastern North Pacific (ENP) gray whale (*Eschrichtius robustus*), monitoring population abundance is vital. This has historically been accomplished through visual surveys conducted at Granite Canyon, CA. Recent financial and logistical constraints have eliminated the dual-observer teams required by the current standard analytical method, necessitating a new approach capable of accurately estimating abundance from single-observer data. Furthermore, the previous method relied on statistical techniques now considered problematic (e.g., the “cut” function in WinBUGS) and struggled with Markov chain Monte Carlo (MCMC) convergence. To address these limitations, a novel hierarchical state-space model was developed in JAGS that replaces the binomial sampling model with a Poisson or negative binomial likelihood. To flexibly capture the often-asymmetrical temporal trend of the migration, a modified Richards equation was implemented. This framework enabled the reincorporation of historical data, allowing the analysis of 32 seasons of survey data dating back to 1967/1968. Eight model variations were compared using modern validation metrics, including leave-one-out information criteria and Pareto-k statistics. The best-fitting model demonstrated excellent MCMC convergence and goodness-of-fit, successfully resolving the convergence issues present in the previous approach. Furthermore, the model provided valuable biological insights by capturing annual shifts in migration phenology. Overall, the new approach yielded abundance estimates and recent decline rates consistent with historical methods, while offering a computationally faster and statistically robust framework. This adaptable model effectively meets current monitoring constraints and is recommended for future ENP gray whale abundance estimations.
 
 # Keywords {.unnumbered}
+
 ABUNDANCE ESTIMATE, INDEX OF ABUNDANCE, SURVEY - SHORE-BASED, TRENDS, MODELLING
 
 # Introduction {.unnumbered}
 
-The Eastern North Pacific (ENP) gray whale [*Eschrichtius robustus*] population undertakes one of the longest annual migrations of any mammal, traveling between its Arctic feeding grounds and the warm-water lagoons of Baja California, Mexico, where they calve and breed. This population has been the subject of extensive research due to its recovery from historic whaling and its continued vulnerability to environmental changes [@stewart_boom-bust_2023]. Understanding the dynamics of the ENP gray whale population, including its abundance, distribution, and migratory patterns, is crucial for effective conservation and management.
+The Eastern North Pacific (ENP) gray whale \[*Eschrichtius robustus*\] population undertakes one of the longest annual migrations of any mammal, traveling between its Arctic feeding grounds and the warm-water lagoons of Baja California, Mexico, where they calve and breed. This population has been the subject of extensive research due to its recovery from historic whaling and its continued vulnerability to environmental changes [@stewart_boom-bust_2023]. Understanding the dynamics of the ENP gray whale population, including its abundance, distribution, and migratory patterns, is crucial for effective conservation and management.
 
 Analytical methods to estimate the abundance of gray whales from visual surveys at Granite Canyon, CA, have evolved over the years. In recent years, Laake et al. (2012) used a distance sampling approach with generalized additive models (GAMs). Subsequently, Durban et al. (2015) developed a new method using a Bayesian N-mixture approach, which was approved by the International Whaling Commission (IWC) and has been used for the analysis since the 2006/2007 season. Their approach used the general trend of ENP gray whale migration, in which the number of sightings increases over time, peaks, and then decreases. They modeled this pattern using a normal function to capture the general trend, while deviations from the normal function were modeled by fitting a spline to the observed counts. Observations were then modeled with binomial distributions, an approach that inherently required double-observer protocols to estimate detection probabilities. A brief description of their model is provided in the Appendix.
 
@@ -167,7 +168,6 @@ $$ n_{j, s, y} \sim NB(q_{j, s, y}, \theta) $$ {#eq-NB_likelihood}
 where $q = \theta/(\theta + \kappa)$. When $\theta \to \infty$, the Negative Binomial distribution becomes equivalent to the Poisson distribution [@bolker2008; @mccullagh1991].
 
 Each parameter had a hyper-distribution of either a normal, uniform, or gamma distribution (Appendix @supptbl-hyperparameters).
-
 
 ```{r}
 #| echo: false
@@ -981,7 +981,7 @@ Marginal posterior distributions of the Richards equation parameters provided va
 
 The fixed effect of visibility was negative, whereas the fixed effect of the Beaufort sea state was positive (@fig-fixed-posteriors). Higher visibility code (less desirable conditions) corresponded with lower detection probabilities but suggested that higher Beaufort sea states corresponded with greater detection probabilities. The observer random effects indicated significant differences among individuals, consistent with the findings of Durban et al. (Appendix @suppfig-observer)).
 
-The marginal posterior distribution of the overdispersion parameter ($\theta$) indicated that the mean was `r signif(jm.out$jm$mean$r, 3)` (95%CI = [`r signif(jm.out$jm$q2.5$r, 3)` - `r signif(jm.out$jm$q97.5$r, 3)`], Appendix @suppfig-r-posterior)), indicating that the variance was greater than the mean.
+The marginal posterior distribution of the overdispersion parameter ($\theta$) indicated that the mean was `r signif(jm.out$jm$mean$r, 3)` (95%CI = \[`r signif(jm.out$jm$q2.5$r, 3)` - `r signif(jm.out$jm$q97.5$r, 3)`\], Appendix @suppfig-r-posterior)), indicating that the variance was greater than the mean.
 
 ```{r posterior-Richards-plots}
 #| echo: false
@@ -1119,9 +1119,9 @@ I thank many visual observers for their diligence and meticulous data recording,
 
 Goodrich B, Gabry J, Ali I & Brilleman S. (2025). rstanarm: Bayesian applied regression modeling via Stan. R package version 2.32.2 https://mc-stan.org/rstanarm.
 
-Vehtari A, Gabry J, Magnusson M, Yao Y, Bürkner P, Paananen T, Gelman A (2024). “loo: Efficient   leave-one-out cross-validation and WAIC for Bayesian models.” R package version 2.8.0,   https://mc-stan.org/loo/.
+Vehtari A, Gabry J, Magnusson M, Yao Y, Bürkner P, Paananen T, Gelman A (2024). “loo: Efficient leave-one-out cross-validation and WAIC for Bayesian models.” R package version 2.8.0, https://mc-stan.org/loo/.
 
-Plummer, M. (2003). JAGS: A program for analysis of Bayesian graphical models using Gibbs sampling. Proceedings of the 2nd International Workshop on Distributed Statistical Computing (DSC 2003). 
+Plummer, M. (2003). JAGS: A program for analysis of Bayesian graphical models using Gibbs sampling. Proceedings of the 2nd International Workshop on Distributed Statistical Computing (DSC 2003).
 
 \newpage
 
@@ -1186,11 +1186,12 @@ models.comp %>%
 ft.models.comp
 ```
 
-Comparison of convergence and model fit among eight models. '$\#$ parameters' means the number of monitored parameters and not the total number of parameters in the model. Rank-normalized $\hat{R}$ statistic measures the convergence of Markov chain Monte Carlo samples. $\hat{R} > 1.01$ indicates non-convergence. Pareto-k statistic provides a measure of predictive error for each data point. Effective Sample Size (ESS, bulk and tail) is another measure of numerical convergence of Markov chain Monte Carlo. Minimum ESS among all monitored parameters are provided in the table. Higher numbers indicate better convergence. Leave-one-out information criteria (LOOIC) measure the predictive accuracy of each model, where smaller values indicate better predictions.  $\Delta$LOOIC is the difference between a LOOIC value and the minimum LOOIC value. The $\hat{R}$ statistic is computed for each parameter, and Pareto-k statistic is computed for each data point.
+Comparison of convergence and model fit among eight models. '$\#$ parameters' means the number of monitored parameters and not the total number of parameters in the model. Rank-normalized $\hat{R}$ statistic measures the convergence of Markov chain Monte Carlo samples. $\hat{R} > 1.01$ indicates non-convergence. Pareto-k statistic provides a measure of predictive error for each data point. Effective Sample Size (ESS, bulk and tail) is another measure of numerical convergence of Markov chain Monte Carlo. Minimum ESS among all monitored parameters are provided in the table. Higher numbers indicate better convergence. Leave-one-out information criteria (LOOIC) measure the predictive accuracy of each model, where smaller values indicate better predictions. $\Delta$LOOIC is the difference between a LOOIC value and the minimum LOOIC value. The $\hat{R}$ statistic is computed for each parameter, and Pareto-k statistic is computed for each data point.
 :::
 
 \newpage
-:::{#tbl-Nhats}
+
+::: {#tbl-Nhats}
 ```{r}
 #| echo: false
 #| message: false
@@ -1228,9 +1229,9 @@ Nhats.all.wide %>%
   ft.Nhats.all.wide
 ```
 
-Estimated annual abundance and associated 95% uncertainty intervals (confidence intervals for MLE; credible intervals for Bayesian medians) using the Laake et al. method, the Durban et al. method, and the new approach (Model , `r ver`) of the Eastern North Pacific gray whales migrating along the central California coast. LCL and UCL refer to 2.5% and 97.5% limits. 
-
+Estimated annual abundance and associated 95% uncertainty intervals (confidence intervals for MLE; credible intervals for Bayesian medians) using the Laake et al. method, the Durban et al. method, and the new approach (Model , `r ver`) of the Eastern North Pacific gray whales migrating along the central California coast. LCL and UCL refer to 2.5% and 97.5% limits.
 :::
+
 \newpage
 
 ::: {#fig-Nhats}
@@ -1245,7 +1246,6 @@ knitr::include_graphics(paste0("figures/Nhats_",
 ```
 
 Estimated annual abundance and associated 95% uncertainty intervals (confidence intervals for MLE; credible intervals for Bayesian medians) using the Laake et al. method (red), the Durban et al. method (green), and the new approach (Model `r ver`, blue) of the Eastern North Pacific gray whales migrating along the central California coast.
-
 :::
 
 \newpage
@@ -1261,6 +1261,7 @@ knitr::include_graphics(paste0("figures/gam_fit_", ver, "_", dpi.set, "dpi.png")
 ```
 
 \newpage
+
 ::: {#fig-fixed-posteriors}
 ```{r}
 #| echo: false
@@ -1270,8 +1271,10 @@ knitr::include_graphics(paste0("figures/gam_fit_", ver, "_", dpi.set, "dpi.png")
 knitr::include_graphics(paste0("figures/posteriors_VS_BF_", ver, "_", dpi.set, "dpi.png"))
 
 ```
+
 Marginal posterior distributions of the fixed-effects coefficients for the visibility code ($\beta_{V}$) and Beaufort sea state ($\beta_{B}$)."
 :::
+
 \newpage
 
 ```{r}
@@ -1352,7 +1355,6 @@ The non-abbreviated Richards equation contains an additional parameter ($\gamma$
 $$ C_{1,d} = \left( 1 + (2e^\gamma - 1) e^{\frac{P_1 - d}{-S_1}} \right)^{-\frac{1}{e^\gamma}} $$
 
 $$ C_{2,d} = \left( 1 + (2e^\gamma - 1) e^{\frac{P_2 - d}{S_2}} \right)^{-\frac{1}{e^\gamma}} $$
-
 
 ```{r gamma, echo=FALSE, message=FALSE}
 S1 <- 2.5
@@ -1444,6 +1446,7 @@ Marginal posterior density distributions of observer fixed effects. The 10 obser
 \newpage
 
 ## Changes in $S_1$ over time {.unnumbered}
+
 ::: {#suppfig-S1-posteriors}
 ```{r}
 #| echo: false
