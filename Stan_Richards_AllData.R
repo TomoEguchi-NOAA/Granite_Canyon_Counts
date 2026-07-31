@@ -44,11 +44,13 @@ jags.data <- jags.input$jags.data
 # models <- c("M1a1", "M2a1", "M3a1", "M4a1",
 #             "M1a2", "M2a2", "M3a2", "M4a2")
 
-models <- c("M1a2",
-            "M1a2_1gamma", "M1a2_2gammas")
+models <- c("M1a2_1gamma")
 
 params.1.stan <- c("S1", "S2", "P", 
-                   "sigma_proc_P", "Corrected_Est", "Max", "log_N_latent")
+                   "sigma_proc_P", "Corrected_Est", "Max", "log_N_latent",
+                   "gamma_free", "peak_day_decade", "beta1_P")
+
+stan.data <- create.stan.data(jags.data = jags.data)
 
 LOO.out <- stan.global.summary <- ppc.res <- list()
 k <- 1
@@ -83,7 +85,20 @@ for (k in 1:length(models)) {
   # res$autocorr
   # res$plots$resid_day
 }
+
+stan.global.summary[[1]] %>% filter(variable == "sigma_proc_P")
+
+sd_y <- sd(jags.data$year.index)
+b1 <- as.vector(fit_stan$draws("beta1_P[1]", format = "matrix"))
+sP <- as.vector(fit_stan$draws("sigma_proc_P", format = "matrix"))
+R  <- (abs(b1)*sd_y)^2 / ((abs(b1)*sd_y)^2 + sP^2)
+quantile(R, c(0.025, 0.5, 0.975))
   
+ppc.res[[1]]$autocorr
+lapply(ppc.res, function(x) x$autocorr$observed)
+
+ppc.res[[1]]$plots$resid_day
+
 # --- Model comparison ---
 LOOIC.df <- do.call(rbind, lapply(LOO.out, FUN = function(x) x$estimates["looic",])) %>%
   as.data.frame()
