@@ -13,13 +13,15 @@ library(bayesplot)
 library(loo)
 library(rstanarm)
 
+options(mc.cores = parallel::detectCores())
+
 min.dur <- 60
-YEAR <- 2026
+YEAR <- 2026  # the last season name
+run.date <- "2026-06-18"
 
 # Model name IDs
-model.names <- c( "M5a1", "M6a1", "M7a1", "M8a1" ,
-                  "M5a2", "M6a2", "M7a2", "M8a2")
-#model.names <- c( "6", "7", "8")
+model.names <- c( "M1a1", "M2a1", "M3a1", "M4a1", 
+                  "M1a2", "M2a2", "M3a2", "M4a2")
 
 # model IDs in the manuscript is in the same order as above but the numbers are
 # different:
@@ -40,23 +42,32 @@ model.ID <- c(1:length(model.names))
 
 # including hyperparameters and year-specific Max (all models except 7 and 8.
 #params.2 <- "^VS\\.Fixed|^BF\\.Fixed|^Max\\[|^S1|^S2|^P|^OBS\\.RF\\["
-params.a1 <- "^VS\\.Fixed|^BF\\.Fixed|^Max\\[|^S1|^S2|^P|^alpha\\["
+params.a1 <- "^VS\\.Fixed|^BF\\.Fixed|^Max\\[|^S1|^S2|^P|^alpha\\[|^beta0|^beta1|^sd"
+params.a2 <- "^VS\\.Fixed|^BF\\.Fixed|^Max\\[|^S1|^S2|^P|^alpha\\[|^beta0|^beta1|^sd|^r"
 
 #max.Rhat.big <- list()
 prop.big.Rhat <- n.params <- n.big.Rhat <- n.bad.Pareto <- prop.bad.Pareto <- LOOIC <- vector(mode = "numeric", length = length(model.names))
 
 min.ESS.bulk <- min.ESS.tail <- min.ESS <- vector(mode = "numeric", length = length(model.names))
 new.Rhat <- LOOIC.n <- ESS.bulk <- ESS.tail <- list()
-k <- 6
+k <- 5
 for (k in 1:length(model.names)){
   .out <- readRDS(paste0("RData/JAGS_Richards_HSSM_", 
                          model.names[k], "_1968to", YEAR, "_min", 
-                         min.dur, "_NoBUGS.rds"))
+                         min.dur, "_", run.date, "_NoBUGS.rds"))
   
-  new.Rhat[[k]] <- rank.normalized.R.hat(.out$jm$samples, 
-                                         params = params.a1, 
-                                         MCMC.params = .out$MCMC.params)
+  if (length(grep("a1", model.names[[k]])) > 0){
+    new.Rhat[[k]] <- rank.normalized.R.hat(.out$jm$samples, 
+                                           params = params.a1, 
+                                           MCMC.params = .out$MCMC.params)
+  }
   
+  if (length(grep("a2", model.names[[k]])) > 0){
+    new.Rhat[[k]] <- rank.normalized.R.hat(.out$jm$samples, 
+                                           params = params.a2, 
+                                           MCMC.params = .out$MCMC.params)
+  }
+
   n.params[k] <- length(new.Rhat[[k]])
   #max.Rhat <- lapply(.out[[k]]$jm$Rhat, FUN = max, na.rm = T) %>%
   #  unlist()
@@ -95,10 +106,11 @@ for (k in 1:length(model.names)){
   min.ESS.tail[k] <- min(ESS.tail[[k]]$ess_tail)
   
   min.ESS[k] <- min(min.ESS.tail[k], min.ESS.bulk[k])
-  
-  LOOIC[k] <- ifelse(min.ESS[k] > 400,
-                     LOOIC.n[[k]]$loo.out$estimates["looic", "Estimate"],
-                     NA)
+
+  LOOIC[k] <- LOOIC.n[[k]]$loo.out$estimates["looic", "Estimate"]  
+  # LOOIC[k] <- ifelse(min.ESS[k] > 500,
+  #                    LOOIC.n[[k]]$loo.out$estimates["looic", "Estimate"],
+  #                    NA)
   
 }
 
@@ -107,7 +119,7 @@ out.list <- list(LOOIC = LOOIC.n,
                  ESS.bulk = ESS.bulk,
                  ESS.tail = ESS.tail)
 saveRDS(out.list, 
-        file = paste0("RData/Richards_Convergence_", YEAR, ".rds"))
+        file = paste0("RData/Richards_Convergence_", YEAR, "_", run.date, ".rds"))
 
 out.table <- data.frame(model = model.names,
                         LOOIC = LOOIC,
@@ -127,6 +139,6 @@ out.table <- data.frame(model = model.names,
          min.ESS.bulk, min.ESS.tail, LOOIC)
 
 saveRDS(out.table,
-        file = paste0("RData/Richards_ModelComparison_", YEAR, ".rds"))
+        file = paste0("RData/Richards_ModelComparison_", YEAR, "_", run.date, ".rds"))
 #d.t.2 <- Sys.time() - t.2 # 1.68 min
 

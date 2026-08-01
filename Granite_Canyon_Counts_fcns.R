@@ -1,6 +1,220 @@
 
 # define some functions
 
+# Stan inits function:
+stan_init_fn <- function() {
+  out <- list(
+    beta0_Max = rnorm(1, 7.6, 0.2),  
+    #beta1_Max = rnorm(1, 0, 0.05),
+    #log_Max_raw = rnorm(n_year, 0, 0.1),  
+    sigma_proc_Max = runif(1, 0.2, 0.6),
+    beta0_P = runif(1, 42, 48),      
+    #beta1_P = rnorm(1, 0.21, 0.03),
+    P_raw = rnorm(n_year, 45, 2),      # was rnorm(n_year, 0, 0.1)
+    log_Max_raw = rnorm(n_year, 7.6, 0.2),  # was rnorm(n_year, 0, 0.1)
+    #P_raw = rnorm(n_year, 0, 0.1),   
+    #sigma_proc_P = runif(1, 3.5, 5.5),
+    S1 = runif(n_year, 2, 4),        
+    S2 = runif(n_year, 2, 4),
+    #alpha_S1 = runif(1, 8, 12),      beta_S1 = runif(1, 2.5, 4.5),
+    #alpha_S2 = runif(1, 8, 12),      beta_S2 = runif(1, 2.5, 4.5),
+    alpha = rnorm(n_observer, 1.39, 0.1),  
+    sigma_Obs = runif(1, 0.15, 0.35),
+    logit_p0 = rnorm(1, 1.3863, 0.01),
+    BF_Fixed = rnorm(1, 0, 0.1),     
+    VS_Fixed = rnorm(1, 0, 0.1),
+    sigma_shape = runif(1, 0.05, 0.2)
+  )
+  # only supply inits for parameters that actually exist in this configuration
+  
+  if (stan.data$stan.data$use_trend_P)   out$beta1_P   <- array(rnorm(1, 0.21, 0.03), dim = 1)
+  if (stan.data$stan.data$use_trend_Max) out$beta1_Max <- array(rnorm(1, 0,    0.05), dim = 1)
+  if (stan.data$stan.data$use_plateau) {
+    k <- if (stan.data$stan.data$plateau_by_year) n_year else 1
+    out$delta <- array(runif(k, 0.5, 2), dim = k)
+  }
+  if (stan.data$stan.data$use_process_error) {
+    out$log_N_raw     <- matrix(rnorm(n_days * n_year, 0, 0.1), n_days, n_year)
+    out$sigma_process <- array(runif(1, 0.1, 0.3), dim = 1)
+  }
+  
+  if (stan.data$stan.data$S1_by_season) {
+    out$mu_S1 <- array(runif(1,2.5,3.5),1)
+    out$shape_S1 <- array(runif(1,8,12),1)
+  }
+  
+  if (stan.data$stan.data$S2_by_season) {
+    out$mu_S2 <- array(runif(1,2.5,3.5),1)
+    out$shape_S2 <- array(runif(1,8,12),1)
+  }
+  
+  if (stan.data$stan.data$likelihood_NB == 1) out$phi = runif(1, 4, 6)
+  
+  if (stan.data$stan.data$estimate_gamma) {
+    k <- if (stan.data$stan.data$separate_gamma) 2 else 1
+    out$gamma_free <- array(rnorm(k, 1, 0.1), dim = k)
+  }
+  
+  return(out)
+}
+
+
+# This function creates stan data list. Several switches are used for 
+# sensitivity analysis. Default values are provided. 
+# use_trend_P (1): If 0, drops the linear-in-year P term entirely. Beta1 (slope) is 
+#                  removed from the model. b1_P = 0 when use_trend_P = 0
+#                  207: if (use_trend_P)   b1_P   = beta1_P[1];
+#                  209: mu_P   = beta0_P   + b1_P   * year_values;
+# use_trend_Max (0): Same as P above. Note Max is not he maximum number of whales.
+#                    It is a scale parameter of the Richards function.
+# use_pooling_Max (1): removes hierarchical shrinkage on the season levels
+#                      altogether: each log_Max[y] gets an independent diffuse
+#                      prior, as in the calf-production model. Use this to test
+#                      whether shrinkage toward the trend inflates low seasons.
+#                      When 0, beta0_Max / beta1_Max / sigma_proc_Max are not
+#                      identified and simply sample their priors
+# sd_unpooled_Max (5): SD of Max when use_pooling_Max == 0
+# use_plateau (0): if 1, "shoulders" (delta) around the peak (P) is defined.
+# plateau_by_year (0): if 1, delta is defined for each year. Only if that shared 
+#                      delta is clearly positive → plateau_by_year = 1, which asks 
+#                      whether plateau width varies by season.
+# sd_delta (5): SD of the delta parameter (shoulder of the peak), in units of days.
+# anchor_mu (qlogis(0.8)): The mean detection probability in the logistic scale. 0.8 
+#                          comes from the paper by Durban et al. (2015). 
+# anchor_sd (0.1622): SD of the detection probability. The original JAGS model used
+#                     ~ 0, to make the model converge. 0.1662 is approximate to the 
+#                     95% CI reported by Durban et al. (2015): Highest Posterior 
+#                     Density Interval [0.75-0.85]                          
+# independent_corr (0): If 1, the correction factor for the nighttime passage rate
+#                       is drawn for each year. If 0 (default), one value is used
+#                       for all years. Keep this 0. 
+# S1_by_season (1): Switch to make S1 season dependent (1) or constant over all years (0)
+# S2_by_season (1): Switch to make S2 season dependent (1) or constant over all years (0)
+# likelihood_NB (1): Choose Negative-Binomial (1) or Poisson as the likelihood
+# jags.data: provide jags data, which is used to create the stan input list.
+
+create.stan.data <- function(use_trend_P = 1, use_trend_Max = 1,  use_pooling_Max = 1, sd_unpooled_Max = 5, use_plateau = 0, plateau_by_year = 0, sd_delta = 5, anchor_mu = qlogis(0.8), anchor_sd = 0.1622, independent_corr = 0, S1_by_season = 1, S2_by_season = 1,likelihood_NB = 1, gamma_fix = 1, estimate_gamma = 1, separate_gamma = 0, gamma_prior_mu = 1.0, gamma_prior_sd = 1.0, jags.data){
+  
+  # --- 1. Flatten Your Existing JAGS Arrays ---
+  flat_data_list <- list()
+  counter <- 1
+  
+  # add 2 (day 1 and 100) to # periods:
+  periods <- jags.data$periods + 2
+  
+  for (y in 1:jags.data$n.year) {
+    for (s in 1:jags.data$n.station[y]) {
+      for (d in 2:(periods[y, s] - 1)) {
+        
+        flat_data_list[[counter]] <- data.frame(
+          n = jags.data$n[d, s, y],
+          bf = jags.data$bf.1[(d - 1), s, y],
+          vs = jags.data$vs.1[(d - 1), s, y],
+          obs = jags.data$obs.fixed[d, s, y],
+          watch_length = jags.data$watch.length[(d - 1), s, y],
+          year_idx = y,
+          day_idx = jags.data$day[d, s, y],
+          station_idx = s
+        )
+        counter <- counter + 1
+      }
+    }
+  }
+  
+  flat_df <- do.call(rbind, flat_data_list)
+  # Ensure data is sorted sequentially by year and day for indexing
+  flat_df <- flat_df[order(flat_df$year_idx, flat_df$day_idx), ]
+  
+  # --- 2. Build the Start/End Pointer Index Matrices ---
+  start_idx <- matrix(0, nrow = jags.data$n.days, ncol = jags.data$n.year)
+  end_idx <- matrix(0, nrow = jags.data$n.days, ncol = jags.data$n.year)
+  
+  for (y in 1:jags.data$n.year) {
+    for (t in 1:jags.data$n.days) {
+      matching_rows <- which(flat_df$year_idx == y & flat_df$day_idx == t)
+      if (length(matching_rows) > 0) {
+        start_idx[t, y] <- min(matching_rows)
+        end_idx[t, y]  <- max(matching_rows)
+      } else {
+        start_idx[t, y] <- 1
+        end_idx[t, y]  <- 0 # Signifies no observations on this day
+      }
+    }
+  }
+  storage.mode(start_idx) <- "integer"
+  storage.mode(end_idx)   <- "integer"
+  
+  # --- 3. Package Everything for Stan ---
+  stan_data <- list(
+    n_year = jags.data$n.year, 
+    n_days = jags.data$n.days, 
+    n_observer = max(flat_df$obs), 
+    N_flat = nrow(flat_df),
+    n = flat_df$n, 
+    bf = flat_df$bf, 
+    vs = flat_df$vs - 1,      # RAW, and vs shifted
+    observer_idx = flat_df$obs, 
+    watch_length = flat_df$watch_length,
+    year_values = jags.data$year.index, 
+    day_idx = flat_df$day_idx, 
+    year_idx = flat_df$year_idx,
+    
+    sd_beta1_P = 2, 
+    beta0_Max_mu = 7.6, 
+    sd_beta0_Max = 2, 
+    sd_beta1_Max = 2,
+    sd_BF = 2, 
+    sd_VS = 2, 
+    sd_sigma_proc_P = 5, 
+    sd_sigma_proc_Max = 5,
+    alpha_S_mu = 10, 
+    alpha_S_sd = sqrt(10), 
+    beta_S_shape = 1, 
+    beta_S_rate = 1,
+    sigma_Obs_max = 1.5, 
+    phi_max = 50,
+    
+    anchor_mu = anchor_mu, 
+    anchor_sd = anchor_sd, 
+    boundary_N = 0.0001,
+    
+    centred_P = 1, 
+    centred_Max = 1,
+    use_process_error = 0, 
+    use_shape_dev = 0, 
+    independent_corr = independent_corr,
+    n_period = 20, 
+    period_idx = rep(1:20, each = 5), 
+    sd_sigma_shape = 0.5,
+    S_const_shape = 10, 
+    S_const_rate = 1,
+    
+    use_trend_P = use_trend_P, 
+    use_trend_Max = use_trend_Max, 
+    use_pooling_Max = use_pooling_Max, 
+    sd_unpooled_Max = sd_unpooled_Max,
+    use_plateau = use_plateau, 
+    plateau_by_year = plateau_by_year, 
+    sd_delta = sd_delta,
+    S1_by_season = S1_by_season, 
+    S2_by_season = S2_by_season,
+    likelihood_NB = likelihood_NB,
+    
+    gamma_fix = gamma_fix,           # used when estimate_gamma = 0; reproduces JAGS
+    estimate_gamma = estimate_gamma,
+    separate_gamma = separate_gamma,        # distinct gamma for descending vs ascending limb
+    gamma_lower = -0.60,
+    gamma_prior_mu = gamma_prior_mu, 
+    gamma_prior_sd = gamma_prior_sd
+  )
+  
+  return(list(stan.data = stan_data,
+              jags.data = jags.data))
+  
+}
+
+
+
 S1.S2.trace.plots <- function(ver, jm, jags.data, new.Rhat, start.year){
   par.idx = c(1:jags.data$n.year)
   
@@ -327,7 +541,7 @@ create.observer.list <- function(sightings){
 
 
 # retrieve BUGS results
-get.results.BUGS <- function(BUGS.file.name){
+get.results.BUGS <- function(BUGS.file.name, end.year){
   out <- readRDS(paste0("RData/", BUGS.file.name))
   out$BUGS.out$summary %>%
     as.data.frame() %>%
@@ -345,7 +559,7 @@ get.results.BUGS <- function(BUGS.file.name){
                                  model = "BUGS",
                                  min.watch = watch.dur[2],
                                  Method = "Durban",
-                                 data.set = "2007to2024")
+                                 data.set = paste0("2007to", end.year))
   return(WinBUGS.Nhats.df) 
   
 }
@@ -514,6 +728,109 @@ Jags_Richards_Since2010_fcn <- function(min.dur, max.day = 90, ver, years, data.
 
 }
 
+## Creates JAGS input data
+NoBUGS_Jags_input <- function(min.dur, years, data.dir, max.day = 100, obs.n.min = 10, N.obs = 10){
+  jags.input.list <- AllData2JagsInput_NoBUGS(min.dur, years = years, data.dir, max.day)                        
+  #jags.input.list$jags.data["N"] <- NULL
+  # Modify jags data to rearrange days and provide zeros for t = 1 and t = max.day
+  jags.data <- jags.input.list$jags.data
+  
+  # Code observers so that only observers with the minimum sample size are kept
+  obs.vec <- as.vector(jags.data$obs) 
+  data.frame(obs = obs.vec) %>%
+    mutate(obs.f = as.factor(obs)) %>%
+    group_by(obs.f) %>%
+    summarize(n = n(),
+              obs = first(obs)) -> obs.summary
+  
+  obs.too.few <- obs.summary %>% filter(n < obs.n.min)  
+  
+  obs.to.keep <- obs.summary %>% filter(n >= obs.n.min) 
+  obs.to.keep$new.ID <- seq(1, dim(obs.to.keep)[1])
+  obs.others <- max(obs.to.keep$new.ID)
+  
+  obs <- jags.data$obs
+  new.no.obs <- obs.others + 1
+  old.no.obs <- max(obs.to.keep$obs)
+  for (k in 1:nrow(obs.too.few)){
+    obs[obs == obs.too.few$obs[k]] <- NA
+  }
+  
+  for (k in 1:(nrow(obs.to.keep)-1)){
+    obs[obs == obs.to.keep$obs[k]]  <- obs.to.keep$new.ID[k] 
+  }
+  
+  obs[is.na(obs)] <- obs.others
+  obs[obs == old.no.obs] <- new.no.obs
+  
+  jags.data$obs <- obs
+  jags.data$n.obs <- max(obs) - 1
+  
+  # Create a fixed observer effect input
+  obs_counts <- table(obs.vec)
+  top_obs_names.df <- data.frame(old.ID = names(sort(obs_counts, 
+                                                     decreasing = TRUE))[1:N.obs],
+                                 new.ID = c(1:N.obs))
+  
+  # Initialize the array with NAs or 0
+  # Dimensions: Max Days, Max Stations, Total Years
+  n_days_max <- dim(obs)[1] # or however you defined 'd'
+  n_stations_max <- dim(obs)[2]
+  n_years <- dim(obs)[3]
+  
+  obs_array <- array((N.obs+1), 
+                     dim = c(n_days_max, 
+                             n_stations_max, 
+                             n_years))
+  
+  # Fill the array
+  # Assuming your dataframe 'data' has columns: year_index, station_index, day_index _ this doesn't work
+  #START HERE 2026-02-08!!
+  for (i in 1:nrow(top_obs_names.df)){
+    obs_array[obs == top_obs_names.df[i,"old.ID"]] <- top_obs_names.df[i, "new.ID"]
+  }
+  
+  jags.data$obs.fixed <- obs_array
+  jags.data$n.obs.fixed <- (max(top_obs_names.df$new.ID)) + 1
+  
+  #jags.data$scaled.day <- jags.data$day-(max.day/2)
+  #jags.data["N"] <- NULL
+  ###  ###  ###
+  
+  # center and scale VS and BF
+  vs.std <- jags.data$vs
+  for (k in 1:dim(vs.std)[3]){
+    vs.std[,1,k] <- (vs.std[,1,k] - mean(vs.std[,1,k], na.rm = T))/sqrt(var(vs.std[,1,k], na.rm = T))
+    vs.std[,2,k] <- (vs.std[,2,k] - mean(vs.std[,2,k], na.rm = T))/sqrt(var(vs.std[,2,k], na.rm = T))
+  }
+  
+  bf.std <- jags.data$bf
+  for (k in 1:dim(bf.std)[3]){
+    bf.std[,1,k] <- (bf.std[,1,k] - mean(bf.std[,1,k], na.rm = T))/sqrt(var(bf.std[,1,k], na.rm = T))
+    bf.std[,2,k] <- (bf.std[,2,k] - mean(bf.std[,2,k], na.rm = T))/sqrt(var(bf.std[,2,k], na.rm = T))
+  }
+  
+  jags.data$bf.1 <- jags.data$bf
+  jags.data$bf <- bf.std
+  jags.data$vs.1 <- jags.data$vs
+  jags.data$vs <- vs.std
+  
+  jags.data$start.years <- c(jags.input.list$jags.input.Laake$all.start.year,
+                             jags.input.list$jags.input.new$start.years)
+  
+  jags.data$year.index <- jags.data$start.years - mean(jags.data$start.years)
+  
+  jags.input <- list(jags.data = jags.data,
+                     min.dur = min.dur, 
+                     jags.input.Laake = jags.input.list$jags.input.Laake,
+                     jags.input.new = jags.input.list$jags.input.new,
+                     jags.original.data = jags.input.list$jags.data,
+                     data.dir = data.dir,
+                     obs.summary = obs.summary)
+  
+  return(jags.input)
+}
+
 # Runs a Richards' function with Pois-Binom model on datasets without using
 # WinBUGS input, i.e., creating input data from output of Extract_Data_All_v2.Rmd.
 # It also uses Laake's data.
@@ -561,126 +878,131 @@ Jags_Richards_Since2010_fcn <- function(min.dur, max.day = 90, ver, years, data.
 #                     obs.n.min = 10,
 #                     N.obs = 10)     
 #                     
-NoBUGS_Richards_fcn <- function(min.dur, ver, years, data.dir, jags.params, MCMC.params, max.day = 100, obs.n.min = 10, N.obs = 10,Run.date = Sys.Date(), model.name.root){
+NoBUGS_Richards_fcn <- function(min.dur, years, data.dir, jags.params, MCMC.params, max.day = 100, obs.n.min = 10, N.obs = 10, Run.date = Sys.Date(), model.name, ext = ".jags", inits = NULL){
   
   # N.obs is the number of "top" observers who sighted the most whales among
   # all observers. 
   #Run.date <- Sys.Date()
-  model.name <- paste0(model.name.root, ver) 
+  #model.name <- paste0(model.name.root, ver) 
   print(paste0("Starting NoBUGS_Richards_fcn at ", Sys.time(), " for Model: ", model.name))
   
-  jags.model <- paste0("models/model_", model.name, ".txt")
+  jags.model <- paste0("models/", model.name)
   
+  model.name.part.1 <- strsplit(model.name, split = ext)[[1]]
+  model.name.part <- strsplit(model.name.part.1, split = "model_")[[1]][2]
   
-  
-  out.file.name <- paste0("RData/JAGS_", model.name, 
+  out.file.name <- paste0("RData/JAGS_", model.name.part, 
                           "_1968to", max(years), 
-                          "_min", min.dur,
+                          "_min", min.dur, "_",
+                          Run.date, 
                           "_NoBUGS.rds")
   
   if (!file.exists(out.file.name)){
-    jags.input.list <- AllData2JagsInput_NoBUGS(min.dur, years = years, data.dir, max.day)                        
-    #jags.input.list$jags.data["N"] <- NULL
-    # Modify jags data to rearrange days and provide zeros for t = 1 and t = max.day
-    jags.data <- jags.input.list$jags.data
+    # jags.input.list <- AllData2JagsInput_NoBUGS(min.dur, years = years, data.dir, max.day)                        
+    # #jags.input.list$jags.data["N"] <- NULL
+    # # Modify jags data to rearrange days and provide zeros for t = 1 and t = max.day
+    # jags.data <- jags.input.list$jags.data
+    # 
+    # # Code observers so that only observers with the minimum sample size are kept
+    # obs.vec <- as.vector(jags.data$obs) 
+    # data.frame(obs = obs.vec) %>%
+    #   mutate(obs.f = as.factor(obs)) %>%
+    #   group_by(obs.f) %>%
+    #   summarize(n = n(),
+    #             obs = first(obs)) -> obs.summary
+    # 
+    # obs.too.few <- obs.summary %>% filter(n < obs.n.min)  
+    # 
+    # obs.to.keep <- obs.summary %>% filter(n >= obs.n.min) 
+    # obs.to.keep$new.ID <- seq(1, dim(obs.to.keep)[1])
+    # obs.others <- max(obs.to.keep$new.ID)
+    # 
+    # obs <- jags.data$obs
+    # new.no.obs <- obs.others + 1
+    # old.no.obs <- max(obs.to.keep$obs)
+    # for (k in 1:nrow(obs.too.few)){
+    #   obs[obs == obs.too.few$obs[k]] <- NA
+    # }
+    # 
+    # for (k in 1:(nrow(obs.to.keep)-1)){
+    #   obs[obs == obs.to.keep$obs[k]]  <- obs.to.keep$new.ID[k] 
+    # }
+    # 
+    # obs[is.na(obs)] <- obs.others
+    # obs[obs == old.no.obs] <- new.no.obs
+    # 
+    # jags.data$obs <- obs
+    # jags.data$n.obs <- max(obs) - 1
+    # 
+    # # Create a fixed observer effect input
+    # obs_counts <- table(obs.vec)
+    # top_obs_names.df <- data.frame(old.ID = names(sort(obs_counts, 
+    #                                                    decreasing = TRUE))[1:N.obs],
+    #                                new.ID = c(1:N.obs))
+    #                                
+    # # Initialize the array with NAs or 0
+    # # Dimensions: Max Days, Max Stations, Total Years
+    # n_days_max <- dim(obs)[1] # or however you defined 'd'
+    # n_stations_max <- dim(obs)[2]
+    # n_years <- dim(obs)[3]
+    # 
+    # obs_array <- array((N.obs+1), 
+    #                    dim = c(n_days_max, 
+    #                            n_stations_max, 
+    #                            n_years))
+    # 
+    # # Fill the array
+    # # Assuming your dataframe 'data' has columns: year_index, station_index, day_index _ this doesn't work
+    # #START HERE 2026-02-08!!
+    # for (i in 1:nrow(top_obs_names.df)){
+    #   obs_array[obs == top_obs_names.df[i,"old.ID"]] <- top_obs_names.df[i, "new.ID"]
+    # }
+    #   
+    # jags.data$obs.fixed <- obs_array
+    # jags.data$n.obs.fixed <- (max(top_obs_names.df$new.ID)) + 1
+    # 
+    # #jags.data$scaled.day <- jags.data$day-(max.day/2)
+    # #jags.data["N"] <- NULL
+    # ###  ###  ###
+    # 
+    # # center and scale VS and BF
+    # vs.std <- jags.data$vs
+    # for (k in 1:dim(vs.std)[3]){
+    #   vs.std[,1,k] <- (vs.std[,1,k] - mean(vs.std[,1,k], na.rm = T))/sqrt(var(vs.std[,1,k], na.rm = T))
+    #   vs.std[,2,k] <- (vs.std[,2,k] - mean(vs.std[,2,k], na.rm = T))/sqrt(var(vs.std[,2,k], na.rm = T))
+    # }
+    # 
+    # bf.std <- jags.data$bf
+    # for (k in 1:dim(bf.std)[3]){
+    #   bf.std[,1,k] <- (bf.std[,1,k] - mean(bf.std[,1,k], na.rm = T))/sqrt(var(bf.std[,1,k], na.rm = T))
+    #   bf.std[,2,k] <- (bf.std[,2,k] - mean(bf.std[,2,k], na.rm = T))/sqrt(var(bf.std[,2,k], na.rm = T))
+    # }
+    # 
+    # jags.data$bf.1 <- jags.data$bf
+    # jags.data$bf <- bf.std
+    # jags.data$vs.1 <- jags.data$vs
+    # jags.data$vs <- vs.std
+    # 
+    # jags.data$start.years <- c(jags.input.list$jags.input.Laake$all.start.year,
+    #                            jags.input.list$jags.input.new$start.years)
+    # 
+    # jags.data$year.index <- jags.data$start.years - mean(jags.data$start.years)
+    # 
+    # jags.input <- list(jags.data = jags.data,
+    #                    min.dur = min.dur, 
+    #                    jags.input.Laake = jags.input.list$jags.input.Laake,
+    #                    jags.input.new = jags.input.list$jags.input.new,
+    #                    jags.original.data = jags.input.list$jags.data,
+    #                    data.dir = data.dir,
+    #                    obs.summary = obs.summary)
     
-    # Code observers so that only observers with the minimum sample size are kept
-    obs.vec <- as.vector(jags.data$obs) 
-    data.frame(obs = obs.vec) %>%
-      mutate(obs.f = as.factor(obs)) %>%
-      group_by(obs.f) %>%
-      summarize(n = n(),
-                obs = first(obs)) -> obs.summary
-    
-    obs.too.few <- obs.summary %>% filter(n < obs.n.min)  
-    
-    obs.to.keep <- obs.summary %>% filter(n >= obs.n.min) 
-    obs.to.keep$new.ID <- seq(1, dim(obs.to.keep)[1])
-    obs.others <- max(obs.to.keep$new.ID)
-    
-    obs <- jags.data$obs
-    new.no.obs <- obs.others + 1
-    old.no.obs <- max(obs.to.keep$obs)
-    for (k in 1:nrow(obs.too.few)){
-      obs[obs == obs.too.few$obs[k]] <- NA
-    }
-    
-    for (k in 1:(nrow(obs.to.keep)-1)){
-      obs[obs == obs.to.keep$obs[k]]  <- obs.to.keep$new.ID[k] 
-    }
-    
-    obs[is.na(obs)] <- obs.others
-    obs[obs == old.no.obs] <- new.no.obs
-    
-    jags.data$obs <- obs
-    jags.data$n.obs <- max(obs) - 1
-    
-    # Create a fixed observer effect input
-    obs_counts <- table(obs.vec)
-    top_obs_names.df <- data.frame(old.ID = names(sort(obs_counts, 
-                                                       decreasing = TRUE))[1:N.obs],
-                                   new.ID = c(1:N.obs))
-                                   
-    # Initialize the array with NAs or 0
-    # Dimensions: Max Days, Max Stations, Total Years
-    n_days_max <- dim(obs)[1] # or however you defined 'd'
-    n_stations_max <- dim(obs)[2]
-    n_years <- dim(obs)[3]
-    
-    obs_array <- array((N.obs+1), 
-                       dim = c(n_days_max, 
-                               n_stations_max, 
-                               n_years))
-    
-    # Fill the array
-    # Assuming your dataframe 'data' has columns: year_index, station_index, day_index _ this doesn't work
-    #START HERE 2026-02-08!!
-    for (i in 1:nrow(top_obs_names.df)){
-      obs_array[obs == top_obs_names.df[i,"old.ID"]] <- top_obs_names.df[i, "new.ID"]
-    }
-      
-    jags.data$obs.fixed <- obs_array
-    jags.data$n.obs.fixed <- (max(top_obs_names.df$new.ID)) + 1
-    
-    #jags.data$scaled.day <- jags.data$day-(max.day/2)
-    #jags.data["N"] <- NULL
-    ###  ###  ###
-    
-    # center and scale VS and BF
-    vs.std <- jags.data$vs
-    for (k in 1:dim(vs.std)[3]){
-      vs.std[,1,k] <- (vs.std[,1,k] - mean(vs.std[,1,k], na.rm = T))/sqrt(var(vs.std[,1,k], na.rm = T))
-      vs.std[,2,k] <- (vs.std[,2,k] - mean(vs.std[,2,k], na.rm = T))/sqrt(var(vs.std[,2,k], na.rm = T))
-    }
-    
-    bf.std <- jags.data$bf
-    for (k in 1:dim(bf.std)[3]){
-      bf.std[,1,k] <- (bf.std[,1,k] - mean(bf.std[,1,k], na.rm = T))/sqrt(var(bf.std[,1,k], na.rm = T))
-      bf.std[,2,k] <- (bf.std[,2,k] - mean(bf.std[,2,k], na.rm = T))/sqrt(var(bf.std[,2,k], na.rm = T))
-    }
-    
-    jags.data$bf.1 <- jags.data$bf
-    jags.data$bf <- bf.std
-    jags.data$vs.1 <- jags.data$vs
-    jags.data$vs <- vs.std
-    
-    jags.data$start.years <- c(jags.input.list$jags.input.Laake$all.start.year,
-                               jags.input.list$jags.input.new$start.years)
-    
-    jags.data$year.index <- jags.data$start.years - mean(jags.data$start.years)
-    
-    jags.input <- list(jags.data = jags.data,
-                       min.dur = min.dur, 
-                       jags.input.Laake = jags.input.list$jags.input.Laake,
-                       jags.input.new = jags.input.list$jags.input.new,
-                       jags.original.data = jags.input.list$jags.data,
-                       data.dir = data.dir,
-                       obs.summary = obs.summary)
+    jags.input <- NoBUGS_Jags_input(min.dur, years, data.dir, max.day, obs.n.min, N.obs)
+    jags.data <- jags.input$jags.data
     
     Start_Time<-Sys.time()
     
     jm <- jagsUI::jags(jags.data,
-                       inits = NULL,
+                       inits = inits,
                        parameters.to.save= jags.params,
                        model.file = jags.model,
                        n.chains = MCMC.params$n.chains,
@@ -3002,6 +3324,7 @@ plot.trace.dens <- function(jm, var.name){
     
     p.dens <- ggplot(samples.df) +
       geom_density(aes(x = sample)) +
+      xlab("") +
       facet_wrap(~ par.name.ordered)
   } else {
     samples.vec <- unlist(samples)
@@ -3012,10 +3335,14 @@ plot.trace.dens <- function(jm, var.name){
                                          times = n.samples))
     p.trace <- ggplot(samples.df) +
       geom_line(aes(x = seq, y = sample, color = chain)) +
-      theme(legend.position = "none")
+      theme(legend.position = "none") +
+      theme_bw()
     
     p.dens <- ggplot(samples.df) +
-      geom_density(aes(x = sample)) 
+      geom_density(aes(x = sample)) +
+      xlab("") +
+      theme_bw()
+    
   }
 
  
@@ -3219,7 +3546,8 @@ get.data <- function(in.dir, YEAR, FILES, ff){
   # look at the first three letters of the first line
   first.3 <- str_sub(all.lines[1], start = 1, end = 3)
   
-  if (is.na(as.numeric(first.3)))
+  #if (is.na(as.numeric(first.3)))
+  if (is.character(first.3))  
     all.lines <- all.lines[2:length(all.lines)]
   
   # look at all event code
@@ -3295,11 +3623,11 @@ get.data <- function(in.dir, YEAR, FILES, ff){
       # before a start time, that's probably an error)
       # TE: I added [t] to Ends in the following line. I think it's needed. NO... 
       # Ends does not need the subscript. 
-      if (YEAR != 2010){
-        Diffs[t,] <- seconds(hms(data[Starts[t],4])) - seconds(hms(data[Ends,4]))         
-      } else {
-        Diffs[t,] <- (as.numeric(data[Starts[t], 4]) - as.numeric(data[Ends, 4])) * 24 * 60 * 60
-      }
+      #if (YEAR != 2010){
+      Diffs[t,] <- seconds(hms(data[Starts[t],4])) - seconds(hms(data[Ends,4]))         
+      #} else {
+      #Diffs[t,] <- (as.numeric(data[Starts[t], 4]) - as.numeric(data[Ends, 4])) * 24 * 60 * 60
+      #}
 
     }
     
@@ -3787,14 +4115,16 @@ get.shift <- function(YEAR, data, i){
                 Bearing = as.numeric(V6),
                 Reticle = as.numeric(V7),
                 Distance = as.numeric(V8),
-                Observer = V10,
+                Observer = toupper(V10),
                 shift = shift, 
                 key = key, 
                 begin = start,
                 end = end,
                 time = time,
                 effort = effort,
-                Shift = Shift) %>%
+                Shift = Shift,
+                sighting.key = paste0(as.Date(Date, format = "%m/%d/%Y"), "_", 
+                                      Shift, "_", Group_ID)) %>%
       group_by(Group_ID) %>%
       summarise(Date = first(Date),
                 Time = first(Time),
@@ -3811,7 +4141,8 @@ get.shift <- function(YEAR, data, i){
                 end = first(end),
                 time = first(time),
                 effort = first(effort),
-                Shift = first(Shift)) -> sub.data.shift
+                Shift = first(Shift),
+                sighting.key = first(sighting.key)) -> sub.data.shift
     
     # effort summary
     # Rare occasions when observer changes within a shift... this needs to be
@@ -3832,7 +4163,8 @@ get.shift <- function(YEAR, data, i){
                 end = first(end),
                 time = first(time),
                 effort = first(effort),
-                Shift = first(Shift)) -> data.shift.effort
+                Shift = first(Shift),
+                sighting.key = first(sighting.key)) -> data.shift.effort
     
     
     
@@ -3852,14 +4184,15 @@ get.shift <- function(YEAR, data, i){
                 Bearing = NA,
                 Reticle = NA,
                 Distance = NA,
-                Observer = Observer,
+                Observer = toupper(Observer),
                 shift = shift, 
                 key = key, 
                 begin = start,
                 end = end,
                 time = time,
                 effort = effort,
-                Shift = Shift) -> sub.data.shift
+                Shift = Shift,
+                sighting.key = NA) -> sub.data.shift
     
     # fix beaufort and visibility 
     for (k1 in 1:nrow(BFs.dt)){
@@ -3881,7 +4214,8 @@ get.shift <- function(YEAR, data, i){
                 end = first(end),
                 time = first(time),
                 effort = first(effort),
-                Shift = first(Shift)) -> data.shift.effort
+                Shift = first(Shift),
+                sighting.key = NA) -> data.shift.effort
     
   }
   

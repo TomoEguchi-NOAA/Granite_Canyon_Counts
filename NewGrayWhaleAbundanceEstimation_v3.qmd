@@ -1,51 +1,52 @@
 ---
-title: "A new approach to gray whale abundance estimation"
+title: "A new approach to gray whale abundance estimation from the shore-based survey at Granite Canyon, CA"
 author: "Tomoharu Eguchi"
-date: "`r Sys.Date()`"
-output: 
-  officedown::rdocx_document:
-    base_format: "bookdown::word_document2"
-    reference_docx: template.docx
-    plots:
-      style: Normal
-      align: center
-      caption: 
-        style: Image Caption
+format: 
+  docx:
+    filters:
+      - flextable-qmd
+      - at: post-render
+        path: _extensions/flextable-qmd/unwrap-float.lua
+    reference-doc: template.docx
+number-sections: false
+editor: visual
+crossref:
+  custom:
+    - kind: float
+      key: suppfig
+      reference-prefix: Figure A
+      caption-prefix: Figure A
+      space-before-numbering: false
+    - kind: float
+      key: supptbl
+      reference-prefix: Table A
+      caption-prefix: Table A
+      caption-location: top 
+      space-before-numbering: false
 bibliography: reference.bib
 csl: marine-mammal-science.csl
 ---
 
-```{r setup, include=FALSE}
-#  bookdown::word_document2: default
-#  number_sections: true
-#  reference_docx: style_reference.docx
-#    base_format: "bookdown::word_document2"
-
-
+```{r}
+#| echo: false
+#| message: false
 rm(list = ls())
-knitr::opts_chunk$set(echo = TRUE, 
-                      warning = FALSE, 
-                      message = FALSE, 
-                      cache = FALSE)
-save.fig <- T
-
-source("Granite_Canyon_Counts_fcns.R")
 library(tidyverse)
-library(lubridate)
+library(ggplot2)
 library(flextable)
+library(tibble)
+library(ftExtra)
+library(officer)
+library(officedown)
+library(equatags) 
+library(posterior)
 library(jagsUI)
 library(bayesplot)
-library(ggpubr)
-#library(R2WinBUGS)
-library(abind)
-library(rmarkdown)
-library(loo)
 library(ggridges)
 library(rstanarm)
 library(mgcv)
-library(flextable)
-library(officer)
-library(officedown)
+
+source("Granite_Canyon_Counts_fcns.R")
 
 options(mc.cores = 5)
 
@@ -60,11 +61,10 @@ YEAR <- 2026
 min.dur <- 60#10 #
 dpi.set <- 600
 
-# This run (2025-09-19) includes posterior samples of obs.prob. It was run in
-# the GrayWhaleAbundance project. 
-# The run of 2025-04-11 is the one for the Tech Memo
-WinBUGS.Run.Date <- "2026-02-20"  
+# It was run in the GrayWhaleAbundance project. 
+WinBUGS.Run.Date <- "2026-05-06"  
 
+save.fig <- T #F 
 save.fig.fcn <- function(fig, file.name, replace = F, 
                          dpi = dpi.set, device = "png",
                          height = 3, width = 3, units = "in",
@@ -85,14 +85,15 @@ Author affiliation: National Oceanic and Atmospheric Administration, National Ma
 
 # Abstract {.unnumbered}
 
-For the conservation of the Eastern North Pacific (ENP) gray whale [*Eschrichtius robustus*], monitoring population abundance is vital. This has historically been accomplished through visual surveys conducted at Granite Canyon, CA. Recent financial and logistical constraints have eliminated the dual-observer teams required by the current standard analytical method, necessitating a new approach capable of accurately estimating abundance from single-observer data. Furthermore, the previous method relied on statistical techniques now considered problematic (e.g., the “cut” function in WinBUGS) and struggled with Markov chain Monte Carlo (MCMC) convergence. To address these limitations, a novel hierarchical state-space model was developed in JAGS that replaces the binomial sampling model with a Poisson or negative binomial likelihood. To flexibly capture the often-asymmetrical temporal trend of the migration, a modified Richards equation was implemented. This framework enabled the reincorporation of historical data, allowing the analysis of 32 seasons of survey data dating back to 1967/1968. Eight model variations were compared using modern validation metrics, including leave-one-out information criteria and Pareto-k statistics. The best-fitting model demonstrated excellent MCMC convergence and goodness-of-fit, successfully resolving the convergence issues present in the previous approach. Furthermore, the model provided valuable biological insights by capturing annual shifts in migration phenology. Overall, the new approach yielded abundance estimates and recent decline rates consistent with historical methods, while offering a computationally faster and statistically robust framework. This adaptable model effectively meets current monitoring constraints and is recommended for future ENP gray whale abundance estimations.
+For the conservation of the Eastern North Pacific (ENP) gray whale (*Eschrichtius robustus*), monitoring population abundance is vital. This has historically been accomplished through visual surveys conducted at Granite Canyon, CA. Recent financial and logistical constraints have eliminated the dual-observer teams required by the current standard analytical method, necessitating a new approach capable of accurately estimating abundance from single-observer data. Furthermore, the previous method relied on statistical techniques now considered problematic (e.g., the “cut” function in WinBUGS) and struggled with Markov chain Monte Carlo (MCMC) convergence. To address these limitations, a novel hierarchical state-space model was developed in JAGS that replaces the binomial sampling model with a Poisson or negative binomial likelihood. To flexibly capture the often-asymmetrical temporal trend of the migration, a modified Richards equation was implemented. This framework enabled the reincorporation of historical data, allowing the analysis of 32 seasons of survey data dating back to 1967/1968. Eight model variations were compared using modern validation metrics, including leave-one-out information criteria and Pareto-k statistics. The best-fitting model demonstrated excellent MCMC convergence and goodness-of-fit, successfully resolving the convergence issues present in the previous approach. Furthermore, the model provided valuable biological insights by capturing annual shifts in migration phenology. Overall, the new approach yielded abundance estimates and recent decline rates consistent with historical methods, while offering a computationally faster and statistically robust framework. This adaptable model effectively meets current monitoring constraints and is recommended for future ENP gray whale abundance estimations.
 
 # Keywords {.unnumbered}
+
 ABUNDANCE ESTIMATE, INDEX OF ABUNDANCE, SURVEY - SHORE-BASED, TRENDS, MODELLING
 
 # Introduction {.unnumbered}
 
-The Eastern North Pacific (ENP) gray whale [*Eschrichtius robustus*] population undertakes one of the longest annual migrations of any mammal, traveling between its Arctic feeding grounds and the warm-water lagoons of Baja California, Mexico, where they calve and breed. This population has been the subject of extensive research due to its recovery from historic whaling and its continued vulnerability to environmental changes [@stewart_boom-bust_2023]. Understanding the dynamics of the ENP gray whale population, including its abundance, distribution, and migratory patterns, is crucial for effective conservation and management.
+The Eastern North Pacific (ENP) gray whale \[*Eschrichtius robustus*\] population undertakes one of the longest annual migrations of any mammal, traveling between its Arctic feeding grounds and the warm-water lagoons of Baja California, Mexico, where they calve and breed. This population has been the subject of extensive research due to its recovery from historic whaling and its continued vulnerability to environmental changes [@stewart_boom-bust_2023]. Understanding the dynamics of the ENP gray whale population, including its abundance, distribution, and migratory patterns, is crucial for effective conservation and management.
 
 Analytical methods to estimate the abundance of gray whales from visual surveys at Granite Canyon, CA, have evolved over the years. In recent years, Laake et al. (2012) used a distance sampling approach with generalized additive models (GAMs). Subsequently, Durban et al. (2015) developed a new method using a Bayesian N-mixture approach, which was approved by the International Whaling Commission (IWC) and has been used for the analysis since the 2006/2007 season. Their approach used the general trend of ENP gray whale migration, in which the number of sightings increases over time, peaks, and then decreases. They modeled this pattern using a normal function to capture the general trend, while deviations from the normal function were modeled by fitting a spline to the observed counts. Observations were then modeled with binomial distributions, an approach that inherently required double-observer protocols to estimate detection probabilities. A brief description of their model is provided in the Appendix.
 
@@ -118,55 +119,61 @@ A primary limitation of the Durban et al. approach was the difficulty of handlin
 
 This new approach accommodates an asymmetrical shape around the peak while reflecting the general phenology of increase, peak, and decrease in whale counts. This pattern is modeled by the product of two sigmoid functions, each with a peak that is not necessarily centered—a pattern used to model the nesting dynamics of marine turtles. For instance, a model derived from a modified Verhulst equation (the Richards equation) was used to describe the number of nesting leatherback turtles in French Guiana and Suriname [@girondot_modeling_2007]. Unlike standard symmetric logistic curves, the double-Richards parameterization estimates the onset and termination of the migration pulse independently. The daily mean number of gray whales ($\bar{N}_{d}$) is assumed to change from day 1 to the end of the migration season according to the following equation:
 
-$$\bar{N}_{d} = N_{min} + (N_{max} - N_{min}) \times (C_{1,d} \times C_{2,d})$$ The curvature of the right and left sides of the migration curve are defined by $C_{1,d}$ and $C_{2,d}$, respectively.
+$$\bar{N}_{d} = N_{min} + (N_{max} - N_{min}) \times (C_{1,d} \times C_{2,d})$$ {#eq-Richards}
 
-$$ C_{1,d} = \left( 1 + (2e - 1) e^{\frac{P - d}{-S_1}} \right)^{-\frac{1}{e}} $$
+The curvature of the right and left sides of the migration curve are defined by $C_{1,d}$ and $C_{2,d}$, respectively.
 
-$$ C_{2,d} = \left( 1 + (2e - 1) e^{\frac{P - d}{S_2}} \right)^{-\frac{1}{e}} $$
+$$ C_{1,d} = \left( 1 + (2e - 1) e^{\frac{P - d}{-S_1}} \right)^{-\frac{1}{e}} $$ {#eq-C1}
 
-where $d > 0$ is the number of days since an arbitrary start date, $S_1 > 0$ and $S_2 > 0$ define the slopes of the trailing and leading edges, respectively, $P$ defines where the peak is relative to the range of $d$, where $min(d) < P < max(d)$, $N_{min}$ is the number of whales migrating outside of a migration season ($N_{min} = 0$), and $N_{max} >> N_{min}$. $N_{max}$ represents a scaling parameter for the curve amplitude, which may be fixed or estimated. Effects of these parameters on the shape of the equation are described in the Appendix. This is an abbreviated version of the full model, which is presented in the Appendix. Hereafter, the above function is referred to as the Richards equation.
+$$ C_{2,d} = \left( 1 + (2e - 1) e^{\frac{P - d}{S_2}} \right)^{-\frac{1}{e}} $$ {#eq-C2}
 
-Four versions of the Richards equation were created based on how the parameters were defined with respect to seasons. The structural parameters of the equation ($S_1$ and $S_2$) were treated either as constant across the time series or as season-specific (Table \@ref(tab:model-definition)). Because the peak of gray whale migration has been reported to shift over time [@rugh_timing_2001], the parameter $P[y]$ for the season $y$ was modeled as a linear function of time, distributed as:
+where $d > 0$ is the number of days since an arbitrary start date, $S_1 > 0$ and $S_2 > 0$ define the slopes of the trailing and leading edges, respectively, $P$ defines where the peak is relative to the range of $d$, where $\text{min}(d) < P < \text{max}(d)$, $N_{min}$ is the number of whales migrating outside of a migration season ($N_{min} = 0$), and $N_{max} >> N_{min}$. $N_{max}$ represents a scaling parameter for the curve amplitude, which may be fixed or estimated. Effects of these parameters on the shape of the equation (@eq-Richards) are described in the Appendix. This is an abbreviated version of the full model, which is presented in the Appendix. Hereafter, the above function is referred to as the Richards equation.
 
-$$ P[y] \sim N(\mu_{P}, \sigma^2_{P})$$
+Four versions of the Richards equation were created based on how the parameters were defined with respect to seasons. The structural parameters of the equation ($S_1$ and $S_2$) were treated either as constant across the time series or as season-specific (@tbl-model-definition). Because the peak of gray whale migration has been reported to shift over time [@rugh_timing_2001], the parameter $P[y]$ for the season $y$ was modeled as a linear function of time, distributed as:
+
+$$ P[y] \sim N(\mu_{P}, \sigma^2_{P})$$ {#eq-P}
 
 where the mean ($\mu_P$) is a linear function of the centered season ($y' = y - \bar{y}$, where $\bar{y}$ is the arithmetic mean of all seasons):
 
-$$ \mu_{P} = \beta_{0, P} + \beta_{1,P} \times y'$$ The amplitude parameter $N_{Max}[y]$ was similarly modeled in natural log space:
+$$ \mu_{P} = \beta_{0, P} + \beta_{1,P} \times y'$$ {#eq-mu-P}
 
-$$ log(N_{Max}[y]) \sim N(\mu_{log(Max)}, \sigma^2_{log(Max)}) $$
+The amplitude parameter $N_{Max}[y]$ was similarly modeled in natural log space:
 
-$$ \mu_{log(Max)} = \beta_{0, log(Max)} + \beta_{1, log(Max)} \times y' $$
+$$ log(N_{Max}[y]) \sim N(\mu_{log(Max)}, \sigma^2_{log(Max)}) $$ {#eq-log-Nmax}
+
+$$ \mu_{log(Max)} = \beta_{0, log(Max)} + \beta_{1, log(Max)} \times y' $$ {#eq-mu_log}
 
 This Richards state model provides the expected daily mean number of gray whales ($\bar{N}_{d,y}$). The number of whales available for sampling ($A_{j,s,y}$) during a specific watch period $j$ at station $s$ in season $y$ was determined by multiplying the daily mean by the shift duration $L_{j,s,y}$ (measured in days):
 
-$$ A_{j,s,y} = \bar{N}_{d,y} \times L(j,s,y)$$
+$$ A_{j,s,y} = \bar{N}_{d,y} \times L(j,s,y)$$ {#eq-A}
 
 The expected count of whales ($\kappa_{j,s,y}$) is the product of the available whales ($A_{j,s,y}$) and the detection probability ($p_{j,s,y}$):
 
-$$ \kappa_{j, s, y} = A_{j,s,y} \times p_{j, s, y} $$
+$$ \kappa_{j, s, y} = A_{j,s,y} \times p_{j, s, y} $$ {#eq-kappa}
 
 Detection probability was modeled as a function of environmental viewing conditions—Beaufort sea state ($B$) and visibility code ($V$)—and observer effects ($O$). The 10 observers with the most historical sightings over the entire timeseries were assigned independent effects, while the remaining observers were pooled into a single reference group. This parameterization naturally absorbs the global intercept ($p_0$ in the Durban et al. approach) into the observer effects:
 
-\begin{equation}
-logit(p_{j, s, y}) = \alpha_{O_{j, s, y}} + \beta_{B} \times B_{j, y} + \beta_{V} \times V_{j, y}  
-\end{equation}
+$$ logit(p_{j, s, y}) = \alpha_{O_{j, s, y}} + \beta_{B} \times B_{j, y} + \beta_{V} \times V_{j, y}  $$ {#eq-logit_p}
 
-Estimating both abundance ($N$) and detection probability ($p$) simultaneously from single-observer count data introduces non-identifiability. To break this confounding, the baseline detection probability was anchored using an informative prior. Durban et al. (2015) conducted a paired-observer study at the Granite Canyon survey site and estimated a baseline detectability of 0.80. We incorporated this prior information into the detection probability, where the observer effect was centered on a logit of 1.39 (corresponding to $p = 0.80$). This framework allowed individual observers to vary relative to one another based on the data, while anchoring the overall mean.
+Estimating both abundance ($N$) and detection probability ($p$) simultaneously from single-observer count data introduces non-identifiability. To avoid this confounding, the baseline detection probability was anchored using an informative prior. Durban et al. (2015) conducted a paired-observer study at the Granite Canyon survey site and estimated a baseline detectability of 0.80. I incorporated this prior information into the detection probability, where the observer effect was centered on a logit of 1.39 (corresponding to $p = 0.80$). This framework allowed individual observers to vary relative to one another based on the data, while anchoring the overall mean.
 
 The common likelihood for count data is the Poisson distribution. This likelihood was applied to the dataset following the method of Durban et al.
 
-$$ n_{j, s, y} \sim POI(\kappa_{j, s, y})  $$
+$$ n_{j, s, y} \sim POI(\kappa_{j, s, y})  $$ {#eq-Poisson_likelihood}
 
-However, count data often contain extra variability that cannot be explained using the Poisson distribution. The gray whale migration is characterized by high daily variance due to the clustering of whales into discrete, irregularly spaced pods. Because the Poisson distribution assumes the variance equals the mean, it cannot accommodate this overdispersion. To accommodate the possible overdispersion, the daily count data were also modeled using a Negative Binomial likelihood. By estimating a dispersion parameter ($\theta$), the model absorbs the high variance of peak migration days without artificially inflating the underlying population estimate:
+However, count data often contain extra variability that cannot be explained using the Poisson distribution. The gray whale migration is characterized by high daily variance due to the clustering of whales into discrete, irregularly spaced pods. Because the Poisson distribution assumes the variance equals the mean, it cannot accommodate this overdispersion. To accommodate the possible overdispersion, the daily count data were also modeled using a Negative Binomial likelihood. By estimating a dispersion parameter ($\theta$), the model absorbs the high variance of peak migration days without artificially inflating the underlying abundance estimate:
 
-$$ n_{j, s, y} \sim NB(q_{j, s, y}, \theta) $$
+$$ n_{j, s, y} \sim NB(q_{j, s, y}, \theta) $$ {#eq-NB_likelihood}
 
 where $q = \theta/(\theta + \kappa)$. When $\theta \to \infty$, the Negative Binomial distribution becomes equivalent to the Poisson distribution [@bolker2008; @mccullagh1991].
 
-Each parameter had a hyper-distribution of either a normal, uniform, or gamma distribution (Appendix Table A`r run_reference("hyperparameter-table")`).
+Each parameter had a hyper-distribution of either a normal, uniform, or gamma distribution (Appendix @supptbl-hyperparameters).
 
-```{r model-definitions-table, echo=FALSE, message=FALSE}
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
 all.model.names <- c("M1a1", "M2a1", "M3a1", "M4a1","M1a2", "M2a2", "M3a2", "M4a2")
 model.defs <- data.frame(ID = all.model.names,
                          Lkhd = c(rep("POI", 4), rep("NB", 4)),
@@ -190,149 +197,48 @@ for (nm in names(header_labels)) {
 
 ```
 
-The total number of gray whales for the season $y$ is the sum of all $\bar{N}_{d, y}$ and corrected for nighttime passage:
+The total number of gray whales for the season $y$ is the sum of all $\bar{N}_{d, y}$ and corrected for nighttime passage ($\lambda$):
 
-$$ N_y = \lambda * \sum_{d = 1} ^ {max(d)} \bar{N}_{d, y} $$ and
+$$ N_y = \lambda * \sum_{d = 1} ^ {max(d)} \bar{N}_{d, y} $$ {#eq-Total_N} and
 
 $$ \lambda \sim N(1.0875, 0.03625) $$ (Perryman et al. 1999).
 
-```{r hyper-parameters, echo=FALSE, message=FALSE}
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
 
-hyper.params <- data.frame(Parameter = c("P[y]", "sigma2.P", "beta0.P", "beta1.P", 
-                                         "log(Max[y])", "sigma2.log.Max", "beta0.Max", "beta1.Max",
-                                         "beta.BF", "beta.VS", 
-                                         "S1[y]", "S1.alpha", "S1.beta", 
-                                         "S2[y]", "S2.alpha", "S2.beta"),
-                           Distribution = c("Normal(mu.P[y], sigma2.P)",
-                                            "Normal(0, 1)T(0,)",
-                                            "Uniform(30, 60)",
-                                            "Normal(0, 4)",
-                                            
-                                            "Normal(mu.log.Max[y], sigma2.log.Max)",
-                                            "Normal(0, 1)T(0,)",
-                                            "Normal(7.6, 4)",
-                                            "Normal(0, 4)",
-                                            
-                                            "Normal(0, 4)",
-                                            "Normal(0, 4)",
-                                            
-                                            "Gamma(S1.alpha, S1.beta)",
-                                            "Normal(10, 10)T(0,)",
-                                            "Gamma(1, 1)",
-                                            
-                                            "Gamma(S2.alpha, S2.beta)",
-                                            "Normal(10, 10)T(0,)",
-                                            "Gamma(1, 1)"))
+hyper.params <- tibble(Parameter = c("P[y]", "\\sigma_P", "\\beta_{0,P}", "\\beta_{1,P}", "\\text{log(Max[y])}", "\\sigma_{log(Max)}", "\\beta_{0,Max}", "\\beta_{1,Max}", "\\beta_{B}", "\\beta_{V}", "\\text{S}_1[y]", "\\alpha_{S1}", "\\beta_{S1}", "\\text{S}_2[y]", "\\alpha_{S2}", "\\beta_{S2}"),
+                       Distribution = c("\\text{Normal}(\\mu_{P[y]}, \\sigma^2_P)", "\\text{Normal}(0, 1)T(0,)", "\\text{Uniform}(30, 60)", "\\text{Normal}(0, 4)", "\\text{Normal}(\\mu_{log.Max[y]}, \\sigma^2_{log(Max)})", "\\text{Normal}(0, 1)T(0,)", "\\text{Normal}(7.6, 4)", "\\text{Normal}(0, 4)", "\\text{Normal}(0, 4)", "\\text{Normal}(0, 4)", "\\text{Gamma}(\\alpha_{S1}, \\beta_{S1})", "\\text{Normal}(10, 10)T(0,)", "\\text{Gamma}(1, 1)", "\\text{Gamma}(\\alpha_{S2}, \\beta_{S2})", "\\text{Normal}(10, 10)T(0,)", "\\text{Gamma}(1, 1)"))
 
-# sigma = U03C3
-# beta = U03B2
-# mu = U03BC
-# alpha = U03B1
-
-hyper.params %>%
-  flextable() %>%
-  set_table_properties(layout = "autofit") %>%
-  #autofit() %>%
-  paginate(init = TRUE, hdr_ftr = TRUE) %>%
-  compose(i = 1, j = "Distribution",
-          value = as_paragraph(as_chunk("Normal(\U03BC"),
-                               as_chunk("P",
-                                        props = fp_text(vertical.align = "subscript")),
-                               as_chunk("[y], \U03C3"),
-                               as_chunk("2",
-                                        props = fp_text(vertical.align = "superscript")),
-                               as_chunk("P",
-                                        props = fp_text(vertical.align = "subscript")),
-                               as_chunk(")"))) %>%
-  compose(i = 2, j = "Parameter",
-          value = as_paragraph(as_chunk("\U03C3"),
-                               as_chunk("2",
-                                        props = fp_text(vertical.align = "superscript")),
-                               as_chunk("P",
-                                        props = fp_text(vertical.align = "subscript")))) %>%
-  compose(i = 3, j = "Parameter",
-          value = as_paragraph(as_chunk("\U03B2"),
-                               as_chunk("0,P", props = fp_text(vertical.align = "subscript")))) %>%
-  compose(i = 4, j = "Parameter",
-          value = as_paragraph(as_chunk("\U03B2"), 
-                               as_chunk("1,P", props = fp_text(vertical.align = "subscript")))) %>%
-  compose(i = 5, j = "Distribution",
-          value = as_paragraph(as_chunk("Normal(\U03BC"),
-                               as_chunk("log(Max)",
-                                        props = fp_text(vertical.align = "subscript")),
-                               as_chunk("[y], \U03C3"),
-                               as_chunk("2",
-                                        props = fp_text(vertical.align = "superscript")),
-                               as_chunk("log(Max)",
-                                        props = fp_text(vertical.align = "subscript")),
-                               as_chunk(")"))) %>%
-  compose(i = 6, j = "Parameter",
-          value = as_paragraph(as_chunk("\U03C3"),
-                               as_chunk("2",
-                                        props = fp_text(vertical.align = "superscript")),
-                               as_chunk("log(Max)",
-                                        props = fp_text(vertical.align = "subscript")))) %>%
-  compose(i = 7, j = "Parameter",
-          value = as_paragraph(as_chunk("\U03B2"),
-                               as_chunk("0,log(Max)", props = fp_text(vertical.align = "subscript")))) %>%
-  compose(i = 8, j = "Parameter",
-          value = as_paragraph(as_chunk("\U03B2"),
-                               as_chunk("1,log(Max)", props = fp_text(vertical.align = "subscript")))) %>%
-  compose(i = 9, j = "Parameter",
-          value = as_paragraph(as_chunk("\U03B2"), 
-                               as_chunk("B", props = fp_text(vertical.align = "subscript")))) %>%
-  compose(i = 10, j = "Parameter",
-          value = as_paragraph(as_chunk("\U03B2"), 
-                               as_chunk("V", props = fp_text(vertical.align = "subscript")))) %>%
-  compose(i = 11, j = "Parameter",
-          value = as_paragraph(as_chunk("S"), 
-                               as_chunk("1", props = fp_text(vertical.align = "subscript")),
-                               as_chunk("[y]"))) %>%
-  compose(i = 11, j = "Distribution",
-          value = as_paragraph(as_chunk("Gamma(\U03B1"),
-                               as_chunk("S1",
-                                        props = fp_text(vertical.align = "subscript")),
-                               as_chunk(", \U03B2"),
-                               as_chunk("S1",
-                                        props = fp_text(vertical.align = "subscript")),
-                               as_chunk(")"))) %>%
-  compose(i = 12, j = "Parameter",
-          value = as_paragraph(as_chunk("\U03B1"), 
-                               as_chunk("S1", props = fp_text(vertical.align = "subscript")))) %>%
-  compose(i = 13, j = "Parameter",
-          value = as_paragraph(as_chunk("\U03B2"), 
-                               as_chunk("S1", props = fp_text(vertical.align = "subscript")))) %>%
-  compose(i = 14, j = "Parameter",
-          value = as_paragraph(as_chunk("S"), 
-                               as_chunk("2", props = fp_text(vertical.align = "subscript")),
-                               as_chunk("[y]"))) %>%
-  compose(i = 14, j = "Distribution",
-          value = as_paragraph(as_chunk("Gamma(\U03B1"),
-                               as_chunk("S2",
-                                        props = fp_text(vertical.align = "subscript")),
-                               as_chunk(", \U03B2"),
-                               as_chunk("S2",
-                                        props = fp_text(vertical.align = "subscript")),
-                               as_chunk(")"))) %>%
-  compose(i = 15, j = "Parameter",
-          value = as_paragraph(as_chunk("\U03B1"), 
-                               as_chunk("S2", props = fp_text(vertical.align = "subscript")))) %>%
-  compose(i = 16, j = "Parameter",
-          value = as_paragraph(as_chunk("\U03B2"), 
-                               as_chunk("S2", props = fp_text(vertical.align = "subscript")))) ->
-  ft.hyper.params
-  # compose(i = 9, j = "Parameter",
-  #         value = as_paragraph(as_chunk("\U03B2"), 
-  #                              as_chunk("0", props = fp_text(vertical.align = "subscript"))))  -> 
+# 2. Build table and parse math using equatags
+flextable(hyper.params) %>%
+  theme_booktabs() %>%
   
+  # Natively handle the math using compose() and as_equation()
+  compose(
+    j = c("Parameter"),
+    value = as_paragraph(as_equation(Parameter))
+  ) %>% 
+  compose(
+    j = c("Distribution"),
+    value = as_paragraph(as_equation(Distribution))
+  ) %>% 
+  
+  # Design enhancements
+  bold(part = "header") %>%
+  bg(part = "header", bg = "#F8F9FA") %>%
+  align(align = "left", part = "all") %>%
+  valign(valign = "top", part = "body") %>%
+  padding(padding = 5, part = "all")  -> ft.hyper.params
 
 ```
 
-In the Durban et al. analysis, the annual migration at the survey station was defined as a 90-day period starting on 1 December, with the number of passing whales assumed to be zero on days 1 and 90 (29 February or 1 March). However, in some years, observations continued beyond 1 March. To incorporate all available data, the annual migration period was defined as 100 days (ending on 10 or 11 March), assuming the number of passing whales was zero on days 1 and 100 ($max(d) = 100$).
+In the Durban et al. analysis, the annual migration at the survey station was defined as a 90-day period starting on 1 December, with the number of passing whales assumed to be zero on days 1 and 90 (29 February or 1 March). However, in some years, observations continued beyond 1 March. To incorporate all available data, the annual migration period was defined as 100 days (ending on 10 or 11 March), assuming the number of passing whales was zero on days 1 and 100 ($\text{max}(d) = 100$).
 
-The new approach was used to analyze the entire dataset from the 1967/1968 season onward, and the results were compared to the estimates reported in Lang et al. (2026). In order to apply the new approach to historical data, sighting data between the 1967/1968 and 2006/2007 seasons were obtained from the *ERAnalysis* package (<https://github.com/jlaake/ERAnalysis>, Laake 2012). An R script was written to convert the historical sightings data in the *ERAnalysis* package to an input object required for the new analysis. Data from the 2007/2008 to 2025/2026 seasons were extracted from raw data files using another R script. All shifts of at least 60 minutes with the Beaufort sea state of \< 5 and the visibility code of \< 5 were included in the analysis. Laake et al.’s approach was applied to the entire dataset after formatting new data from the 2007/2008 season into the input object for the *ERAnalysis* package. Because no information was available to match sightings of groups between the two stations in the 2009/2010 and 2010/2011 seasons, a correction factor, i.e., a multiplier to convert “naïve” to “corrected,” which accounted for missed groups by the primary observer, from double-observer years, was applied.
+The new approach was used to analyze the entire dataset from the 1967/1968 season onward, and the results were compared to the estimates reported in Lang et al. (2026). To apply the new approach to historical data, sighting data between the 1967/1968 and 2006/2007 seasons were obtained from the *ERAnalysis* package (<https://github.com/jlaake/ERAnalysis>, Laake 2012). An R script was written to convert the historical sightings data in the *ERAnalysis* package to an input object required for the new analysis. Data from the 2007/2008 to 2025/2026 seasons were extracted from raw data files using another R script. All shifts of at least 60 minutes with the Beaufort sea state of \< 5 and the visibility code of \< 5 were included in the analysis. Laake et al.’s approach was applied to the entire dataset after formatting new data from the 2007/2008 season into the input object for the *ERAnalysis* package. Because no information was available to match sightings of groups between the two stations in the 2009/2010 and 2010/2011 seasons, a correction factor, i.e., a multiplier to convert “naïve” to “corrected,” which accounted for missed groups by the primary observer, from double-observer years, was applied.
 
-The new models were fitted to the data using JAGS (Plummer, 2003, available from https://sourceforge.net/p/mcmc-jags/code-0/ci/default/tree/) in the R statistical environment (ver `r version$major`.`r version$minor`), using the *jagsUI* package (Kellner 2024). For each model, five MCMC chains were run for 250,000 steps each. The first 50,000 samples of each chain were discarded as “burn-in.” The remaining posterior samples were thinned to every 200, yielding 5000 posterior samples for inference. The convergence of MCMC was assessed using the rank-normalized `r R_hat` statistic and effective sample sizes (ESS) [@vehtari_rank-normalization_2021]. Following Vehtari et al. (2021), a minimum bulk and tail ESS of 100 per chain were assumed, establishing a threshold of $> 500$. For models that converged sufficiently, goodness-of-fit was assessed using Pareto-k statistics [@vehtari_practical_2017] implemented in the *loo* package (Vehtari et al. 2024). Model performance was compared using the LOOIC (Leave-One-Out Information Criteria) statistic via the *rstanarm* (Goodrich et al. 2025) and *loo* packages.
+The new models were fitted to the data using JAGS (Plummer, 2003, available from https://sourceforge.net/p/mcmc-jags/code-0/ci/default/tree/) in the R statistical environment (ver `r version$major`.`r version$minor`), using the *jagsUI* package (Kellner 2024). For each model, five MCMC chains were run for 250,000 steps each. The first 50,000 samples of each chain were discarded as “burn-in.” The remaining posterior samples were thinned to every 200, yielding 5000 posterior samples for inference. The convergence of MCMC was assessed using the rank-normalized `r R_hat` statistic and effective sample sizes (ESS) [@vehtari_rank-normalization_2021]. Following Vehtari et al. (2021), a minimum bulk and tail ESS of 100 per chain were assumed, i.e., ESS $> 500$. For models that converged sufficiently, goodness-of-fit was assessed using Pareto-k statistics [@vehtari_practical_2017] implemented in the *loo* package (Vehtari et al. 2024). Model performance was compared using the LOOIC (Leave-One-Out Information Criteria) statistic via the *rstanarm* (Goodrich et al. 2025) and *loo* packages. Posterior predictive checks were conducted to determine the
 
 To compare the three approaches (Laake et al., Durban et al. and the new approach), generalized additive models (GAMs) were fitted to abundance estimates between the 2006/2007 and 2025/2026 seasons. Furthermore, Laake et al.'s and the new approaches were compared by fitting GAMs to the point estimates over the entire timeseries from the 1967/1968 to 2025/2026 seasons. The rate of recent decline in the estimated abundance was compared by fitting linear models to the natural log of abundance estimates between the 2014/2015 and 2025/2026 seasons.
 
@@ -340,52 +246,28 @@ To ensure reproducibility and streamline future annual abundance estimation, a c
 
 # Results {.unnumbered}
 
-```{r model-comparison, echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE}
+```{r model-comparison}
+#| echo: false
+#| message: false
+#| warning: false
+
 # Model comparison was completed in Jags_Richards_ModelComparison.R and
 # results saved in a .rds file. To change that, run the script again.
 # 
 out.table <- readRDS(paste0("RData/Richards_ModelComparison_", YEAR, ".rds"))
+
 out.table %>% 
-  select(model, n.params, n.big.Rhat, p.big.Rhat, n.bad.Pareto, p.bad.Pareto, min.ESS.bulk, min.ESS.tail, dLOOIC) %>%
-  flextable() %>%
-  colformat_double(j = c("dLOOIC", "p.big.Rhat", "p.bad.Pareto",
-                         "min.ESS.bulk", "min.ESS.tail"),
-                   digits = 2) %>%
-  compose(part = "header", j = "dLOOIC",
-          value = as_paragraph(as_chunk("\u0394"), as_chunk("LOOIC"))) -> ft.models.comp
+  select(model, n.params, n.big.Rhat, n.bad.Pareto, min.ESS.bulk, min.ESS.tail, dLOOIC) %>% 
+  tibble() -> models.comp
 
-# ft.models.comp <- flextable(out.table)
-# 
-# ft.models.comp <- flextable::colformat_double(ft.models.comp,
-#                                            j = c("dLOOIC", "p.big.Rhat", "p.bad.Pareto"),
-#                                            digits = 2)
-# 
-# ft.models.comp <- flextable::compose(ft.models.comp, part = "header", j = "dLOOIC",
-#                           value = as_paragraph(as_chunk("\u0394"), as_chunk("LOOIC")))
 
-# Fix the column headers:
-
-header_labels <- list(
-  model = as_paragraph(as_chunk("Model")),
-  n.params = as_paragraph(as_chunk("# parameters")),
-  n.big.Rhat = as_paragraph(as_chunk(paste0("# ", R_hat, " > 1.01"))),
-  p.big.Rhat = as_paragraph(as_chunk(paste0("% ", R_hat, " > 1.01"))), 
-  n.bad.Pareto = as_paragraph(as_chunk("# Pareto-k > 0.7")),
-  p.bad.Pareto = as_paragraph(as_chunk("% Pareto-k > 0.7")),
-  min.ESS.bulk = as_paragraph(as_chunk("Min bulk ESS")),
-  min.ESS.tail = as_paragraph(as_chunk("Min tail ESS")))
-
-for (nm in names(header_labels)) {
-  ft.models.comp <- flextable::compose(ft.models.comp, 
-                                       part = "header", 
-                                       j = nm, 
-                                       value = header_labels[[nm]])
-}
-
-#ft.models.comp <- autofit(ft.models.comp)
 ```
 
-```{r JAGS-results, echo=F,message=FALSE,cache=FALSE}
+```{r JAGS-results}
+#| echo: false
+#| message: false
+#| warning: false
+
 # Although I set cache to be TRUE at the beginning, there is a limit to how big 
 # cache can be. According to Gemini... 
 # By default, knitr tries to save cached objects into a "lazy-load database" 
@@ -397,10 +279,10 @@ for (nm in names(header_labels)) {
 # cache it at the end of the chunk.
 
 #rm(list = c(".out"))
-ver <- "M1a2" #5 #out.table$model[1] #5
 # I removed the run-date from the file name - the run-date is automatically added
 # to the file name, so remove it before running this code. Otherwise, the "cannot open..."
 # error comes back. 
+ver <- "M1a2" #5 #out.table$model[1] #5
 jm.out <- readRDS(paste0("RData/JAGS_Richards_HSSM_",
                          ver,
                          "_1968to", YEAR, "_min", min.dur,
@@ -519,9 +401,14 @@ Reported.estimates <- read.csv(file = paste0("Data/Nhats_", YEAR, ".csv")) %>%
   relocate(Method, .after = start.year)
 ```
 
-The eight models (Table \@ref(tab:model-definition)) were fitted to the sightings data over 32 seasons. According to the bulk and tail ESS, and rank-normalized `r R_hat` values, the MCMC converged well and exceeded the recommended minimum ESS threshold of 500 for `r sum(!is.na(out.table$dLOOIC))` models (Table \@ref(tab:model-table)). All models with the Negative Binomial likelihood converged. The best model, based on LOOIC values, consists of year-specific $S_1$ and $S_2$ parameters (Table \@ref(tab:model-definition)). Pareto-k statistics indicated that the best model fit the data well (Table \@ref(tab:model-table)). Consequently, the posterior distributions of the parameters from Model `r ver` should be reliable.
+The eight models (@tbl-model-definition) were fitted to the sightings data over 32 seasons. According to the bulk and tail ESS, and rank-normalized `r R_hat` values, the MCMC converged well and exceeded the recommended minimum ESS threshold of 500 for `r sum(!is.na(out.table$dLOOIC))` models (@tbl-model-comparison). All models with the Negative Binomial likelihood converged. The best model, based on LOOIC values, consists of year-specific $S_1$ and $S_2$ parameters (@tbl-model-definition). Pareto-k statistics indicated that the best model fit the data well (@tbl-model-comparison). Consequently, the posterior distributions of the parameters from Model `r ver` should be reliable.
 
-```{r Winbugs-results, echo=F,message=FALSE,cache=FALSE}
+```{r Winbugs-results, error=FALSE}
+#| echo: false
+#| message: false
+#| warning: false
+#| error: false
+
 #WinBugs.run.date <- "2025-04-11"
 WinBugs.out <- readRDS(file = paste0("RData/WinBUGS_2007to", YEAR, "_v2_min", 
                                      min.dur,
@@ -624,6 +511,12 @@ mean.mat <- LCL.mat <- UCL.mat <- matrix(data = NA,
                                          nrow = dim(daily.estim)[2], 
                                          ncol = dim(daily.estim)[3])
 
+# The below loops may throw error message but ignore:
+# Error in .rs.exprMutatesPackageLibrary(part) : 
+#  argument "part" is missing, with no default
+# This error message comes from a known internal bug in the RStudio IDE (RStudio 2026.07.0+139 "Pacific Dogwood" Release (5c876cede63cf1ab4cfb57228c0f29ffb5059d9a, 2026-07-09) for windows
+#Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) #RStudio/2026.07.0+139 Chrome/146.0.7680.216 Electron/41.9.0 Safari/537.36, Quarto 1.9.38). It is not caused by a mistake in your own R code, and it does not mean your calculations are wrong
+# 2026-07-22 A new version of RStudio may fix this. 
 for (k1 in 1:dim(daily.estim)[2]){
   for (k2 in 1:dim(daily.estim)[3]){
     mean.mat[k1, k2] <- mean(daily.estim[,k1,k2])
@@ -648,9 +541,12 @@ N.hats.day.Durban <- data.frame(Season = rep(WinBugs.out$BUGS.input$seasons,
   mutate(Nhat = obs.n/prop)
 ```
 
-For the Durban et al's method, we found that the minimum bulk and tail ESS were too low (min(bulk ESS) = `r signif(min(ESS.bulk.BUGS$ess_bulk), digits = 2)`, min(tail ESS) = `r signif(min(ESS.tail.BUGS$ess_tail), digits = 2)`) to meet the threshold of 500 required to assume successful convergence of Markov chains. The rank-normalized `r R_hat` statistics also indicated that convergence was not reached in `r length(BUGS.Rhat.big)` of `r dim(WinBugs.out$BUGS.out$sims.array)[3]` monitored parameters (i.e., rank-normalized `r R_hat` \> 1.01). Consequently, the inference from this model is questionable.
+For Durban et al's method, we found that the minimum bulk and tail ESS were too low (min(bulk ESS) = `r signif(min(ESS.bulk.BUGS$ess_bulk), digits = 2)`, min(tail ESS) = `r signif(min(ESS.tail.BUGS$ess_tail), digits = 2)`) to meet the threshold of 500 required to assume successful convergence of Markov chains. The rank-normalized `r R_hat` statistics also indicated that convergence was not reached in `r length(BUGS.Rhat.big)` of `r dim(WinBugs.out$BUGS.out$sims.array)[3]` monitored parameters (i.e., rank-normalized `r R_hat` \> 1.01). Consequently, the inference from this model is questionable.
 
-```{r all-results, message=FALSE, echo=FALSE}
+```{r all-results}
+#| echo: false
+#| message: false
+#| warning: false
 
 N.hats.day.all <- rbind(N.hats.day, N.hats.day.Durban) %>% 
   filter(start.year > 2005)
@@ -676,7 +572,8 @@ if (save.fig)
 p.daily. <- ggplot(N.hats.day.all %>% group_by(Season)) + 
   geom_ribbon(aes(x = Day, ymin = LCL, ymax = UCL, fill = Method),
               alpha = 0.5) +
-  geom_path(aes(x = Day, y = Mean, color = Method), size = 1) + 
+  geom_path(aes(x = Day, y = Mean, color = Method), 
+            linewidth = 1) + 
   geom_point(aes(x = Day, y = Nhat, color = Method)) +
   facet_wrap(~ Season) +
   theme_bw()+
@@ -717,6 +614,7 @@ Reported.estimates %>%
 #   rbind(Durban.abundance.df) %>%
 Reported.estimates %>%
   mutate(Method1 = sub("-.*", "", Method)) -> tmp.1
+
 tmp.1[grep("NA", tmp.1$Method1) & tmp.1$start.year < 2006, 
       "Method1"] <- "Laake"
 tmp.1[grep("NA", tmp.1$Method1) & tmp.1$start.year > 2007, 
@@ -728,26 +626,40 @@ tmp.1 %>%
   rbind(Laake.abundance.new %>% 
           filter(start.year > 2006)) %>%
   rbind(Nhat.) %>%
-  mutate(Method2 = factor(Method, levels = c("Laake", 
-                                             "Durban", 
-                                             paste0("Eguchi ", ver)))) %>%
+  mutate(Method2 = factor(Method, 
+                          levels = c("Laake", 
+                                     "Durban", 
+                                     paste0("Eguchi ", ver)))) %>%
   select(Season, Nhat, LCL, UCL, start.year, Method2) %>%
   mutate(CI.width = UCL - LCL) %>%
   rename(Method = Method2) -> all.estimates
 
 #  rbind(spline.Nhat) 
   #rbind(Reported.estimates %>% na.omit()) -> all.estimates
+# Create a shared position object with a fixed seed
+pos.width <- 0.6
+# Create a new start.year for plotting to avoid overlap among methods
+all.estimates %>%
+  mutate(start.year.plot = ifelse(Method == "Laake", start.year,
+                                  ifelse(Method == "Durban", 
+                                         start.year + 0.3,
+                                         start.year + 0.6))) -> all.estimates.plot
 
-p.Nhats <- ggplot(all.estimates) +
-  geom_point(aes(x = start.year, y = Nhat,
+# position = position_dodge(width = pos.width)
+p.Nhats <- ggplot(all.estimates.plot) +
+  geom_errorbar(aes(x = start.year.plot,
+                    ymin = LCL, ymax = UCL,
+                    color = Method)) +
+  geom_point(aes(x = start.year.plot, 
+                 y = Nhat,
                  color = Method),
              alpha = 0.5) +
-  geom_errorbar(aes(x = start.year, ymin = LCL, ymax = UCL,
-                    color = Method)) +
   ylim(5000, 35000) +
+  #xlim(1965, 2026) +
+  scale_x_continuous(breaks = c(1966, seq(1970, 2026, by = 5))) +
   xlab("") + ylab("Abundance") +
-  theme_bw() +
-  theme(legend.position = "top") 
+  theme_bw()   +
+  theme(legend.position = "top")
 
 if (save.fig)
   save.fig.fcn(fig = p.Nhats,
@@ -774,7 +686,7 @@ Nhat. %>%
                  LCL.Durban = LCL,
                  UCL.Durban = UCL)) %>%
   mutate(d.Laake.Eguchi = Nhat.Laake - Nhat.Eguchi,
-         d.Durban.Eguchi = Nhat.Durban - Nhat.Eguchi) -> Nhat.all.wide
+         d.Durban.Eguchi = Nhat.Durban - Nhat.Eguchi) -> Nhats.all.wide
 
 
 # Compare how daily sums among years
@@ -798,9 +710,13 @@ obsd.n.df <- data.frame(Season = rep(all.season, each = dim(obsd.n.prop)[1]),
 
 ```
 
-To compare the abundance estimates from three approaches, medians of the posterior distributions were used as point estimates for the Durban et al. and new approaches, whereas for the Laake et al. approach, the maximum likelihood estimates were used. Estimated abundances from the new approach closely followed the same trend as the previous approaches (Figure \@ref(fig:N-hats)). For all estimates, the three approaches provided comparable estimates, and the 95% credible and confidence intervals overlapped significantly, except for the 2025/2026 season.
+To compare the abundance estimates from three approaches, medians of the posterior distributions were used as point estimates for the Durban et al. and new approaches, whereas for the Laake et al. approach, the maximum likelihood estimates were used. Estimated abundances from the new approach closely followed the same trend as the previous approaches (@fig-Nhats, @tbl-Nhats). For all estimates, the three approaches provided comparable estimates, and the 95% credible and confidence intervals overlapped significantly, except for the 2025/2026 season.
 
-```{r gam-glm-fit, echo=F,message=FALSE}
+```{r gam-glm-fit}
+#| echo: false
+#| message: false
+#| warning: false
+
 all.estimates %>% na.omit() %>%
   mutate(time = start.year - min(start.year)) -> all.estimates.gam
   
@@ -936,24 +852,27 @@ p.gam.2006.fit <- ggplot(data = pred.2006) +
   
   # Add the fitted line using the new prediction data
   geom_line(aes(x = year, y = fit, color = Method), 
-            size = 1) +
+            linewidth = 1) +
   scale_x_continuous(labels = function(breaks){ paste0(breaks + start.year.2006)}) +
-  xlab("") + ylab("Abundance")  +
-  theme_bw()+
-  theme(legend.position = "top")
+  xlab("") + ylab("Abundance") +
+  theme_bw() +
+  theme(legend.position = "top") 
   
 p.gam.all.fit <- ggplot(data = pred.all) +
   # Add the confidence interval ribbon using the new prediction data
-  geom_ribbon(aes(x = year, ymin = lower_CI, ymax = upper_CI, fill = Method), 
+  geom_ribbon(aes(x = year, 
+                  ymin = lower_CI, 
+                  ymax = upper_CI, 
+                  fill = Method), 
               alpha = 0.3) +
   
   # Add the fitted line using the new prediction data
   geom_line(aes(x = year, y = fit, color = Method), 
-            size = 1) +
+            linewidth = 1) +
   scale_x_continuous(labels = function(breaks){ paste0(breaks + 1967)}) +
-  xlab("") + ylab("Abundance") +
-  theme_bw() +
-  theme(legend.position = "top") 
+  xlab("") + ylab("Abundance")  +
+  theme_bw()   +
+  theme(legend.position = "top")
 
   # geom_point(data = all.estimates.gam %>%
   #              filter(start.year > 2005),
@@ -984,11 +903,14 @@ lm.Durban <- lm(log(Nhat) ~ time,
 
 ```
 
-GAMs fitted to the estimated abundance between the 2006/2007 and 2025/2026 seasons indicated that all three approaches provided comparable results regarding the general trend (Figure \@ref(fig:GAM-fits)). Estimated intercepts (the average of abundance estimates) among the new (`r format(coef(gam.2006.Eguchi)["(Intercept)"], scientific = F, big.mark = ",")` $\pm$ `r signif(summary.gam(gam.2006.Eguchi)$se["(Intercept)"], 4)` (SE)), the Laake et al. approach (`r format(coef(gam.2006.Laake)["(Intercept)"], scientific = F, big.mark = ",")` $\pm$ `r signif(summary.gam(gam.2006.Laake)$se["(Intercept)"], 4)` (SE)), and the Durban approach (`r format(coef(gam.2006.Durban)["(Intercept)"], scientific = F, big.mark = ",")` $\pm$ `r signif(summary.gam(gam.2006.Durban)$se["(Intercept)"], 4)` (SE)) were not significantly different. Over the entire timeseries from the 1967/1968 season, the estimated intercepts were similar between the two approaches (Laake: `r format(coef(gam.all.Laake)["(Intercept)"], scientific = F, big.mark = ",")` $\pm$ `r signif(summary.gam(gam.all.Laake)$se["(Intercept)"], 4)` (SE), Eguchi: `r format(coef(gam.all.Eguchi)["(Intercept)"], scientific = F, big.mark = ",")` $\pm$ `r signif(summary.gam(gam.all.Eguchi)$se["(Intercept)"], 4)` (SE)), although the 95% CIs did not overlap.
+GAMs fitted to the estimated abundance between the 2006/2007 and 2025/2026 seasons indicated that all three approaches provided comparable results regarding the general trend (@fig-GAM-fits). Estimated intercepts (the average of abundance estimates) among the new (`r format(coef(gam.2006.Eguchi)["(Intercept)"], scientific = F, big.mark = ",")` $\pm$ `r signif(summary.gam(gam.2006.Eguchi)$se["(Intercept)"], 4)` (SE)), the Laake et al. approach (`r format(coef(gam.2006.Laake)["(Intercept)"], scientific = F, big.mark = ",")` $\pm$ `r signif(summary.gam(gam.2006.Laake)$se["(Intercept)"], 4)` (SE)), and the Durban approach (`r format(coef(gam.2006.Durban)["(Intercept)"], scientific = F, big.mark = ",")` $\pm$ `r signif(summary.gam(gam.2006.Durban)$se["(Intercept)"], 4)` (SE)) were not significantly different. Over the entire timeseries from the 1967/1968 season, the estimated intercepts were similar between the two approaches (Laake: `r format(coef(gam.all.Laake)["(Intercept)"], scientific = F, big.mark = ",")` $\pm$ `r signif(summary.gam(gam.all.Laake)$se["(Intercept)"], 4)` (SE), Eguchi: `r format(coef(gam.all.Eguchi)["(Intercept)"], scientific = F, big.mark = ",")` $\pm$ `r signif(summary.gam(gam.all.Eguchi)$se["(Intercept)"], 4)` (SE)), although the 95% CIs did not overlap.
 
-For general linear models ($log(\hat{N}) = time + \epsilon$, $\epsilon \sim N(0, \sigma^2)$) fitted to the point estimates from the 2014/2015 season to the 2025/2026 season revealed a statistically indistinguishable annual rate of decline among the three approaches (Laake: `r signif(lm.Laake$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Laake))["time", "Std. Error"], 2)` (SE). Durban: `r signif(lm.Durban$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Durban))["time", "Std. Error"], 2)` (SE), Eguchi: `r signif(lm.Eguchi$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Eguchi))["time", "Std. Error"], 2)` (SE)).
+For general linear models ($\text{log}(\hat{N}) = \text{time} + \epsilon$, $\epsilon \sim N(0, \sigma^2)$) fitted to the point estimates from the 2014/2015 season to the 2025/2026 season revealed a statistically indistinguishable annual rate of decline among the three approaches (Laake: `r signif(lm.Laake$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Laake))["time", "Std. Error"], 2)` (SE). Durban: `r signif(lm.Durban$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Durban))["time", "Std. Error"], 2)` (SE), Eguchi: `r signif(lm.Eguchi$coefficients[2],1)` $\pm$ `r signif(coef(summary(lm.Eguchi))["time", "Std. Error"], 2)` (SE)).
 
-```{r posterior-fixed-effects-plots, echo=FALSE, message=FALSE, cache=FALSE}
+```{r posterior-fixed-effects-plots}
+#| echo: false
+#| message: false
+#| warning: false
 
 posteriors.Fixed <- plot.trace.dens(jm.out$jm, 
                                     var.name = ".Fixed")
@@ -1055,13 +977,17 @@ if (save.fig)
                dpi = dpi.set)
 ```
 
-Marginal posterior distributions of the Richards equation parameters provided valuable insights into how annual gray whale migration varied among years. The $P$ parameters, which define the timing of the migration peak, shifted over the years (Figure \@ref(fig:P-posteriors)), a phenomenon reported in previous studies [@rugh_timing_2001; @eguchi_abundance_2024], although the significance and causes for the changes are unknown. The $S_2$ parameter, which defines the increasing part of the migration curve, also varied annually, indicating that the way the number of migrating whales increased within a season fluctuated from year to year (Appendix Figure A\@ref(fig:S2-posteriors)). Similarly, $S_1$ parameter, which defines the decreasing part of the migration curve, varied among seasons (Appendix Figure A\@ref(fig:s1-posteriors)).
+Marginal posterior distributions of the Richards equation parameters provided valuable insights into how annual gray whale migration varied among years. The $P$ parameters, which define the timing of the migration peak, shifted over the years (@fig-P-posteriors), a phenomenon reported in previous studies [@rugh_timing_2001; @eguchi_abundance_2024], although the significance and causes for the changes are unknown. The $S_2$ parameter, which defines the increasing part of the migration curve, also varied annually, indicating that the way the number of migrating whales increased within a season fluctuated from year to year (Appendix @suppfig-S2-posteriors). Similarly, $S_1$ parameter, which defines the decreasing part of the migration curve, varied among seasons (Appendix @suppfig-S1-posteriors).
 
-The fixed effect of visibility was negative, whereas the fixed effect of the Beaufort sea state was positive (Figure \@ref(fig:Fixed-posteriors)). Higher visibility code (less desirable conditions) corresponded with lower detection probabilities but suggested that higher Beaufort sea states corresponded with greater detection probabilities. The observer random effects indicated significant differences among individuals, consistent with the findings of Durban et al. (Appendix Figure A\@ref(fig:OBS-posteriors)).
+The fixed effect of visibility was negative, whereas the fixed effect of the Beaufort sea state was positive (@fig-fixed-posteriors). Higher visibility code (less desirable conditions) corresponded with lower detection probabilities but suggested that higher Beaufort sea states corresponded with greater detection probabilities. The observer random effects indicated significant differences among individuals, consistent with the findings of Durban et al. (Appendix @suppfig-observer)).
 
-The marginal posterior distribution of the overdispersion parameter ($\theta$) indicated that the mean was `r signif(jm.out$jm$mean$r, 3)` (95%CI = [`r signif(jm.out$jm$q2.5$r, 3)` - `r signif(jm.out$jm$q97.5$r, 3)`], Appendix Figure A\@ref(fig:r-posterior)), indicating that the variance was greater than the mean.
+The marginal posterior distribution of the overdispersion parameter ($\theta$) indicated that the mean was `r signif(jm.out$jm$mean$r, 3)` (95%CI = \[`r signif(jm.out$jm$q2.5$r, 3)` - `r signif(jm.out$jm$q97.5$r, 3)`\], Appendix @suppfig-r-posterior)), indicating that the variance was greater than the mean.
 
-```{r posterior-Richards-plots, echo=FALSE, message=FALSE, cache=FALSE}
+```{r posterior-Richards-plots}
+#| echo: false
+#| message: false 
+#| cache: false 
+#| warning: false
 #Posteriors on P, S1, and S2
 posteriors.P <- plot.trace.dens(jm.out$jm, 
                                 var.name = "^P\\[")
@@ -1180,7 +1106,7 @@ In summary, the new approach provides a simpler, faster, and more statistically 
 
 # Acknowledgments {.unnumbered}
 
-I thank many visual observers for their diligence and meticulous data recording, sometimes in inclement weather. Eric Archer, Aimée Lang, Geof Givens, and Karen Martien provided valuable suggestions to improve early versions of the manuscript.
+I thank many visual observers for their diligence and meticulous data recording, sometimes in inclement weather. Eric Archer, Aimée Lang, Geof Givens, Karen Martien, and Andre Punt provided valuable suggestions to improve early versions of the manuscript.
 
 ::: {custom-style="Unnumbered Heading"}
 # Literature cited {.unnumbered}
@@ -1193,9 +1119,9 @@ I thank many visual observers for their diligence and meticulous data recording,
 
 Goodrich B, Gabry J, Ali I & Brilleman S. (2025). rstanarm: Bayesian applied regression modeling via Stan. R package version 2.32.2 https://mc-stan.org/rstanarm.
 
-Vehtari A, Gabry J, Magnusson M, Yao Y, Bürkner P, Paananen T, Gelman A (2024). “loo: Efficient   leave-one-out cross-validation and WAIC for Bayesian models.” R package version 2.8.0,   https://mc-stan.org/loo/.
+Vehtari A, Gabry J, Magnusson M, Yao Y, Bürkner P, Paananen T, Gelman A (2024). “loo: Efficient leave-one-out cross-validation and WAIC for Bayesian models.” R package version 2.8.0, https://mc-stan.org/loo/.
 
-Plummer, M. (2003). JAGS: A program for analysis of Bayesian graphical models using Gibbs sampling. Proceedings of the 2nd International Workshop on Distributed Statistical Computing (DSC 2003). 
+Plummer, M. (2003). JAGS: A program for analysis of Bayesian graphical models using Gibbs sampling. Proceedings of the 2nd International Workshop on Distributed Statistical Computing (DSC 2003).
 
 \newpage
 
@@ -1203,93 +1129,161 @@ Plummer, M. (2003). JAGS: A program for analysis of Bayesian graphical models us
 # Tables and Figures {.unnumbered}
 :::
 
-```{r table-model-definition, echo=F, message=F}
-# Define the text style for the caption
+::: {#tbl-model-definition}
+```{r}
+#| echo: false
+#| results: asis
 
 ft.models %>%
-  # 1. Use Word's native autofit instead of R's autofit()
-  # This prevents the calculation error that causes the crash
-  set_table_properties(layout = "autofit") %>%
-  
-  # 2. Set pagination
-  paginate(init = TRUE, hdr_ftr = TRUE) %>% 
-  
-  # 3. Add caption last
-  set_caption(
-    caption = as_paragraph(
-      "Definitions of eight models. For Likelihood, POI = Poisson, and NB = Negative Binomial. Two parameters (S", as_sub("1"), ", S", as_sub("2"), ") were tested for season dependence. P was assumed to be season-specific."),
-    fp_p = officer::fp_par(text.align = "left"),
-    align_with_table = FALSE,
-    autonum = run_autonum(
-      seq_id = "tab", 
-      bkm = "model-definition"
-    ),
-    style = "Table Caption"
-  )
-
+  align(j = c(3, 4),
+        align = "center",
+        part = "header") %>%
+  align(j = 2,
+        align = "center",
+        part = "body")
 
 ```
+
+Definitions of eight models. For Likelihood, POI = Poisson, and NB = Negative Binomial. Two parameters ($S_1$, $S_2$) were tested for season dependence. $P$ was assumed to be season-specific.
+:::
 
 \newpage
 
-```{r table-models, echo=F, message=F}
-ft.models.comp %>%
-  set_table_properties(layout = "autofit") %>%
-  #autofit() %>%
-  paginate(init = TRUE, hdr_ftr = TRUE) %>%
-  set_caption(caption = as_paragraph("Comparison of convergence and model fit among eight models. “# parameters” means the number of monitored parameters and not the total number of parameters in the model. Rank-normalized ", as_chunk(R_hat), " statistic (", as_chunk(R_hat), ") measures the convergence of Markov chain Monte Carlo samples. ", as_chunk(R_hat), " > 1.01 indicates non-convergence. Pareto-k statistic provides a measure of predictive error for each data point. Effective Sample Size (ESS, bulk and tail) is another measure of numerical convergence of Markov chain Monte Carlo. Minimum ESS among all monitored parameters are provided in the table. Higher numbers indicate better convergence. Leave-one-out information criteria (LOOIC) measure the predictive accuracy of each model, where smaller values indicate better predictions. ", as_chunk("\u0394"), as_chunk("LOOIC"), " is the difference between a LOOIC value and the minimum LOOIC value. The ", as_chunk(R_hat), " statistic is computed for each parameter, and Pareto-k statistic is computed for each data point. "),
-              fp_p = officer::fp_par(text.align = "left"),
-              align_with_table = FALSE,
-              autonum = run_autonum(seq_id = "tab",
-                                    bkm = "model-table"),
-              style = "Table Caption") 
+::: {#tbl-model-comparison}
+```{r}
+#| echo: false
+#| results: asis
+
+models.comp %>%
+  flextable() %>%
+  theme_booktabs() %>%
+  colformat_double(j = c("dLOOIC", 
+                         "min.ESS.bulk", "min.ESS.tail"),
+                   digits = 2) %>%
+  compose(part = "header", j = 1,
+          value = as_paragraph("Model")) %>%
+  compose(part = "header", j = 2,
+          value = as_paragraph("# parameters")) %>%
+  compose(part = "header", j = 3,
+          value = as_paragraph(as_equation("\\text{\\#} \\hat{R} > 1.01",
+                                           props = officer::fp_text(font.size = 9,
+                                                                    font.family = "Calibri")))) %>%
+  compose(part = "header", j = 4,
+          value = as_paragraph(as_equation("\\text{\\# Pareto-k} > 0.7",
+                                           props = officer::fp_text(font.size = 9,
+                                                                    font.family = "Calibri")))) %>%
+  compose(part = "header", j = 5,
+          value = as_paragraph("Min bulk ESS")) %>%  
+  compose(part = "header", j = 6,
+          value = as_paragraph("Min tail ESS")) %>%  
+  compose(part = "header", j = 7,
+          value = as_paragraph(as_equation("\\Delta LOOIC",
+                                           props = officer::fp_text(font.size = 9,
+                                                                    font.family = "Calibri")))) %>%
+  font(part = "header", fontname = "calibri") %>%
+  fontsize(part = "header", size = 9)-> ft.models.comp
+
+ft.models.comp
 ```
+
+Comparison of convergence and model fit among eight models. '$\#$ parameters' means the number of monitored parameters and not the total number of parameters in the model. Rank-normalized $\hat{R}$ statistic measures the convergence of Markov chain Monte Carlo samples. $\hat{R} > 1.01$ indicates non-convergence. Pareto-k statistic provides a measure of predictive error for each data point. Effective Sample Size (ESS, bulk and tail) is another measure of numerical convergence of Markov chain Monte Carlo. Minimum ESS among all monitored parameters are provided in the table. Higher numbers indicate better convergence. Leave-one-out information criteria (LOOIC) measure the predictive accuracy of each model, where smaller values indicate better predictions. $\Delta$LOOIC is the difference between a LOOIC value and the minimum LOOIC value. The $\hat{R}$ statistic is computed for each parameter, and Pareto-k statistic is computed for each data point.
+:::
 
 \newpage
 
-```{r caption-N-hats, include=FALSE}
-cap_text <- paste0("Estimated annual abundance and associated 95% uncertainty intervals (confidence intervals for MLE; credible intervals for Bayesian medians) using the Laake et al. method (red), the Durban et al. method (green), and the new approach (Model ", ver, ", blue).")
-
+::: {#tbl-Nhats}
+```{r}
+#| echo: false
+#| message: false
+#| 
+Nhats.all.wide %>% 
+  select(Season, Nhat.Laake, LCL.Laake, UCL.Laake, 
+         Nhat.Durban, LCL.Durban, UCL.Durban,
+         Nhat.Eguchi, LCL.Eguchi, UCL.Eguchi) %>%
+  filter(Season %in% all.season) %>%
+  flextable() %>%
+  theme_booktabs() %>%
+  colformat_double(j = c(2:10),
+                   digits = 1) %>%
+  compose(part = "header", j = 2,
+          value = as_paragraph(as_equation("\\hat{N}_{Laake}"))) %>%
+  compose(part = "header", j = 3,
+          value = as_paragraph(as_equation("\\text{LCL}_{Laake}"))) %>%
+  compose(part = "header", j = 4,
+          value = as_paragraph(as_equation("\\text{UCL}_{Laake}"))) %>%
+  compose(part = "header", j = 5,
+          value = as_paragraph(as_equation("\\hat{N}_{Durban}"))) %>%
+  compose(part = "header", j = 6,
+          value = as_paragraph(as_equation("\\text{LCL}_{Durban}"))) %>%
+  compose(part = "header", j = 7,
+          value = as_paragraph(as_equation("\\text{UCL}_{Durban}"))) %>%
+  compose(part = "header", j = 8,
+          value = as_paragraph(as_equation("\\hat{N}_{Eguchi}"))) %>%
+  compose(part = "header", j = 9,
+          value = as_paragraph(as_equation("\\text{LCL}_{Eguchi}"))) %>%
+  compose(part = "header", j = 10,
+          value = as_paragraph(as_equation("\\text{UCL}_{Eguchi}"))) %>%
+  font(part = "header", fontname = "calibri") %>%
+  fontsize(part = "header", size = 9) -> ft.Nhats.all.wide
+  
+  ft.Nhats.all.wide
 ```
 
-```{r plot-N-hats, echo=FALSE, message=FALSE, fig.cap=cap_text, fig.id = "N-hats", fig.width=7}
+Estimated annual abundance and associated 95% uncertainty intervals (confidence intervals for MLE; credible intervals for Bayesian medians) using the Laake et al. method, the Durban et al. method, and the new approach (Model , `r ver`) of the Eastern North Pacific gray whales migrating along the central California coast. LCL and UCL refer to 2.5% and 97.5% limits.
+:::
 
+\newpage
+
+::: {#fig-Nhats}
+```{r}
+#| echo: false
+#| message: false
+#| dev.args: list(bg = "transparent")
+#| fig-width: 7
 knitr::include_graphics(paste0("figures/Nhats_", 
                                ver, "_min", min.dur, "_", dpi.set, "dpi.png"))
 
 ```
 
-\newpage
-
-```{r caption-GAM-fits, include=FALSE}
-cap_text <- paste0("Fitted generalized additive models (Gaussian family and the identity link function) to estimated abundance and their approximate 95% CIs.")
-```
-
-```{r plot-gam-fits, echo=FALSE, message=FALSE, fig.cap=cap_text, fig.id = "GAM-fits"}
-
-knitr::include_graphics(paste0("figures/gam_fit_", dpi.set, "dpi.png"))
-```
+Estimated annual abundance and associated 95% uncertainty intervals (confidence intervals for MLE; credible intervals for Bayesian medians) using the Laake et al. method (red), the Durban et al. method (green), and the new approach (Model `r ver`, blue) of the Eastern North Pacific gray whales migrating along the central California coast.
+:::
 
 \newpage
 
-```{r caption-Fixed-posteriors, include=FALSE}
-cap_text <- paste0("Marginal posterior distributions of the fixed-effects coefficients for the visibility code ($\\beta_{V}$) and Beaufort sea state ($\\beta_{B}$).")
+```{r}
+#| label: fig-GAM-fits
+#| fig-cap: "Fitted generalized additive models (Gaussian family and the identity link function) to estimated abundance and their approximate 95% CIs."
+#| echo: false
+#| message: false
+#| dev.args: list(bg = "transparent")
+#| fig-width: 7
+knitr::include_graphics(paste0("figures/gam_fit_", ver, "_", dpi.set, "dpi.png"))
 ```
 
-```{r plot-Fixed-posteriors, echo=FALSE, message=FALSE, fig.cap=cap_text, fig.id = "Fixed-posteriors"}
+\newpage
 
+::: {#fig-fixed-posteriors}
+```{r}
+#| echo: false
+#| message: false
+#| dev.args: list(bg = "transparent")
+#| fig-width: 7
 knitr::include_graphics(paste0("figures/posteriors_VS_BF_", ver, "_", dpi.set, "dpi.png"))
 
 ```
 
+Marginal posterior distributions of the fixed-effects coefficients for the visibility code ($\beta_{V}$) and Beaufort sea state ($\beta_{B}$)."
+:::
+
 \newpage
 
-```{r caption-P-posteriors, include=FALSE}
-cap_text <- paste0("Marginal posterior distributions of season-specific P parameters, which define the peak of the migration curve.")
-```
-
-```{r plot-P-posteriors, echo=FALSE, message=FALSE, fig.cap=cap_text, fig.id = "P-posteriors"}
-
+```{r}
+#| label: fig-P-posteriors
+#| fig-cap: "Marginal posterior distributions of season-specific P parameters, which define the peak of the migration curve."
+#| echo: false
+#| message: false
+#| dev.args: list(bg = "transparent")
+#| fig-width: 7
 knitr::include_graphics(paste0("figures/posterior_P_", ver, "_", dpi.set, "dpi.png"))
 
 ```
@@ -1312,9 +1306,7 @@ The binomial $N_{d(j),y}$ parameter is the unknown total number of gray whales p
 
 The detection probability was modeled as a function of visibility (V), Beaufort scale (B), and observers (O).
 
-\begin{equation}
-logit(p_{i,d(j),y}) = logit(p_0) + I_{V} \beta_{V} V_{d(j),y} + I_{B} \beta_{B} B_{d(j),y}+ I_{O} \mathbf{\beta}^{O_{i,d(j),y} = o}_{O} 
-\end{equation}
+$$ logit(p_{i,d(j),y}) = logit(p_0) + I_{V} \beta_{V} V_{d(j),y} + I_{B} \beta_{B} B_{d(j),y}+ I_{O} \mathbf{\beta}^{O_{i,d(j),y} = o}_{O} $$
 
 where the intercept $p_0$ was the base detection probability in the absence of covariate effects, assigned a Uniform(0,1) prior distribution, and $logit(p_0) = ln(p_0/(1–p_0))$. For each fixed effect, $\beta_{B}$ and $\beta_{V}$, a Normal prior distribution with mean zero and standard deviation of 10 was used. The random effect for each observer was drawn from a Normal distribution with mean zero and standard deviation $\sigma_{O} \sim Uniform(0,10)$. Each binary indicator variable, $I$, was assigned a Bernoulli(0.5) distribution to specify equal probability of inclusion (1) or exclusion (0) of the effect in the model [@durban_estimating_2015].
 
@@ -1364,7 +1356,6 @@ $$ C_{1,d} = \left( 1 + (2e^\gamma - 1) e^{\frac{P_1 - d}{-S_1}} \right)^{-\frac
 
 $$ C_{2,d} = \left( 1 + (2e^\gamma - 1) e^{\frac{P_2 - d}{S_2}} \right)^{-\frac{1}{e^\gamma}} $$
 
-
 ```{r gamma, echo=FALSE, message=FALSE}
 S1 <- 2.5
 S2 <- 2.5
@@ -1406,107 +1397,98 @@ save.fig.fcn(p.gamma.,
 
 ```
 
-```{r plot-gamma-effects, echo=FALSE, message=FALSE}
+::: {#suppfig-gamma-effects}
+```{r}
+#| echo: false
+#| message: false
+#| fig-width: 7
 knitr::include_graphics(paste0("figures/gamma_", dpi.set, "dpi.png"))
-fig.P.num <- run_autonum(seq_id = "figA", 
-                          pre_label = "Figure A", 
-                          bkm = "Figure-gamma",
-                          start_at = 1)
 
 ```
 
-::: {custom-style="Image Caption"}
-`r run_autonum(seq_id = "figA", pre_label = "Figure A", bkm = "Figure-gamma")` Effects of $\gamma$ on the shape of the Richards equation. In this example, $S_1$ = `r S1`, $S_2$ = `r S2`, $P_1$ = `r P`, $P_2$ = `r P`, $N_{max}$ = `r max.N`.
+Effects of $\gamma$ on the shape of the Richards equation. In this example, $S_1$ = `r S1`, $S_2$ = `r S2`, $P_1$ = `r P`, $P_2$ = `r P`, $N_{max}$ = `r max.N`.
 :::
 
 \newpage
 
 ## Hyperparameter definitions {.unnumbered}
 
-```{r table-hyperparameters, echo=FALSE, message=FALSE}
-
-# ft.hyper.params %>%
-#   set_table_properties(layout = "autofit") %>%
-#   #autofit() %>%
-#   paginate(init = TRUE, hdr_ftr = TRUE) 
-
-
-ft.hyper.params %>%
-  # 1. Use Word's native autofit instead of R's autofit()
-  # This prevents the calculation error that causes the crash
-  #set_table_properties(layout = "autofit") %>%
-  
-  # 2. Set pagination
-  paginate(init = TRUE, hdr_ftr = TRUE) %>% 
-  
-  # 3. Add caption last
-  set_caption(
-    caption = as_paragraph(
-      "Definitions of hyperdistributions and their parameters. Normal distributions are defined with mean and variance. T(0,) indicates the truncation function that eliminates the negative part of a distribution."),
-    fp_p = officer::fp_par(text.align = "left"),
-    align_with_table = FALSE,
-    autonum = run_autonum(
-      seq_id = "tabA", 
-      bkm = "hyperparameter-table",
-      pre_label = "Table A"
-    ),
-    style = "Table Caption"
-  )
+::: {#supptbl-hyperparameters}
+```{r}
+#| echo: false
+#| message: false
+#| 
+ft.hyper.params 
 
 
 ```
+
+Definitions of hyperdistributions and their parameters. Normal distributions are defined with mean and variance. T(0,) indicates the truncation function that eliminates the negative part of a distribution.
+:::
 
 \newpage
 
 ## Observer random effects {.unnumbered}
 
-```{r plot-OBS-posteriors, echo=FALSE, message=FALSE}
+::: {#suppfig-observer}
+```{r}
+#| echo: false
+#| message: false
+#| fig-width: 7
 
 knitr::include_graphics(paste0("figures/Observer_dens_", ver, ".png"))
 
 ```
 
-::: {custom-style="Image Caption"}
-`r run_autonum(seq_id = "figA", pre_label = "Figure A", bkm = "OBS-posteriors")` Marginal posterior density distributions of observer fixed effects. The 10 observers with the most sightings were used as random observer effects, whereas the remaining observers were pooled as a single observer effect.
+Marginal posterior density distributions of observer fixed effects. The 10 observers with the most sightings were used as random observer effects, whereas the remaining observers were pooled as a single observer effect.
 :::
 
 \newpage
 
 ## Changes in $S_1$ over time {.unnumbered}
 
-```{r plot-S1-posteriors, echo=FALSE, message=FALSE}
-
+::: {#suppfig-S1-posteriors}
+```{r}
+#| echo: false
+#| message: false
+#| fig-width: 7
+#| 
 knitr::include_graphics(paste0("figures/posteriors_S1_", ver, "_", dpi.set, "dpi.png"))
 ```
 
-::: {custom-style="Image Caption"}
-`r run_autonum(seq_id = "figA", pre_label = "Figure A", bkm = "S1-posteriors")` The marginal posterior distributions of the season-specific $S_1$ parameters of the Richards equation. $S_1$ defines the width of the right side of the curve.
+The marginal posterior distributions of the season-specific $S_1$ parameters of the Richards equation. $S_1$ defines the width of the right side of the curve.
 :::
 
 \newpage
 
 ## Changes in $S_2$ over time {.unnumbered}
 
-```{r plot-S2-posteriors, echo=FALSE, message=FALSE}
+::: {#suppfig-S2-posteriors}
+```{r}
+#| echo: false
+#| message: false
+#| fig-width: 7
 
 knitr::include_graphics(paste0("figures/posteriors_S2_", ver, "_", dpi.set, "dpi.png"))
 ```
 
-::: {custom-style="Image Caption"}
-`r run_autonum(seq_id = "figA", pre_label = "Figure A", bkm = "S2-posteriors")` Marginal posterior distributions of season-specific $S_2$ parameters $S_2$ defines the width of the left side of the curve.
+Marginal posterior distributions of season-specific $S_2$ parameters $S_2$ defines the width of the left side of the curve.
 :::
 
 \newpage
 
 ## Posterior distribution of $\theta$ {.unnumbered}
 
-```{r plot-r-posterior, echo=FALSE, message=FALSE}
+::: {#suppfig-r-posterior}
+```{r}
+#| echo: false
+#| message: false
+#| fig-width: 7
 
 knitr::include_graphics(paste0("figures/posterior_r_", ver, "_", dpi.set, "dpi.png"))
 ```
 
-::: {custom-style="Image Caption"}
-`r run_autonum(seq_id = "figA", pre_label = "Figure A", bkm = "r-posterior")` The marginal posterior distribution of the $\theta$ parameter of the Negative Binomial likelihood. The $\theta$ parameter of a Negative Binomial distribution defines overdispersion (i.e., larger variance than expected), where small $\theta$ values indicate greater overdispersion.
+The marginal posterior distribution of the $\theta$ parameter of the Negative Binomial likelihood. The $\theta$ parameter of a Negative Binomial distribution defines overdispersion (i.e., larger variance than expected), where small $\theta$ values indicate greater overdispersion.
 :::
 
 \newpage
@@ -1557,14 +1539,17 @@ save.fig.fcn(p.S1,
 
 ```
 
-```{r plot-S1-effects, echo=FALSE, message=FALSE}
+::: {#suppfig-S1-effects}
+```{r}
+#| echo: false
+#| message: false
+#| fig-width: 7
 
 knitr::include_graphics(paste0("figures/S1_", dpi.set, "dpi.png"))
 
 ```
 
-::: {custom-style="Image Caption"}
-`r library(officer); run_autonum(seq_id = "figA", pre_label = "Figure A", bkm = "Figure-S1")` Effects of $S_1$ on the shape of the Richards equation. In this example, $S_2$ = `r S2`, $\gamma$ = `r K`, $P$ = `r P`, $N_{max}$ = `r max.N`.
+Effects of $S_1$ on the shape of the Richards equation. In this example, $S_2$ = `r S2`, $\gamma$ = `r K`, $P$ = `r P`, $N_{max}$ = `r max.N`.
 :::
 
 \newpage
@@ -1612,14 +1597,17 @@ save.fig.fcn(p.S2,
 
 ```
 
-```{r plot-S2-effects, echo=FALSE, message=FALSE}
+::: {#suppfig-S2-effects}
+```{r}
+#| echo: false
+#| message: false
+#| fig-width: 7
 
 knitr::include_graphics(paste0("figures/S2_", dpi.set, "dpi.png"))
 
 ```
 
-::: {custom-style="Image Caption"}
-`r library(officer); run_autonum(seq_id = "figA", pre_label = "Figure A", bkm = "Figure-S2")` Effects of $S_2$ on the shape of the Richards equation. In this example, $S_1$ = `r S1`, $\gamma$ = `r K`, $P$ = `r P`, $N_{max}$ = `r max.N`.
+Effects of $S_2$ on the shape of the Richards equation. In this example, $S_1$ = `r S1`, $\gamma$ = `r K`, $P$ = `r P`, $N_{max}$ = `r max.N`.
 :::
 
 \newpage
@@ -1670,16 +1658,15 @@ save.fig.fcn(p.P,
 
 ```
 
-```{r plot-P-effects, echo=FALSE, message=FALSE}
+::: {#suppfig-P-effects}
+```{r}
+#| echo: false
+#| message: false
+#| fig-width: 7
 
 knitr::include_graphics(paste0("figures/P_", dpi.set, "dpi.png"))
-fig.P.num <- run_autonum(seq_id = "figA", 
-                          pre_label = "Figure A", 
-                          bkm = "Figure-P",
-                          start_at = 1)
 
 ```
 
-::: {custom-style="Image Caption"}
-`r run_autonum(seq_id = "figA", pre_label = "Figure A", bkm = "Figure-P")` Effects of $P$ on the shape of the Richards equation. In this example, $S_1$ = `r S1`, $S_2$ = `r S2`, $\gamma$ = `r K`, $N_{max}$ = `r max.N`.
+Effects of $P$ on the shape of the Richards equation. In this example, $S_1$ = `r S1`, $S_2$ = `r S2`, $\gamma$ = `r K`, $N_{max}$ = `r max.N`.
 :::
