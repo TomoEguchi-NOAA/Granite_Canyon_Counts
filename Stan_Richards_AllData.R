@@ -22,7 +22,7 @@ Run.date <- Sys.Date()
 # for the 2021/2022 season. These data were extracted using Extract_Data_All_v2.Rmd
 # Data prior to the 2009/2010 season are in Laake's ERAnalayis package. 
 years <- c(2008, 2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025, 2026)
-data.dir <- "RData/V2.1_May2026"
+data.dir <- "RData//V2.1_May2026"
 max.day <- 100
 
 jags.input <- NoBUGS_Jags_input(min.dur = min.dur, 
@@ -58,7 +58,7 @@ for (k in 1:length(models)) {
   out.file <- paste0("Richards_HSSM_", models[k], "_stan")
   
   #mod <- cmdstan_model(file)
-  fit_stan <- readRDS(paste0("RData/", out.file, ".rds"))
+  fit_stan <- readRDS(paste0("RData//", out.file, ".rds"))
   
   LOO.out[[k]] <- fit_stan$loo()
   stan.global.summary[[k]] <- fit_stan$summary(
@@ -145,7 +145,7 @@ rbind(chk(sd$day_idx, "day of season"),
 k <- 5
 out.file <- paste0("Richards_HSSM_", models[k], "_stan")
 #mod <- cmdstan_model(file)
-fit_stan <- readRDS(paste0("RData/", out.file, ".rds"))
+fit_stan <- readRDS(paste0("RData//", out.file, ".rds"))
 
 lN <- fit_stan$draws("log_N_latent", format = "draws_matrix")
 tail_frac <- sapply(1:34, function(y) {
@@ -175,7 +175,7 @@ obs_frac <- sapply(1:34, function(y) {
 names(obs_frac) <- jags.data$start.years
 sort(round(obs_frac, 3))[1:10]
 Laake.Run.Date <- "2026-02-23"
-Laake.abundance <- read.csv(file = paste0("Data/all_estimates_Laake_2026", 
+Laake.abundance <- read.csv(file = paste0("Data//all_estimates_Laake_2026", 
                                               "_", Laake.Run.Date, ".csv")) %>%
   mutate(LCL = CL.low,
          UCL = CL.high) %>% 

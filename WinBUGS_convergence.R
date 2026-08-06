@@ -9,7 +9,7 @@ min.dur <- 60#10 #
 # It was run in the GrayWhaleAbundance project. 
 WinBUGS.Run.Date <- "2026-05-06"  
 
-WinBugs.out <- readRDS(file = paste0("RData/WinBUGS_2007to", YEAR, "_v2_min", 
+WinBugs.out <- readRDS(file = paste0("RData//WinBUGS_2007to", YEAR, "_v2_min", 
                                      min.dur,
                                      "_100000_",
                                      WinBUGS.Run.Date, ".rds"))

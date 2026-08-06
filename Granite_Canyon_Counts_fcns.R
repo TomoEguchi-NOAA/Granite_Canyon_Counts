@@ -441,7 +441,7 @@ rank.normalized.R.hat <- function(samples, params, MCMC.params){
 # The input is only for "new" data that are not part of Laake's dataset.
 create.observer.list <- function(sightings){
   years <- 1 + unique(sightings$Start.year)
-  Observer <- read.csv(file = "Data/Observer_Laake.csv")
+  Observer <- read.csv(file = "Data//Observer_Laake.csv")
   
   # Find Observers in Laake's observer list who are also in the new observer list
   # There are multiple initials per person in some cases. ID numbers should be the
@@ -542,7 +542,7 @@ create.observer.list <- function(sightings){
 
 # retrieve BUGS results
 get.results.BUGS <- function(BUGS.file.name, end.year){
-  out <- readRDS(paste0("RData/", BUGS.file.name))
+  out <- readRDS(paste0("RData//", BUGS.file.name))
   out$BUGS.out$summary %>%
     as.data.frame() %>%
     rownames_to_column(var = "parameter") %>%
@@ -567,7 +567,7 @@ get.results.BUGS <- function(BUGS.file.name, end.year){
 # retrieve jags results.
 get.results.jags <- function(file.name){
   
-  out <- readRDS(paste0("RData/", file.name))
+  out <- readRDS(paste0("RData//", file.name))
   max.Rhats <- lapply(out$jm$Rhat, max, na.rm = T)
   
   # To compute LOOIC, need to turn zeros into NAs when there were no second station:
@@ -679,9 +679,9 @@ Jags_Richards_Since2010_fcn <- function(min.dur, max.day = 90, ver, years, data.
   
   # Minimum length of observation periods in minutes
   model.name <- paste0("Richards_Nmixture_", ver) 
-  jags.model <- paste0("models/model_", model.name, ".txt")
+  jags.model <- paste0("models//model_", model.name, ".txt")
   
-  out.file.name <- paste0("RData/JAGS_", model.name,"_min", min.dur,
+  out.file.name <- paste0("RData//JAGS_", model.name,"_min", min.dur,
                           "_Since2010_NoBUGS_",
                           Run.date, ".rds")
   
@@ -886,12 +886,12 @@ NoBUGS_Richards_fcn <- function(min.dur, years, data.dir, jags.params, MCMC.para
   #model.name <- paste0(model.name.root, ver) 
   print(paste0("Starting NoBUGS_Richards_fcn at ", Sys.time(), " for Model: ", model.name))
   
-  jags.model <- paste0("models/", model.name)
+  jags.model <- paste0("models//", model.name)
   
   model.name.part.1 <- strsplit(model.name, split = ext)[[1]]
   model.name.part <- strsplit(model.name.part.1, split = "model_")[[1]][2]
   
-  out.file.name <- paste0("RData/JAGS_", model.name.part, 
+  out.file.name <- paste0("RData//JAGS_", model.name.part, 
                           "_1968to", max(years), 
                           "_min", min.dur, "_",
                           Run.date, 
@@ -1096,9 +1096,9 @@ NoBUGS_Richards_NB_fcn <- function(min.dur, ver, years, data.dir, jags.params, M
   
   #Run.date <- Sys.Date()
   model.name <- paste0("Richards_NB_Nmixture_", ver) 
-  jags.model <- paste0("models/model_", model.name, ".txt")
+  jags.model <- paste0("models//model_", model.name, ".txt")
   
-  out.file.name <- paste0("RData/JAGS_", model.name, 
+  out.file.name <- paste0("RData//JAGS_", model.name, 
                           "_1968to", max(years), 
                           "_min", min.dur,
                           "_NoBUGS.rds")
@@ -1231,9 +1231,9 @@ Jags_Richards_NoLaakeData_fcn <- function(min.dur, ver, years, data.dir, jags.pa
   
   Run.date <- Sys.Date()
   model.name <- paste0("Richards_pois_bino_", ver) 
-  jags.model <- paste0("models/model_", model.name, ".txt")
+  jags.model <- paste0("models//model_", model.name, ".txt")
   
-  out.file.name <- paste0("RData/JAGS_", model.name,
+  out.file.name <- paste0("RData//JAGS_", model.name,
                           "_min", min.dur,
                           "_Since2006_",
                           Run.date, ".rds")
@@ -1319,9 +1319,9 @@ Jags_Richards_AllData_fcn <- function(min.dur, ver, WinBUGS.out.file, WinBUGS.ye
   
   Run.date <- Sys.Date()
   model.name <- paste0("Richards_pois_bino_", ver) 
-  jags.model <- paste0("models/model_", model.name, ".txt")
+  jags.model <- paste0("models//model_", model.name, ".txt")
   
-  out.file.name <- paste0("RData/JAGS_", model.name,"_min", min.dur,
+  out.file.name <- paste0("RData//JAGS_", model.name,"_min", min.dur,
                           "_AllYears_",
                           Run.date, ".rds")
   
@@ -1403,9 +1403,9 @@ Jags_Richards_LaakeData_fcn <- function(min.dur, ver, jags.params, MCMC.params){
   Run.date <- Sys.Date()
   
   model.name <- paste0("Richards_pois_bino_", ver) 
-  jags.model <- paste0("models/model_", model.name, ".txt")
+  jags.model <- paste0("models//model_", model.name, ".txt")
   
-  out.file.name <- paste0("RData/JAGS_", model.name,"_min", min.dur,
+  out.file.name <- paste0("RData//JAGS_", model.name,"_min", min.dur,
                           "_LaakeData_",
                           Run.date, ".rds")
   
@@ -1457,7 +1457,7 @@ Jags_Richards_LaakeData_fcn <- function(min.dur, ver, jags.params, MCMC.params){
 # data.dir refers to the output directory of Extract_Data_All_v2.Rmd
 # 
 WinBUGSinputSince2006toJagsInput <- function(min.dur, 
-                                             WinBUGS.out.file = "RData/WinBUGS_2007to2024_v2_min85_2024-11-23.rds",
+                                             WinBUGS.out.file = "RData//WinBUGS_2007to2024_v2_min85_2024-11-23.rds",
                                              years,
                                              data.dir){
 
@@ -1632,7 +1632,7 @@ data2WinBUGS_input <- function(data.dir, years, min.dur){
   
   # this file contains all necessary inputs for 2006 - 2019 from Josh Stewart
   # We need 2006/2007 and 2007/2008 data as we don't have the original data files
-  data.0 <- readRDS("RData/2006-2019_GC_Formatted_Data.RDS")
+  data.0 <- readRDS("RData//2006-2019_GC_Formatted_Data.RDS")
   
   # 2006/2007 data are available in Laake's ERAnalysis package. 
   # I should use those "raw" data so that the minimum duration can be applied
@@ -1645,7 +1645,7 @@ data2WinBUGS_input <- function(data.dir, years, min.dur){
   
   # These are extracted data files (Extract_Data_All_v2.Rmd)
   out.v2 <- lapply(years, 
-                   FUN = function(x) readRDS(paste0(data.dir, "/out_", x,
+                   FUN = function(x) readRDS(paste0(data.dir, "//out_", x,
                                                     "_min", min.dur, 
                                                     "_Tomo_v2.rds")))
   
@@ -1744,7 +1744,7 @@ data2WinBUGS_input <- function(data.dir, years, min.dur){
   # Until I get raw data files for 2006/2007 and 2007/2008, I can't use the new
   # function create.obserer.list...   
 
-  obs.list <- read.csv(file = paste0("Data/ObserverList", years[length(years)-1], ".csv"))
+  obs.list <- read.csv(file = paste0("Data//ObserverList", years[length(years)-1], ".csv"))
   
   obs.new <- unique(out.v2[[length(years)]]$Complete_Data$obs)
   new.obs <- obs.new[!c(obs.new %in% obs.list$obs)]
@@ -1753,7 +1753,7 @@ data2WinBUGS_input <- function(data.dir, years, min.dur){
                                ID = seq(max(obs.list$ID) + 1,
                                         max(obs.list$ID) + length(new.obs))))
 
-  write.csv(obs.list, file = paste0("Data/ObserverList", max(years), ".csv"),
+  write.csv(obs.list, file = paste0("Data//ObserverList", max(years), ".csv"),
             row.names = FALSE)
   
   obs <- data.0$obs[,,1:2]
@@ -2044,7 +2044,7 @@ data2WinBUGS_input <- function(data.dir, years, min.dur){
 # min.dur is the minimum effort duration in minutes to be included in the analysis
 LaakeData2JagsInput <- function(min.dur, max.day = 100){
   
-  if (!file.exists("RData/Jags_Richards_LaakeData.rds")){
+  if (!file.exists("RData//Jags_Richards_LaakeData.rds")){
     
     library(tidyverse)
     
@@ -2455,10 +2455,10 @@ LaakeData2JagsInput <- function(min.dur, max.day = 100){
                      secondary.filtered = Laake_SecondaryEffort)
     
     saveRDS(out.list,
-            file = "RData/Jags_Richards_LaakeData.rds")
+            file = "RData//Jags_Richards_LaakeData.rds")
   } else {
     
-    out.list <- readRDS("RData/Jags_Richards_LaakeData.rds")
+    out.list <- readRDS("RData//Jags_Richards_LaakeData.rds")
   }
   return(out.list)  
 }
@@ -2594,7 +2594,7 @@ data2Jags_input_NoBUGS <- function(min.dur,
   
   # These are extracted data files (Extract_Data_All_v2.Rmd)
   out.v2 <- lapply(years, 
-                   FUN = function(x) readRDS(paste0(data.dir, "/out_", x,
+                   FUN = function(x) readRDS(paste0(data.dir, "//out_", x,
                                                     "_min", min.dur, "_Tomo_v2.rds")))
   
   # Get all sightings and make a data frame
@@ -3540,7 +3540,7 @@ get.data <- function(in.dir, YEAR, FILES, ff){
   # files so they will be the same as other years. The combined file also was stored in the
   # same folder.
   
-  all.lines <- read_lines(file = paste0(in.dir, "/", YEAR, "/", FILES[ff]))
+  all.lines <- read_lines(file = paste0(in.dir, "//", YEAR, "//", FILES[ff]))
   input.file.name <- FILES[ff]   # specify file name
   
   # look at the first three letters of the first line
@@ -4279,8 +4279,8 @@ fractional_Hr2HMS <- function(tmp){
 # analyzed using Formatting GC Data TE.R for Ver1.0 (saves in a .rds file)
 # and Extract_Data_All_v2.Rmd for Ver2.0 (saves in a .rds file).
 compare.V0.V2.raw <- function(YEAR, obs.list){
-  v0.out <- readRDS(paste0("RData/out_", YEAR, "_Joshs.rds"))
-  v2.out <- readRDS(paste0("RData/V2.1_Sep2023/out_", YEAR, "_min85_Tomo_v2.rds"))
+  v0.out <- readRDS(paste0("RData//out_", YEAR, "_Joshs.rds"))
+  v2.out <- readRDS(paste0("RData//V2.1_Sep2023//out_", YEAR, "_min85_Tomo_v2.rds"))
   
   v2.out$Final_Data %>% 
     mutate(v = "V2") %>% # -> tmp
@@ -4401,18 +4401,18 @@ compare.V0.V2.raw <- function(YEAR, obs.list){
 compare.V0.V2.BUGSinput <- function(YEAR, idx.yr, periods, obs.list){
   
   #Watch start times, as fraction of a day - stored in a different file
-  begin <- as.matrix(read.table("Data/begin.txt", 
+  begin <- as.matrix(read.table("Data//begin.txt", 
                                 header=T, 
                                 nrows = max(periods)))
   
   #watch end times
-  end <- as.matrix(read.table("Data/end.txt", 
+  end <- as.matrix(read.table("Data//end.txt", 
                               header=T,
                               nrows = max(periods)))
   
   
   # this file contains all input data for WinBUGS.
-  V0.out <- readRDS("RData/2006-2019_GC_Formatted_Data.RDS")
+  V0.out <- readRDS("RData//2006-2019_GC_Formatted_Data.RDS")
   
   # Pull out the information for V0 dataset
   periods.V0 <- V0.out$periods[idx.yr]
@@ -4435,7 +4435,7 @@ compare.V0.V2.BUGSinput <- function(YEAR, idx.yr, periods, obs.list){
                              v = "V0")
   
   # This contains the results from my version
-  v2.out <- readRDS(paste0("RData/V2.1_Sep2023/out_", YEAR, "_min85_Tomo_v2.rds"))
+  v2.out <- readRDS(paste0("RData//V2.1_Sep2023/out_", YEAR, "_min85_Tomo_v2.rds"))
   FinalData.v2 <- v2.out$Final_Data %>% 
     mutate(v = "V2") %>% 
     left_join(obs.list, by = "obs") %>%

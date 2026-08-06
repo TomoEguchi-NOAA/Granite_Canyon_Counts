@@ -85,7 +85,7 @@ sensitivity.table <- data.frame(ID = paste0("sen", seq(0, 8)),
 peak.day <- gamma.hat <- conv.stats <- Nhats <- list()
 for (k in 1:length(sensitivity)){
   out.file <- paste0("Richards_HSSM_", model, "_mod3_stan_", sensitivity[k])
-  fit_stan <- readRDS(paste0("RData/", out.file, ".rds"))
+  fit_stan <- readRDS(paste0("RData//", out.file, ".rds"))
   
   Nhats[[k]] <- fit_stan$summary("Corrected_Est")$mean
   if (k > 1){
@@ -112,7 +112,7 @@ Nhats.df <- do.call(cbind, Nhats) %>% data.frame()
 colnames(Nhats.df) <- sensitivity.table$Sens_abb
 
 Laake.Run.Date <- "2026-02-23"
-Laake.abundance.new <- read.csv(file = paste0("Data/all_estimates_Laake_2026_", Laake.Run.Date, ".csv")) %>%
+Laake.abundance.new <- read.csv(file = paste0("Data//all_estimates_Laake_2026_", Laake.Run.Date, ".csv")) %>%
   mutate(LCL = CL.low,
          UCL = CL.high) %>%
   na.omit()

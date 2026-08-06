@@ -109,7 +109,7 @@ if (sensitivity == "sen1"){
 n_year <- stan.data$jags.data$n.year
 n_observer <- stan.data$jags.data$n.obs.fixed
 
-file <- file.path("models/model_Richards_HSSM_mod3.stan")
+file <- file.path("models//model_Richards_HSSM_mod3.stan")
 out.file <- paste0("Richards_HSSM_", model, "_mod3_stan_", sensitivity)
 # 
 # # --- 5. Inspect Results ---
@@ -146,7 +146,7 @@ out.file <- paste0("Richards_HSSM_", model, "_mod3_stan_", sensitivity)
 
 
 #mod <- cmdstan_model(file)
-if (!file.exists(paste0("RData/", out.file, ".rds"))){
+if (!file.exists(paste0("RData//", out.file, ".rds"))){
   # Compile with aggressive C++ optimization flags
   mod <- cmdstan_model(file, 
                        cpp_options = list(stan_threads = TRUE, 
@@ -162,14 +162,14 @@ if (!file.exists(paste0("RData/", out.file, ".rds"))){
     adapt_delta     = 0.90  
   )
   
-  fit_stan$save_object(file = paste0("RData/", out.file, ".rds"))
+  fit_stan$save_object(file = paste0("RData//", out.file, ".rds"))
   saveRDS(list(stan.data = stan.data$stan.data,
                jags.data = stan.data$jags.data,
                init_fn = stan_init_fn()),
-          file = paste0("RData/", out.file, "_info.rds"))
+          file = paste0("RData//", out.file, "_info.rds"))
   
 } else {
-  fit_stan <- readRDS(paste0("RData/", out.file, ".rds"))
+  fit_stan <- readRDS(paste0("RData//", out.file, ".rds"))
 }
 # 
 # # --- Get Summaries for Specific Global Parameters ---
