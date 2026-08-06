@@ -14,6 +14,7 @@
 #  6. gamma_prior_sd = 2.0
 #  7. Base - all default values
 #  8. anchor_mu = qlogis(0.825)
+#  9. use_shape_dev = 1 Periodic deviation from the curve is shared
 
 rm(list = ls())
 library(tidyverse)
@@ -25,7 +26,7 @@ source("Granite_Canyon_Counts_fcns.R")
 # Sensitivity analyses are done only on one model (M1a2_1gamma)
 # The default values for S1, S2, and likelihood in create.stan.data are set
 # to run the M1a2 model as of 2026-07-29
-sensitivity <- "sen8"
+sensitivity <- "sen9"
 
 # // ---- MODEL STRUCTURE (Table 1) ---------------------------------------
 #   //   S1_by_season  S2_by_season  likelihood_NB      model
@@ -73,7 +74,7 @@ jags.input <- NoBUGS_Jags_input(min.dur = min.dur,
 
 jags.data <- jags.input$jags.data
 
-sensitivity.table <- data.frame(ID = paste0("sen", seq(0, 8)),
+sensitivity.table <- data.frame(ID = paste0("sen", seq(0, 9)),
                                 Sensitivity = c("Parity",
                                                 "use_pooling_Max = 0",
                                                 "anchor_mu = qlogis(0.7)",
@@ -82,8 +83,9 @@ sensitivity.table <- data.frame(ID = paste0("sen", seq(0, 8)),
                                                 "gamma_prior_mu = 0",
                                                 "gamma_prios_sd = 2.0",
                                                 "Base",
-                                                "anchor_mu = qlogis(0.825)"),
-                                ID.2 = c("Parity", "A", "B", "C", "D", "E", "F", "G", "Base"))
+                                                "anchor_mu = qlogis(0.825)",
+                                                "use_shape_dev = 1"),
+                                ID.2 = c("Parity", "A", "B", "C", "D", "E", "F", "Base", "G", "H"))
 
 if (sensitivity == "sen1"){
   stan.data <- create.stan.data(jags.data = jags.data, use_pooling_Max = 0)
@@ -103,6 +105,8 @@ if (sensitivity == "sen1"){
   stan.data <- create.stan.data(jags.data = jags.data)
 } else if (sensitivity == "sen8"){
   stan.data <- create.stan.data(jags.data = jags.data, anchor_mu = qlogis(0.825))
+} else if (sensitivity == "sen9"){
+  stan.data <- create.stan.data(jags.data = jags.data, use_shape_dev = 1)
 }
 
 # Create an inits function

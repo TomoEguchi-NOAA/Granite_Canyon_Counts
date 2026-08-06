@@ -15,6 +15,8 @@
 #  5. gamma_prior_mu = 0.0
 #  6. gamma_prior_sd = 2.0
 #  7. Base - all default values
+#  8. anchor_mu = qlogis(0.825)
+#  9. use_shape_dev = 1 Periodic deviation from the curve is shared
 #  #  
 rm(list = ls())
 library(tidyverse)
@@ -27,7 +29,7 @@ source("Granite_Canyon_Counts_fcns.R")
 # The default values for S1, S2, and likelihood in create.stan.data are set
 # to run the M1a2 model as of 2026-07-29
 
-sensitivity <- c("sen0", "sen1", "sen2", "sen3", "sen4", "sen5", "sen6", "sen7", "sen8")
+sensitivity <- c("sen0", "sen1", "sen2", "sen3", "sen4", "sen5", "sen6", "sen7", "sen8", "sen9")
 
 # // ---- MODEL STRUCTURE (Table 1) ---------------------------------------
 #   //   S1_by_season  S2_by_season  likelihood_NB      model
@@ -41,7 +43,7 @@ model <- "M1a2_1gamma"
 S1_by_season <- S2_by_season <- likelihood_NB <- 1
 
 # Create input data:
-min.dur <- 60 #10 #85 #
+min.dur <- 60 
 
 # These are the ending year of each season - for example, 2022 in the following vector indicates
 # for the 2021/2022 season. These data were extracted using Extract_Data_All_v2.Rmd
@@ -61,7 +63,7 @@ jags.input <- NoBUGS_Jags_input(min.dur = min.dur,
 jags.data <- jags.input$jags.data
 
 
-sensitivity.table <- data.frame(ID = paste0("sen", seq(0, 8)),
+sensitivity.table <- data.frame(ID = paste0("sen", seq(0, 9)),
                                 Sensitivity = c("Parity",
                                                 "use_pooling_Max = 0",
                                                 "anchor_mu = qlogis(0.7)",
@@ -70,17 +72,9 @@ sensitivity.table <- data.frame(ID = paste0("sen", seq(0, 8)),
                                                 "gamma_prior_mu = 0",
                                                 "gamma_prios_sd = 2.0",
                                                 "Base",
-                                                "anchor_mu = qlogis(0.825)"),
-                                Sens_abb = c("Parity",
-                                             "PoolMax_0",
-                                             "anchor_mu_7",
-                                             "anchor_mu_9",
-                                             "trendP_0",
-                                             "gamma_mu_0",
-                                             "gamma_sd_2",
-                                             "Base",
-                                             "anchor_mu_825"),
-                                ID.2 = c("Parity", "A", "B", "C", "D", "E", "F", "G", "Base"))
+                                                "anchor_mu = qlogis(0.825)",
+                                                "use_shape_dev = 1"),
+                                ID.2 = c("Parity", "A", "B", "C", "D", "E", "F", "Base", "G", "H"))
 
 peak.day <- gamma.hat <- conv.stats <- Nhats <- list()
 for (k in 1:length(sensitivity)){
@@ -88,7 +82,7 @@ for (k in 1:length(sensitivity)){
   fit_stan <- readRDS(paste0("RData//", out.file, ".rds"))
   
   Nhats[[k]] <- fit_stan$summary("Corrected_Est")$mean
-  if (k > 1){
+  if (k != 7){
     conv.stats[[k]] <- fit_stan$summary(
       variables = c("beta0_Max", "sigma_proc_Max", "Corrected_Est", "P", "S1", "S2", "gamma_free"),
       default_summary_measures(), 
@@ -112,7 +106,8 @@ Nhats.df <- do.call(cbind, Nhats) %>% data.frame()
 colnames(Nhats.df) <- sensitivity.table$Sens_abb
 
 Laake.Run.Date <- "2026-02-23"
-Laake.abundance.new <- read.csv(file = paste0("Data//all_estimates_Laake_2026_", Laake.Run.Date, ".csv")) %>%
+Laake.abundance.new <- read.csv(file = paste0("Data//all_estimates_Laake_2026_", 
+                                              Laake.Run.Date, ".csv")) %>%
   mutate(LCL = CL.low,
          UCL = CL.high) %>%
   na.omit()
