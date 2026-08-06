@@ -254,7 +254,7 @@ To ensure reproducibility and streamline future annual abundance estimation, a c
 # Model comparison was completed in Jags_Richards_ModelComparison.R and
 # results saved in a .rds file. To change that, run the script again.
 # 
-out.table <- readRDS(paste0("RData/Richards_ModelComparison_", YEAR, ".rds"))
+out.table <- readRDS(paste0("RData//Richards_ModelComparison_", YEAR, ".rds"))
 
 out.table %>% 
   select(model, n.params, n.big.Rhat, n.bad.Pareto, min.ESS.bulk, min.ESS.tail, dLOOIC) %>% 
@@ -283,7 +283,7 @@ out.table %>%
 # to the file name, so remove it before running this code. Otherwise, the "cannot open..."
 # error comes back. 
 ver <- "M1a2" #5 #out.table$model[1] #5
-jm.out <- readRDS(paste0("RData/JAGS_Richards_HSSM_",
+jm.out <- readRDS(paste0("RData//JAGS_Richards_HSSM_",
                          ver,
                          "_1968to", YEAR, "_min", min.dur,
                          "_NoBUGS.rds"))
@@ -292,7 +292,7 @@ jm.out <- readRDS(paste0("RData/JAGS_Richards_HSSM_",
 # This is a list of length 4. They are LOOIC, Rhat, ESS.bulk and ESS.tail
 # Each item has a length equals to the number of models ran. 
 ver.idx <- which(all.model.names == ver)
-list.convergence <- readRDS(paste0("RData/Richards_Convergence_", YEAR, ".rds"))
+list.convergence <- readRDS(paste0("RData//Richards_Convergence_", YEAR, ".rds"))
 
 # LOOIC and Pareto-k stats
 LOOIC.n <- list.convergence$LOOIC[ver.idx] 
@@ -384,13 +384,13 @@ p.daily.Richards <- ggplot(N.hats.day %>%
   theme_bw()
 
 save.fig.fcn(fig = p.daily.Richards, 
-               file.name = paste0("figures/Daily_Eguchi_", ver, "_", ".png"), 
+               file.name = paste0("figures//Daily_Eguchi_", ver, "_", ".png"), 
                replace = T, 
                dpi = dpi.set, device = "png",
                height = 10, width = 10, units = "in",
                bg = "white")
 
-Reported.estimates <- read.csv(file = paste0("Data/Nhats_", YEAR, ".csv")) %>%  
+Reported.estimates <- read.csv(file = paste0("Data//Nhats_", YEAR, ".csv")) %>%  
   transmute(Season = Season,
             Nhat = Nhat,
             LCL = LCL,
@@ -410,7 +410,7 @@ The eight models (@tbl-model-definition) were fitted to the sightings data over 
 #| error: false
 
 #WinBugs.run.date <- "2025-04-11"
-WinBugs.out <- readRDS(file = paste0("RData/WinBUGS_2007to", YEAR, "_v2_min", 
+WinBugs.out <- readRDS(file = paste0("RData//WinBUGS_2007to", YEAR, "_v2_min", 
                                      min.dur,
                                      "_100000_",
                                      WinBUGS.Run.Date, ".rds"))
@@ -563,7 +563,7 @@ p.daily.Durban <- ggplot(N.hats.day.Durban %>% group_by(Season)) +
 
 if (save.fig)
   save.fig.fcn(fig = p.daily.Durban, 
-               file.name = "figures/Daily_Durban.png", 
+               file.name = "figures//Daily_Durban.png", 
                replace = T, 
                dpi = dpi.set, device = "png",
                height = 5, width = 7, units = "in",
@@ -581,7 +581,7 @@ p.daily. <- ggplot(N.hats.day.all %>% group_by(Season)) +
 
 if (save.fig)
   save.fig.fcn(fig = p.daily., 
-               file.name = paste0("figures/Daily_Eguchi_", ver, "_Durban.png"), 
+               file.name = paste0("figures//Daily_Eguchi_", ver, "_Durban.png"), 
                replace = T, 
                dpi = dpi.set, device = "png",
                height = 5, width = 7, units = "in",
@@ -591,7 +591,7 @@ if (save.fig)
 # raw data for that year. Only the WinBUGS inputs. 
 # The following needs output from LaakeAnalysis_NewData.R
 Laake.Run.Date <- "2026-02-23"
-Laake.abundance.new <- read.csv(file = paste0("Data/all_estimates_Laake_", 
+Laake.abundance.new <- read.csv(file = paste0("Data//all_estimates_Laake_", 
                                               YEAR, "_", Laake.Run.Date, ".csv")) %>%
   mutate(LCL = CL.low,
          UCL = CL.high) %>%
@@ -663,7 +663,7 @@ p.Nhats <- ggplot(all.estimates.plot) +
 
 if (save.fig)
   save.fig.fcn(fig = p.Nhats,
-               file.name = paste0("figures/Nhats_", 
+               file.name = paste0("figures//Nhats_", 
                                   ver, "_min", min.dur, 
                                   "_", dpi.set, "dpi.png"),
                replace = T,
@@ -881,7 +881,7 @@ p.gam.all.fit <- ggplot(data = pred.all) +
 
 if (save.fig)
   save.fig.fcn(fig = p.gam.2006.fit,
-               file.name = paste0("figures/gam_fit_", ver, "_", dpi.set, "dpi.png"),
+               file.name = paste0("figures//gam_fit_", ver, "_", dpi.set, "dpi.png"),
                replace = T,
                height = 5, width = 7,
                dpi = dpi.set)
@@ -937,7 +937,7 @@ p.posteriors.VS.BF <- ggplot(VS.BF.df) +
 
 if (save.fig)
   save.fig.fcn(fig = p.posteriors.VS.BF,
-               file.name = paste0("figures/posteriors_VS_BF_", ver, "_", dpi.set, "dpi.png"),
+               file.name = paste0("figures//posteriors_VS_BF_", ver, "_", dpi.set, "dpi.png"),
                replace = T,
                height = 5, width = 7,
                dpi = dpi.set)
@@ -971,7 +971,7 @@ p.posteriors.Obs <- posteriors.Obs$p.dens +
 
 if (save.fig)
   save.fig.fcn(fig = p.posteriors.Obs,
-               file.name = paste0("figures/Observer_dens_", ver, ".png"),
+               file.name = paste0("figures//Observer_dens_", ver, ".png"),
                replace = T,
                height = 5, width = 7,
                dpi = dpi.set)
@@ -1005,7 +1005,7 @@ p.posteriors.P <- ggplot(P.df, aes(x = P, y = start.year.f)) +
 
 if (save.fig)
   save.fig.fcn(fig = p.posteriors.P,
-               file.name = paste0("figures/posterior_P_", ver, "_", dpi.set, "dpi.png"),
+               file.name = paste0("figures//posterior_P_", ver, "_", dpi.set, "dpi.png"),
                replace = T,
                height = 5, width = 7,
                dpi = dpi.set)
@@ -1034,7 +1034,7 @@ if (length(grep("M1|M3", ver)) > 0){
 
 if (save.fig)
   save.fig.fcn(fig = p.posteriors.S1,
-               file.name = paste0("figures/posteriors_S1_", ver, "_", dpi.set, "dpi.png"),
+               file.name = paste0("figures//posteriors_S1_", ver, "_", dpi.set, "dpi.png"),
                replace = T,
                height = 5, width = 7,
                dpi = dpi.set)
@@ -1060,7 +1060,7 @@ if (length(grep("M2|M3", ver)) > 0){
 
 if (save.fig)
   save.fig.fcn(fig = p.posteriors.S2,
-               file.name = paste0("figures/posteriors_S2_", ver, "_", dpi.set, "dpi.png"),
+               file.name = paste0("figures//posteriors_S2_", ver, "_", dpi.set, "dpi.png"),
                replace = T,
                height = 5, width = 7,
                dpi = dpi.set)
@@ -1073,7 +1073,7 @@ posterior.r$p.dens +
 
 if (save.fig)
   save.fig.fcn(fig = p.posterior.r,
-               file.name = paste0("figures/posterior_r_", ver, "_", dpi.set, "dpi.png"),
+               file.name = paste0("figures//posterior_r_", ver, "_", dpi.set, "dpi.png"),
                replace = T,
                height = 5, width = 7,
                dpi = dpi.set)
@@ -1240,7 +1240,7 @@ Estimated annual abundance and associated 95% uncertainty intervals (confidence 
 #| message: false
 #| dev.args: list(bg = "transparent")
 #| fig-width: 7
-knitr::include_graphics(paste0("figures/Nhats_", 
+knitr::include_graphics(paste0("figures//Nhats_", 
                                ver, "_min", min.dur, "_", dpi.set, "dpi.png"))
 
 ```
@@ -1257,7 +1257,7 @@ Estimated annual abundance and associated 95% uncertainty intervals (confidence 
 #| message: false
 #| dev.args: list(bg = "transparent")
 #| fig-width: 7
-knitr::include_graphics(paste0("figures/gam_fit_", ver, "_", dpi.set, "dpi.png"))
+knitr::include_graphics(paste0("figures//gam_fit_", ver, "_", dpi.set, "dpi.png"))
 ```
 
 \newpage
@@ -1268,7 +1268,7 @@ knitr::include_graphics(paste0("figures/gam_fit_", ver, "_", dpi.set, "dpi.png")
 #| message: false
 #| dev.args: list(bg = "transparent")
 #| fig-width: 7
-knitr::include_graphics(paste0("figures/posteriors_VS_BF_", ver, "_", dpi.set, "dpi.png"))
+knitr::include_graphics(paste0("figures//posteriors_VS_BF_", ver, "_", dpi.set, "dpi.png"))
 
 ```
 
@@ -1284,7 +1284,7 @@ Marginal posterior distributions of the fixed-effects coefficients for the visib
 #| message: false
 #| dev.args: list(bg = "transparent")
 #| fig-width: 7
-knitr::include_graphics(paste0("figures/posterior_P_", ver, "_", dpi.set, "dpi.png"))
+knitr::include_graphics(paste0("figures//posterior_P_", ver, "_", dpi.set, "dpi.png"))
 
 ```
 
@@ -1390,7 +1390,7 @@ p.gamma. <- ggplot(data = data.df) +
   ylab("N") + xlab("Ordinary Day of Season")
 
 save.fig.fcn(p.gamma., 
-             file.name = paste0("figures/gamma_", dpi.set, "dpi.png"), 
+             file.name = paste0("figures//gamma_", dpi.set, "dpi.png"), 
              height = 5, width = 7,replace = T, dpi = dpi.set)
 
 
@@ -1402,7 +1402,7 @@ save.fig.fcn(p.gamma.,
 #| echo: false
 #| message: false
 #| fig-width: 7
-knitr::include_graphics(paste0("figures/gamma_", dpi.set, "dpi.png"))
+knitr::include_graphics(paste0("figures//gamma_", dpi.set, "dpi.png"))
 
 ```
 
@@ -1436,7 +1436,7 @@ Definitions of hyperdistributions and their parameters. Normal distributions are
 #| message: false
 #| fig-width: 7
 
-knitr::include_graphics(paste0("figures/Observer_dens_", ver, ".png"))
+knitr::include_graphics(paste0("figures//Observer_dens_", ver, ".png"))
 
 ```
 
@@ -1453,7 +1453,7 @@ Marginal posterior density distributions of observer fixed effects. The 10 obser
 #| message: false
 #| fig-width: 7
 #| 
-knitr::include_graphics(paste0("figures/posteriors_S1_", ver, "_", dpi.set, "dpi.png"))
+knitr::include_graphics(paste0("figures//posteriors_S1_", ver, "_", dpi.set, "dpi.png"))
 ```
 
 The marginal posterior distributions of the season-specific $S_1$ parameters of the Richards equation. $S_1$ defines the width of the right side of the curve.
@@ -1469,7 +1469,7 @@ The marginal posterior distributions of the season-specific $S_1$ parameters of 
 #| message: false
 #| fig-width: 7
 
-knitr::include_graphics(paste0("figures/posteriors_S2_", ver, "_", dpi.set, "dpi.png"))
+knitr::include_graphics(paste0("figures//posteriors_S2_", ver, "_", dpi.set, "dpi.png"))
 ```
 
 Marginal posterior distributions of season-specific $S_2$ parameters $S_2$ defines the width of the left side of the curve.
@@ -1485,7 +1485,7 @@ Marginal posterior distributions of season-specific $S_2$ parameters $S_2$ defin
 #| message: false
 #| fig-width: 7
 
-knitr::include_graphics(paste0("figures/posterior_r_", ver, "_", dpi.set, "dpi.png"))
+knitr::include_graphics(paste0("figures//posterior_r_", ver, "_", dpi.set, "dpi.png"))
 ```
 
 The marginal posterior distribution of the $\theta$ parameter of the Negative Binomial likelihood. The $\theta$ parameter of a Negative Binomial distribution defines overdispersion (i.e., larger variance than expected), where small $\theta$ values indicate greater overdispersion.
@@ -1533,7 +1533,7 @@ p.S1 <- ggplot(data = data.df) +
   theme_bw()
 
 save.fig.fcn(p.S1, 
-             file.name = paste0("figures/S1_", 
+             file.name = paste0("figures//S1_", 
                                 dpi.set, "dpi.png"), 
              height = 5, width = 7,replace = T, dpi = dpi.set)
 
@@ -1545,7 +1545,7 @@ save.fig.fcn(p.S1,
 #| message: false
 #| fig-width: 7
 
-knitr::include_graphics(paste0("figures/S1_", dpi.set, "dpi.png"))
+knitr::include_graphics(paste0("figures//S1_", dpi.set, "dpi.png"))
 
 ```
 
@@ -1591,7 +1591,7 @@ p.S2 <- ggplot(data = data.df) +
   theme_bw()
 
 save.fig.fcn(p.S2, 
-             file.name = paste0("figures/S2_", dpi.set, "dpi.png"), 
+             file.name = paste0("figures//S2_", dpi.set, "dpi.png"), 
              height = 5, width = 7,replace = T, dpi = dpi.set)
 
 
@@ -1603,7 +1603,7 @@ save.fig.fcn(p.S2,
 #| message: false
 #| fig-width: 7
 
-knitr::include_graphics(paste0("figures/S2_", dpi.set, "dpi.png"))
+knitr::include_graphics(paste0("figures//S2_", dpi.set, "dpi.png"))
 
 ```
 
@@ -1650,7 +1650,7 @@ p.P <- ggplot(data = data.df) +
   theme_bw()
 
 save.fig.fcn(p.P, 
-             file.name = paste0("figures/P_", 
+             file.name = paste0("figures//P_", 
                                 dpi.set, "dpi.png"), 
              replace = T, 
              height = 5, width = 7,dpi = dpi.set)
@@ -1664,7 +1664,7 @@ save.fig.fcn(p.P,
 #| message: false
 #| fig-width: 7
 
-knitr::include_graphics(paste0("figures/P_", dpi.set, "dpi.png"))
+knitr::include_graphics(paste0("figures//P_", dpi.set, "dpi.png"))
 
 ```
 
