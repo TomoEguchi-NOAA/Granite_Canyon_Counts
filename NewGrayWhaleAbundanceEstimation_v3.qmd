@@ -58,13 +58,13 @@ set_flextable_defaults(font.size = 10,
 R_hat <- "R\u0302"
 
 YEAR <- 2026
-min.dur <- 60#10 #
+min.dur <- 60#
 dpi.set <- 600
 
 # It was run in the GrayWhaleAbundance project. 
 WinBUGS.Run.Date <- "2026-05-06"  
 
-save.fig <- T #F 
+save.fig <- T #F #
 save.fig.fcn <- function(fig, file.name, replace = F, 
                          dpi = dpi.set, device = "png",
                          height = 3, width = 3, units = "in",
