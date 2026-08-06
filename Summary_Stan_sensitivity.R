@@ -24,6 +24,7 @@ library(posterior)
 library(cmdstanr)
 
 source("Granite_Canyon_Counts_fcns.R")
+source("ppc_richards_hssm.R")
 
 # Sensitivity analyses are done only on one model (M1a2_1gamma)
 # The default values for S1, S2, and likelihood in create.stan.data are set
@@ -61,7 +62,7 @@ jags.input <- NoBUGS_Jags_input(min.dur = min.dur,
                                 obs.n.min = 10, N.obs = 10)
 
 jags.data <- jags.input$jags.data
-
+stan.data <- create.stan.data(jags.data = jags.data)
 
 sensitivity.table <- data.frame(ID = paste0("sen", seq(0, 9)),
                                 Sensitivity = c("Parity",
@@ -74,15 +75,25 @@ sensitivity.table <- data.frame(ID = paste0("sen", seq(0, 9)),
                                                 "Base",
                                                 "anchor_mu = qlogis(0.825)",
                                                 "use_shape_dev = 1"),
+                                Sens_abb = c("Parity",
+                                             "PoolMax_0",
+                                             "anchor_mu_7",
+                                             "anchor_mu_9",
+                                             "trendP_0",
+                                             "gamma_mu_0",
+                                             "gamma_sd_2",
+                                             "Base",
+                                             "anchor_mu_825",
+                                             "use_shape_dev"),
                                 ID.2 = c("Parity", "A", "B", "C", "D", "E", "F", "Base", "G", "H"))
 
-peak.day <- gamma.hat <- conv.stats <- Nhats <- list()
+peak.day <- gamma.hat <- conv.stats <- Nhats <- LOO.fit <- list()
 for (k in 1:length(sensitivity)){
   out.file <- paste0("Richards_HSSM_", model, "_mod3_stan_", sensitivity[k])
   fit_stan <- readRDS(paste0("RData//", out.file, ".rds"))
   
   Nhats[[k]] <- fit_stan$summary("Corrected_Est")$mean
-  if (k != 7){
+  if (k > 1){
     conv.stats[[k]] <- fit_stan$summary(
       variables = c("beta0_Max", "sigma_proc_Max", "Corrected_Est", "P", "S1", "S2", "gamma_free"),
       default_summary_measures(), 
@@ -100,7 +111,59 @@ for (k in 1:length(sensitivity)){
     
   }
   peak.day[[k]] <- fit_stan$summary("peak_day_decade")
+  LOO.fit[[k]] <- fit_stan$loo()
 }
+
+## Look at LOOIC and auto correlation between the base and another model:
+fit_base <- readRDS("RData//Richards_HSSM_M1a2_1gamma_mod3_stan_sen7.rds")
+info_base <- readRDS("RData//Richards_HSSM_M1a2_1gamma_mod3_stan_sen7_info.rds")
+
+M <- 9 # use_shape_dev = 1 to make the curve more flexible
+fit_M  <- readRDS(paste0("RData//Richards_HSSM_M1a2_1gamma_mod3_stan_sen", M, ".rds"))
+info_M  <- readRDS(paste0("RData//Richards_HSSM_M1a2_1gamma_mod3_stan_sen", M, "_info.rds"))
+
+LOOIC_base <- LOO.fit[[7]]
+LOOIC_M <- LOO.fit[[M]]
+
+PPC_base <- ppc_setup(fit_base, info_base$stan.data, n_draws = 500, seed = 1)
+AutoCorr_base <- ppc_autocorr(PPC_base, n_rep = 200)
+
+PPC_M <- ppc_setup(fit_M, info_M$stan.data, n_draws = 500, seed = 1)
+AutoCorr_M <- ppc_autocorr(PPC_M, n_rep = 200)
+
+# σ_shape = 0.08 [0.05, 0.13] — small but not zero. On the log scale that's about 
+# an 8% multiplicative deviation, so pentad-level departures from the Richards 
+# curve of roughly ±8–17%. Real, but modest against counts that vary by orders 
+# of magnitude across a season.
+# 
+# ΔLOOIC = 2.8, so elpd_diff ≈ 1.4 for 20 extra parameters. That's well below 
+# the ~4× se_diff threshold — worth confirming with loo_compare, but at 1.4 elpd 
+# the se_diff would have to be under 0.35 to matter, which won't happen. 
+# No meaningful predictive gain.
+# 
+# Autocorrelation 0.198 → 0.182, an 8% reduction, still seven-plus SD outside 
+# the replicate interval of [−0.072, 0.026]. The deviation absorbed a sliver 
+# and left the phenomenon intact.
+# 
+# The residual correlation is not a curve-flexibility problem. You gave the model 
+# 20 free parameters explicitly designed to depart from the Richards shape, and 
+# it took almost none of them and barely moved the autocorrelation. Combined with 
+# the flat loess — no mean-structure bias anywhere in the season — the conclusion 
+# is that day-to-day passage rates are genuinely correlated, which no smooth 
+# curve of any family would capture. Laake's year-specific splines show the same 
+# scatter in his Figure 1.
+# 
+# Fewer effective observations than assumed means the posterior is more 
+# concentrated than it should be. For 2025/2026 you report 16,032 [13,392, 19,475]; 
+# with correlation accounted for that interval would be somewhat wider. The point 
+# estimate wouldn't move much, since correlation affects precision rather than location.
+
+# The crude AR(1) heuristic gives a variance inflation of (1+ρ)/(1−ρ) ≈ 1.48, 
+# so an SE factor around 1.22 — roughly 20% wider. your abundance is a sum over 
+# a fitted curve informed by every observation in the season, not a simple mean 
+# of correlated draws, so the effective inflation is likely smaller.
+
+
 
 Nhats.df <- do.call(cbind, Nhats) %>% data.frame()
 colnames(Nhats.df) <- sensitivity.table$Sens_abb
@@ -139,7 +202,7 @@ Nhats.base %>%
 #write.csv(Nhats.base, file = "Data/Nhats_M1a2_1gamma.csv")
 
 ggplot(Nhats.base) +
-  geom_point(aes(x = start.year, y = width_95))
+  geom_point(aes(x = start.year, y = width_95/mean))
 
 # How many of Laake's estimates were within 95% CI of mine with meanP = 0.825?
 
