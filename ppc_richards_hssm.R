@@ -50,16 +50,25 @@ ppc_setup <- function(fit, sd, n_draws = 500, seed = 1) {
   is_nb <- "phi[1]" %in% colnames(dm)
   phi   <- if (is_nb) as.numeric(dm[idx, "phi[1]"]) else NA_real_
 
+  zi_mode <- sd$zi_mode
+  if (zi_mode > 0) {
+    za <- as.numeric(dm[idx, "zi_a[1]"])
+    zb <- if (zi_mode == 2) as.numeric(dm[idx, "zi_b[1]"]) else rep(0, length(idx))
+  }
+  
   # Replicate datasets
   y_rep <- matrix(NA_integer_, nrow = length(idx), ncol = N)
   for (d in seq_along(idx)) {
-    y_rep[d, ] <- if (is_nb) {
-      rnbinom(N, mu = kappa[d, ], size = phi[d])
-    } else {
-      rpois(N, lambda = kappa[d, ])
+    y <- if (is_nb) rnbinom(N, mu = kappa[d, ], size = phi[d])
+    else       rpois(N, lambda = kappa[d, ])
+    if (zi_mode > 0) {
+      lk   <- log(kappa[d, ])
+      lpi  <- za[d] + zb[d] * (lk - mean(lk))
+      y[runif(N) < plogis(lpi)] <- 0L        # structural zeros
     }
+    y_rep[d, ] <- y
   }
-
+  
   list(y = sd$n, y_rep = y_rep, kappa = kappa, phi = phi, is_nb = is_nb,
        draw_idx = idx, sd = sd)
 }
@@ -75,11 +84,28 @@ ds_residuals <- function(ps, draw = 1) {
     lo <- pnbinom(y - 1, mu = k, size = ps$phi[draw])
     hi <- pnbinom(y,     mu = k, size = ps$phi[draw])
   } else {
-    lo <- ppois(y - 1, lambda = k)
-    hi <- ppois(y,     lambda = k)
+    lo <- ppois(y - 1, lambda = k); hi <- ppois(y, lambda = k)
+  }
+  if (ps$zi_mode > 0) {
+    pi_ <- plogis(ps$za[draw] + ps$zb[draw] * (log(k) - mean(log(k))))
+    lo  <- ifelse(y == 0, 0, pi_ + (1 - pi_) * lo)   # mass below y
+    hi  <- pi_ + (1 - pi_) * hi
   }
   qnorm(pmin(pmax(runif(length(y), lo, hi), 1e-10), 1 - 1e-10))
 }
+
+# The following was before ZI models were introduced
+# ds_residuals <- function(ps, draw = 1) {
+#   y <- ps$y; k <- ps$kappa[draw, ]
+#   if (ps$is_nb) {
+#     lo <- pnbinom(y - 1, mu = k, size = ps$phi[draw])
+#     hi <- pnbinom(y,     mu = k, size = ps$phi[draw])
+#   } else {
+#     lo <- ppois(y - 1, lambda = k)
+#     hi <- ppois(y,     lambda = k)
+#   }
+#   qnorm(pmin(pmax(runif(length(y), lo, hi), 1e-10), 1 - 1e-10))
+# }
 
 # ---------------------------------------------------------------------
 # 3. Discrepancy statistics + Bayesian p-values
