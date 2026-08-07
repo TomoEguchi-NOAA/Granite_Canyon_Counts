@@ -1,7 +1,7 @@
 # Running all models in STAN
 # 
-#  Collects Stan runs and compares results. Select the best model and do 
-#  posterior predictive checks. 
+#  Collects Stan runs and compares results. Do posterior predictive checks on
+#  all models. 
 #  
 #  Run all models in Run_StanRichards_AllModels.R. It will save results
 #  in .rds files. 
@@ -41,18 +41,24 @@ jags.data <- jags.input$jags.data
 # //        0             0              0/1          M2a1 / M2a2
 # //        1             0              0/1          M3a1 / M3a2
 # //        0             1              0/1          M4a1 / M4a2
-# models <- c("M1a1", "M2a1", "M3a1", "M4a1",
-#             "M1a2", "M2a2", "M3a2", "M4a2")
 
-models <- c("M1a2_1gamma")
+models <- c("M1a1_1gamma_mod4", "M2a1_1gamma_mod4", "M3a1_1gamma_mod4", "M4a1_1gamma_mod4",
+            "M1a2_1gamma_mod4", "M2a2_1gamma_mod4", "M3a2_1gamma_mod4", "M4a2_1gamma_mod4",
+            "M1a2_1gamma_mod5_ZI1", "M1a2_1gamma_mod5_ZI2")
 
-params.1.stan <- c("S1", "S2", "P", 
-                   "sigma_proc_P", "Corrected_Est", "Max", "log_N_latent",
-                   "gamma_free", "peak_day_decade", "beta1_P")
+models <- c("M1a2_1gamma_mod5_ZI1", "M1a2_1gamma_mod5_ZI2")
+
+params.a1.stan <- c("S1", "S2", "P", 
+                    "sigma_proc_P", "Corrected_Est", "Max", "log_N_latent",
+                    "gamma_free", "peak_day_decade", "beta1_P")
+
+params.a2.stan <- c("S1", "S2", "P", "phi",
+                    "sigma_proc_P", "Corrected_Est", "Max", "log_N_latent",
+                    "gamma_free", "peak_day_decade", "beta1_P")
 
 stan.data <- create.stan.data(jags.data = jags.data)
 
-LOO.out <- stan.global.summary <- ppc.res <- list()
+diag.summary <- LOO.out <- stan.global.summary <- ppc.res <- list()
 k <- 1
 for (k in 1:length(models)) {
   out.file <- paste0("Richards_HSSM_", models[k], "_stan")
@@ -60,24 +66,47 @@ for (k in 1:length(models)) {
   #mod <- cmdstan_model(file)
   fit_stan <- readRDS(paste0("RData//", out.file, ".rds"))
   
+  if (length(grep("a1", models[k])) > 0) params <- params.a1.stan
+  if (length(grep("a2", models[k])) > 0) params <- params.a2.stan
+  if (length(grep("ZI1", models[k])) > 0) params <- c(params, "zi_a")
+  if (length(grep("ZI2", models[k])) > 0) params <- c(params, "zi_a", "zi_b")
+    
   LOO.out[[k]] <- fit_stan$loo()
   stan.global.summary[[k]] <- fit_stan$summary(
-    variables = params.1.stan,
+    variables = params,
     default_summary_measures(), 
     default_convergence_measures(),
     extra_quantiles = ~quantile2(., probs = c(0.025, 0.975)))
   
+  diag.summary[[k]] <- fit_stan$diagnostic_summary()
   
   # --- Posterior Predictive Simulation Loop ---
-  # res$autocorr is the key one. Within-season lag-1 autocorrelation of daily-averaged residuals, compared against the same statistic computed on replicate datasets. If the Richards curve were too rigid to track the migration, residuals would come in same-signed runs along the season and the observed autocorrelation would exceed the replicate distribution. If the observed value sits inside the replicate interval, you have direct evidence the curve is flexible enough — an empirical answer where you currently have an argument.
+  # res$autocorr is the key one. Within-season lag-1 autocorrelation of daily-averaged 
+  # residuals, compared against the same statistic computed on replicate datasets. 
+  # If the Richards curve were too rigid to track the migration, residuals would 
+  # come in same-signed runs along the season and the observed autocorrelation 
+  # would exceed the replicate distribution. If the observed value sits inside 
+  # the replicate interval, it is a direct evidence the curve is flexible enough.
   
-  # plots$resid_day is the same thing visually, and it's the figure I'd put in the paper. A flat loess through residuals against day-of-season says the curve captures the shape; systematic curvature — a dip at the peak, say — would say it doesn't.
-
-# pvalues covers proportion of zeros (the check from your calf memo), maximum, SD, mean, and the upper tail. The flag column marks anything outside [0.025, 0.975].
-
-# plots$coverage gives the empirical coverage of 95% predictive intervals. This is the cleanest single number for the Results — if it lands near 95%, the observation model is calibrated. It also detects Poisson vs NB automatically by looking for phi[1], so you can run it unchanged across all eight models. Worth doing: comparing coverage and the zeros p-value between M1a1 and M1a2 is a much more direct justification for the negative binomial than ΔLOOIC is.
-
-# plots$resid_season faceted QQ plots will show whether any particular season fits badly. Worth checking against the ones with sparse effort, and especially 2025/2026.
+  # plots$resid_day is the same thing visually, and it's the figure to put in the 
+  # paper. A flat loess through residuals against day-of-season says the curve 
+  # captures the shape; systematic curvature — a dip at the peak, say — 
+  # would say it doesn't.
+  
+  # pvalues covers proportion of zeros (the check from your calf memo), maximum, 
+  # SD, mean, and the upper tail. The flag column marks anything outside [0.025, 0.975].
+  
+  # plots$coverage gives the empirical coverage of 95% predictive intervals. 
+  # This is the cleanest single number for the Results — if it lands near 95%, 
+  # the observation model is calibrated. It also detects Poisson vs NB 
+  # automatically by looking for phi[1], so you can run it unchanged across all 
+  # eight models. Worth doing: comparing coverage and the zeros p-value between 
+  # M1a1 and M1a2 is a much more direct justification for the negative binomial 
+  # than ΔLOOIC is.
+  
+  # plots$resid_season faceted QQ plots will show whether any particular season 
+  # fits badly. Worth checking against the ones with sparse effort, and 
+  # especially 2025/2026.
  
    ppc.res[[k]] <- ppc_richards(fit_stan, stan.data$stan.data, n_draws = 500)
   
@@ -86,18 +115,37 @@ for (k in 1:length(models)) {
   # res$plots$resid_day
 }
 
-stan.global.summary[[1]] %>% filter(variable == "sigma_proc_P")
+### find the best model:
 
-sd_y <- sd(jags.data$year.index)
-b1 <- as.vector(fit_stan$draws("beta1_P[1]", format = "matrix"))
-sP <- as.vector(fit_stan$draws("sigma_proc_P", format = "matrix"))
-R  <- (abs(b1)*sd_y)^2 / ((abs(b1)*sd_y)^2 + sP^2)
-quantile(R, c(0.025, 0.5, 0.975))
-  
-ppc.res[[1]]$autocorr
-lapply(ppc.res, function(x) x$autocorr$observed)
+#### For one model:
+# stan.global.summary[[1]] %>% filter(variable == "sigma_proc_P")
+# 
+# sd_y <- sd(jags.data$year.index)
+# b1 <- as.vector(fit_stan$draws("beta1_P[1]", format = "matrix"))
+# sP <- as.vector(fit_stan$draws("sigma_proc_P", format = "matrix"))
+# R  <- (abs(b1)*sd_y)^2 / ((abs(b1)*sd_y)^2 + sP^2)
+# quantile(R, c(0.025, 0.5, 0.975))
+#   
+# ppc.res[[1]]$autocorr
+# lapply(ppc.res, function(x) x$autocorr$observed)
+# 
+# ppc.res[[1]]$plots$resid_day
+####
 
-ppc.res[[1]]$plots$resid_day
+diag.n_divergent.df <- do.call(rbind,
+                               lapply(diag.summary, FUN = function(x) x$num_divergent)) %>%
+  as.data.frame()
+diag.n_divergent.df$Model <- as.vector(models)
+
+diag.n_max_treedepth.df <- do.call(rbind,
+                               lapply(diag.summary, FUN = function(x) x$num_max_treedepth)) %>%
+  as.data.frame()
+diag.n_max_treedepth.df$Model <- as.vector(models)
+
+diag.ebfmi.df <- do.call(rbind,
+                         lapply(diag.summary, FUN = function(x) x$ebfmi)) %>%
+  as.data.frame()
+diag.ebfmi.df$Model <- as.vector(models)
 
 # --- Model comparison ---
 LOOIC.df <- do.call(rbind, lapply(LOO.out, FUN = function(x) x$estimates["looic",])) %>%
@@ -107,18 +155,25 @@ LOOIC.df %>%  select(Model, Estimate, SE) %>%
   mutate(dLOOIC = Estimate- min(Estimate)) %>% #-> tmp
   arrange(by = dLOOIC) -> LOOIC.df
 
+# ZI2 is the best according to LOOIC - but other measures need to be considered
+
 coverage.df <- do.call(rbind, lapply(ppc.res, FUN = function(x) x$plots$coverage)) %>%
   as.data.frame() %>%
   rename(Coverage = V1)
 coverage.df$Model <- as.vector(models)
 
+# all a2 models are good.
+
 LOOIC.df %>%
   left_join(coverage.df, by = "Model") -> LOOIC.coverage.df
 
-loo::loo_compare(LOO.out[[1]], LOO.out[[2]], LOO.out[[3]]) %>%
+loo::loo_compare(LOO.out[[5]], LOO.out[[9]], LOO.out[[10]]) %>%
   data.frame() -> loo.comp.df
 
-pk <- LOO.out[[2]]$diagnostics$pareto_k
+#best.model <- 10  # when running all models
+best.model <- 2   # when running just ZI models
+
+pk <- LOO.out[[best.model]]$diagnostics$pareto_k
 which(pk > 0.7)
 sd <- stan.data$stan.data
 data.frame(day = sd$day_idx, year = sd$year_idx, n = sd$n)[which(pk > 0.7), ]
@@ -128,10 +183,18 @@ pvalues.df <- do.call(rbind, lapply(ppc.res, FUN = function(x) x$pvalues)) %>%
 pvalues.df$Model <- rep(models, each = 6)
 
 #### Claude's suggestion about PPS results:
-res <- ppc.res[[5]]
+res <- ppc.res[[best.model]]
 ps <- res$setup; sd <- ps$sd
 zobs <- sd$n == 0
 zrep <- colMeans(ps$y_rep == 0)
+
+## sanity check:
+lk  <- log(ps$kappa[1, ])
+pi_ <- plogis(za[1] + zb[1] * (lk - mean(lk)))
+mean(pi_ + (1 - pi_) * dnbinom(0, mu = ps$kappa[1, ], size = phi[1]))   # vs 0.138
+##
+
+
 
 chk <- function(g, lab) {
   data.frame(group = lab, bin = levels(cut(g, 5)),
@@ -142,8 +205,8 @@ rbind(chk(sd$day_idx, "day of season"),
       chk(sd$watch_length, "watch length"),
       chk(sd$bf, "Beaufort"))
 
-k <- 5
-out.file <- paste0("Richards_HSSM_", models[k], "_stan")
+#k <- 10
+out.file <- paste0("Richards_HSSM_", models[best.model], "_stan")
 #mod <- cmdstan_model(file)
 fit_stan <- readRDS(paste0("RData//", out.file, ".rds"))
 
