@@ -55,6 +55,9 @@ stan_init_fn <- function() {
     out$gamma_free <- array(rnorm(k, 1, 0.1), dim = k)
   }
   
+  if (stan.data$stan.data$zi_mode > 0)  out$zi_a <- array(rnorm(1, -3, 0.3), dim = 1)
+  if (stan.data$stan.data$zi_mode == 2) out$zi_b <- array(rnorm(1,  0, 0.2), dim = 1)
+  
   return(out)
 }
 
@@ -91,9 +94,17 @@ stan_init_fn <- function() {
 # S1_by_season (1): Switch to make S1 season dependent (1) or constant over all years (0)
 # S2_by_season (1): Switch to make S2 season dependent (1) or constant over all years (0)
 # likelihood_NB (1): Choose Negative-Binomial (1) or Poisson as the likelihood
+# gamma_fix (1): If 1.0, gamma is fixed at 1. (same as Jags) but overruled by estimate_gamma
+# estimate_gamma (1): Whether or not (0) to estimate gamma. 
+# separate_gamma (0): Whether (1) or not (0) to have two gammas one for each side. If zero, 
+#                     one gamma is shared
+# gamma_prior_mu (1): 
+# gamma_prior_sd (1):
+# use_shape_dev (0): 
+# zi_mode (0): Set the zero-inflated part. 0: no zero-inflation. 1: constant. 2: depends on expected count
 # jags.data: provide jags data, which is used to create the stan input list.
 
-create.stan.data <- function(use_trend_P = 1, use_trend_Max = 1,  use_pooling_Max = 1, sd_unpooled_Max = 5, use_plateau = 0, plateau_by_year = 0, sd_delta = 5, anchor_mu = qlogis(0.8), anchor_sd = 0.1622, independent_corr = 0, S1_by_season = 1, S2_by_season = 1,likelihood_NB = 1, gamma_fix = 1, estimate_gamma = 1, separate_gamma = 0, gamma_prior_mu = 1.0, gamma_prior_sd = 1.0, use_shape_dev = 0, jags.data){
+create.stan.data <- function(use_trend_P = 1, use_trend_Max = 1,  use_pooling_Max = 1, sd_unpooled_Max = 5, use_plateau = 0, plateau_by_year = 0, sd_delta = 5, anchor_mu = qlogis(0.8), anchor_sd = 0.1622, independent_corr = 0, S1_by_season = 1, S2_by_season = 1,likelihood_NB = 1, gamma_fix = 1, estimate_gamma = 1, separate_gamma = 0, gamma_prior_mu = 1.0, gamma_prior_sd = 1.0, use_shape_dev = 0, zi_mode = 1, jags.data){
   
   # --- 1. Flatten Your Existing JAGS Arrays ---
   flat_data_list <- list()
@@ -205,7 +216,12 @@ create.stan.data <- function(use_trend_P = 1, use_trend_Max = 1,  use_pooling_Ma
     separate_gamma = separate_gamma,        # distinct gamma for descending vs ascending limb
     gamma_lower = -0.60,
     gamma_prior_mu = gamma_prior_mu, 
-    gamma_prior_sd = gamma_prior_sd
+    gamma_prior_sd = gamma_prior_sd,
+    
+    zi_mode = zi_mode,
+    zi_a_mu = -3,
+    zi_a_sd = 2,
+    zi_b_sd = 1
   )
   
   return(list(stan.data = stan_data,
