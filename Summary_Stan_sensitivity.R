@@ -30,7 +30,16 @@ source("ppc_richards_hssm.R")
 # The default values for S1, S2, and likelihood in create.stan.data are set
 # to run the M1a2 model as of 2026-07-29
 
-sensitivity <- c("sen0", "sen1", "sen2", "sen3", "sen4", "sen5", "sen6", "sen7", "sen8", "sen9")
+sensitivity <- c("sen0", #  0. Parity to Jags. (sen0)
+                 "sen1", #  1. use_pooling_Max = 0 
+                 "sen2", #  2. anchor_mu = qlogis(0.70)
+                 "sen3", #  3. anchor_mu = qlogis(0.90)
+                 "sen4", #  4. use_trend_P = 0
+                 "sen5", #  5. gamma_prior_mu = 0.0
+                 "sen6", #  6. gamma_prior_sd = 2.0
+                 "sen7", #  7. Base - all default values
+                 "sen8", #  8. anchor_mu = qlogis(0.825)
+                 "sen9") #  9. use_shape_dev = 1
 
 # // ---- MODEL STRUCTURE (Table 1) ---------------------------------------
 #   //   S1_by_season  S2_by_season  likelihood_NB      model
@@ -141,6 +150,14 @@ AutoCorr_M <- ppc_autocorr(PPC_M, n_rep = 200)
 # the se_diff would have to be under 0.35 to matter, which won't happen. 
 # No meaningful predictive gain.
 # 
+loo::loo_compare(LOOIC_base, LOOIC_M) -> LOO.comp
+dv <- fit_base$sampler_diagnostics(format = "df")$divergent__
+dr <- fit_base$draws(format = "df")
+rbind(div = colMeans(dr[dv == 1, c("gamma_free[1]","sigma_proc_P","sigma_Obs")]),
+      ok  = colMeans(dr[dv == 0, c("gamma_free[1]","sigma_proc_P","sigma_Obs")]))
+
+
+# 
 # Autocorrelation 0.198 → 0.182, an 8% reduction, still seven-plus SD outside 
 # the replicate interval of [−0.072, 0.026]. The deviation absorbed a sliver 
 # and left the phenomenon intact.
@@ -163,10 +180,139 @@ AutoCorr_M <- ppc_autocorr(PPC_M, n_rep = 200)
 # a fitted curve informed by every observation in the season, not a simple mean 
 # of correlated draws, so the effective inflation is likely smaller.
 
+find.large.pareto <- function(LOO.fit.list, stan.data){
+  pareto.base <- as.data.frame(LOO.fit.list$pointwise)
+  pareto.base %>%
+    mutate(year.idx = stan.data$stan.data$year_idx,
+           day.idx = stan.data$stan.data$day_idx,
+           row.id = 1:length(stan.data$stan.data$n)) -> pareto.base
+  
+  p.all.pareto <- ggplot(pareto.base) +
+    geom_point(aes(x = day.idx, y = influence_pareto_k)) +
+    facet_wrap(~year.idx)
+  
+  stan.data.df <- data.frame(year.idx = stan.data$stan.data$year_idx,
+                             day.idx = stan.data$stan.data$day_idx,
+                             counts = stan.data$stan.data$n)
+  
+  p.all.counts <- ggplot(stan.data.df) +
+    geom_point(aes(x = day.idx, y = counts)) +
+    facet_wrap(~year.idx)
 
+  large.pareto <- pareto.base %>% filter(influence_pareto_k > 0.7)
+  large.pareto.years <- large.pareto$year.idx
+  
+  out.list <- list()
+  for (k in 1:length(large.pareto.years)){
+    # Year 24 (2007) has a large Pareto-k data point
+    pareto.base %>% filter(year.idx == large.pareto.years[k]) -> pareto.base.Y
+    stan.data.df %>% filter(year.idx == large.pareto.years[k]) -> counts.Y
+    
+    data.pareto.Y <- data.frame(day = counts.Y$day.idx,
+                                counts = counts.Y$counts,
+                                pareto = pareto.base.Y$influence_pareto_k)
+    
+    p.pareto.Y <- ggplot(data.pareto.Y) +
+      geom_point(aes(x = day, y = counts, color = pareto))
+    out.list[[k]] <- list(data = data.pareto.Y,
+                          plot = p.pareto.Y)
+  }
+  
+  return(list(out.list = out.list,
+              large.pareto = large.pareto,
+              p.all.pareto = p.all.pareto,
+              p.all.counts = p.all.counts))
+}
+
+base.pareto <- find.large.pareto(LOO.fit[[7]], stan.data)
+sen9.pareto <- find.large.pareto(LOO.fit[[10]], stan.data)
+
+# Given one data point had a large pareto-k value (year = 24 (2007), day = 33), 
+# remove it to see if the results
+# change much. Remove the data point from the stan data
+idx.data.1 <- c(1:(base.pareto$large.pareto$row.id-1), 
+                (base.pareto$large.pareto$row.id+1):length(stan.data$stan.data$n))
+stan.data.1 <- stan.data$stan.data
+stan.data.1$N_flat <- length(idx.data.1)
+stan.data.1$n <- stan.data.1$n[idx.data.1]
+stan.data.1$bf <- stan.data.1$bf[idx.data.1]
+stan.data.1$vs <- stan.data.1$vs[idx.data.1]
+stan.data.1$observer_idx <- stan.data.1$observer_idx[idx.data.1]
+stan.data.1$watch_length <- stan.data.1$watch_length[idx.data.1]
+stan.data.1$day_idx <- stan.data.1$day_idx[idx.data.1]
+stan.data.1$year_idx <- stan.data.1$year_idx[idx.data.1]
+
+model <- "M1a2_1gamma"
+out.file <- paste0("Richards_HSSM_", model, "_stan_No", base.pareto$large.pareto$row.id)
+model.file <- file.path("models//model_Richards_HSSM_mod3.stan")
+
+mod <- cmdstan_model(model.file, 
+                     cpp_options = list(stan_threads = TRUE, 
+                                        O = 3))
+n_year <- stan.data$jags.data$n.year
+n_observer <- stan.data$jags.data$n.obs.fixed
+
+if (!file.exists(paste0("RData//", out.file, ".rds"))){
+  fit_stan <- mod$sample(
+    data            = stan.data.1,
+    init            = stan_init_fn,
+    chains          = 4,
+    parallel_chains = 4,
+    threads_per_chain = 2,
+    iter_warmup     = 1500,
+    iter_sampling   = 2000,
+    adapt_delta     = 0.90  
+  )
+  
+  fit_stan$save_object(file = paste0("RData//", out.file, ".rds"))
+
+  info_stan <-  list(stan.data = stan.data$stan.data,
+                     jags.data = stan.data$jags.data,
+                     init_fn = stan_init_fn()) 
+  
+  saveRDS(info_stan,
+          file = paste0("RData//", out.file, "_info.rds"))
+  
+} else {
+  fit_stan <- readRDS(paste0("RData//", out.file, ".rds"))
+}
+
+LOO.out <- fit_stan$loo()
+params.1.stan <- c("S1", "S2", "P", 
+                   "sigma_proc_P", "Corrected_Est", "Max", "log_N_latent",
+                   "gamma_free", "peak_day_decade", "beta1_P")
+
+stan.global.summary <- fit_stan$summary(
+  variables = params.1.stan,
+  default_summary_measures(), 
+  default_convergence_measures(),
+  extra_quantiles = ~quantile2(., probs = c(0.025, 0.975)))
+
+Nhats.1 <- fit_stan$summary("Corrected_Est")$mean
 
 Nhats.df <- do.call(cbind, Nhats) %>% data.frame()
 colnames(Nhats.df) <- sensitivity.table$Sens_abb
+
+Nhats.df$No4074 <- Nhats.1
+Nhats.df$year.idx <- c(1:nrow(Nhats.df))
+
+ggplot(Nhats.df) +
+  geom_point(aes(x = year.idx, y = Base), 
+             color = "blue") +
+  geom_point(aes(x = year.idx, y = No4074), 
+             color = "gold", alpha = 0.5)
+
+d.Y2007 <- Nhats.df[24, "Base"] - Nhats.df[24, "No4074"]
+
+fit_stan$diagnostic_summary()
+
+dv <- fit_stan$sampler_diagnostics(format = "df")$divergent__
+dr <- fit_stan$draws(format = "df")
+rbind(div = colMeans(dr[dv == 1, c("gamma_free[1]","sigma_proc_P","sigma_Obs")]),
+      ok  = colMeans(dr[dv == 0, c("gamma_free[1]","sigma_proc_P","sigma_Obs")]))
+
+### ### ### 
+
 
 Laake.Run.Date <- "2026-02-23"
 Laake.abundance.new <- read.csv(file = paste0("Data//all_estimates_Laake_2026_", 
