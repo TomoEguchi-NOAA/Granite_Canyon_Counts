@@ -33,7 +33,6 @@ years <- c(2008, 2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025, 2026)
 data.dir <- "RData//V2.1_May2026"
 max.day <- 100
 
-
 jags.input <- NoBUGS_Jags_input(min.dur = min.dur, 
                                 years = years, 
                                 data.dir = data.dir, 
@@ -55,9 +54,9 @@ S2.vec <- c(1, 0)
 lkhd.NB.vec <- c(1,0)
 
 # To run a specific model, set the vectors accordingly:
-# S1.vec <- c(1)
-# S2.vec <- c(1)
-# lkhd.NB.vec <- c(1)
+S1.vec <- c(1)
+S2.vec <- c(1)
+lkhd.NB.vec <- c(1)
 
 # --- Add these lines right before packaging 'stan_data' ---
 # storage.mode(start_idx) <- "integer"
@@ -83,7 +82,10 @@ lkhd.NB.vec <- c(1,0)
 # Create an inits function
 
 # all models were fit into one file with various switches:
-model.version <- "mod4"
+#model.version <- "mod4"
+model.version <- "mod5_ZI"
+zi_mode <- 2  # 0, 1, or 2
+
 file <- file.path(paste0("models//model_Richards_HSSM_", model.version, ".stan"))
 #model <- list()
 #m <- 1
@@ -106,7 +108,12 @@ for (S1 in 1:length(S1.vec)){
       }
       
       model <- paste0(model.M, model.lkhd)
-      out.file <- paste0("Richards_HSSM_", model, "_1gamma_", model.version, "_stan")
+      if (zi_mode == 0){
+        out.file <- paste0("Richards_HSSM_", model, "_1gamma_", model.version, "_stan")
+        
+      } else {
+        out.file <- paste0("Richards_HSSM_", model, "_1gamma_", model.version, zi_mode, "_stan")
+      }
       #m <- m + 1
       # Compile with aggressive C++ optimization flags
       mod <- cmdstan_model(file, 
@@ -118,7 +125,9 @@ for (S1 in 1:length(S1.vec)){
                                     S2_by_season = S2_by_season,
                                     likelihood_NB = likelihood_NB,
                                     estimate_gamma = 1,
-                                    separate_gamma = 0)
+                                    separate_gamma = 0,
+                                    zi_mode = zi_mode)
+      
       
       n_year <- stan.data$jags.data$n.year
       n_observer <- stan.data$jags.data$n.obs.fixed
