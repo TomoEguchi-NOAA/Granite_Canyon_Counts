@@ -1,4 +1,4 @@
-# Running the best model in STAN
+# Running one or all models in STAN
 # 
 # Translation of the JAGS Richards model to Stan is possible because 
 # if N ~ Poisson(A) and n | N ~ Binomial(N, p), then n ~ Poisson(Ap) exactly;
@@ -30,7 +30,7 @@ Run.date <- Sys.Date()
 # for the 2021/2022 season. These data were extracted using Extract_Data_All_v2.Rmd
 # Data prior to the 2009/2010 season are in Laake's ERAnalayis package. 
 years <- c(2008, 2010, 2011, 2015, 2016, 2020, 2022, 2023, 2024, 2025, 2026)
-data.dir <- "RData/V2.1_May2026"
+data.dir <- "RData//V2.1_May2026"
 max.day <- 100
 
 
@@ -55,9 +55,9 @@ S2.vec <- c(1, 0)
 lkhd.NB.vec <- c(1,0)
 
 # To run a specific model, set the vectors accordingly:
-S1.vec <- c(1)
-S2.vec <- c(1)
-lkhd.NB.vec <- c(1)
+# S1.vec <- c(1)
+# S2.vec <- c(1)
+# lkhd.NB.vec <- c(1)
 
 # --- Add these lines right before packaging 'stan_data' ---
 # storage.mode(start_idx) <- "integer"
@@ -83,7 +83,8 @@ lkhd.NB.vec <- c(1)
 # Create an inits function
 
 # all models were fit into one file with various switches:
-file <- file.path("models/model_Richards_HSSM_mod3.stan")
+model.version <- "mod4"
+file <- file.path(paste0("models//model_Richards_HSSM_", model.version, ".stan"))
 #model <- list()
 #m <- 1
 
@@ -105,7 +106,7 @@ for (S1 in 1:length(S1.vec)){
       }
       
       model <- paste0(model.M, model.lkhd)
-      out.file <- paste0("Richards_HSSM_", model, "_1gamma_stan")
+      out.file <- paste0("Richards_HSSM_", model, "_1gamma_", model.version, "_stan")
       #m <- m + 1
       # Compile with aggressive C++ optimization flags
       mod <- cmdstan_model(file, 
@@ -123,7 +124,7 @@ for (S1 in 1:length(S1.vec)){
       n_observer <- stan.data$jags.data$n.obs.fixed
       
       #mod <- cmdstan_model(file)
-      if (!file.exists(paste0("RData/", out.file, ".rds"))){
+      if (!file.exists(paste0("RData//", out.file, ".rds"))){
         fit_stan <- mod$sample(
           data            = stan.data$stan.data,
           init            = stan_init_fn,
@@ -135,14 +136,17 @@ for (S1 in 1:length(S1.vec)){
           adapt_delta     = 0.90  
         )
         
-        fit_stan$save_object(file = paste0("RData/", out.file, ".rds"))
-        saveRDS(list(stan.data = stan.data$stan.data,
+        fit_stan$save_object(file = paste0("RData//", out.file, ".rds"))
+        saveRDS(list(model.file = file,
+                     stan.data = stan.data$stan.data,
                      jags.data = stan.data$jags.data,
-                     init_fn = stan_init_fn()),
-                file = paste0("RData/", out.file, "_info.rds"))
+                     init_fn = stan_init_fn(),
+                     System = Sys.getenv(),
+                     Run.date = Sys.Date()),
+                file = paste0("RData//", out.file, "_info.rds"))
         
       } else {
-        fit_stan <- readRDS(paste0("RData/", out.file, ".rds"))
+        fit_stan <- readRDS(paste0("RData//", out.file, ".rds"))
       }
     }
   }
