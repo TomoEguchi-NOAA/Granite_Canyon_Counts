@@ -88,25 +88,34 @@ sensitivity.table <- data.frame(ID = paste0("sen", seq(0, 9)),
                                 ID.2 = c("Parity", "A", "B", "C", "D", "E", "F", "Base", "G", "H"))
 
 if (sensitivity == "sen1"){
-  stan.data <- create.stan.data(jags.data = jags.data, use_pooling_Max = 0)
+  stan.data <- create.stan.data(jags.data = jags.data, 
+                                use_pooling_Max = 0)
 } else if (sensitivity == "sen2"){
-  stan.data <- create.stan.data(jags.data = jags.data, anchor_mu = qlogis(0.7))
+  stan.data <- create.stan.data(jags.data = jags.data, 
+                                anchor_mu = qlogis(0.7))
 } else if (sensitivity == "sen3"){
-  stan.data <- create.stan.data(jags.data = jags.data, anchor_mu = qlogis(0.9))
+  stan.data <- create.stan.data(jags.data = jags.data, 
+                                anchor_mu = qlogis(0.9))
 } else if (sensitivity == "sen4"){
-  stan.data <- create.stan.data(jags.data = jags.data, use_trend_P = 0)
+  stan.data <- create.stan.data(jags.data = jags.data, 
+                                use_trend_P = 0)
 } else if (sensitivity == "sen0"){
-  stan.data <- create.stan.data(jags.data = jags.data, anchor_sd = 0.01, estimate_gamma = 0)
+  stan.data <- create.stan.data(jags.data = jags.data, 
+                                anchor_sd = 0.01, estimate_gamma = 0)
 } else if (sensitivity == "sen5"){
-  stan.data <- create.stan.data(jags.data = jags.data, gamma_prior_mu = 0)
+  stan.data <- create.stan.data(jags.data = jags.data, 
+                                gamma_prior_mu = 0)
 } else if (sensitivity == "sen6"){
-  stan.data <- create.stan.data(jags.data = jags.data, gamma_prior_sd = 2.0)
+  stan.data <- create.stan.data(jags.data = jags.data, 
+                                gamma_prior_sd = 2.0)
 } else if (sensitivity == "sen7"){
   stan.data <- create.stan.data(jags.data = jags.data)
 } else if (sensitivity == "sen8"){
-  stan.data <- create.stan.data(jags.data = jags.data, anchor_mu = qlogis(0.825))
+  stan.data <- create.stan.data(jags.data = jags.data, 
+                                anchor_mu = qlogis(0.825))
 } else if (sensitivity == "sen9"){
-  stan.data <- create.stan.data(jags.data = jags.data, use_shape_dev = 1)
+  stan.data <- create.stan.data(jags.data = jags.data, 
+                                use_shape_dev = 1)
 }
 
 # Create an inits function
@@ -114,7 +123,7 @@ n_year <- stan.data$jags.data$n.year
 n_observer <- stan.data$jags.data$n.obs.fixed
 
 file <- file.path("models//model_Richards_HSSM_mod3.stan")
-out.file <- paste0("Richards_HSSM_", model, "_mod3_stan_", sensitivity)
+out.file <- paste0("Richards_HSSM_", model, "_mod4_", sensitivity, "_stan")
 # 
 # # --- 5. Inspect Results ---
 # params.1.stan <- c("S1", "beta_S1", "S2", "P", "phi",
