@@ -42,11 +42,11 @@ jags.data <- jags.input$jags.data
 # //        1             0              0/1          M3a1 / M3a2
 # //        0             1              0/1          M4a1 / M4a2
 
-models <- c("M1a1_1gamma_mod4", "M2a1_1gamma_mod4", "M3a1_1gamma_mod4", "M4a1_1gamma_mod4",
-            "M1a2_1gamma_mod4", "M2a2_1gamma_mod4", "M3a2_1gamma_mod4", "M4a2_1gamma_mod4",
-            "M1a2_1gamma_mod5_ZI1", "M1a2_1gamma_mod5_ZI2")
+# models <- c("M1a1_1gamma_mod4", "M2a1_1gamma_mod4", "M3a1_1gamma_mod4", "M4a1_1gamma_mod4",
+#             "M1a2_1gamma_mod4", "M2a2_1gamma_mod4", "M3a2_1gamma_mod4", "M4a2_1gamma_mod4",
+#             "M1a2_1gamma_mod5_ZI1", "M1a2_1gamma_mod5_ZI2")
 
-models <- c("M1a2_1gamma_mod5_ZI1", "M1a2_1gamma_mod5_ZI2")
+models <- c("M1a2_1gamma_mod4", "M1a2_1gamma_mod5_ZI1", "M1a2_1gamma_mod5_ZI2")
 
 params.a1.stan <- c("S1", "S2", "P", 
                     "sigma_proc_P", "Corrected_Est", "Max", "log_N_latent",
@@ -56,10 +56,9 @@ params.a2.stan <- c("S1", "S2", "P", "phi",
                     "sigma_proc_P", "Corrected_Est", "Max", "log_N_latent",
                     "gamma_free", "peak_day_decade", "beta1_P")
 
-stan.data <- create.stan.data(jags.data = jags.data)
-
 diag.summary <- LOO.out <- stan.global.summary <- ppc.res <- list()
-k <- 1
+zi_mode <- k <- 1
+
 for (k in 1:length(models)) {
   out.file <- paste0("Richards_HSSM_", models[k], "_stan")
   
@@ -70,7 +69,12 @@ for (k in 1:length(models)) {
   if (length(grep("a2", models[k])) > 0) params <- params.a2.stan
   if (length(grep("ZI1", models[k])) > 0) params <- c(params, "zi_a")
   if (length(grep("ZI2", models[k])) > 0) params <- c(params, "zi_a", "zi_b")
-    
+
+  # The default zi_mode = 1. So, mod4 runs have to set zi_mode = 0
+  if (length(grep("ZI", models[k])) == 0) zi_mode = 0
+  
+  stan.data <- create.stan.data(jags.data = jags.data, zi_mode = zi_mode)
+  
   LOO.out[[k]] <- fit_stan$loo()
   stan.global.summary[[k]] <- fit_stan$summary(
     variables = params,
