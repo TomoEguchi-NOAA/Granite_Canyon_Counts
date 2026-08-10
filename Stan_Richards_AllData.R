@@ -32,6 +32,7 @@ jags.input <- NoBUGS_Jags_input(min.dur = min.dur,
                                 obs.n.min = 10, N.obs = 10)
 
 jags.data <- jags.input$jags.data
+start.years <- jags.data$start.years
 
 #stan.data <- create.stan.data(jags.data = jags.data)
 
@@ -97,13 +98,13 @@ for (k in 1:length(models)) {
   # captures the shape; systematic curvature — a dip at the peak, say — 
   # would say it doesn't.
   
-  # pvalues covers proportion of zeros (the check from your calf memo), maximum, 
-  # SD, mean, and the upper tail. The flag column marks anything outside [0.025, 0.975].
+  # pvalues covers proportion of zeros, maximum, SD, mean, and the upper tail. 
+  # The flag column marks anything outside [0.025, 0.975].
   
   # plots$coverage gives the empirical coverage of 95% predictive intervals. 
   # This is the cleanest single number for the Results — if it lands near 95%, 
   # the observation model is calibrated. It also detects Poisson vs NB 
-  # automatically by looking for phi[1], so you can run it unchanged across all 
+  # automatically by looking for phi[1], so run it unchanged across all 
   # eight models. Worth doing: comparing coverage and the zeros p-value between 
   # M1a1 and M1a2 is a much more direct justification for the negative binomial 
   # than ΔLOOIC is.
@@ -137,19 +138,23 @@ for (k in 1:length(models)) {
 ####
 
 diag.n_divergent.df <- do.call(rbind,
-                               lapply(diag.summary, FUN = function(x) x$num_divergent)) %>%
+                               lapply(diag.summary, 
+                                      FUN = function(x) x$num_divergent)) %>%
   as.data.frame()
-diag.n_divergent.df$Model <- as.vector(models)
 
-diag.n_max_treedepth.df <- do.call(rbind,
-                               lapply(diag.summary, FUN = function(x) x$num_max_treedepth)) %>%
-  as.data.frame()
-diag.n_max_treedepth.df$Model <- as.vector(models)
-
-diag.ebfmi.df <- do.call(rbind,
-                         lapply(diag.summary, FUN = function(x) x$ebfmi)) %>%
-  as.data.frame()
-diag.ebfmi.df$Model <- as.vector(models)
+# if any of the entries in the above dataframe is >0, uncomment the following chunk:
+# diag.n_divergent.df$Model <- as.vector(models)
+# 
+# diag.n_max_treedepth.df <- do.call(rbind,
+#                                lapply(diag.summary, FUN = function(x) x$num_max_treedepth)) %>%
+#   as.data.frame()
+# diag.n_max_treedepth.df$Model <- as.vector(models)
+# 
+# diag.ebfmi.df <- do.call(rbind,
+#                          lapply(diag.summary, FUN = function(x) x$ebfmi)) %>%
+#   as.data.frame()
+# diag.ebfmi.df$Model <- as.vector(models)
+##################################################################################
 
 # --- Model comparison ---
 LOOIC.df <- do.call(rbind, lapply(LOO.out, FUN = function(x) x$estimates["looic",])) %>%
@@ -160,31 +165,57 @@ LOOIC.df %>%  select(Model, Estimate, SE) %>%
   arrange(by = dLOOIC) -> LOOIC.df
 
 # ZI2 is the best according to LOOIC - but other measures need to be considered
-
 coverage.df <- do.call(rbind, lapply(ppc.res, FUN = function(x) x$plots$coverage)) %>%
   as.data.frame() %>%
   rename(Coverage = V1)
 coverage.df$Model <- as.vector(models)
+# They are about the same
 
 # all a2 models are good.
-
 LOOIC.df %>%
   left_join(coverage.df, by = "Model") -> LOOIC.coverage.df
 
-loo::loo_compare(LOO.out[[5]], LOO.out[[9]], LOO.out[[10]]) %>%
+# if there are many models, select top three and provide the indices here:
+# loo::loo_compare(LOO.out[[5]], LOO.out[[9]], LOO.out[[10]]) %>%
+#   data.frame() -> loo.comp.df
+
+loo::loo_compare(LOO.out[[1]], LOO.out[[2]], LOO.out[[3]]) %>%
   data.frame() -> loo.comp.df
 
 #best.model <- 10  # when running all models
-best.model <- 2   # when running just ZI models
-
+#best.model <- 2   # when running just ZI models
+best.model <- 3    # Two ZI models and non-ZI M1a2_1gamma
 pk <- LOO.out[[best.model]]$diagnostics$pareto_k
 which(pk > 0.7)
-sd <- stan.data$stan.data
-data.frame(day = sd$day_idx, year = sd$year_idx, n = sd$n)[which(pk > 0.7), ]
+if (length(which(pk>0.7)) > 0){
+  sd <- stan.data$stan.data
+  data.frame(day = sd$day_idx, year = sd$year_idx, n = sd$n)[which(pk > 0.7), ]
+  
+}
 
 pvalues.df <- do.call(rbind, lapply(ppc.res, FUN = function(x) x$pvalues)) %>%
   as.data.frame()
 pvalues.df$Model <- rep(models, each = 6)
+
+# compare Corrected Estimates among the models:
+Corrected.Est <- list()
+for (k in 1:length(models)){
+  Corrected.Est[[k]] <- stan.global.summary[[k]] %>%
+    filter(str_detect(variable, "Corrected_Est")) %>%
+    mutate(model = models[k],
+           start.years = start.years)
+  
+}
+
+Corrected.Est.df <- do.call(rbind, Corrected.Est)
+ggplot(Corrected.Est.df) +
+  geom_pointrange(aes(x = start.years,
+                      y = median,
+                      ymin = q2.5,
+                      ymax = q97.5,
+                      color = model)) +
+  theme(legend.position = "top")
+
 
 #### Claude's suggestion about PPS results:
 res <- ppc.res[[best.model]]
