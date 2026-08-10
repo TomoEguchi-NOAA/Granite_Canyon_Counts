@@ -47,7 +47,18 @@ start.years <- jags.data$start.years
 #             "M1a2_1gamma_mod4", "M2a2_1gamma_mod4", "M3a2_1gamma_mod4", "M4a2_1gamma_mod4",
 #             "M1a2_1gamma_mod5_ZI1", "M1a2_1gamma_mod5_ZI2")
 
-models <- c("M1a2_1gamma_mod4", "M1a2_1gamma_mod5_ZI1", "M1a2_1gamma_mod5_ZI2")
+# It's been found that the Negative-Binomial models (a2s) are better than the 
+# Poisson models (a1s). Also, among the Negative Binomial models, "M1" (S1 and 
+# S2 are season-specific) was the best. Also having a gamma parameter, shared
+# by the both sides of the curve helps. So, The Zero-Inflated models (ZIs) are
+# compared to the best non-ZI model (M1a2_1gamma_mod4). "mod4" refers to the 4th
+# modification to the original model. mod5 incorporated a switch to add the Zero-
+# Inflated part, the rest is identical to mod4. 
+
+# sen9 refers to the sensitivity run to check Periodic deviation from the curve 
+# use_shape_dev = 1 in the mod4 model.
+models <- c("M1a2_1gamma_mod4", "M1a2_1gamma_mod4_sen9",
+            "M1a2_1gamma_mod5_ZI1", "M1a2_1gamma_mod5_ZI2")
 
 params.a1.stan <- c("S1", "S2", "P", 
                     "sigma_proc_P", "Corrected_Est", "Max", "log_N_latent",
@@ -58,7 +69,8 @@ params.a2.stan <- c("S1", "S2", "P", "phi",
                     "gamma_free", "peak_day_decade", "beta1_P")
 
 diag.summary <- LOO.out <- stan.global.summary <- ppc.res <- list()
-zi_mode <- k <- 1
+zi_mode <- 1
+k <- 3
 
 for (k in 1:length(models)) {
   out.file <- paste0("Richards_HSSM_", models[k], "_stan")
@@ -113,7 +125,7 @@ for (k in 1:length(models)) {
   # fits badly. Worth checking against the ones with sparse effort, and 
   # especially 2025/2026.
  
-   ppc.res[[k]] <- ppc_richards(fit_stan, stan.data$stan.data, n_draws = 500)
+   ppc.res[[k]] <- ppc_richards(fit_stan, stan.data$stan.data, n_draws = 1500)
   
   # res$pvalues
   # res$autocorr
@@ -179,17 +191,20 @@ LOOIC.df %>%
 # loo::loo_compare(LOO.out[[5]], LOO.out[[9]], LOO.out[[10]]) %>%
 #   data.frame() -> loo.comp.df
 
-loo::loo_compare(LOO.out[[1]], LOO.out[[2]], LOO.out[[3]]) %>%
+loo::loo_compare(LOO.out[[1]], LOO.out[[2]], LOO.out[[3]],
+                 LOO.out[[4]]) %>%
   data.frame() -> loo.comp.df
 
 #best.model <- 10  # when running all models
 #best.model <- 2   # when running just ZI models
-best.model <- 3    # Two ZI models and non-ZI M1a2_1gamma
+best.model <- 4    # Two ZI models and non-ZI M1a2_1gamma
 pk <- LOO.out[[best.model]]$diagnostics$pareto_k
 which(pk > 0.7)
 if (length(which(pk>0.7)) > 0){
   sd <- stan.data$stan.data
-  data.frame(day = sd$day_idx, year = sd$year_idx, n = sd$n)[which(pk > 0.7), ]
+  data.frame(day = sd$day_idx, 
+             year = sd$year_idx, 
+             n = sd$n)[which(pk > 0.7), ]
   
 }
 
@@ -216,18 +231,41 @@ ggplot(Corrected.Est.df) +
                       color = model)) +
   theme(legend.position = "top")
 
-
 #### Claude's suggestion about PPS results:
 res <- ppc.res[[best.model]]
-ps <- res$setup; sd <- ps$sd
+ps <- res$setup
+sd <- ps$sd
 zobs <- sd$n == 0
 zrep <- colMeans(ps$y_rep == 0)
 
 ## sanity check:
+## 0.138 is the proportion of zeros (observed = 0.138 in ppc.res[[3]]$pvalues)
+stan.global.summary[[best.model]] %>%
+  filter(str_detect(variable, "zi_a")) -> za.summary
+
+stan.global.summary[[best.model]] %>%
+  filter(str_detect(variable, "zi_b")) -> zb.summary
+
+stan.global.summary[[best.model]] %>%
+  filter(str_detect(variable, "phi")) -> phi.summary
+
 lk  <- log(ps$kappa[1, ])
-pi_ <- plogis(za[1] + zb[1] * (lk - mean(lk)))
-mean(pi_ + (1 - pi_) * dnbinom(0, mu = ps$kappa[1, ], size = phi[1]))   # vs 0.138
+pi_ <- plogis(za.summary$mean + zb.summary$mean * (lk - mean(lk)))
+mean(pi_ + (1 - pi_) * dnbinom(0, mu = ps$kappa[1, ], size = phi.summary$mean))   # vs 0.138
 ##
+
+## Check auto correlation:
+# 
+ppc.autocorr <- lapply(ppc.res, FUN = function(x){
+  return(data.frame(observed = x$autocorr$observed,
+                    rep_median = x$autocorr$rep_median,
+                    rep_low = x$autocorr$rep_interval[1],
+                    rep_high = x$autocorr$rep_interval[2],
+                    p_value = x$autocorr$p_value))
+}) %>% do.call(rbind, .) %>%
+  mutate(model = models) 
+  
+ppc.res[[3]]$autocorr
 
 
 
