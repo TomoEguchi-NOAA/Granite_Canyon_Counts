@@ -20,10 +20,13 @@ library(ggplot2)
 library(dplyr)
 library(tidyr)
 
+# sd: Stan data
+# ps: output of ppc_setup
+
 # ---------------------------------------------------------------------
 # 1. Reconstruct kappa and draw replicate datasets
 # ---------------------------------------------------------------------
-ppc_setup <- function(fit, sd, n_draws = 500, seed = 1) {
+ppc_setup <- function(fit, sd, n_draws = 1500, seed = 1) {
   set.seed(seed)
   N   <- sd$N_flat
   dm  <- fit$draws(format = "draws_matrix")
@@ -54,6 +57,8 @@ ppc_setup <- function(fit, sd, n_draws = 500, seed = 1) {
   if (zi_mode > 0) {
     za <- as.numeric(dm[idx, "zi_a[1]"])
     zb <- if (zi_mode == 2) as.numeric(dm[idx, "zi_b[1]"]) else rep(0, length(idx))
+  } else {
+    za = zb = NA
   }
   
   # Replicate datasets
@@ -70,7 +75,7 @@ ppc_setup <- function(fit, sd, n_draws = 500, seed = 1) {
   }
   
   list(y = sd$n, y_rep = y_rep, kappa = kappa, phi = phi, is_nb = is_nb,
-       draw_idx = idx, sd = sd)
+       draw_idx = idx, zi_mode = zi_mode, za = za, zb = zb, sd = sd)
 }
 
 # ---------------------------------------------------------------------
@@ -135,24 +140,29 @@ ppc_pvalues <- function(ps) {
 }
 
 # ---------------------------------------------------------------------
-# 4. THE reviewer-#2 check: within-season residual autocorrelation.
+# 4. THE comment-#2 check: within-season residual autocorrelation.
 #    A curve too rigid to track the migration leaves runs of same-signed
 #    residuals along the season. Aggregate to daily means first, since
 #    multiple stations/watch periods share a day.
 # ---------------------------------------------------------------------
-ppc_autocorr <- function(ps, n_rep = 200) {
+ppc_autocorr <- function(ps, n_rep = 1000) {
   sd <- ps$sd
   acf1 <- function(r) {
     df <- data.frame(y = sd$year_idx, d = sd$day_idx, r = r) |>
-      group_by(y, d) |> summarise(r = mean(r), .groups = "drop") |>
+      group_by(y, d) |> 
+      summarise(r = mean(r), .groups = "drop") |>
       arrange(y, d)
+    
     # lag-1 correlation within each season, averaged over seasons
-    vals <- df |> group_by(y) |>
+    vals <- df |> 
+      group_by(y) |>
       summarise(a = if (n() > 5) cor(r[-n()], r[-1]) else NA_real_,
                 .groups = "drop")
     mean(vals$a, na.rm = TRUE)
   }
+  
   obs <- mean(replicate(20, acf1(ds_residuals(ps, draw = 1))))
+  
   rep <- sapply(seq_len(min(n_rep, nrow(ps$y_rep))), function(d) {
     yr <- ps$y_rep[d, ]
     k  <- ps$kappa[d, ]
@@ -160,6 +170,7 @@ ppc_autocorr <- function(ps, n_rep = 200) {
     hi <- if (ps$is_nb) pnbinom(yr,     mu = k, size = ps$phi[d]) else ppois(yr,     k)
     acf1(qnorm(pmin(pmax(runif(length(yr), lo, hi), 1e-10), 1 - 1e-10)))
   })
+  
   list(observed = obs, rep_median = median(rep),
        rep_interval = quantile(rep, c(.025, .975)),
        p_value = mean(rep >= obs))
@@ -230,7 +241,7 @@ ppc_plots <- function(ps) {
 # ---------------------------------------------------------------------
 # 6. Wrapper
 # ---------------------------------------------------------------------
-ppc_richards <- function(fit, sd, n_draws = 500, seed = 1) {
+ppc_richards <- function(fit, sd, n_draws = 1500, seed = 1) {
   ps <- ppc_setup(fit, sd, n_draws, seed)
   list(setup    = ps,
        pvalues  = ppc_pvalues(ps),
