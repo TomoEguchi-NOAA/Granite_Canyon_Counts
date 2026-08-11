@@ -104,7 +104,7 @@ stan_init_fn <- function() {
 # zi_mode (0): Set the zero-inflated part. 0: no zero-inflation. 1: constant. 2: depends on expected count
 # jags.data: provide jags data, which is used to create the stan input list.
 
-create.stan.data <- function(use_trend_P = 1, use_trend_Max = 1,  use_pooling_Max = 1, sd_unpooled_Max = 5, use_plateau = 0, plateau_by_year = 0, sd_delta = 5, anchor_mu = qlogis(0.8), anchor_sd = 0.1622, independent_corr = 0, S1_by_season = 1, S2_by_season = 1,likelihood_NB = 1, gamma_fix = 1, estimate_gamma = 1, separate_gamma = 0, gamma_prior_mu = 1.0, gamma_prior_sd = 1.0, use_shape_dev = 0, zi_mode = 1, jags.data){
+create.stan.data <- function(use_trend_P = 1, use_trend_Max = 1,  use_pooling_Max = 1, sd_unpooled_Max = 5, use_plateau = 0, plateau_by_year = 0, sd_delta = 5, anchor_mu = qlogis(0.8), anchor_sd = 0.1622, independent_corr = 0, S1_by_season = 1, S2_by_season = 1,likelihood_NB = 1, gamma_fix = 1, estimate_gamma = 1, separate_gamma = 0, gamma_prior_mu = 1.0, gamma_prior_sd = 1.0, use_shape_dev = 0, n_period = 20, zi_mode = 1, jags.data){
   
   # --- 1. Flatten Your Existing JAGS Arrays ---
   flat_data_list <- list()
@@ -194,8 +194,8 @@ create.stan.data <- function(use_trend_P = 1, use_trend_Max = 1,  use_pooling_Ma
     use_process_error = 0, 
     use_shape_dev = use_shape_dev, 
     independent_corr = independent_corr,
-    n_period = 20, 
-    period_idx = rep(1:20, each = 5), 
+    n_period = n_period, 
+    period_idx = rep(1:n_period, each = 100/n_period), 
     sd_sigma_shape = 0.5,
     S_const_shape = 10, 
     S_const_rate = 1,
