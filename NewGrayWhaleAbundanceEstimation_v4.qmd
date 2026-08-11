@@ -40,7 +40,7 @@ library(officer)
 library(officedown)
 library(equatags) 
 library(posterior)
-library(jagsUI)
+#library(jagsUI)
 library(bayesplot)
 library(ggridges)
 library(rstanarm)
@@ -117,21 +117,25 @@ Furthermore, due to logistical and financial constraints, no dual-observer surve
 
 A primary limitation of the Durban et al. approach was the difficulty of handling missing data points (e.g., weekends, seasons with fewer than 90 observation days, and short survey shifts due to inclement conditions). To address this and other limitations, I propose a new approach that replaces the normal distribution and spline functions with a single flexible state-space model.
 
-This new approach accommodates an asymmetrical shape around the peak while reflecting the general phenology of increase, peak, and decrease in whale counts. This pattern is modeled by the product of two sigmoid functions, each with a peak that is not necessarily centered—a pattern used to model the nesting dynamics of marine turtles. For instance, a model derived from a modified Verhulst equation (the Richards equation) was used to describe the number of nesting leatherback turtles in French Guiana and Suriname [@girondot_modeling_2007]. Unlike standard symmetric logistic curves, the double-Richards parameterization estimates the onset and termination of the migration pulse independently. The daily mean number of gray whales ($\bar{N}_{d}$) is assumed to change from day 1 to the end of the migration season according to the following equation:
+This new approach accommodates an asymmetrical shape around the peak while reflecting the general phenology of increase, peak, and decrease in whale counts. This pattern is modeled by the product of two sigmoid functions, each with a peak that is not necessarily centered—a pattern used to model the nesting dynamics of marine turtles. For instance, a model derived from a modified Verhulst equation (the Richards equation) was used to describe the number of nesting leatherback turtles in French Guiana and Suriname [@girondot_modeling_2007]. Unlike standard symmetric logistic curves, the double-Richards parameterization estimates the onset and termination of the migration pulse independently. The daily mean number of gray whales ($N_{d,y}$) is assumed to change from day 1 to the end of the migration season according to the following equation:
 
-$$\bar{N}_{d} = N_{min} + (N_{max} - N_{min}) \times (C_{1,d} \times C_{2,d})$$ {#eq-Richards}
+$$N_{d,y} = N_{Min} + (N_{Max,y} - N_{Min}) \times (C_{1,d,y} \times C_{2,d,y})$$ {#eq-Richards}
 
-The curvature of the right and left sides of the migration curve are defined by $C_{1,d}$ and $C_{2,d}$, respectively.
+The curvature of the right and left sides of the migration curve are defined by $C_{1,d,y}$ and $C_{2,d,y}$, respectively.
 
-$$ C_{1,d} = \left( 1 + (2e^{\gamma} - 1) e^{\frac{P - d}{-S_1}} \right)^{-\frac{1}{e^{\gamma}}} $$ {#eq-C1}
+$$ C_{1,d,y} = \left( 1 + (2\theta - 1) e^{\frac{P_y - d}{-S_{1,y}}} \right)^{-\frac{1}{\theta}} $$ {#eq-C1}
 
-$$ C_{2,d} = \left( 1 + (2e^{\gamma} - 1) e^{\frac{P - d}{S_2}} \right)^{-\frac{1}{e^{\gamma}}} $$ {#eq-C2}
+$$ C_{2,d,y} = \left( 1 + (2\theta - 1) e^{\frac{P_y - d}{S_{2,y}}} \right)^{-\frac{1}{\theta}} $$ {#eq-C2}
 
-where $d > 0$ is the number of days since an arbitrary start date, $S_1 > 0$ and $S_2 > 0$ define the slopes of the trailing and leading edges, respectively, $P$ defines where the peak is relative to the range of $d$, where $\text{min}(d) < P < \text{max}(d)$, $N_{min}$ is the number of whales migrating outside of a migration season ($N_{min} = 0$), $\gamma$ defines the width of the peak, and $N_{max} >> N_{min}$. $N_{max}$ represents a scaling parameter for the curve amplitude, which may be fixed or estimated. Effects of these parameters on the shape of the equation (@eq-Richards) are described in the Appendix.  Hereafter, the above function is referred to as the Richards equation.
+where $d > 0$ is the number of days since an arbitrary start date, $S_1 > 0$ and $S_2 > 0$ define the slopes of the trailing and leading edges, respectively, $P_y$ defines where the peak is relative to the range of $d$, where $\text{min}(d) < P_y < \text{max}(d)$, $N_{min}$ is the number of whales migrating outside of a migration season ($N_{min} = 0$), $\theta = e^{\gamma}$ is a variable that defines the width of the peak through  $\gamma$, and $N_{max,y} >> N_{min}$. $N_{max,y}$ represents a scaling parameter for the curve amplitude, which may be fixed or estimated. For initial model selection process, I used $\gamma = 1$, whereas the sensitivity to this condition was assessed in a subsequent analysis. With the condition $N_{min} = 0$, the @eq-Richards reduces to:
 
-Four versions of the Richards equation were created based on how the parameters were defined with respect to seasons. The structural parameters of the equation ($S_1$ and $S_2$) were treated either as constant across the time series or as season-specific (@tbl-model-definition). Because the peak of gray whale migration has been reported to shift over time [@rugh_timing_2001], the parameter $P[y]$ for the season $y$ was modeled as a linear function of time, distributed as:
+$$N_{d,y} = N_{Max,y} \times (C_{1,d,y} \times C_{2,d,y})$$ {#eq-Richards-1}
 
-$$ P[y] \sim N(\mu_{P}, \sigma^2_{P})$$ {#eq-P}
+Effects of these parameters ($S_1$, $S_2$, and $\gamma$) on the shape of the equation (@eq-Richards) are described in the Appendix. Hereafter, the above function is referred to as the Richards equation.
+
+Four versions of the Richards equation were created based on how the parameters were defined with respect to seasons. The structural parameters of the equation ($S_1$ and $S_2$) were treated either as constant across the time series or as season-specific (@tbl-model-definition). Because the peak of gray whale migration has been reported to shift over time [@rugh_timing_2001], the parameter $P[y]$ for the season $y$ was season-specific:
+
+$$ P_y \sim N(\mu_{P}, \sigma^2_{P})$$ {#eq-P}
 
 where the mean ($\mu_P$) is a linear function of the centered season ($y' = y - \bar{y}$, where $\bar{y}$ is the arithmetic mean of all seasons):
 
@@ -139,13 +143,13 @@ $$ \mu_{P} = \beta_{0, P} + \beta_{1,P} \times y'$$ {#eq-mu-P}
 
 The amplitude parameter $N_{Max}[y]$ was similarly modeled in natural log space:
 
-$$ log(N_{Max}[y]) \sim N(\mu_{log(Max)}, \sigma^2_{log(Max)}) $$ {#eq-log-Nmax}
+$$ log(N_{Max}[y]) \sim N(\beta_{0, log(Max)} + \beta_{1, log(Max)} \times y', \sigma^2_{log(Max)}) $$ {#eq-log-Nmax}
 
 $$ \mu_{log(Max)} = \beta_{0, log(Max)} + \beta_{1, log(Max)} \times y' $$ {#eq-mu_log}
 
-This Richards state model provides the expected daily mean number of gray whales ($\bar{N}_{d,y}$). The number of whales available for sampling ($A_{j,s,y}$) during a specific watch period $j$ at station $s$ in season $y$ was determined by multiplying the daily mean by the shift duration $L_{j,s,y}$ (measured in days):
+This Richards state model provides the expected daily mean number of gray whales ($N_{d,y}$). The number of whales available for sampling ($A_{j,s,y}$) during a specific watch period $j$ at station $s$ in season $y$ was determined by multiplying the daily mean by the shift duration, or effort, $E_{j,s,y}$ (measured in days):
 
-$$ A_{j,s,y} = \bar{N}_{d,y} \times L(j,s,y)$$ {#eq-A}
+$$ A_{j,s,y} = N_{d,y} \times E_{j,s,y}$$ {#eq-A}
 
 The expected count of whales ($\kappa_{j,s,y}$) is the product of the available whales ($A_{j,s,y}$) and the detection probability ($p_{j,s,y}$):
 
@@ -157,15 +161,15 @@ $$ logit(p_{j, s, y}) = \alpha_{O_{j, s, y}} + \beta_{B} \times B_{j, y} + \beta
 
 Estimating both abundance ($N$) and detection probability ($p$) simultaneously from single-observer count data introduces non-identifiability. To avoid this confounding, the baseline detection probability was anchored using an informative prior. Durban et al. (2015) conducted a paired-observer study at the Granite Canyon survey site and estimated a baseline detectability of 0.80. I incorporated this prior information into the detection probability, where the observer effect was centered on a logit of 1.39 (corresponding to $p = 0.80$). This framework allowed individual observers to vary relative to one another based on the data, while anchoring the overall mean.
 
-The common likelihood for count data is the Poisson distribution. This likelihood was applied to the dataset following the method of Durban et al.
+The common likelihood for count data is the Poisson distribution. 
 
-$$ n_{j, s, y} \sim POI(\kappa_{j, s, y})  $$ {#eq-Poisson_likelihood}
+$$ n_{j, s, y} \sim POI(\kappa_{j, s, y})  $$ {#eq-Poisson-likelihood}
 
-However, count data often contain extra variability that cannot be explained using the Poisson distribution. The gray whale migration is characterized by high daily variance due to the clustering of whales into discrete, irregularly spaced pods. Because the Poisson distribution assumes the variance equals the mean, it cannot accommodate this overdispersion. To accommodate the possible overdispersion, the daily count data were also modeled using a Negative Binomial likelihood. By estimating a dispersion parameter ($\theta$), the model absorbs the high variance of peak migration days without artificially inflating the underlying abundance estimate:
+However, count data often contain extra variability that cannot be explained using the Poisson distribution. The gray whale migration is characterized by high daily variance due to the clustering of whales into discrete, irregularly spaced pods. Because the Poisson distribution assumes the variance equals the mean, it cannot accommodate this overdispersion. To accommodate the possible overdispersion, the daily count data were also modeled using a Negative Binomial likelihood. By estimating a dispersion parameter ($\phi$), the model absorbs the high variance of peak migration days without artificially inflating the underlying abundance estimate:
 
-$$ n_{j, s, y} \sim NB(q_{j, s, y}, \theta) $$ {#eq-NB_likelihood}
+$$ n_{j, s, y} \sim NB(q_{j, s, y}, \phi) $$ {#eq-NB_likelihood}
 
-where $q = \theta/(\theta + \kappa)$. When $\theta \to \infty$, the Negative Binomial distribution becomes equivalent to the Poisson distribution [@bolker2008; @mccullagh1991].
+where $q = \theta/(\phi + \kappa)$. When $\phi \to \infty$, the Negative Binomial distribution becomes equivalent to the Poisson distribution [@bolker2008; @mccullagh1991].
 
 Each parameter had a hyper-distribution of either a normal, uniform, or gamma distribution (Appendix @supptbl-hyperparameters).
 
@@ -197,11 +201,13 @@ for (nm in names(header_labels)) {
 
 ```
 
-The total number of gray whales for the season $y$ is the sum of all $\bar{N}_{d, y}$ and corrected for nighttime passage ($\lambda$):
+The total number of gray whales for the season $y$ is the sum of all $N_{d,y}$ and corrected for nighttime passage ($\lambda$):
 
-$$ N_y = \lambda * \sum_{d = 1} ^ {max(d)} \bar{N}_{d, y} $$ {#eq-Total_N} and
+$$ N_y = \lambda * \sum_{d = 1} ^ {100} N_{d, y} $$ {#eq-Total_N} and
 
-$$ \lambda \sim N(1.0875, 0.03625) $$ (Perryman et al. 1999).
+$$ \lambda \sim N(1.0875, 0.03625^2) $$ (Perryman et al. 1999).
+
+where 0.03625 is standard deviation.
 
 ```{r}
 #| echo: false
@@ -238,13 +244,59 @@ In the Durban et al. analysis, the annual migration at the survey station was de
 
 The new approach was used to analyze the entire dataset from the 1967/1968 season onward, and the results were compared to the estimates reported in Lang et al. (2026). To apply the new approach to historical data, sighting data between the 1967/1968 and 2006/2007 seasons were obtained from the *ERAnalysis* package (<https://github.com/jlaake/ERAnalysis>, Laake 2012). An R script was written to convert the historical sightings data in the *ERAnalysis* package to an input object required for the new analysis. Data from the 2007/2008 to 2025/2026 seasons were extracted from raw data files using another R script. All shifts of at least 60 minutes with the Beaufort sea state of \< 5 and the visibility code of \< 5 were included in the analysis. Laake et al.’s approach was applied to the entire dataset after formatting new data from the 2007/2008 season into the input object for the *ERAnalysis* package. Because no information was available to match sightings of groups between the two stations in the 2009/2010 and 2010/2011 seasons, a correction factor, i.e., a multiplier to convert “naïve” to “corrected,” which accounted for missed groups by the primary observer, from double-observer years, was applied.
 
-The new models were fitted to the data using Stan () in the R statistical environment (ver `r version$major`.`r version$minor`), using the *cmdstanr* package (). For each model, four MCMC chains were run for 1500 steps each as warm up, followed by 2000 steps of sampling. The convergence of MCMC was assessed using the rank-normalized $\hat{R}$ statistic and effective sample sizes (ESS) [@vehtari_rank-normalization_2021], using the *posterior* package. Following Vehtari et al. (2021), a minimum bulk and tail ESS of 100 per chain were assumed, i.e., ESS $> 400$. For models that converged sufficiently, Pareto-k statistics were used to identify influential data points [@vehtari_practical_2017] using the *loo* (Vehtari et al. 2024) and *posterior* packages. Model performance was compared using the LOOIC (Leave-One-Out Information Criteria) statistic via the *rstanarm* (Goodrich et al. 2025) and *loo* packages. Posterior predictive checks (PPCs) were conducted to evaluate how the models captured the data-generation process. Because the total abundance is calculated from observed and unobserved (i.e., imputed) counts, LOOIC was not used as the primary model comparison metric. 
+The new models were fitted to the data using Stan () in the R statistical environment (ver `r version$major`.`r version$minor`), using the *cmdstanr* package (). For each model, four MCMC chains were run for 1,500 steps each as warm up, followed by 2,000 steps of sampling. The convergence of MCMC was assessed using the rank-normalized $\hat{R}$ statistic and effective sample sizes (ESS) [@vehtari_rank-normalization_2021], using the *posterior* package. Following Vehtari et al. (2021), a minimum bulk and tail ESS of 100 per chain were assumed, i.e., ESS $> 400$. For models that converged sufficiently, Pareto-k statistics were used to identify influential data points [@vehtari_practical_2017] using the *loo* (Vehtari et al. 2024) and *posterior* packages. Model performance was compared using the LOOIC (Leave-One-Out Information Criteria) statistic via the *rstanarm* (Goodrich et al. 2025) and *loo* packages. Posterior predictive checks (PPCs) were conducted to evaluate how the models captured the data-generation process. Because the total abundance is calculated from observed and unobserved (i.e., imputed) counts, LOOIC was not used as the primary model comparison metric. 
 
-Once the best model was selected, a series of sensitivity analyses were conducted. These included (1) removing the hierarchical structure on Max, (2) changing the mean of detection probability from 0.8 to 0.7, (3) changing the mean of detection probability from 0.7 to 0.9, (4) testing for a possible trend in the parameter $P$, (5) effects of the mean of the prior distribution for $\gamma$ (set to 0), (6) effects of the standard deviation of the prior distribution for $\gamma$ (set to 2.0), and (7) to share the periodic deviation from the Richards curve among seasons.
+Once the best model was selected, a series of sensitivity analyses were conducted. 
+(1) Making the $\gamma$ parameter to be a random variable:
 
-To compare the three approaches (Laake et al., Durban et al. and the new approach), generalized additive models (GAMs) were fitted to abundance estimates between the 2006/2007 and 2025/2026 seasons. Furthermore, Laake et al.'s and the new approaches were compared by fitting GAMs to the point estimates over the entire timeseries from the 1967/1968 to 2025/2026 seasons. The rate of recent decline in the estimated abundance was compared by fitting linear models to the natural log of abundance estimates between the 2014/2015 and 2025/2026 seasons.
+$$ \gamma \sim N(1, 1^2) $$
 
-To ensure reproducibility and streamline future annual abundance estimation, a comprehensive, end-to-end analytical workflow was developed in the R statistical environment and RStudio. This pipeline automates the extraction of historical sightings data from the *ERAnalysis* package, reads and performs automated error-checking on edited contemporary data files (2007/2008 to present) and formats the combined dataset for the Stan sampler. All R scripts for data processing, error-checking and model execution, along with the Stan model code and formatted datasets, are publicly available in a GitHub repository (URL TO BE CREATED).
+
+(2) Alternative prior mean for the shape exponent $\gamma$:
+
+$$ \gamma \sim N(0, 1^2)T(-0.6, \infty) $$
+The lower bound (-0.6) of the truncation function ($T$) corresponds to $-\text{log}2$, which is required by the Richards equation ($2e^{\gamma} - 1 \ge 0$), where $\theta = e^{\gamma}$ in @eq-Richards. 
+
+(3) Alternative prior scale for the shape exponent $\gamma$:
+
+$$ \gamma \sim N(0, 2^2)T(-0.6, \infty) $$
+
+(4) Replacing the hierarchical structure on $\text{log}_{Max,y}$ with independent diffuse priors: 
+
+$$ \text{log}N_{max,y} \overset{\text{iid}}{\sim}N(7.6, 5^2), \qquad y = 1, \dots, Y $$
+
+where $Y = 34$ for the 2025/2026 season.
+
+(5) Alternative mean detection probability:
+
+$$ \pi_0 \sim N(logit(p_0^*, 0.1622^2)), \qquad p_0^* \in \{0.70, 0.90\}  $$
+
+The variance ($0.1622^2$) was obtained from Durban et al. (2015).
+
+(6) No temporal trend in peak timing ($P$):
+
+$$ \beta_{1,P} \equiv 0$$ 
+$$ P_y \sim N(\beta_{0,P}, \sigma_P^2) $$
+
+(7) Shared non-parametric shape deviation from the Richards equation among seasons:
+
+$$ \text{log}N_{d,y} = \text{log}N_{max,y} + \text{log}C_{1,d,y} + \text{log}C_{2, d, y} + s_{w(d)}  $$
+where the first three terms of the right hand side of the equation are the Richards equation. 
+
+$$ s_w = \sigma_s \bar{s}_w, \qquad \sum_{w = 1}^W s_w = 0, \qquad \bar{s}_w \sim N(0,1), \qquad \sigma_s \sim N(0, 0.5^2)T(0,)$$
+where W was tested for either 20 5-day periods or 10 10-day periods over each 100-day season. 
+
+A zero-inflation extension was developed to the best model to characterize the excess zeros identified by the posterior predictive checks. 
+
+$$ Pr(n_i = 0) = \psi_i + (1 - \psi_i) f(0|\kappa_i, \theta) $$
+$$ Pr(n_i = k) = (1 - \psi_i)f(k|\kappa_i,\theta), \qquad k > 0 $$
+$$ \text{logit}(\psi_i) = \alpha_0 + \alpha_1(\text{log}\kappa_i - \bar{\text{log}\kappa}) $$
+
+where $f$ is the best model selected through the process described above.
+
+To compare the estimated abundances from three approaches (Laake et al., Durban et al. and the new approach), generalized additive models (GAMs) were fitted to abundance estimates between the 2006/2007 and 2025/2026 seasons. Furthermore, Laake et al.'s and the new approaches were compared by fitting GAMs to the point estimates over the entire timeseries from the 1967/1968 to 2025/2026 seasons. The rate of recent decline in the estimated abundance was compared by fitting linear models to the natural log of abundance estimates between the 2014/2015 and 2025/2026 seasons.
+
+To ensure reproducibility and streamline future annual abundance estimation at Granite Canyon, CA, a comprehensive, end-to-end analytical workflow was developed in the R statistical environment and RStudio. This pipeline automates the extraction of historical sightings data from the *ERAnalysis* package, reads and performs automated error-checking on edited contemporary data files (2007/2008 to present) and formats the combined dataset for the Stan sampler. All R scripts for data processing, error-checking and model execution, along with the Stan model code and formatted datasets, are publicly available in a GitHub repository (URL TO BE CREATED).
 
 # Results {.unnumbered}
 
@@ -265,7 +317,7 @@ out.table %>%
 
 ```
 
-```{r JAGS-results}
+```{r STAN-results}
 #| echo: false
 #| message: false
 #| warning: false
@@ -284,11 +336,9 @@ out.table %>%
 # I removed the run-date from the file name - the run-date is automatically added
 # to the file name, so remove it before running this code. Otherwise, the "cannot open..."
 # error comes back. 
-ver <- "M1a2" #5 #out.table$model[1] #5
-jm.out <- readRDS(paste0("RData//JAGS_Richards_HSSM_",
-                         ver,
-                         "_1968to", YEAR, "_min", min.dur,
-                         "_NoBUGS.rds"))
+ver <- "M1a2_1gamma" #5 #out.table$model[1] #5
+fit.stan <- readRDS(paste0("RData//Richards_HSSM_",
+                           ver, "_stan.rds"))
 
 # bring in the convergence statistics:
 # This is a list of length 4. They are LOOIC, Rhat, ESS.bulk and ESS.tail
@@ -403,7 +453,19 @@ Reported.estimates <- read.csv(file = paste0("Data//Nhats_", YEAR, ".csv")) %>%
   relocate(Method, .after = start.year)
 ```
 
-The eight models (@tbl-model-definition) were fitted to the sightings data over 32 seasons. According to the bulk and tail ESS, and rank-normalized `r R_hat` values, the MCMC converged well and exceeded the recommended minimum ESS threshold of 500 for `r sum(!is.na(out.table$dLOOIC))` models (@tbl-model-comparison). All models with the Negative Binomial likelihood converged. The best model, based on LOOIC values, consists of year-specific $S_1$ and $S_2$ parameters (@tbl-model-definition). Pareto-k diagnostics indicated reliable PSIS-LOO approximation for all but one of the `r nrow()` observations. The exception was the first watch period of the 2007/08 season (day 33), an unusually large count at the first day of the season exerted high leverage on the left tail. Excluding the flagged observation changed the 2007/08 abundance estimate by 3.0% (17,330 to 16,827), within the 95% credible interval for that season, and did not alter any conclusion. Model adequacy was assessed by posterior predictive checks rather than by Pareto-k, which diagnoses the reliability of the importance-sampling approximation rather than goodness of fit. (@tbl-model-comparison). Consequently, the posterior distributions of the parameters from Model `r ver` should be reliable.
+### Model Selection
+
+The eight models (@tbl-model-definition) were fitted to the sightings data over `r nrow(Reported.estimates)` seasons. According to the bulk and tail ESS, and rank-normalized `r R_hat` values, the MCMC converged well and exceeded the recommended minimum ESS threshold of 400 for `r sum(!is.na(out.table$dLOOIC))` models (@tbl-model-comparison). All models with the Negative Binomial likelihood converged. 
+
+Posterior predictive simulations indicated that the Negative Binomial likelihood predicted with year-specific $S_1$ and $S_2$ was best (TABLE). Its LOOIC value was lowest as well. Pareto-k diagnostics indicated reliable Pareto Smoothed Importance Sampling - Leave One Out (PSIS-LOO) approximation for all but one of the `r nrow()` observations. The exception was the first watch period of the 2007/08 season (day 33), an unusually large count at the first day of the season exerted high leverage on the left tail. Excluding the flagged observation changed the 2007/08 abundance estimate by 3.0% (17,330 to 16,827), within the 95% credible interval for that season, and did not alter any conclusion (@tbl-model-comparison). Consequently, the posterior distributions of the parameters from Model `r ver` should be reliable.
+
+### Sensitivity Analysis
+
+When the $\gamma$ parameter was given a distribution (Sensitivity 1), the fit of the model improved, with estimated $\gamma$ to be ... Consequently, this model replaced the original M1a2 model. Subsequent sensitivity analyses on $\gamma$ (Sensitivity 2 and 3) did not change the outcome (PPC results, ELPD, Pareto-k, LOOIC, estimated abundance) substantially. Results of other sensitivity analyses here. 
+
+### Zero-Inflated models
+
+During the PPC analysis on the M1a2-gamma model, excess zeros were found. In order to separate the structural zeros from observation stochasticity, zero-inflated models were developed and fitted to the data. 
 
 ```{r Winbugs-results, error=FALSE}
 #| echo: false
@@ -542,6 +604,8 @@ N.hats.day.Durban <- data.frame(Season = rep(WinBugs.out$BUGS.input$seasons,
                                 Method = "Durban") %>%
   mutate(Nhat = obs.n/prop)
 ```
+
+### Comparison to Previous Approaches
 
 For Durban et al's method, we found that the minimum bulk and tail ESS were too low (min(bulk ESS) = `r signif(min(ESS.bulk.BUGS$ess_bulk), digits = 2)`, min(tail ESS) = `r signif(min(ESS.tail.BUGS$ess_tail), digits = 2)`) to meet the threshold of 500 required to assume successful convergence of Markov chains. The rank-normalized `r R_hat` statistics also indicated that convergence was not reached in `r length(BUGS.Rhat.big)` of `r dim(WinBugs.out$BUGS.out$sims.array)[3]` monitored parameters (i.e., rank-normalized `r R_hat` \> 1.01). Consequently, the inference from this model is questionable.
 
@@ -978,6 +1042,8 @@ if (save.fig)
                height = 5, width = 7,
                dpi = dpi.set)
 ```
+
+### Finding from the New Model
 
 Marginal posterior distributions of the Richards equation parameters provided valuable insights into how annual gray whale migration varied among years. The $P$ parameters, which define the timing of the migration peak, shifted over the years (@fig-P-posteriors), a phenomenon reported in previous studies [@rugh_timing_2001; @eguchi_abundance_2024], although the significance and causes for the changes are unknown. The $S_2$ parameter, which defines the increasing part of the migration curve, also varied annually, indicating that the way the number of migrating whales increased within a season fluctuated from year to year (Appendix @suppfig-S2-posteriors). Similarly, $S_1$ parameter, which defines the decreasing part of the migration curve, varied among seasons (Appendix @suppfig-S1-posteriors).
 
