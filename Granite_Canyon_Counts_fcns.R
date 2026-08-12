@@ -1,7 +1,8 @@
 
 # define some functions
 
-# Stan inits function:
+# Stan inits function. This funciton requires an object named sd, which contains
+# valid stan data to be present in the workspace. 
 stan_init_fn <- function() {
   out <- list(
     beta0_Max = rnorm(1, 7.6, 0.2),  
@@ -27,36 +28,36 @@ stan_init_fn <- function() {
   )
   # only supply inits for parameters that actually exist in this configuration
   
-  if (stan.data$stan.data$use_trend_P)   out$beta1_P   <- array(rnorm(1, 0.21, 0.03), dim = 1)
-  if (stan.data$stan.data$use_trend_Max) out$beta1_Max <- array(rnorm(1, 0,    0.05), dim = 1)
-  if (stan.data$stan.data$use_plateau) {
-    k <- if (stan.data$stan.data$plateau_by_year) n_year else 1
+  if (sd$use_trend_P)   out$beta1_P   <- array(rnorm(1, 0.21, 0.03), dim = 1)
+  if (sd$use_trend_Max) out$beta1_Max <- array(rnorm(1, 0,    0.05), dim = 1)
+  if (sd$use_plateau) {
+    k <- if (sd$plateau_by_year) n_year else 1
     out$delta <- array(runif(k, 0.5, 2), dim = k)
   }
-  if (stan.data$stan.data$use_process_error) {
+  if (sd$use_process_error) {
     out$log_N_raw     <- matrix(rnorm(n_days * n_year, 0, 0.1), n_days, n_year)
     out$sigma_process <- array(runif(1, 0.1, 0.3), dim = 1)
   }
   
-  if (stan.data$stan.data$S1_by_season) {
+  if (sd$S1_by_season) {
     out$mu_S1 <- array(runif(1,2.5,3.5),1)
     out$shape_S1 <- array(runif(1,8,12),1)
   }
   
-  if (stan.data$stan.data$S2_by_season) {
+  if (sd$S2_by_season) {
     out$mu_S2 <- array(runif(1,2.5,3.5),1)
     out$shape_S2 <- array(runif(1,8,12),1)
   }
   
-  if (stan.data$stan.data$likelihood_NB == 1) out$phi = runif(1, 4, 6)
+  if (sd$likelihood_NB == 1) out$phi = runif(1, 4, 6)
   
-  if (stan.data$stan.data$estimate_gamma) {
-    k <- if (stan.data$stan.data$separate_gamma) 2 else 1
+  if (sd$estimate_gamma) {
+    k <- if (sd$separate_gamma) 2 else 1
     out$gamma_free <- array(rnorm(k, 1, 0.1), dim = k)
   }
   
-  if (stan.data$stan.data$zi_mode > 0)  out$zi_a <- array(rnorm(1, -3, 0.3), dim = 1)
-  if (stan.data$stan.data$zi_mode == 2) out$zi_b <- array(rnorm(1,  0, 0.2), dim = 1)
+  if (sd$zi_mode > 0)  out$zi_a <- array(rnorm(1, -3, 0.3), dim = 1)
+  if (sd$zi_mode == 2) out$zi_b <- array(rnorm(1,  0, 0.2), dim = 1)
   
   return(out)
 }
