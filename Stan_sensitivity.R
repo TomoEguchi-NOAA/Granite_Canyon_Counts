@@ -15,6 +15,7 @@
 #  7. Base - all default values
 #  8. anchor_mu = qlogis(0.825)
 #  9. use_shape_dev = 1 Periodic deviation from the curve is shared
+#  10. use_shape_dev = 1 AND n_period = 10. Periodic grouping is changed from 5 to 10 days
 
 rm(list = ls())
 library(tidyverse)
@@ -74,7 +75,7 @@ jags.input <- NoBUGS_Jags_input(min.dur = min.dur,
 
 jags.data <- jags.input$jags.data
 
-sensitivity.table <- data.frame(ID = paste0("sen", seq(0, 9)),
+sensitivity.table <- data.frame(ID = paste0("sen", seq(0, 10)),
                                 Sensitivity = c("Parity",
                                                 "use_pooling_Max = 0",
                                                 "anchor_mu = qlogis(0.7)",
@@ -84,8 +85,9 @@ sensitivity.table <- data.frame(ID = paste0("sen", seq(0, 9)),
                                                 "gamma_prios_sd = 2.0",
                                                 "Base",
                                                 "anchor_mu = qlogis(0.825)",
-                                                "use_shape_dev = 1"),
-                                ID.2 = c("Parity", "A", "B", "C", "D", "E", "F", "Base", "G", "H"))
+                                                "use_shape_dev = 1",
+                                                "n_period = 10"),
+                                ID.2 = c("Parity", "A", "B", "C", "D", "E", "F", "Base", "G", "H", "I"))
 
 if (sensitivity == "sen1"){
   stan.data <- create.stan.data(jags.data = jags.data, 
@@ -116,13 +118,17 @@ if (sensitivity == "sen1"){
 } else if (sensitivity == "sen9"){
   stan.data <- create.stan.data(jags.data = jags.data, 
                                 use_shape_dev = 1)
+} else if (sensitivity == "sen10"){
+  stan.data <- create.stan.data(jags.data = jags.data, 
+                                use_shape_dev = 1,
+                                n_period = 10)
 }
 
 # Create an inits function
 n_year <- stan.data$jags.data$n.year
 n_observer <- stan.data$jags.data$n.obs.fixed
 
-file <- file.path("models//model_Richards_HSSM_mod3.stan")
+file <- file.path("models//model_Richards_HSSM_mod4.stan")
 out.file <- paste0("Richards_HSSM_", model, "_mod4_", sensitivity, "_stan")
 # 
 # # --- 5. Inspect Results ---
