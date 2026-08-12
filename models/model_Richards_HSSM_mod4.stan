@@ -357,6 +357,7 @@ generated quantities {
   real peak_day_slope;          // days per year, OLS through peak_day
   real peak_day_decade;         // days per decade
   vector[N_flat] log_lik;
+  array[N_flat] int y_rep;
   vector[n_year] Max = exp(log_Max);
   real p0 = inv_logit(logit_p0);
   real theta1 = exp(g1);          // shape parameter of the descending limb
@@ -369,10 +370,15 @@ generated quantities {
     vector[N_flat] log_kappa = to_vector(log_N_latent)[flat_idx]
                              + log_watch_length
                              + log_inv_logit(eta);
-    for (i in 1:N_flat)
+    for (i in 1:N_flat){
       log_lik[i] = likelihood_NB
                  ? neg_binomial_2_log_lpmf(n[i] | log_kappa[i], phi[1])
                  : poisson_log_lpmf(n[i] | log_kappa[i]);
+	  
+	  y_rep[i] = likelihood_NB
+			   ? neg_binomial_2_log_rng(log_kappa[i], phi[1])
+			   : poisson_log_rng(log_kappa[i]);
+	}
   }
 
   for (y in 1:n_year) {
