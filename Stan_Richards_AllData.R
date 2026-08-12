@@ -1,10 +1,9 @@
-# Running all models in STAN
+# Comparing all models in STAN
 # 
 #  Collects Stan runs and compares results. Do posterior predictive checks on
 #  all models. 
 #  
-#  Run all models in Run_StanRichards_AllModels.R. It will save results
-#  in .rds files. 
+# To summarize sensitivity analyses, use Summary_Stan_Sensitivity.R
 # 
 
 rm(list = ls())
@@ -43,9 +42,12 @@ start.years <- jags.data$start.years
 # //        1             0              0/1          M3a1 / M3a2
 # //        0             1              0/1          M4a1 / M4a2
 
-# models <- c("M1a1_1gamma_mod4", "M2a1_1gamma_mod4", "M3a1_1gamma_mod4", "M4a1_1gamma_mod4",
-#             "M1a2_1gamma_mod4", "M2a2_1gamma_mod4", "M3a2_1gamma_mod4", "M4a2_1gamma_mod4",
-#             "M1a2_1gamma_mod5_ZI1", "M1a2_1gamma_mod5_ZI2")
+# Model comparison is done with no gamma parameter. Adding one gamma is used as
+# a refinement to the best model. Zero inflated models also are use as another
+# refinement given the excessive zeros found in the best model + a gamma parameter
+models <- c("M1a1_0gamma_mod4", "M2a1_0gamma_mod4", "M3a1_0gamma_mod4", "M4a1_0gamma_mod4",
+            "M1a2_0gamma_mod4", "M2a2_0gamma_mod4", "M3a2_0gamma_mod4", "M4a2_0gamma_mod4")
+#            "M1a2_1gamma_mod5_ZI1", "M1a2_1gamma_mod5_ZI2")
 
 # It's been found that the Negative-Binomial models (a2s) are better than the 
 # Poisson models (a1s). Also, among the Negative Binomial models, "M1" (S1 and 
@@ -55,82 +57,103 @@ start.years <- jags.data$start.years
 # modification to the original model. mod5 incorporated a switch to add the Zero-
 # Inflated part, the rest is identical to mod4. 
 
-# sen9 refers to the sensitivity run to check Periodic deviation from the curve 
-# use_shape_dev = 1 in the mod4 model.
-models <- c("M1a2_1gamma_mod4", "M1a2_1gamma_mod4_sen9",
-            "M1a2_1gamma_mod5_ZI1", "M1a2_1gamma_mod5_ZI2")
+# # sen9 refers to the sensitivity run to check Periodic deviation from the curve 
+# # use_shape_dev = 1 in the mod4 model.
+# models <- c("M1a2_1gamma_mod4", "M1a2_1gamma_mod4_sen9",
+#             "M1a2_1gamma_mod5_ZI1", "M1a2_1gamma_mod5_ZI2")
 
+# Parameters to monitor for Poisson models:
 params.a1.stan <- c("S1", "S2", "P", 
                     "sigma_proc_P", "Corrected_Est", "Max", "log_N_latent",
                     "gamma_free", "peak_day_decade", "beta1_P")
 
-params.a2.stan <- c("S1", "S2", "P", "phi",
-                    "sigma_proc_P", "Corrected_Est", "Max", "log_N_latent",
-                    "gamma_free", "peak_day_decade", "beta1_P")
+# Negative Binomial model has the over dispersion parameter
+params.a2.stan <- c(params.a1.stan, "phi")
 
 diag.summary <- LOO.out <- stan.global.summary <- ppc.res <- list()
 zi_mode <- 1
 k <- 3
 
-for (k in 1:length(models)) {
-  out.file <- paste0("Richards_HSSM_", models[k], "_stan")
+if (!file.exists("RData//Stan_Richards_Results.rds")){
+  for (k in 1:length(models)) {
+    out.file <- paste0("Richards_HSSM_", models[k], "_stan")
+    
+    #mod <- cmdstan_model(file)
+    fit_stan <- readRDS(paste0("RData//", out.file, ".rds"))
+    
+    if (length(grep("a1", models[k])) > 0) params <- params.a1.stan
+    if (length(grep("a2", models[k])) > 0) params <- params.a2.stan
+    
+    # If zero-inflated, may have one or two extra parameters:
+    if (length(grep("ZI1", models[k])) > 0) params <- c(params, "zi_a")
+    if (length(grep("ZI2", models[k])) > 0) params <- c(params, "zi_a", "zi_b")
+    
+    # The default zi_mode = 1. So, mod4 runs have to set zi_mode = 0
+    if (length(grep("ZI", models[k])) == 0) zi_mode = 0
+    
+    stan.info <- readRDS(paste0("RData//", out.file, "_info.rds"))
+    stan.data <- stan.info$stan.data
+    stan.data$zi_mode <- zi_mode
+    
+    LOO.out[[k]] <- fit_stan$loo()
+    stan.global.summary[[k]] <- fit_stan$summary(
+      variables = params,
+      default_summary_measures(), 
+      default_convergence_measures(),
+      extra_quantiles = ~quantile2(., probs = c(0.025, 0.975)))
+    
+    diag.summary[[k]] <- fit_stan$diagnostic_summary()
+    
+    # --- Posterior Predictive Simulation Loop ---
+    # res$autocorr is the key one. Within-season lag-1 autocorrelation of daily-averaged 
+    # residuals, compared against the same statistic computed on replicate datasets. 
+    # If the Richards curve were too rigid to track the migration, residuals would 
+    # come in same-signed runs along the season and the observed autocorrelation 
+    # would exceed the replicate distribution. If the observed value sits inside 
+    # the replicate interval, it is a direct evidence the curve is flexible enough.
+    
+    # plots$resid_day is the same thing visually. A flat loess through residuals 
+    # against day-of-season says the curve captures the shape; systematic 
+    # curvature — a dip at the peak, say — would say it doesn't.
+    
+    # pvalues covers proportion of zeros, maximum, SD, mean, and the upper tail. 
+    # The flag column marks anything outside [0.025, 0.975].
+    
+    # plots$coverage gives the empirical coverage of 95% predictive intervals. 
+    # This is the cleanest single number for the Results — if it lands near 95%, 
+    # the observation model is calibrated. It also detects Poisson vs NB 
+    # automatically by looking for phi[1], so run it unchanged across all 
+    # eight models. Worth doing: comparing coverage and the zeros p-value between 
+    # M1a1 and M1a2 is a much more direct justification for the negative binomial 
+    # than ΔLOOIC is.
+    
+    # plots$resid_season faceted QQ plots will show whether any particular season 
+    # fits badly. Worth checking against the ones with sparse effort, and 
+    # especially 2025/2026.
+    
+    # I increase the n_draws to 1500. Results seem to change if not enough samples
+    # are drawn. 1500 seems to be in a good place.
+    ppc.res[[k]] <- ppc_richards(fit_stan, stan.data, n_draws = 1500)
+    
+    # res$pvalues
+    # res$autocorr
+    # res$plots$resid_day
+  }
   
-  #mod <- cmdstan_model(file)
-  fit_stan <- readRDS(paste0("RData//", out.file, ".rds"))
+  models.out <- list(ppc = ppc.res,
+                     LOO = LOO.out,
+                     diag = diag.summary,
+                     summary = stan.global.summary)
   
-  if (length(grep("a1", models[k])) > 0) params <- params.a1.stan
-  if (length(grep("a2", models[k])) > 0) params <- params.a2.stan
-  if (length(grep("ZI1", models[k])) > 0) params <- c(params, "zi_a")
-  if (length(grep("ZI2", models[k])) > 0) params <- c(params, "zi_a", "zi_b")
-
-  # The default zi_mode = 1. So, mod4 runs have to set zi_mode = 0
-  if (length(grep("ZI", models[k])) == 0) zi_mode = 0
-  
-  stan.data <- create.stan.data(jags.data = jags.data, zi_mode = zi_mode)
-  
-  LOO.out[[k]] <- fit_stan$loo()
-  stan.global.summary[[k]] <- fit_stan$summary(
-    variables = params,
-    default_summary_measures(), 
-    default_convergence_measures(),
-    extra_quantiles = ~quantile2(., probs = c(0.025, 0.975)))
-  
-  diag.summary[[k]] <- fit_stan$diagnostic_summary()
-  
-  # --- Posterior Predictive Simulation Loop ---
-  # res$autocorr is the key one. Within-season lag-1 autocorrelation of daily-averaged 
-  # residuals, compared against the same statistic computed on replicate datasets. 
-  # If the Richards curve were too rigid to track the migration, residuals would 
-  # come in same-signed runs along the season and the observed autocorrelation 
-  # would exceed the replicate distribution. If the observed value sits inside 
-  # the replicate interval, it is a direct evidence the curve is flexible enough.
-  
-  # plots$resid_day is the same thing visually, and it's the figure to put in the 
-  # paper. A flat loess through residuals against day-of-season says the curve 
-  # captures the shape; systematic curvature — a dip at the peak, say — 
-  # would say it doesn't.
-  
-  # pvalues covers proportion of zeros, maximum, SD, mean, and the upper tail. 
-  # The flag column marks anything outside [0.025, 0.975].
-  
-  # plots$coverage gives the empirical coverage of 95% predictive intervals. 
-  # This is the cleanest single number for the Results — if it lands near 95%, 
-  # the observation model is calibrated. It also detects Poisson vs NB 
-  # automatically by looking for phi[1], so run it unchanged across all 
-  # eight models. Worth doing: comparing coverage and the zeros p-value between 
-  # M1a1 and M1a2 is a much more direct justification for the negative binomial 
-  # than ΔLOOIC is.
-  
-  # plots$resid_season faceted QQ plots will show whether any particular season 
-  # fits badly. Worth checking against the ones with sparse effort, and 
-  # especially 2025/2026.
- 
-   ppc.res[[k]] <- ppc_richards(fit_stan, stan.data$stan.data, n_draws = 1500)
-  
-  # res$pvalues
-  # res$autocorr
-  # res$plots$resid_day
+  saveRDS(models.out, file = "RData//Stan_Richards_Results.rds")
+} else {
+  models.out <- readRDS(file = "RData//Stan_Richards_Results.rds")
 }
+
+diag.summary <- models.out$diag
+LOO.out <- models.out$LOO
+ppc.res <- models.out$ppc
+stan.global.summary <- models.out$summary
 
 ### find the best model:
 
@@ -173,7 +196,8 @@ LOOIC.df <- do.call(rbind, lapply(LOO.out, FUN = function(x) x$estimates["looic"
   as.data.frame()
 LOOIC.df$Model <- as.vector(models) 
 LOOIC.df %>%  select(Model, Estimate, SE) %>%
-  mutate(dLOOIC = Estimate- min(Estimate)) %>% #-> tmp
+  mutate(dLOOIC = Estimate- min(Estimate),
+         rownames_to_column(.,var = "ID")) %>% #-> tmp
   arrange(by = dLOOIC) -> LOOIC.df
 
 # ZI2 is the best according to LOOIC - but other measures need to be considered
@@ -187,21 +211,17 @@ coverage.df$Model <- as.vector(models)
 LOOIC.df %>%
   left_join(coverage.df, by = "Model") -> LOOIC.coverage.df
 
-# if there are many models, select top three and provide the indices here:
-# loo::loo_compare(LOO.out[[5]], LOO.out[[9]], LOO.out[[10]]) %>%
-#   data.frame() -> loo.comp.df
-
-loo::loo_compare(LOO.out[[1]], LOO.out[[2]], LOO.out[[3]],
-                 LOO.out[[4]]) %>%
+# Excluding NB models:
+loo::loo_compare(LOO.out[[5]], LOO.out[[7]], LOO.out[[8]],
+                 LOO.out[[6]]) %>%
   data.frame() -> loo.comp.df
 
 #best.model <- 10  # when running all models
-#best.model <- 2   # when running just ZI models
-best.model <- 4    # Two ZI models and non-ZI M1a2_1gamma
+best.model <- 5    # running all models but excluding NB models
 pk <- LOO.out[[best.model]]$diagnostics$pareto_k
 which(pk > 0.7)
 if (length(which(pk>0.7)) > 0){
-  sd <- stan.data$stan.data
+  sd <- stan.data
   data.frame(day = sd$day_idx, 
              year = sd$year_idx, 
              n = sd$n)[which(pk > 0.7), ]
@@ -211,6 +231,71 @@ if (length(which(pk>0.7)) > 0){
 pvalues.df <- do.call(rbind, lapply(ppc.res, FUN = function(x) x$pvalues)) %>%
   as.data.frame()
 pvalues.df$Model <- rep(models, each = 6)
+pvalues.df$ID <- rep(1:length(models), each = 6)
+
+# Proportion of zeros. M1a2_1gamma has the least difference in median from observed
+pvalues.df %>%
+  filter(statistic == "prop_zero") %>%
+  mutate(dif = observed - rep_median) %>%
+  arrange(dif) -> prop.zero.df
+
+prop.zero.1 <- prop.zero.df[1,]
+
+# Maximum counts. M4a1_1gamma is best
+pvalues.df %>%
+  filter(statistic == "maximum") %>%
+  mutate(dif = observed - rep_median) %>%
+  arrange(abs(dif)) -> maximum.df
+maximum.1 <- maximum.df[1,]
+
+# SD counts. M1a2_1gamma_mod5_ZI2 is best.
+pvalues.df %>%
+  filter(statistic == "sd_counts") %>%
+  mutate(dif = observed - rep_median) %>%
+  arrange(abs(dif)) -> sd.df
+sd.1 <- sd.df[1,]
+
+# Mean counts. They are pretty much the same. |dif| < 1
+pvalues.df %>%
+  filter(statistic == "mean_count") %>%
+  mutate(dif = observed - rep_median) %>%
+  arrange(abs(dif)) -> mean.df
+
+# q95 counts. They are pretty much the same |dif| <2
+pvalues.df %>%
+  filter(statistic == "q95") %>%
+  mutate(dif = observed - rep_median) %>%
+  arrange(abs(dif)) -> q95.df
+
+# n>100 counts. Two ZI models are top 2. 
+pvalues.df %>%
+  filter(statistic == "n_over_100") %>%
+  mutate(dif = observed - rep_median) %>%
+  arrange(abs(dif)) -> n_over_100.df
+n_over_100.1 <- n_over_100.df[1,]
+
+pps.1 <- rbind(prop.zero.1,
+               maximum.1,
+               sd.1,
+               n_over_100.1)
+
+## Check auto correlation:
+ppc.autocorr <- lapply(ppc.res, FUN = function(x){
+  return(data.frame(observed = x$autocorr$observed,
+                    rep_median = x$autocorr$rep_median,
+                    rep_low = x$autocorr$rep_interval[1],
+                    rep_high = x$autocorr$rep_interval[2],
+                    p_value = x$autocorr$p_value))
+}) %>% do.call(rbind, .) %>%
+  mutate(model = models) 
+# residual autocorrelation ranges from 1.24 to 0.32.
+
+#### Claude's suggestion about PPS results:
+res <- ppc.res[[best.model]]
+ps <- res$setup
+sd <- ps$sd
+zobs <- sd$n == 0
+zrep <- colMeans(ps$y_rep == 0)
 
 # compare Corrected Estimates among the models:
 Corrected.Est <- list()
@@ -231,14 +316,8 @@ ggplot(Corrected.Est.df) +
                       color = model)) +
   theme(legend.position = "top")
 
-#### Claude's suggestion about PPS results:
-res <- ppc.res[[best.model]]
-ps <- res$setup
-sd <- ps$sd
-zobs <- sd$n == 0
-zrep <- colMeans(ps$y_rep == 0)
 
-## sanity check:
+## sanity check for the ZI model:
 ## 0.138 is the proportion of zeros (observed = 0.138 in ppc.res[[3]]$pvalues)
 stan.global.summary[[best.model]] %>%
   filter(str_detect(variable, "zi_a")) -> za.summary
@@ -254,18 +333,7 @@ pi_ <- plogis(za.summary$mean + zb.summary$mean * (lk - mean(lk)))
 mean(pi_ + (1 - pi_) * dnbinom(0, mu = ps$kappa[1, ], size = phi.summary$mean))   # vs 0.138
 ##
 
-## Check auto correlation:
-# 
-ppc.autocorr <- lapply(ppc.res, FUN = function(x){
-  return(data.frame(observed = x$autocorr$observed,
-                    rep_median = x$autocorr$rep_median,
-                    rep_low = x$autocorr$rep_interval[1],
-                    rep_high = x$autocorr$rep_interval[2],
-                    p_value = x$autocorr$p_value))
-}) %>% do.call(rbind, .) %>%
-  mutate(model = models) 
-  
-ppc.res[[3]]$autocorr
+
 
 
 
