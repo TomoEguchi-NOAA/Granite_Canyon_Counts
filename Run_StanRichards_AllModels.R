@@ -54,9 +54,9 @@ S2.vec <- c(1, 0)
 lkhd.NB.vec <- c(1,0)
 
 # To run a specific model, set the vectors accordingly:
-S1.vec <- c(1)
-S2.vec <- c(1)
-lkhd.NB.vec <- c(1)
+# S1.vec <- c(1)
+# S2.vec <- c(1)
+# lkhd.NB.vec <- c(1)
 
 # --- Add these lines right before packaging 'stan_data' ---
 # storage.mode(start_idx) <- "integer"
@@ -84,7 +84,7 @@ lkhd.NB.vec <- c(1)
 # all models were fit into one file with various switches:
 #model.version <- "mod4"
 model.version <- "mod5_ZI"
-zi_mode <- 2  # 0, 1, or 2
+zi_mode <- 1 # 0, 1, or 2
 
 file <- file.path(paste0("models//model_Richards_HSSM_", model.version, ".stan"))
 #model <- list()
@@ -109,7 +109,8 @@ for (S1 in 1:length(S1.vec)){
       
       model <- paste0(model.M, model.lkhd)
       if (zi_mode == 0){
-        out.file <- paste0("Richards_HSSM_", model, "_1gamma_", model.version, "_stan")
+        #out.file <- paste0("Richards_HSSM_", model, "_1gamma_", model.version, "_stan")
+        out.file <- paste0("Richards_HSSM_", model, "_0gamma_", model.version, "_stan")
         
       } else {
         out.file <- paste0("Richards_HSSM_", model, "_1gamma_", model.version, zi_mode, "_stan")
@@ -124,18 +125,19 @@ for (S1 in 1:length(S1.vec)){
                                     S1_by_season = S1_by_season,
                                     S2_by_season = S2_by_season,
                                     likelihood_NB = likelihood_NB,
-                                    estimate_gamma = 1,
+                                    #estimate_gamma = 1,
+                                    estimate_gamma = 0,
                                     separate_gamma = 0,
                                     zi_mode = zi_mode)
       
       
       n_year <- stan.data$jags.data$n.year
       n_observer <- stan.data$jags.data$n.obs.fixed
-      
+      sd <- stan.data$stan.data
       #mod <- cmdstan_model(file)
       if (!file.exists(paste0("RData//", out.file, ".rds"))){
         fit_stan <- mod$sample(
-          data            = stan.data$stan.data,
+          data            = sd,
           init            = stan_init_fn,
           chains          = 4,
           parallel_chains = 4,
