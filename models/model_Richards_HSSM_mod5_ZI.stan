@@ -404,6 +404,7 @@ generated quantities {
   real peak_day_slope;          // days per year, OLS through peak_day
   real peak_day_decade;         // days per decade
   vector[N_flat] log_lik;
+  array[N_flat] int y_rep;
   vector[n_year] Max = exp(log_Max);
   real p0 = inv_logit(logit_p0);
   // Excess-zero probability at the mean expected count, for reporting
@@ -423,13 +424,26 @@ generated quantities {
       real ll = likelihood_NB
               ? neg_binomial_2_log_lpmf(n[i] | log_kappa[i], phi[1])
               : poisson_log_lpmf(n[i] | log_kappa[i]);
+			  
+	  // Step 1: Draw from the base distribution (count process)
+      int yi = likelihood_NB
+              ? neg_binomial_2_log_rng(log_kappa[i], phi[1])
+              : poisson_log_rng(log_kappa[i]);
+			   
       if (zi_mode == 0) {
         log_lik[i] = ll;
+		y_rep[i] = yi;
       } else {
         real lpi = zi_a[1] + (zi_mode == 2 ? zi_b[1] * (log_kappa[i] - lk_bar) : 0.0);
         log_lik[i] = (n[i] == 0)
                    ? log_sum_exp(log_inv_logit(lpi), log1m_inv_logit(lpi) + ll)
                    : log1m_inv_logit(lpi) + ll;
+				   
+		// Step 2: Coin flip for zero-inflation using the logit probability
+        int is_structural_zero = bernoulli_logit_rng(lpi);
+        
+        // Step 3: Assign the simulated value
+        y_rep[i] = is_structural_zero ? 0 : yi;
       }
     }
   }
