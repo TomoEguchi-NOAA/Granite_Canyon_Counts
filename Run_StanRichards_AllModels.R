@@ -84,7 +84,8 @@ lkhd.NB.vec <- c(1,0)
 # all models were fit into one file with various switches:
 #model.version <- "mod4"
 model.version <- "mod5_ZI"
-zi_mode <- 1 # 0, 1, or 2
+zi_mode <- 0 # 0, 1, or 2
+estimate_gamma <- 0
 
 file <- file.path(paste0("models//model_Richards_HSSM_", model.version, ".stan"))
 #model <- list()
@@ -108,13 +109,9 @@ for (S1 in 1:length(S1.vec)){
       }
       
       model <- paste0(model.M, model.lkhd)
-      if (zi_mode == 0){
-        #out.file <- paste0("Richards_HSSM_", model, "_1gamma_", model.version, "_stan")
-        out.file <- paste0("Richards_HSSM_", model, "_0gamma_", model.version, "_stan")
-        
-      } else {
-        out.file <- paste0("Richards_HSSM_", model, "_1gamma_", model.version, zi_mode, "_stan")
-      }
+      out.file <- paste0("Richards_HSSM_", model, "_", estimate_gamma, 
+                           "gamma_", model.version, zi_mode, "_stan")
+      
       #m <- m + 1
       # Compile with aggressive C++ optimization flags
       mod <- cmdstan_model(file, 
@@ -126,7 +123,7 @@ for (S1 in 1:length(S1.vec)){
                                     S2_by_season = S2_by_season,
                                     likelihood_NB = likelihood_NB,
                                     #estimate_gamma = 1,
-                                    estimate_gamma = 0,
+                                    estimate_gamma = estimate_gamma,
                                     separate_gamma = 0,
                                     zi_mode = zi_mode)
       
@@ -156,9 +153,7 @@ for (S1 in 1:length(S1.vec)){
                      Run.date = Sys.Date()),
                 file = paste0("RData//", out.file, "_info.rds"))
         
-      } else {
-        fit_stan <- readRDS(paste0("RData//", out.file, ".rds"))
-      }
+      } 
     }
   }
 }
