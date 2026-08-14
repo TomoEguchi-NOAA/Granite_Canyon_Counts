@@ -24,12 +24,11 @@
 # 10. anchor_mu = qlogis(0.70) (sen2)
 # 11. anchor_mu = qlogis(0.90) — detection sensitivity (sen3)
 
-
-
 rm(list = ls())
 library(tidyverse)
 library(posterior)
 library(cmdstanr)
+library(purrr)
 
 source("Granite_Canyon_Counts_fcns.R")
 
@@ -126,10 +125,12 @@ params <- c("S1", "S2", "P", "sigma_shape",
             "Max", "log_N_latent",
             "peak_day_decade", "beta1_P", "phi")
 
+best.out <- readRDS("RData//Richards_HSSM_M1a2_0gamma_mod5_ZI0_stan_info.rds")
+sd.1 <- best.out$stan.data
 ## NEED TO DEFINE THESE FIRST. THEY ARE USED IN THE INTITS FUNCTION 2026-08-13
 ## sd IS STAN DATA. GENERIC STAN INPUT DATA ARE NEEDED
-n_year <- sd$n_year
-n_observer <- sd$n_observer
+n_year <- sd.1$n_year
+n_observer <- sd.1$n_observer
 
 # First two models from the initial run:
 models <- c("ZI1",
@@ -139,67 +140,72 @@ mod <- cmdstan_model(mod.file,
                                         O = 3))
 
 # Sensitivity 1: Add a gamma parameter
-for (k in 1:length(models)){
-  info <- readRDS(paste0("RData//Richards_HSSM_M1a2_0gamma_mod5_",
-                         models[k], "_stan_info.rds"))
+if (!file.exists("RData//sensitivity_1_out.rds")){
+  for (k in 1:length(models)){
+    info <- readRDS(paste0("RData//Richards_HSSM_M1a2_0gamma_mod5_",
+                           models[k], "_stan_info.rds"))
+    
+    out.file <- paste0("Richards_HSSM_M1a2_1gamma_mod5_",
+                       models[k], "_stan")
+    
+    sd <- info$stan.data
+    sd$estimate_gamma <- 1
+    run.sensitivity.stan(sd, mod, out.file)
+    
+  }
   
-  out.file <- paste0("Richards_HSSM_M1a2_1gamma_mod5_",
-                     models[k], "_stan")
+  ### Compare results among the four
+  sen.1.models <- c("M1a2_0gamma_mod5_ZI1",
+                    "M1a2_0gamma_mod5_ZI0",
+                    "M1a2_1gamma_mod5_ZI1",
+                    "M1a2_1gamma_mod5_ZI0")
   
-  sd <- info$stan.data
-  sd$estimate_gamma <- 1
-  run.sensitivity.stan(sd, mod, out.file)
-
+  sen.1.out <- extract.results(sen.1.models, params)
+  
+  saveRDS(sen.1.out, 
+          file = "RData//sensitivity_1_out.rds")
+} else {
+  sen.1.out <- readRDS("RData//sensitivity_1_out.rds")
 }
-
-### Compare results among the four
-sen.1.models <- c("M1a2_0gamma_mod5_ZI1",
-                  "M1a2_0gamma_mod5_ZI0",
-                  "M1a2_1gamma_mod5_ZI1",
-                  "M1a2_1gamma_mod5_ZI0")
-
-sen.1.out <- extract.results(sen.1.models, params)
-
-saveRDS(sen.1.out, 
-        file = "RData//sensitivity_1_out.rds")
-
 # This model selection process ended up with 1gamma models
 # are better than 0gamma models. ZI0 is LOOIC(ZI1) + 38.6
 # The best modesl are M1a2_1gamma_mod5_ZI1 and M1a2_1gamma_mod5_ZI0
 
 # Sensitivity 2: Add a second gamma parameter
 
+if (!file.exists("RData//sensitivity_2_out.rds")){
 ### Add the second gamma parameter to the top two models
-models <- c("ZI1",
-            "ZI0")
-mod <- cmdstan_model(mod.file, 
-                     cpp_options = list(stan_threads = TRUE, 
-                                        O = 3))
-for (k in 1:length(models)){
-  info <- readRDS(paste0("RData//Richards_HSSM_M1a2_1gamma_mod5_",
-                         models[k], "_stan_info.rds"))
+  models <- c("ZI1",
+              "ZI0")
+  mod <- cmdstan_model(mod.file, 
+                       cpp_options = list(stan_threads = TRUE, 
+                                          O = 3))
+  for (k in 1:length(models)){
+    info <- readRDS(paste0("RData//Richards_HSSM_M1a2_1gamma_mod5_",
+                           models[k], "_stan_info.rds"))
+    
+    out.file <- paste0("Richards_HSSM_M1a2_2gamma_mod5_",
+                       models[k], "_stan")
+    
+    sd <- info$stan.data
+    sd$estimate_gamma <- 1
+    sd$separate_gamma <- 1
+    run.sensitivity.stan(sd, mod, out.file)
+    
+  }
   
-  out.file <- paste0("Richards_HSSM_M1a2_2gamma_mod5_",
-                     models[k], "_stan")
+  ### Compare results among the four
+  sen.2.models <- c("M1a2_1gamma_mod5_ZI1",
+                    "M1a2_1gamma_mod5_ZI0",
+                    "M1a2_2gamma_mod5_ZI1",
+                    "M1a2_2gamma_mod5_ZI0")
   
-  sd <- info$stan.data
-  sd$estimate_gamma <- 1
-  sd$separate_gamma <- 1
-  run.sensitivity.stan(sd, mod, out.file)
-  
+  sen.2.out <- extract.results(sen.2.models, params)
+  saveRDS(sen.2.out, 
+          file = "RData//sensitivity_2_out.rds")
+} else {
+  sen.2.out <- readRDS("RData//sensitivity_2_out.rds")
 }
-
-
-### Compare results among the four
-sen.2.models <- c("M1a2_1gamma_mod5_ZI1",
-                  "M1a2_1gamma_mod5_ZI0",
-                  "M1a2_2gamma_mod5_ZI1",
-                  "M1a2_2gamma_mod5_ZI0")
-
-sen.2.out <- extract.results(sen.2.models, params)
-saveRDS(sen.2.out, 
-        file = "RData//sensitivity_2_out.rds")
-
 ## This selection process ended up with 1gamma. 2gammas didn't
 ## do well. 
 ## 2gamma_ZI0 had divergence issues and low ESS
@@ -208,35 +214,38 @@ saveRDS(sen.2.out,
 ## ZI1 is a good idea.
 
 # Sensitivity 3: Add the second term to Zero inflation:
-models <- c("1gamma")
-mod <- cmdstan_model(mod.file, 
-                     cpp_options = list(stan_threads = TRUE, 
-                                        O = 3))
-for (k in 1:length(models)){
-  info <- readRDS(paste0("RData//Richards_HSSM_M1a2_",
-                         models[k], "_mod5_ZI1_stan_info.rds"))
+if (!file.exists("RData//sensitivity_3_out.rds")){
+  models <- c("1gamma")
+  mod <- cmdstan_model(mod.file, 
+                       cpp_options = list(stan_threads = TRUE, 
+                                          O = 3))
+  for (k in 1:length(models)){
+    info <- readRDS(paste0("RData//Richards_HSSM_M1a2_",
+                           models[k], "_mod5_ZI1_stan_info.rds"))
+    
+    out.file <- paste0("Richards_HSSM_M1a2_", models[k], 
+                       "_mod5_ZI2_stan")
+    
+    sd <- info$stan.data
+    sd$estimate_gamma <- 1
+    #sd$separate_gamma <- 0
+    sd$zi_mode <- 2
+    
+    run.sensitivity.stan(sd, mod, out.file)
+    
+  }
   
-  out.file <- paste0("Richards_HSSM_M1a2_", models[k], 
-                     "_mod5_ZI2_stan")
   
-  sd <- info$stan.data
-  sd$estimate_gamma <- 1
-  #sd$separate_gamma <- 0
-  sd$zi_mode <- 2
+  ### Compare results 
+  sen.3.models <- c("M1a2_1gamma_mod5_ZI1",
+                    "M1a2_1gamma_mod5_ZI2")
   
-  run.sensitivity.stan(sd, mod, out.file)
-  
+  sen.3.out <- extract.results(sen.3.models, params)
+  saveRDS(sen.3.out, 
+          file = "RData//sensitivity_3_out.rds")
+} else {
+  sen.3.out <- readRDS("RData//sensitivity_3_out.rds")
 }
-
-
-### Compare results 
-sen.3.models <- c("M1a2_1gamma_mod5_ZI1",
-                  "M1a2_1gamma_mod5_ZI2")
-
-sen.3.out <- extract.results(sen.3.models, params)
-saveRDS(sen.3.out, 
-        file = "RData//sensitivity_3_out.rds")
-
 # Look at the 2 ZI parameters:
 # stan.summary[[2]] %>%
 #   filter(variable %in% c("zi_a[1]", "zi_b[1]"))
@@ -245,156 +254,351 @@ saveRDS(sen.3.out,
 # The best model is M1a2_1gamma_mod5_ZI2. dLOOIC = 132.9
 
 ## Sensitivity 4: use_trend_P = 0 - is there a trend in P? (sen4)
-info <- readRDS("RData//Richards_HSSM_M1a2_1gamma_mod5_ZI2_stan_info.rds")
-
-out.file <- paste0("Richards_HSSM_M1a2_1gamma_mod5_ZI2_P0_stan")
-
-mod <- cmdstan_model(mod.file, 
-                     cpp_options = list(stan_threads = TRUE, 
-                                        O = 3))
-
-sd <- info$stan.data
-sd$estimate_gamma <- 1
-sd$zi_mode <- 2
-sd$use_trend_P <- 0
-
-run.sensitivity.stan(sd, mod, out.file)
-
-### Compare results 
-sen.4.models <- c("M1a2_1gamma_mod5_ZI2",
-                  "M1a2_1gamma_mod5_ZI2_P0")
-
-sen.4.out <- extract.results(sen.4.models, params)
-saveRDS(sen.4.out, 
-        file = "RData//sensitivity_4_out.rds")
+if (!file.exists("RData//sensitivity_4_out.rds")){
+  info <- readRDS("RData//Richards_HSSM_M1a2_1gamma_mod5_ZI2_stan_info.rds")
+  
+  out.file <- "Richards_HSSM_M1a2_1gamma_mod5_ZI2_P0_stan"
+  
+  mod <- cmdstan_model(mod.file, 
+                       cpp_options = list(stan_threads = TRUE, 
+                                          O = 3))
+  
+  sd <- info$stan.data
+  sd$estimate_gamma <- 1
+  sd$zi_mode <- 2
+  sd$use_trend_P <- 0
+  
+  run.sensitivity.stan(sd, mod, out.file)
+  
+  ### Compare results 
+  sen.4.models <- c("M1a2_1gamma_mod5_ZI2",
+                    "M1a2_1gamma_mod5_ZI2_P0")
+  
+  sen.4.out <- extract.results(sen.4.models, params)
+  saveRDS(sen.4.out, 
+          file = "RData//sensitivity_4_out.rds")
+} else {
+  sen.4.out <- readRDS("RData/sensitivity_4_out.rds")
+}
 
 ## Sensitivity 5: use_pooling_Max = 0
-info <- readRDS("RData//Richards_HSSM_M1a2_1gamma_mod5_ZI2_stan_info.rds")
-
-out.file <- paste0("Richards_HSSM_M1a2_1gamma_mod5_ZI2_PoolMax0_stan")
-
-mod <- cmdstan_model(mod.file, 
-                     cpp_options = list(stan_threads = TRUE, 
-                                        O = 3))
-
-sd <- info$stan.data
-sd$estimate_gamma <- 1
-sd$zi_mode <- 2
-sd$use_trend_P <- 1
-sd$use_pooling_Max <- 0
-
-run.sensitivity.stan(sd, mod, out.file)
-
-### Compare results 
-sen.5.models <- c("M1a2_1gamma_mod5_ZI2",
-                  "M1a2_1gamma_mod5_ZI2_PoolMax0")
-
-sen.5.out <- extract.results(sen.5.models, params)
-saveRDS(sen.5.out, 
-        file = "RData//sensitivity_5_out.rds")
+if (!file.exists("RData//sensitivity_5_out.rds")){
+  info <- readRDS("RData//Richards_HSSM_M1a2_1gamma_mod5_ZI2_stan_info.rds")
+  
+  out.file <- "Richards_HSSM_M1a2_1gamma_mod5_ZI2_PoolMax0_stan"
+  
+  mod <- cmdstan_model(mod.file, 
+                       cpp_options = list(stan_threads = TRUE, 
+                                          O = 3))
+  
+  sd <- info$stan.data
+  sd$estimate_gamma <- 1
+  sd$zi_mode <- 2
+  sd$use_trend_P <- 1
+  sd$use_pooling_Max <- 0
+  
+  run.sensitivity.stan(sd, mod, out.file)
+  
+  ### Compare results 
+  sen.5.models <- c("M1a2_1gamma_mod5_ZI2",
+                    "M1a2_1gamma_mod5_ZI2_PoolMax0")
+  
+  sen.5.out <- extract.results(sen.5.models, params)
+  saveRDS(sen.5.out, 
+          file = "RData//sensitivity_5_out.rds")
+} else {
+  sen.5.out <- readRDS("RData//sensitivity_5_out.rds")
+}
 
 ## Sensitivity 6: use_shape_dev = 1
-info <- readRDS("RData//Richards_HSSM_M1a2_1gamma_mod5_ZI2_stan_info.rds")
-out.file <- paste0("Richards_HSSM_M1a2_1gamma_mod5_ZI2_ShapeDev1_stan")
-
-mod <- cmdstan_model(mod.file, 
-                     cpp_options = list(stan_threads = TRUE, 
-                                        O = 3))
-
-sd <- info$stan.data
-sd$estimate_gamma <- 1
-sd$zi_mode <- 2
-sd$use_shape_dev <- 1
-
-run.sensitivity.stan(sd, mod, out.file)
-
-### Compare results 
-sen.6.models <- c("M1a2_1gamma_mod5_ZI2",
-                  "M1a2_1gamma_mod5_ZI2_ShapeDev1")
-
-sen.6.out <- extract.results(sen.6.models, params)
-saveRDS(sen.6.out, 
-        file = "RData//sensitivity_6_out.rds")
+if (!file.exists("RData//sensitivity_6_out.rds")){
+  info <- readRDS("RData//Richards_HSSM_M1a2_1gamma_mod5_ZI2_stan_info.rds")
+  out.file <- "Richards_HSSM_M1a2_1gamma_mod5_ZI2_ShapeDev1_stan"
+  
+  mod <- cmdstan_model(mod.file, 
+                       cpp_options = list(stan_threads = TRUE, 
+                                          O = 3))
+  
+  sd <- info$stan.data
+  sd$estimate_gamma <- 1
+  sd$zi_mode <- 2
+  sd$use_shape_dev <- 1
+  
+  run.sensitivity.stan(sd, mod, out.file)
+  
+  ### Compare results 
+  sen.6.models <- c("M1a2_1gamma_mod5_ZI2",
+                    "M1a2_1gamma_mod5_ZI2_ShapeDev1")
+  
+  sen.6.out <- extract.results(sen.6.models, params)
+  saveRDS(sen.6.out, 
+          file = "RData//sensitivity_6_out.rds")
+} else {
+  sen.6.out <- readRDS("RData//sensitivity_6_out.rds")
+}
 
 ### THE FOLLOWING IS NOT WORKING 2026-08-13
 ### n_years is not found in the inits function. It worked above... 
 
 ## Sensitiviy 7: use_shape_dev = 1 AND n_period = 10. 
 ## Periodic grouping is changed from 5 to 10 days
-info <- readRDS("RData//Richards_HSSM_M1a2_1gamma_mod5_ZI2_stan_info.rds")
-out.file <- paste0("Richards_HSSM_M1a2_1gamma_mod5_ZI2_ShapeDev1_Period10_stan")
-
-mod <- cmdstan_model(mod.file, 
-                     cpp_options = list(stan_threads = TRUE, 
-                                        O = 3))
-
-sd <- info$stan.data
-sd$estimate_gamma <- 1
-sd$zi_mode <- 2
-sd$use_shape_dev <- 1
-sd$n_period <- 10
-n_year <- sd$n_year
-n_days <- sd$n_days
-n_observer <- sd$n_observer
-run.sensitivity.stan(sd, mod, out.file)
-
-### Compare results 
-sen.7.models <- c("M1a2_1gamma_mod5_ZI2",
-                  "M1a2_1gamma_mod5_ZI2_ShapeDev1_Period10")
-
-sen.7.out <- extract.results(sen.7.models, params)
-saveRDS(sen.7.out, 
-        file = "RData//sensitivity_7_out.rds")
+if (!file.exists("RData//sensitivity_7_out.rds")){
+  info <- readRDS("RData//Richards_HSSM_M1a2_1gamma_mod5_ZI2_stan_info.rds")
+  out.file <- "Richards_HSSM_M1a2_1gamma_mod5_ZI2_ShapeDev1_Period10_stan"
+  
+  mod <- cmdstan_model(mod.file, 
+                       cpp_options = list(stan_threads = TRUE, 
+                                          O = 3))
+  
+  sd <- info$stan.data
+  sd$estimate_gamma <- 1
+  sd$zi_mode <- 2
+  sd$use_shape_dev <- 1
+  # When changing n_period to 10 (default is 20), each block of
+  # days is 10-day long, rather than 5-day long. period_idx
+  # needs to be changed too.
+  sd$n_period <- 10
+  sd$period_idx = rep(1:sd$n_period, each = 100/sd$n_period) 
+  n_year <- sd$n_year
+  n_days <- sd$n_days
+  n_observer <- sd$n_observer
+  run.sensitivity.stan(sd, mod, out.file)
+  
+  ### Compare results 
+  sen.7.models <- c("M1a2_1gamma_mod5_ZI2",
+                    "M1a2_1gamma_mod5_ZI2_ShapeDev1_Period10")
+  
+  sen.7.out <- extract.results(sen.7.models, params)
+  saveRDS(sen.7.out, 
+          file = "RData//sensitivity_7_out.rds")
+} else {
+  sen.7.out <- readRDS("RData//sensitivity_7_out.rds")
+}
 
 ## Sensitivity 8: gamma_prior_mu = 0
-
-info <- readRDS("RData//Richards_HSSM_M1a2_1gamma_mod5_ZI2_stan_info.rds")
-out.file <- paste0("Richards_HSSM_M1a2_1gamma_mod5_ZI2_gammaMu0_stan")
-
-mod <- cmdstan_model(mod.file, 
-                     cpp_options = list(stan_threads = TRUE, 
-                                        O = 3))
-
-sd <- info$stan.data
-sd$estimate_gamma <- 1
-sd$gamma_prior_mu <- 0
-sd$zi_mode <- 2
-sd$use_shape_dev <- 0
-
-run.sensitivity.stan(sd, mod, out.file)
-
-### Compare results 
-sen.8.models <- c("M1a2_1gamma_mod5_ZI2",
-                  "M1a2_1gamma_mod5_ZI2_gammaMu0")
-
-sen.8.out <- extract.results(sen.8.models, params)
-saveRDS(sen.8.out, 
-        file = "RData//sensitivity_8_out.rds")
+if (!file.exists("RData//sensitivity_8_out.rds")){
+  info <- readRDS("RData//Richards_HSSM_M1a2_1gamma_mod5_ZI2_stan_info.rds")
+  out.file <- "Richards_HSSM_M1a2_1gamma_mod5_ZI2_gammaMu0_stan"
+  
+  mod <- cmdstan_model(mod.file, 
+                       cpp_options = list(stan_threads = TRUE, 
+                                          O = 3))
+  
+  sd <- info$stan.data
+  n_year <- sd$n_year
+  n_days <- sd$n_days
+  n_observer <- sd$n_observer
+  
+  sd$estimate_gamma <- 1
+  sd$gamma_prior_mu <- 0
+  sd$zi_mode <- 2
+  sd$use_shape_dev <- 0
+  
+  run.sensitivity.stan(sd, mod, out.file)
+  
+  ### Compare results 
+  sen.8.models <- c("M1a2_1gamma_mod5_ZI2",
+                    "M1a2_1gamma_mod5_ZI2_gammaMu0")
+  
+  sen.8.out <- extract.results(sen.8.models, params)
+  saveRDS(sen.8.out, 
+          file = "RData//sensitivity_8_out.rds")
+} else {
+  sen.8.out <- readRDS("RData//sensitivity_8_out.rds")
+}
 
 ## Sensitiviy 9: #  9. gamma_prior_sd = 2.0
-info <- readRDS("RData//Richards_HSSM_M1a2_1gamma_mod5_ZI2_stan_info.rds")
-out.file <- paste0("Richards_HSSM_M1a2_1gamma_mod5_ZI2_gammaSD2_stan")
+if (!file.exists("RData//sensitivity_9_out.rds")){
+  info <- readRDS("RData//Richards_HSSM_M1a2_1gamma_mod5_ZI2_stan_info.rds")
+  out.file <- "Richards_HSSM_M1a2_1gamma_mod5_ZI2_gammaSD2_stan"
+  
+  mod <- cmdstan_model(mod.file, 
+                       cpp_options = list(stan_threads = TRUE, 
+                                          O = 3))
+  
+  sd <- info$stan.data
+  n_year <- sd$n_year
+  n_days <- sd$n_days
+  n_observer <- sd$n_observer
+  
+  sd$estimate_gamma <- 1
+  sd$gamma_prior_mu <- 1
+  sd$gamma_prior_sd <- 2
+  sd$zi_mode <- 2
+  sd$use_shape_dev <- 0
+  
+  run.sensitivity.stan(sd, mod, out.file)
+  
+  ### Compare results 
+  sen.9.models <- c("M1a2_1gamma_mod5_ZI2",
+                    "M1a2_1gamma_mod5_ZI2_gammaSD2")
+  
+  sen.9.out <- extract.results(sen.9.models, params)
+  saveRDS(sen.9.out, 
+          file = "RData//sensitivity_9_out.rds")
+} else {
+  sen.9.out <- readRDS("RData//sensitivity_9_out.rds")
+}
 
-mod <- cmdstan_model(mod.file, 
-                     cpp_options = list(stan_threads = TRUE, 
-                                        O = 3))
+# Sensitivity 10. anchor_mu = qlogis(0.70) Detection probability
+# This should affect the estimated abundance greatly, as the data
+# do not inform this parameter at all. Same as the next sensitivity
+# run.
+if (!file.exists("RData//sensitivity_10_out.rds")){
+  info <- readRDS("RData//Richards_HSSM_M1a2_1gamma_mod5_ZI2_stan_info.rds")
+  out.file <- paste0("Richards_HSSM_M1a2_1gamma_mod5_ZI2_anchorMu70_stan")
+  
+  mod <- cmdstan_model(mod.file, 
+                       cpp_options = list(stan_threads = TRUE, 
+                                          O = 3))
+  
+  sd <- info$stan.data
+  n_year <- sd$n_year
+  n_days <- sd$n_days
+  n_observer <- sd$n_observer
+  
+  sd$estimate_gamma <- 1
+  sd$anchor_mu = qlogis(0.7)
+  sd$zi_mode <- 2
 
-sd <- info$stan.data
-sd$estimate_gamma <- 1
-sd$gamma_prior_mu <- 1
-sd$gamma_prior_sd <- 2
-sd$zi_mode <- 2
-sd$use_shape_dev <- 0
+  run.sensitivity.stan(sd, mod, out.file)
+  
+  ### Compare results 
+  sen.10.models <- c("M1a2_1gamma_mod5_ZI2",
+                    "M1a2_1gamma_mod5_ZI2_anchorMu70")
+  
+  sen.10.out <- extract.results(sen.10.models, params)
+  saveRDS(sen.10.out, 
+          file = "RData//sensitivity_10_out.rds")
+} else {
+  sen.10.out <- readRDS("RData//sensitivity_10_out.rds")
+}
 
-run.sensitivity.stan(sd, mod, out.file)
+# Sensitivity 11. anchor_mu = qlogis(0.90) — 
+# detection sensitivity. This should affect the estimates greatly
+if (!file.exists("RData//sensitivity_11_out.rds")){
+  info <- readRDS("RData//Richards_HSSM_M1a2_1gamma_mod5_ZI2_stan_info.rds")
+  out.file <- "Richards_HSSM_M1a2_1gamma_mod5_ZI2_anchorMu90_stan"
+  
+  mod <- cmdstan_model(mod.file, 
+                       cpp_options = list(stan_threads = TRUE, 
+                                          O = 3))
+  
+  sd <- info$stan.data
+  n_year <- sd$n_year
+  n_days <- sd$n_days
+  n_observer <- sd$n_observer
+  
+  sd$estimate_gamma <- 1
+  sd$anchor_mu = qlogis(0.9)
+  sd$zi_mode <- 2
+  
+  run.sensitivity.stan(sd, mod, out.file)
+  
+  ### Compare results 
+  sen.11.models <- c("M1a2_1gamma_mod5_ZI2",
+                    "M1a2_1gamma_mod5_ZI2_anchorMu90")
+  
+  sen.11.out <- extract.results(sen.11.models, params)
+  saveRDS(sen.11.out, 
+          file = "RData//sensitivity_11_out.rds")
+} else {
+  sen.11.out <- readRDS("RData//sensitivity_11_out.rds")
+}
 
-### Compare results 
-sen.9.models <- c("M1a2_1gamma_mod5_ZI2",
-                  "M1a2_1gamma_mod5_ZI2_gammaSD2")
+## Combine all the LOOIC dataframes and make a master comparison:
+## The base pipe "|>" is better because %>% creates a temporary
+## environment in which mget() looks for. The base pipe looks
+## directly into the working environment.
+ls(pattern = "^sen\\.[0-9]+\\.out$") |> 
+  mget() |> 
+  lapply(`[[`, "LOOIC.df") |> # equivalent of lapply(function(x) x[["a"]])
+  bind_rows(.id = "Sensitivity_ID") %>% #-> tmp
+  group_by(Model) %>% #-> tmp
+  summarize(Model = first(Model),
+            Sensitivity = first(Sensitivity_ID),
+            Estimate = first(Estimate),
+            SE = first(SE)) %>% #-> tmp
+  mutate(dLOOIC = Estimate - min(Estimate)) %>%
+  arrange(by = Estimate) -> all.LOOIC.df
 
-sen.9.out <- extract.results(sen.9.models, params)
-saveRDS(sen.9.out, 
-        file = "RData//sensitivity_9_out.rds")
+# When comparing all these models, 1gamma-ZI2-ShapeDev1 seems to be
+# better than others. The base model (1gamma-ZI2) is about 46 
+# LOOIC points less than the top model. 
+# 
+# Compare the abundance estimates:
+top.5.models <- all.LOOIC.df[1:5, "Model"] %>% as.list()
+name.parts <- lapply(top.5.models$Model,
+                     str_split, "mod5_")
+
+model.part <- lapply(name.parts, FUN = function(x) x[[1]][2])
+
+lapply(top.5.models$Model, 
+       FUN = function(x){
+         y <- readRDS(paste0("RData//Richards_HSSM_",x,"_stan.rds"))
+         y$summary("Corrected_Est",
+                   default_summary_measures(), 
+                   default_convergence_measures(),
+                   extra_quantiles = ~quantile2(., probs = c(0.025, 0.975)))
+       }) -> top.Nhats
+
+#library(dplyr)
+
+top.Nhats <- map2(top.Nhats, 
+                  model.part, ~ mutate(.x, model = .y))
+
+top.Nhats.1 <- map(
+  top.Nhats,
+  ~mutate(.x, Start.Year = best.out$jags.data$start.years))
+
+all.Nhats <- do.call(rbind, top.Nhats.1)
+
+ggplot(all.Nhats) +
+  geom_pointrange(aes(x = Start.Year, 
+                      y = median,
+                      ymin = q2.5,
+                      ymax = q97.5,
+                      color = model),
+                  alpha = 0.6) +
+  theme(legend.position = "top")
+
+all.Nhats %>%
+  select(Start.Year,
+         median,
+         model) %>%
+  pivot_wider(names_from = model,
+              values_from = median) -> medians.wide
+  
+ggplot(medians.wide) +
+  geom_point(aes(x = ZI2, y = ZI2_ShapeDev1,
+                 color = Start.Year)) +
+  geom_point(aes(x = ZI2, y = ZI2_ShapeDev1_Period10,
+                 color = Start.Year)) +
+  geom_point(aes(x = ZI2, y = ZI2_P0,
+                 color = Start.Year)) +
+  geom_point(aes(x = ZI2, y = ZI2_PoolMax0,
+                 color = Start.Year)) +
+  geom_abline(slope = 1, color = "red", linewidth = 1)
+  
+
+# Look at the percentage differences in medians
+medians.wide %>%
+  transmute(dif.ShapeDev1 = (ZI2_ShapeDev1 - ZI2)/ZI2, 
+            dif.ShapeDev1_Period10 = (ZI2_ShapeDev1_Period10 - ZI2)/ZI2,
+            dif.PoolMax0 = (ZI2_PoolMax0 - ZI2)/ZI2,
+            dif.P0 = (ZI2_P0 - ZI2)/ZI2,
+            Start.Year = Start.Year) -> dif.medians
+  
+ggplot(dif.medians) +
+  geom_point(aes(x = Start.Year,
+                 y = dif.ShapeDev1*100), color = "blue") +
+  geom_point(aes(x = Start.Year,
+                 y = dif.ShapeDev1_Period10*100), color = "yellow") +
+  geom_point(aes(x = Start.Year,
+                 y = dif.PoolMax0*100), color = "green") +
+  geom_point(aes(x = Start.Year,
+                 y = dif.P0*100), color = "purple")
+  
 
 # 
 # sensitivity.table <- data.frame(ID = paste0("sen", seq(0, 10)),
