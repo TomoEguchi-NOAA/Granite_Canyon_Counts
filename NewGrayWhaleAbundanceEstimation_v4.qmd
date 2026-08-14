@@ -180,16 +180,17 @@ A constant probability was used as the base case.
 
 $$ \text{logit}(\psi_i) = \alpha_0 $$ 
 
-The possibility of the probability as a function of the expected counts ($\kappa$) was tested in the sensitivity analysis.
+where $f$ is the likelihood function (Poisson or Negative Binomial). The possibility that the probability is a function of the expected counts ($\kappa$), rather than constant, was tested in the sensitivity analysis.
 
-$$ \text{logit}(\psi_i) = \alpha_0 + \alpha_1(\text{log}\kappa_i - \bar{\text{log}\kappa}) $$
+The total number of gray whales for the season $y$ is the sum of all $N_{d,y}$ and corrected for nighttime passage ($\lambda$):
 
-I tested the following 
-where $f$ is the likelihood function (Poisson or Negative Binomial).
+$$ N_y = \lambda * \sum_{d = 1} ^ {100} N_{d, y} $$ {#eq-Total_N} and
 
-A total of 16 models (two likelihood functions, four season-dependence variants, and presence/absence of zero-inflation) were developed. 
+$$ \lambda \sim N(1.0875, 0.03625^2) $$ (Perryman et al. 1999).
 
-Each parameter had a hyper-distribution of either a normal, uniform, or gamma distribution (Appendix @supptbl-hyperparameters).
+where 0.03625 is standard deviation.
+
+A total of 16 models (two likelihood functions, four season-dependence variants, and presence/absence of zero-inflation) were developed and compared. Prior and hyper-prior distributions are provided in the supplementary material (@supptbl-hyperparameters).
 
 ```{r}
 #| echo: false
@@ -219,13 +220,7 @@ for (nm in names(header_labels)) {
 
 ```
 
-The total number of gray whales for the season $y$ is the sum of all $N_{d,y}$ and corrected for nighttime passage ($\lambda$):
 
-$$ N_y = \lambda * \sum_{d = 1} ^ {100} N_{d, y} $$ {#eq-Total_N} and
-
-$$ \lambda \sim N(1.0875, 0.03625^2) $$ (Perryman et al. 1999).
-
-where 0.03625 is standard deviation.
 
 ```{r}
 #| echo: false
@@ -264,7 +259,7 @@ The new approach was used to analyze the entire dataset from the 1967/1968 seaso
 
 The new models were fitted to the data using Stan () in the R statistical environment (ver `r version$major`.`r version$minor`), using the *cmdstanr* package (). For each model, four MCMC chains were run for 1,500 steps each as warm up, followed by 2,000 steps of sampling. The convergence of MCMC was assessed using the rank-normalized $\hat{R}$ statistic and effective sample sizes (ESS) [@vehtari_rank-normalization_2021], using the *posterior* package. Following Vehtari et al. (2021), a minimum bulk and tail ESS of 100 per chain were assumed, i.e., ESS $> 400$. For models that converged sufficiently, Pareto-k statistics were used to identify influential data points [@vehtari_practical_2017] using the *loo* (Vehtari et al. 2024) and *posterior* packages. 
 
-Model performance was compared using the LOOIC (Leave-One-Out Information Criteria) statistic via the *rstanarm* (Goodrich et al. 2025) and *loo* packages. Robustness of the best model was examined by fitting the model to modified datasets, where 6-days of data were deleted from (1) the peak (days 48-52), (2) the leading shoulder of the curve (days 33-37), and (3) the trailing tail (days 63-67) for 1987 and 2022. The 1987/1988 season was one of the highest estimate, whereas the 2022/2023 season was the lowest. Estimated abundance among the six scenarios were compared to determine how the best model responded to missing data. Posterior predictive checks (PPCs) were conducted to evaluate how the models captured the data-generation process, specifically for the number of zero counts, the maximum counts, and the mean counts.
+Model performance was compared using the LOOIC (Leave-One-Out Information Criteria) statistic via the *rstanarm* (Goodrich et al. 2025) and *loo* packages. 
 
 Once the best model was selected, a series of sensitivity analyses were conducted. 
 (0) Replacing the fixed shape exponent $\gamma = 1$ with a prior distribution:
@@ -304,6 +299,13 @@ where the first three terms of the right hand side of the equation are the Richa
 
 $$ s_w = \sigma_s \bar{s}_w, \qquad \sum_{w = 1}^W s_w = 0, \qquad \bar{s}_w \sim N(0,1), \qquad \sigma_s \sim N(0, 0.5^2)T(0,)$$
 where W was tested for either 20 5-day periods or 10 10-day periods over each 100-day season. 
+
+(7) Making the zero-inflation as a function of the mean counts:
+
+
+$$ \text{logit}(\psi_i) = \alpha_0 + \alpha_1(\text{log}\kappa_i - \bar{\text{log}\kappa}) $$
+
+Through these sensitivity analyses, the best model was refined as necessary and the final model was developed. Robustness of the final model was examined by fitting the model to modified datasets, where 6-days of data were deleted from (1) the peak (days 48-52), (2) the leading shoulder of the curve (days 33-37), and (3) the trailing tail (days 63-67) for 1987 and 2022. The 1987/1988 season was one of the highest estimate, whereas the 2022/2023 season was the lowest. Estimated abundance among the six scenarios were compared to determine how the best model responded to missing data. Posterior predictive checks (PPCs) were conducted to evaluate how the models captured the data-generation process, specifically for the number of zero counts, the maximum counts, and the mean counts.
 
 To compare the estimated abundances from three approaches (Laake et al., Durban et al. and the new approach), generalized additive models (GAMs) were fitted to abundance estimates between the 2006/2007 and 2025/2026 seasons. Furthermore, Laake et al.'s and the new approaches were compared by fitting GAMs to the point estimates over the entire timeseries from the 1967/1968 to 2025/2026 seasons. The rate of recent decline in the estimated abundance was compared by fitting linear models to the natural log of abundance estimates between the 2014/2015 and 2025/2026 seasons.
 
@@ -466,7 +468,9 @@ Reported.estimates <- read.csv(file = paste0("Data//Nhats_", YEAR, ".csv")) %>%
 
 ### Model Selection
 
-The eight models (@tbl-model-definition) were fitted to the sightings data over `r nrow(Reported.estimates)` seasons. According to the bulk and tail ESS, and rank-normalized `r R_hat` values, the MCMC converged well and exceeded the recommended minimum ESS threshold of 400 for `r sum(!is.na(out.table$dLOOIC))` models (@tbl-model-comparison). All models with the Negative Binomial likelihood converged. 
+The 16 models (@tbl-model-definition) were fitted to the sightings data over `r nrow(Reported.estimates)` seasons. According to the bulk and tail ESS, and rank-normalized `r R_hat` values, the MCMC converged well and exceeded the recommended minimum ESS threshold of 400 for `r sum(!is.na(out.table$dLOOIC))` models (@tbl-model-comparison). All models with the Negative Binomial likelihood converged. 
+
+LOOIC indicated that M1a2 models (with and without zero-inflation) were the top two models, where the difference in LOOIC values was approximately 29. These two models were selected for sensitivity analysis to further refine selected parameters in the model. 
 
 Posterior predictive simulations indicated that the Negative Binomial likelihood predicted with year-specific $S_1$ and $S_2$ was best (TABLE). Its LOOIC value was lowest as well. Pareto-k diagnostics indicated reliable Pareto Smoothed Importance Sampling - Leave One Out (PSIS-LOO) approximation for all but one of the `r nrow()` observations. The exception was the first watch period of the 2007/08 season (day 33), an unusually large count at the first day of the season exerted high leverage on the left tail. Excluding the flagged observation changed the 2007/08 abundance estimate by 3.0% (17,330 to 16,827), within the 95% credible interval for that season, and did not alter any conclusion (@tbl-model-comparison). Consequently, the posterior distributions of the parameters from Model `r ver` should be reliable.
 
