@@ -3,7 +3,7 @@
 // Granite Canyon CA.  Stan port of model_Richards_HSSM_M1a2.jags
 // M1 = S1 and S2 both season-specific;  a2 = Negative Binomial
 //
-// mod5: Non-centred observer effects + optional ZERO INFLATION.
+// mod5: Non-centered observer effects + optional ZERO INFLATION.
 //
 // The PPC zero deficit is concentrated by DAY OF SEASON (14.4 pp late tail,
 // 6.8 pp early, 0.6 pp at the peak), not by year, so the excess-zero
@@ -20,7 +20,7 @@
 // one dispersion parameter serving two jobs. Watch whether phi falls and the
 // upper-tail overshoot resolves at the same time as the zeros.
 //
-// mod4: Non-centred observer effects:
+// mod4: Non-centered observer effects:
 //
 // Verified line-by-line against the JAGS source. In PARITY MODE
 // (use_process_error = 0, use_shape_dev = 0, anchor_sd = 1e-6) this is
@@ -57,7 +57,7 @@ data {
   vector[N_flat] vs;                // RAW visibility MINUS 1 (JAGS vs.1 - 1)
   array[N_flat] int<lower=1> observer_idx;   // obs.fixed
   vector<lower=0>[N_flat] watch_length;      // in days
-  vector[n_year] year_values;                // year.index, centred
+  vector[n_year] year_values;                // year.index, centered
 
   array[N_flat] int<lower=1> day_idx;        // JAGS day[d,s,y], must be >= 2
   array[N_flat] int<lower=1> year_idx;
@@ -119,9 +119,9 @@ data {
   real<lower=0> zi_a_sd;            // e.g. 2.0
   real<lower=0> zi_b_sd;            // e.g. 1.0
   int<lower=0, upper=1> independent_corr;
-  // Centred vs non-centred season effects. Use CENTRED (1) when the
+  // centered vs non-centered season effects. Use centered (1) when the
   // process SDs are well away from zero and the per-season data are
-  // informative -- which is this model. Non-centred (0) only helps when
+  // informative -- which is this model. Non-centered (0) only helps when
   // the SD can approach zero.
   int<lower=0, upper=1> centred_P;
   int<lower=0, upper=1> centred_Max;
@@ -220,7 +220,7 @@ parameters {
 
   // Zero-inflation parameters: absent when zi_mode = 0
   array[zi_mode > 0 ? 1 : 0] real zi_a;      // logit of pi at mean log kappa
-  array[zi_mode == 2 ? 1 : 0] real zi_b;     // slope on centred log kappa
+  array[zi_mode == 2 ? 1 : 0] real zi_b;     // slope on centered log kappa
 
   sum_to_zero_vector[n_period] shape_raw;
   real<lower=0> sigma_shape;
@@ -267,7 +267,7 @@ transformed parameters {
   mu_P   = beta0_P   + b1_P   * year_values;
   mu_Max = beta0_Max + b1_Max * year_values;
 
-  // In centred mode the raw vector IS the season effect; in non-centred
+  // In centered mode the raw vector IS the season effect; in non-centered
   // mode it is a standard normal that gets shifted and scaled.
   P       = centred_P   ? P_raw       : mu_P   + sigma_proc_P   * P_raw;
   log_Max = centred_Max ? log_Max_raw : mu_Max + sigma_proc_Max * log_Max_raw;
@@ -284,7 +284,7 @@ transformed parameters {
       log_N_latent[n_days, y] = log_boundary_N;
 
       for (t in 2:(n_days - 1)) {
-        // Descent limb centred later, ascent limb earlier, by delta/2 each.
+        // Descent limb centered later, ascent limb earlier, by delta/2 each.
         real p_minus_t1 = P[y] + 0.5 * delta_y[y] - t;   // C1, descent (S1)
         real p_minus_t2 = P[y] - 0.5 * delta_y[y] - t;   // C2, ascent  (S2)
         // C1 = [1 + (2e - 1) exp(-(P-t)/S1)]^(-1/e)
