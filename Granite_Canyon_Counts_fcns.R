@@ -28,14 +28,14 @@ stan_init_fn <- function() {
   )
   # only supply inits for parameters that actually exist in this configuration
   
-  if (sd$use_trend_P)   out$beta1_P   <- array(rnorm(1, 0.21, 0.03), dim = 1)
+  if (sd$use_trend_P) out$beta1_P   <- array(rnorm(1, 0.21, 0.03), dim = 1)
   if (sd$use_trend_Max) out$beta1_Max <- array(rnorm(1, 0,    0.05), dim = 1)
   if (sd$use_plateau) {
     k <- if (sd$plateau_by_year) n_year else 1
     out$delta <- array(runif(k, 0.5, 2), dim = k)
   }
   if (sd$use_process_error) {
-    out$log_N_raw     <- matrix(rnorm(n_days * n_year, 0, 0.1), n_days, n_year)
+    out$log_N_raw  <- matrix(rnorm(n_days * n_year, 0, 0.1), n_days, n_year)
     out$sigma_process <- array(runif(1, 0.1, 0.3), dim = 1)
   }
   
@@ -105,7 +105,7 @@ stan_init_fn <- function() {
 # zi_mode (0): Set the zero-inflated part. 0: no zero-inflation. 1: constant. 2: depends on expected count
 # jags.data: provide jags data, which is used to create the stan input list.
 
-create.stan.data <- function(use_trend_P = 1, use_trend_Max = 1,  use_pooling_Max = 1, sd_unpooled_Max = 5, use_plateau = 0, plateau_by_year = 0, sd_delta = 5, anchor_mu = qlogis(0.8), anchor_sd = 0.1622, independent_corr = 0, S1_by_season = 1, S2_by_season = 1,likelihood_NB = 1, gamma_fix = 1, estimate_gamma = 1, separate_gamma = 0, gamma_prior_mu = 1.0, gamma_prior_sd = 1.0, use_shape_dev = 0, n_period = 20, zi_mode = 1, jags.data){
+create.stan.data <- function(use_trend_P = 1, use_trend_Max = 1,  use_pooling_Max = 1, sd_unpooled_Max = 5, use_plateau = 0, plateau_by_year = 0, sd_delta = 5, anchor_mu = qlogis(0.8), anchor_sd = 0.1622, independent_corr = 0, S1_by_season = 1, S2_by_season = 1, likelihood_NB = 1, gamma_fix = 1, estimate_gamma = 1, separate_gamma = 0, gamma_prior_mu = 1.0, gamma_prior_sd = 1.0, use_shape_dev = 0, n_period = 20, zi_mode = 1, jags.data){
   
   # --- 1. Flatten Your Existing JAGS Arrays ---
   flat_data_list <- list()
@@ -229,8 +229,6 @@ create.stan.data <- function(use_trend_P = 1, use_trend_Max = 1,  use_pooling_Ma
               jags.data = jags.data))
   
 }
-
-
 
 S1.S2.trace.plots <- function(ver, jm, jags.data, new.Rhat, start.year){
   par.idx = c(1:jags.data$n.year)
