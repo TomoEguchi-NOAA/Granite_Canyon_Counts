@@ -47,8 +47,10 @@ calculate_gap_metrics <- function(full_draws, gap_draws) {
 }
 
 
-best.model.name <- 
-stan.info <- readRDS("RData//Richards_HSSM_M1a2_0gamma_mod5_ZI1_stan_info.rds")
+best.model.name <- "M1a2_1gamma_mod5_ZI2_ShpaeDev1"
+stan.info <- readRDS(paste0("RData//Richards_HSSM_",
+                            best.model.name, "_stan_info.rds"))
+
 stan.data <- stan.info$stan.data
 
 # Try creating artificial gaps and see how it performs:
@@ -83,8 +85,7 @@ gap.data.3.2 <- simulate_targeted_gap(stan_data = stan.data,
                                       target_days = 63:67)
 
 # Running the mod4 version, without Zero Inflation:
-mod.file <- file.path(paste0("models//model_Richards_HSSM_mod5_ZI.stan"))
-
+mod.file <- file.path("models//model_Richards_HSSM_mod5_ZI.stan")
 
 mod <- cmdstan_model(mod.file, 
                      cpp_options = list(stan_threads = TRUE, 
